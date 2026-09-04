@@ -9,7 +9,7 @@ const server = new McpServer(
   { name: "mdflow", version: "0.2.0" },
   {
     instructions:
-      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot. Repeat projectRoot when practical; an omitted follow-up inherits the most recently resolved root in this connection. Change it explicitly when switching projects. Plans are independent work entities that target Chain path overlays. Use graph_mutate for durable architecture or progress changes, checkpoint_record for evidence, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
+      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
   },
 );
 const projectRootInput = { projectRoot: z.string().min(1).optional() };
@@ -76,6 +76,38 @@ server.registerTool(
 );
 
 server.registerTool(
+  "plan_context",
+  {
+    description:
+      "Read one Plan as a compact hierarchical development document: overview, ordered ChainScopes, inline Block/Link/Chain changes, checkpoint gates, and exact source refs. This is the primary read before implementing a Plan.",
+    inputSchema: {
+      ...projectRootInput,
+      id: z.string().min(1),
+      maxChars: z.number().int().min(1000).max(24000).default(12000),
+      locale: z.enum(["en", "zh-Hans"]).optional(),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.planContext(payload));
+    return result(data, data.markdown);
+  },
+);
+
+server.registerTool(
+  "changes_since",
+  {
+    description:
+      "Read only graph/checkpoint mutations after a known change sequence. Use this for live synchronization and compact read-back instead of reloading the project.",
+    inputSchema: {
+      ...projectRootInput,
+      sequence: z.number().int().min(0).default(0),
+      limit: z.number().int().min(1).max(500).default(100),
+    },
+  },
+  async (input) => result(withProject(input, (service, payload) => service.changesSince(payload))),
+);
+
+server.registerTool(
   "entity_open",
   {
     description: "Open one Block, Chain, Link, or Plan with only its relevant checkpoints, code refs, targets, and recent history.",
@@ -135,6 +167,14 @@ server.registerTool(
               "create_plan",
               "update_plan",
               "set_plan_chains",
+              "set_plan_dependencies",
+              "set_plan_steps",
+              "set_plan_checkpoints",
+              "set_plan_chain_scopes",
+              "set_plan_changes",
+              "set_plan_chain_change_refs",
+              "set_checkpoint_bindings",
+              "set_checkpoint_dependencies",
               "set_chain_path",
               "set_background_scopes",
             ]),
@@ -145,7 +185,7 @@ server.registerTool(
           }),
         )
         .min(1)
-        .max(10),
+        .max(20),
     },
   },
   async (input) => {
@@ -168,8 +208,15 @@ server.registerTool(
       targetId: z.string().min(1),
       title: z.string().min(1),
       criteria: z.string().optional(),
-      status: z.enum(["pending", "running", "passed", "failed", "blocked"]),
+      status: z.enum(["pending", "running", "passed", "partial_pass", "failed", "blocked", "not_supported", "retest_required"]),
+      checkpointKind: z.enum(["atomic", "aggregate", "integration"]).optional(),
+      aggregationPolicy: z.record(z.string(), z.unknown()).optional(),
+      eligibleAfterChildren: z.boolean().optional(),
+      evidenceLevel: z.enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).optional(),
+      requiredEvidenceLevel: z.enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).optional(),
+      coverage: z.enum(["complete", "partial"]).optional(),
       evidence: z.array(z.record(z.string(), z.unknown())).optional(),
+      invalidatedAt: z.string().nullable().optional(),
       expectedRevision: z.number().int().optional(),
     },
   },

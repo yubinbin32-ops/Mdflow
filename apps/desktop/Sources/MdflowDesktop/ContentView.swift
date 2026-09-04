@@ -2,228 +2,190 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var store = GraphStore()
-    private let timer = Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider()
-            VStack(spacing: 0) {
-                canvasToolbar
-                Divider()
-                GraphCanvasView(store: store)
-                    .overlay(alignment: .topLeading) { errorBanner }
-                    .overlay(alignment: .bottomTrailing) { zoomControl }
+        GeometryReader { proxy in
+            ZStack(alignment: .trailing) {
+                HStack(spacing: 0) {
+                    sidebar.frame(width: 248)
+                    Divider()
+                    VStack(spacing: 0) {
+                        canvasToolbar
+                        Divider()
+                        GraphCanvasView(store: store)
+                            .overlay(alignment: .topLeading) { errorBanner }
+                    }
+                }
+                if let selection = store.selection {
+                    let preferredWidth = selection.type == .plan ? proxy.size.width * 0.33 : proxy.size.width * 0.25
+                    let drawerWidth = min(selection.type == .plan ? 500 : 380, max(selection.type == .plan ? 410 : 320, preferredWidth))
+                    DetailView(store: store, selection: selection)
+                        .frame(width: drawerWidth)
+                        .background(MdflowTheme.surface)
+                        .overlay(alignment: .leading) { Rectangle().fill(MdflowTheme.hairline).frame(width: 1) }
+                        .shadow(color: .black.opacity(0.075), radius: 12, x: -4, y: 0)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .zIndex(20)
+                }
             }
-            if let selection = store.selection {
-                Divider()
-                DetailView(store: store, selection: selection)
-                    .frame(width: 320)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
+            .animation(.easeOut(duration: 0.18), value: store.selection)
         }
-        .frame(minWidth: 980, minHeight: 650)
+        .frame(minWidth: 1_080, minHeight: 680)
         .background(MdflowTheme.canvas)
-        .onReceive(timer) { _ in store.refreshIfChanged() }
-        .sheet(isPresented: $store.settingsPresented) {
-            SettingsView(store: store)
-        }
+        .sheet(isPresented: $store.settingsPresented) { SettingsView(store: store) }
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
+            projectHeader
+            Divider().padding(.horizontal, 14)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if !projectRuleBlocks.isEmpty {
+                        sidebarLabel(store.text("projectRules"))
+                        ForEach(projectRuleBlocks) { block in
+                            sidebarButton(
+                                title: store.blockText(block, field: "title"),
+                                subtitle: block.kind.uppercased(),
+                                color: MdflowTheme.blockKindColor(block.kind),
+                                selected: store.selection == GraphSelection(type: .block, id: block.id)
+                            ) { store.select(GraphSelection(type: .block, id: block.id)) }
+                        }
+                    }
+
+                    sidebarLabel(store.text("chains"))
+                    ForEach(store.snapshot.chains) { chain in
+                        sidebarButton(
+                            title: store.chainText(chain, field: "title"),
+                            subtitle: "\(store.chainNodeIDs(chain.id).count) BLOCKS",
+                            color: store.chainColor(chain.id),
+                            selected: store.selection == GraphSelection(type: .chain, id: chain.id)
+                        ) { store.select(GraphSelection(type: .chain, id: chain.id)) }
+                    }
+
+                    sidebarLabel(store.text("plans"))
+                    ForEach(store.plans) { plan in
+                        sidebarButton(
+                            title: "\(plan.phase.uppercased()) \(plan.order) · \(store.planText(plan, field: "title"))",
+                            subtitle: "\(plan.priority.uppercased()) · \(plan.derivedStatus.uppercased()) · \(plan.progress.completedSteps)/\(plan.progress.totalSteps)",
+                            color: MdflowTheme.planColor(plan.derivedStatus),
+                            selected: store.selection == GraphSelection(type: .plan, id: plan.id)
+                        ) { store.focusPlan(plan.id) }
+                    }
+                }
+                .padding(.bottom, 16)
+            }
+            Divider().padding(.horizontal, 14)
+            legend
+        }
+        .background(MdflowTheme.surface.opacity(0.97))
+    }
+
+    private var projectHeader: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(store.snapshot.project.name)
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundStyle(MdflowTheme.ink)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Menu {
-                    if !store.recentProjects.isEmpty {
-                        Section(store.text("recentProjects")) {
-                            ForEach(store.recentProjects) { project in
-                                Button { store.openProject(project) } label: {
-                                    if project.path == store.projectRoot {
-                                        Label(project.name, systemImage: "checkmark")
-                                    } else {
-                                        Text(project.name)
-                                    }
-                                }
-                            }
-                        }
-                        Divider()
-                    }
-                    Button(store.text("openProject")) { store.chooseProject() }
-                } label: {
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(MdflowTheme.muted)
-                        .frame(width: 26, height: 30)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-            }
-            .padding(18)
-
-            Divider().padding(.horizontal, 14)
-
-            Button { store.showOverview() } label: {
-                Label(store.text("overview"), systemImage: "point.3.connected.trianglepath.dotted")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(MdflowTheme.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .frame(height: 38)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(store.selection == nil ? MdflowTheme.focus.opacity(0.09) : .clear)
-                    )
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 7)
-            .padding(.top, 10)
-
-            Text(store.text("chains").uppercased())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .tracking(1.4)
-                .foregroundStyle(MdflowTheme.muted)
-                .padding(.horizontal, 18)
-                .padding(.top, 18)
-                .padding(.bottom, 7)
-
-            VStack(spacing: 2) {
-                ForEach(store.snapshot.chains) { chain in
-                    Button { store.select(GraphSelection(type: .chain, id: chain.id)) } label: {
-                        HStack(spacing: 9) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(store.chainColor(chain.id))
-                                .frame(width: 18, height: 4)
-                            Text(store.chainText(chain, field: "title"))
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundStyle(MdflowTheme.ink)
-                                .lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(height: 32)
-                        .background(
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(store.selection == GraphSelection(type: .chain, id: chain.id) ? store.chainColor(chain.id).opacity(0.1) : .clear)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 7)
-
-            if !projectRuleBlocks.isEmpty {
-                Text(store.text("projectRules").uppercased())
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    .tracking(1.2)
+                    .foregroundStyle(MdflowTheme.ink).lineLimit(1)
+                Text("\(store.snapshot.blocks.count) BLOCKS · \(store.snapshot.chains.count) CHAINS")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(0.8)
                     .foregroundStyle(MdflowTheme.muted)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 12)
-                ForEach(projectRuleBlocks) { block in
-                    Button { store.select(GraphSelection(type: .block, id: block.id)) } label: {
-                        Label(store.blockText(block, field: "title"), systemImage: "shield.lefthalf.filled")
-                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                            .foregroundStyle(MdflowTheme.ink)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 18)
-                            .frame(height: 30)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Text(store.text("plans").uppercased())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .tracking(1.4)
-                .foregroundStyle(MdflowTheme.muted)
-                .padding(.horizontal, 18)
-                .padding(.top, 20)
-                .padding(.bottom, 10)
-
-            ScrollView {
-                LazyVStack(spacing: 2) {
-                    ForEach(store.plans) { plan in
-                        Button { store.focusPlan(plan.id) } label: {
-                            HStack(spacing: 9) {
-                                Circle()
-                                    .fill(MdflowTheme.planColor(plan.status))
-                                    .frame(width: 7, height: 7)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(store.planText(plan, field: "title"))
-                                    Text(plan.status.uppercased())
-                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                        .tracking(1)
-                                        .foregroundStyle(MdflowTheme.planColor(plan.status))
-                                }
-                                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                                    .foregroundStyle(MdflowTheme.ink)
-                                    .lineLimit(2)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(store.selection == GraphSelection(type: .plan, id: plan.id) ? MdflowTheme.focus.opacity(0.09) : .clear)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 7)
             }
             Spacer()
+            Menu {
+                if !store.recentProjects.isEmpty {
+                    Section(store.text("recentProjects")) {
+                        ForEach(store.recentProjects) { project in
+                            Button { store.openProject(project) } label: {
+                                project.path == store.projectRoot ? Label(project.name, systemImage: "checkmark") : Label(project.name, systemImage: "folder")
+                            }
+                        }
+                    }
+                    Divider()
+                }
+                Button(store.text("openProject")) { store.chooseProject() }
+            } label: {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(MdflowTheme.muted)
+                    .frame(width: 28, height: 30)
+            }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden)
         }
-        .frame(width: 212)
-        .background(MdflowTheme.surface.opacity(0.94))
+        .padding(18)
+    }
+
+    private func sidebarLabel(_ value: String) -> some View {
+        Text(value.uppercased())
+            .font(.system(size: 9, weight: .bold, design: .monospaced)).tracking(1.35)
+            .foregroundStyle(MdflowTheme.muted)
+            .padding(.horizontal, 18).padding(.top, 17).padding(.bottom, 7)
+    }
+
+    private func sidebarButton(title: String, subtitle: String, color: Color, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 4, height: 30)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.system(size: 11.5, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.ink).lineLimit(2)
+                    Text(subtitle).font(.system(size: 7.5, weight: .bold, design: .monospaced)).tracking(0.7).foregroundStyle(color)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 9).fill(selected ? color.opacity(0.10) : .clear))
+        }
+        .buttonStyle(.plain).padding(.horizontal, 7)
     }
 
     private var canvasToolbar: some View {
-        HStack(spacing: 12) {
-            Button { store.showOverview() } label: {
-                Label(store.text("overview"), systemImage: "network")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-
-            Button { store.fitOverview() } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-            }
-            .buttonStyle(.plain)
-            .help(store.text("fitNetwork"))
-
-            Divider().frame(height: 18)
+        HStack(spacing: 13) {
             ForEach(ViewLens.allCases) { lens in
                 Toggle(
                     store.lensTitle(lens),
-                    isOn: Binding(
-                        get: { store.enabledLenses.contains(lens) },
-                        set: { store.setLens(lens, enabled: $0) }
-                    )
+                    isOn: Binding(get: { store.enabledLenses.contains(lens) }, set: { store.setLens(lens, enabled: $0) })
                 )
                 .toggleStyle(.checkbox)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(MdflowTheme.ink)
             }
             Spacer()
+            Text("\(Int((store.canvasScale * 100).rounded()))%")
+                .font(.system(size: 9, weight: .semibold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+                .help(store.activeLocale == "zh-Hans" ? "触控板捏合、⌘滚动或双击缩放" : "Pinch, ⌘-scroll, or double-click to zoom")
             Button { store.settingsPresented = true } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(MdflowTheme.ink)
-                    .frame(width: 30, height: 30)
+                Label(store.text("settings"), systemImage: "gearshape")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(MdflowTheme.ink)
+                    .padding(.horizontal, 9).frame(height: 30)
             }
             .buttonStyle(.plain)
-            .help(store.text("settings"))
         }
-        .padding(.horizontal, 16)
-        .frame(height: 50)
+        .padding(.horizontal, 16).frame(height: 50)
         .background(MdflowTheme.surface.opacity(0.96))
+    }
+
+    private var legend: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text((store.activeLocale == "zh-Hans" ? "图例" : "LEGEND").uppercased())
+                .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(1.2).foregroundStyle(MdflowTheme.muted)
+            HStack(spacing: 10) {
+                legendItem(color: MdflowTheme.blockKindColor("ui"), text: store.text("ui"))
+                legendItem(color: MdflowTheme.blockKindColor("service"), text: store.text("runtime"))
+                legendItem(color: MdflowTheme.blockKindColor("database"), text: store.text("data"))
+            }
+            HStack(spacing: 10) {
+                legendItem(color: MdflowTheme.deliveryColor("complete"), text: store.activeLocale == "zh-Hans" ? "完成" : "Done")
+                legendItem(color: MdflowTheme.deliveryColor("implementing"), text: store.activeLocale == "zh-Hans" ? "进行中" : "Active")
+                legendItem(color: MdflowTheme.failure, text: store.activeLocale == "zh-Hans" ? "失败/阻塞" : "Failed")
+            }
+            Text(store.activeLocale == "zh-Hans" ? "左侧色条＝Block 类型 · 图标＝交付状态 · 线色/虚线＝关系类型 · 外框＝Chain" : "Left rail = Block type · icon = delivery · line = Link kind · enclosure = Chain")
+                .font(.system(size: 9.5, design: .rounded)).foregroundStyle(MdflowTheme.muted).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+    }
+
+    private func legendItem(color: Color, text: String) -> some View {
+        HStack(spacing: 4) { Circle().fill(color).frame(width: 6, height: 6); Text(text) }
+            .font(.system(size: 8.5, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.ink.opacity(0.8))
     }
 
     private var projectRuleBlocks: [BlockItem] {
@@ -231,53 +193,14 @@ struct ContentView: View {
         return store.snapshot.blocks.filter { ids.contains($0.id) }
     }
 
-    private var zoomControl: some View {
-        HStack(spacing: 2) {
-            Button { store.zoom(by: -0.1) } label: {
-                Image(systemName: "minus")
-                    .frame(width: 48, height: 48)
-                    .contentShape(Rectangle())
-            }
-                .help("Zoom out")
-            Button { store.resetZoom() } label: {
-                Text("\(Int((store.canvasScale * 100).rounded()))%")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .frame(width: 64, height: 48)
-                    .contentShape(Rectangle())
-            }
-            .help("Reset zoom")
-            Button { store.zoom(by: 0.1) } label: {
-                Image(systemName: "plus")
-                    .frame(width: 48, height: 48)
-                    .contentShape(Rectangle())
-            }
-                .help("Zoom in")
-        }
-        .buttonStyle(.plain)
-        .padding(5)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(MdflowTheme.hairline))
-        .contentShape(Rectangle())
-        .zIndex(100)
-        .padding(18)
-    }
-
     @ViewBuilder
     private var errorBanner: some View {
         if let error = store.errorMessage {
             VStack(alignment: .leading, spacing: 9) {
-                Text(error)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(MdflowTheme.failure)
-                Button(store.text("openProject")) { store.chooseProject() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+                Text(error).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.failure)
+                Button(store.text("openProject")) { store.chooseProject() }.buttonStyle(.borderedProminent).controlSize(.small)
             }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(MdflowTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .padding(16)
+            .padding(14).background(MdflowTheme.surface).clipShape(RoundedRectangle(cornerRadius: 10)).padding(16)
         }
     }
 }
@@ -288,67 +211,33 @@ private struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack {
-                Text(store.text("settings"))
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
-                Spacer()
-                Button(store.text("done")) { dismiss() }
-            }
+            HStack { Text(store.text("settings")).font(.system(size: 20, weight: .semibold, design: .rounded)); Spacer(); Button(store.text("done")) { dismiss() } }
             VStack(alignment: .leading, spacing: 8) {
-                label(store.text("language").uppercased())
+                label(store.text("language"))
                 Picker(store.text("language"), selection: $store.language) {
-                    Text(store.text("system")).tag(AppLanguage.system)
-                    Text(store.text("chinese")).tag(AppLanguage.zhHans)
-                    Text(store.text("english")).tag(AppLanguage.english)
-                }
-                .pickerStyle(.segmented)
+                    Text(store.text("system")).tag(AppLanguage.system); Text(store.text("chinese")).tag(AppLanguage.zhHans); Text(store.text("english")).tag(AppLanguage.english)
+                }.pickerStyle(.segmented)
             }
             VStack(alignment: .leading, spacing: 8) {
-                label(store.text("plugin"))
-                Text(store.text("pluginHelp"))
-                    .font(.system(size: 12, design: .rounded))
-                HStack(spacing: 10) {
-                    Button(store.pluginInstallStatus == .installing ? store.text("installingPlugin") : store.text("installPlugin")) {
-                        store.installPlugin()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(store.pluginInstallStatus == .installing)
+                label(store.text("plugin")); Text(store.text("pluginHelp")).font(.system(size: 12, design: .rounded))
+                HStack {
+                    Button(store.pluginInstallStatus == .installing ? store.text("installingPlugin") : store.text("installPlugin")) { store.installPlugin() }
+                        .buttonStyle(.borderedProminent).disabled(store.pluginInstallStatus == .installing)
                     Button(store.text("revealPlugin")) { store.revealPlugin() }
                 }
-                switch store.pluginInstallStatus {
-                case .installed:
-                    Label(store.text("pluginInstalled"), systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(MdflowTheme.success)
-                        .font(.system(size: 11, design: .rounded))
-                case .failed(let message):
-                    Text("\(store.text("pluginInstallFailed")): \(message)")
-                        .foregroundStyle(MdflowTheme.failure)
-                        .font(.system(size: 11, design: .rounded))
-                        .lineLimit(3)
-                default:
-                    EmptyView()
-                }
+                if case .installed = store.pluginInstallStatus { Label(store.text("pluginInstalled"), systemImage: "checkmark.circle.fill").foregroundStyle(MdflowTheme.success) }
+                if case .failed(let message) = store.pluginInstallStatus { Text("\(store.text("pluginInstallFailed")): \(message)").foregroundStyle(MdflowTheme.failure) }
             }
             VStack(alignment: .leading, spacing: 8) {
-                label(store.text("liveData"))
-                Text(store.databasePath)
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(MdflowTheme.muted)
-                    .textSelection(.enabled)
-                Text(store.text("liveHelp"))
-                    .font(.system(size: 12, design: .rounded))
-                Button(store.text("changeProject")) { store.chooseProject() }
+                label(store.text("liveData")); Text(store.databasePath).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(MdflowTheme.muted).textSelection(.enabled)
+                Text(store.text("liveHelp")).font(.system(size: 12, design: .rounded)); Button(store.text("changeProject")) { store.chooseProject() }
             }
             Spacer()
         }
-        .padding(28)
-        .frame(width: 480, height: 410)
+        .padding(28).frame(width: 480, height: 410)
     }
 
     private func label(_ value: String) -> some View {
-        Text(value)
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
-            .tracking(1.4)
-            .foregroundStyle(MdflowTheme.muted)
+        Text(value.uppercased()).font(.system(size: 9, weight: .bold, design: .monospaced)).tracking(1.4).foregroundStyle(MdflowTheme.muted)
     }
 }

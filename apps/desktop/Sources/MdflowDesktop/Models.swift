@@ -80,16 +80,103 @@ struct PlanItem: Identifiable, Equatable {
     let summary: String
     let goal: String
     let status: String
+    let derivedStatus: String
+    let statusReason: String
     let priority: String
+    let phase: String
+    let order: Int
     let proposedDelta: String
+    let completionPolicy: String
     let nextAction: String
     let blockers: String
+    let startedAt: String?
+    let completedAt: String?
+    let invalidatedAt: String?
+    let progress: PlanProgress
     let revision: Int
+}
+
+struct PlanProgress: Equatable {
+    let completedSteps: Int
+    let totalSteps: Int
+    let passedRequiredCheckpoints: Int
+    let totalRequiredCheckpoints: Int
+
+    static let empty = PlanProgress(completedSteps: 0, totalSteps: 0, passedRequiredCheckpoints: 0, totalRequiredCheckpoints: 0)
 }
 
 struct PlanChainReference: Equatable {
     let planId: String
     let chainId: String
+    let position: Int
+}
+
+struct PlanDependency: Equatable {
+    let planId: String
+    let dependsOnPlanId: String
+    let position: Int
+}
+
+struct PlanStep: Identifiable, Equatable {
+    let id: String
+    let planId: String
+    let position: Int
+    let title: String
+    let action: String
+    let status: String
+    let targetReferences: String
+    let proposedDelta: String
+    let updatedAt: String
+}
+
+struct PlanCheckpointReference: Equatable {
+    let planId: String
+    let checkpointId: String
+    let stepId: String?
+    let position: Int
+    let required: Bool
+}
+
+struct PlanChainScopeItem: Identifiable, Equatable {
+    let id: String
+    let planId: String
+    let chainId: String
+    let position: Int
+    let title: String
+    let summary: String
+    let rationale: String
+    let startBlockId: String?
+    let endBlockId: String?
+    let nodeIds: String
+    let linkIds: String
+    let expectedDelta: String
+    let prohibitions: String
+    let status: String
+    let revision: Int
+}
+
+struct PlanChangeItem: Identifiable, Equatable {
+    let id: String
+    let planId: String
+    let entityType: String
+    let entityId: String
+    let position: Int
+    let title: String
+    let summary: String
+    let currentBehavior: String
+    let proposedBehavior: String
+    let rationale: String
+    let prohibitions: String
+    let expectedEffects: String
+    let sourceRefs: String
+    let status: String
+    let revision: Int
+}
+
+struct PlanChainChangeReference: Equatable {
+    let chainScopeId: String
+    let planChangeId: String
+    let role: String
     let position: Int
 }
 
@@ -117,9 +204,32 @@ struct CheckpointItem: Identifiable, Equatable {
     let title: String
     let criteria: String
     let status: String
+    let kind: String
+    let aggregationPolicy: String
+    let eligibleAfterChildren: Bool
+    let evidenceLevel: String
+    let requiredEvidenceLevel: String
+    let coverage: String
     let evidence: String
+    let invalidatedAt: String?
     let revision: Int
     let updatedAt: String
+}
+
+struct CheckpointBinding: Equatable {
+    let checkpointId: String
+    let subjectType: String
+    let subjectId: String
+    let role: String
+    let required: Bool
+    let position: Int
+}
+
+struct CheckpointDependency: Equatable {
+    let parentCheckpointId: String
+    let childCheckpointId: String
+    let position: Int
+    let required: Bool
 }
 
 struct HistoryItem: Identifiable, Equatable {
@@ -157,9 +267,17 @@ struct GraphSnapshot: Equatable {
     let chainNodes: [ChainNode]
     let chainEdges: [ChainEdge]
     let planChainReferences: [PlanChainReference]
+    let planDependencies: [PlanDependency]
+    let planSteps: [PlanStep]
+    let planCheckpointReferences: [PlanCheckpointReference]
+    let planChainScopes: [PlanChainScopeItem]
+    let planChanges: [PlanChangeItem]
+    let planChainChangeReferences: [PlanChainChangeReference]
     let backgroundScopes: [BackgroundScope]
     let sourceReferences: [SourceReference]
     let checkpoints: [CheckpointItem]
+    let checkpointBindings: [CheckpointBinding]
+    let checkpointDependencies: [CheckpointDependency]
     let localizations: [LocalizedTextItem]
     let history: [HistoryItem]
     let latestChanges: [ChangeItem]
@@ -175,9 +293,17 @@ struct GraphSnapshot: Equatable {
             chainNodes: [],
             chainEdges: [],
             planChainReferences: [],
+            planDependencies: [],
+            planSteps: [],
+            planCheckpointReferences: [],
+            planChainScopes: [],
+            planChanges: [],
+            planChainChangeReferences: [],
             backgroundScopes: [],
             sourceReferences: [],
             checkpoints: [],
+            checkpointBindings: [],
+            checkpointDependencies: [],
             localizations: [],
             history: [],
             latestChanges: []

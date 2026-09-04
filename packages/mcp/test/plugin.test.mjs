@@ -48,12 +48,14 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.deepEqual(
       tools.tools.map((tool) => tool.name).sort(),
       [
+        "changes_since",
         "checkpoint_record",
         "context_for_task",
         "entity_open",
         "graph_mutate",
         "graph_search",
         "graph_validate",
+        "plan_context",
         "project_map",
         "project_register",
       ],

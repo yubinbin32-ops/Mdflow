@@ -27,6 +27,10 @@ final class GraphStore: ObservableObject {
     private var database: ProjectDatabase?
     private var clearChangeTask: Task<Void, Never>?
     private var focusTask: Task<Void, Never>?
+    private var refreshDebounceTask: Task<Void, Never>?
+    private var livePollingTask: Task<Void, Never>?
+    private var fileWatcher: DispatchSourceFileSystemObject?
+    private var watchedDescriptor: Int32 = -1
     private var projectViewStates: [String: ProjectViewState] = [:]
 
     private struct ProjectViewState {
@@ -62,6 +66,7 @@ final class GraphStore: ObservableObject {
             self.errorMessage = error.localizedDescription
             Self.log(error, context: "project resolution")
         }
+        startLiveUpdates()
     }
 
     func chooseProject() {
@@ -97,6 +102,7 @@ final class GraphStore: ObservableObject {
                 recentlyChangedRefs.removeAll()
                 errorMessage = nil
             }
+            startLiveUpdates()
             if let focusTarget { requestFocus(focusTarget) }
         } catch {
             errorMessage = error.localizedDescription
@@ -186,8 +192,7 @@ final class GraphStore: ObservableObject {
         case .block:
             highlightedChainIDs.removeAll()
             focusTask?.cancel()
-            focusTarget = value
-            isolateFocused = false
+            focusTarget = nil
         case .chain:
             highlightedChainIDs = [value.id]
             requestFocus(value)
@@ -202,6 +207,7 @@ final class GraphStore: ObservableObject {
     func clearSelection() {
         selection = nil
         highlightedChainIDs.removeAll()
+        focusTarget = nil
     }
 
     func fitOverview() { overviewFitRequestID = UUID() }
@@ -237,6 +243,46 @@ final class GraphStore: ObservableObject {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func startLiveUpdates() {
+        fileWatcher?.cancel()
+        fileWatcher = nil
+        livePollingTask?.cancel()
+        livePollingTask = nil
+        watchedDescriptor = -1
+        guard let location else { return }
+        let directory = location.root.appending(path: ".mdflow", directoryHint: .isDirectory).path
+        let descriptor = open(directory, O_EVTONLY)
+        guard descriptor >= 0 else { return }
+        watchedDescriptor = descriptor
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: descriptor,
+            eventMask: [.write, .extend, .attrib, .rename],
+            queue: DispatchQueue.global(qos: .userInitiated)
+        )
+        source.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in self?.scheduleLiveRefresh() }
+        }
+        source.setCancelHandler { close(descriptor) }
+        fileWatcher = source
+        source.resume()
+        livePollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+                self?.refreshIfChanged()
+            }
+        }
+    }
+
+    private func scheduleLiveRefresh() {
+        refreshDebounceTask?.cancel()
+        refreshDebounceTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(70))
+            guard !Task.isCancelled else { return }
+            self?.refreshIfChanged()
         }
     }
 
@@ -376,11 +422,7 @@ final class GraphStore: ObservableObject {
         selection = target
         focusTarget = target
         focusTask?.cancel()
-        focusTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(140))
-            guard !Task.isCancelled, self?.focusTarget == target else { return }
-            self?.focusRequestID = UUID()
-        }
+        focusRequestID = UUID()
     }
 
     func magnify(_ target: GraphSelection, minimumScale: CGFloat = 1.08) {
@@ -432,7 +474,65 @@ final class GraphStore: ObservableObject {
     func resetZoom() { canvasScale = 1 }
 
     func checkpoints(for value: GraphSelection) -> [CheckpointItem] {
-        snapshot.checkpoints.filter { $0.targetType == value.type.rawValue && $0.targetId == value.id }
+        if value.type == .plan {
+            let referenced = Set(snapshot.planCheckpointReferences.filter { $0.planId == value.id }.map(\.checkpointId))
+            return snapshot.checkpoints.filter {
+                ($0.targetType == value.type.rawValue && $0.targetId == value.id) || referenced.contains($0.id)
+            }
+        }
+        return snapshot.checkpoints.filter { $0.targetType == value.type.rawValue && $0.targetId == value.id }
+    }
+
+    func planDependencies(for planID: String) -> [PlanItem] {
+        let ids = snapshot.planDependencies.filter { $0.planId == planID }.sorted { $0.position < $1.position }.map(\.dependsOnPlanId)
+        return ids.compactMap { id in snapshot.plans.first { $0.id == id } }
+    }
+
+    func planSteps(for planID: String) -> [PlanStep] {
+        snapshot.planSteps.filter { $0.planId == planID }.sorted { $0.position < $1.position }
+    }
+
+    func planChainScopes(for planID: String) -> [PlanChainScopeItem] {
+        snapshot.planChainScopes.filter { $0.planId == planID }.sorted { $0.position < $1.position }
+    }
+
+    func planChanges(for planID: String) -> [PlanChangeItem] {
+        snapshot.planChanges.filter { $0.planId == planID }.sorted { $0.position < $1.position }
+    }
+
+    func planChanges(for scope: PlanChainScopeItem) -> [PlanChangeItem] {
+        let ids = snapshot.planChainChangeReferences
+            .filter { $0.chainScopeId == scope.id }
+            .sorted { $0.position < $1.position }
+            .map(\.planChangeId)
+        return ids.compactMap { id in snapshot.planChanges.first { $0.id == id } }
+    }
+
+    func checkpoints(subjectType: String, subjectID: String) -> [CheckpointItem] {
+        let ids = snapshot.checkpointBindings
+            .filter { $0.subjectType == subjectType && $0.subjectId == subjectID }
+            .sorted { $0.position < $1.position }
+            .map(\.checkpointId)
+        return ids.compactMap { id in snapshot.checkpoints.first { $0.id == id } }
+    }
+
+    func checkpointChildren(_ checkpointID: String) -> [(checkpoint: CheckpointItem, required: Bool)] {
+        snapshot.checkpointDependencies
+            .filter { $0.parentCheckpointId == checkpointID }
+            .sorted { $0.position < $1.position }
+            .compactMap { dependency in
+                snapshot.checkpoints.first { $0.id == dependency.childCheckpointId }.map { ($0, dependency.required) }
+            }
+    }
+
+    func locatePlanChange(_ change: PlanChangeItem) {
+        guard let type = GraphSelection.EntityType(rawValue: change.entityType) else { return }
+        select(GraphSelection(type: type, id: change.entityId))
+        requestFocus(GraphSelection(type: type, id: change.entityId))
+    }
+
+    func checkpointReference(planID: String, checkpointID: String) -> PlanCheckpointReference? {
+        snapshot.planCheckpointReferences.first { $0.planId == planID && $0.checkpointId == checkpointID }
     }
 
     func history(for value: GraphSelection) -> [HistoryItem] {

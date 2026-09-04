@@ -436,3 +436,227 @@ test("a project-owned graph replaces broad prose with bounded golden task contex
     context.cleanup();
   }
 });
+
+test("ordered Plan workflow derives progress from dependencies, steps, and evidence gates", () => {
+  const context = fixture();
+  try {
+    const created = context.service.mutate({
+      reason: "Create an ordered delivery workflow",
+      operations: [
+        { action: "create_block", id: "api", fields: { kind: "service", title: "API" } },
+        { action: "create_block", id: "ui", fields: { kind: "ui", title: "UI" } },
+        { action: "create_link", id: "api-ui", fields: { sourceType: "block", sourceId: "api", targetType: "block", targetId: "ui", kind: "flows_to" } },
+        { action: "create_chain", id: "delivery", fields: { title: "Delivery" } },
+        { action: "create_plan", id: "foundation", fields: { title: "Foundation", status: "complete", phase: "foundation", planOrder: 1 } },
+        { action: "create_plan", id: "ship", fields: { title: "Ship", status: "active", priority: "critical", phase: "delivery", planOrder: 9 } },
+      ],
+    });
+    assert.equal(created.receipts.find((item) => item.id === "ship").uiLocation, "Project > Plans > plan:ship");
+    assert.deepEqual(created.receipts.find((item) => item.id === "api").readBack, { ref: "block:api", revision: 1 });
+    context.service.mutate({
+      reason: "Bind the ordered workflow to the architecture",
+      operations: [
+        { action: "set_chain_path", id: "delivery", expectedRevision: 1, fields: { nodeIds: ["api", "ui"], linkIds: ["api-ui"] } },
+        { action: "set_plan_chains", id: "ship", expectedRevision: 1, fields: { chainIds: ["delivery"] } },
+      ],
+    });
+    context.service.mutate({
+      reason: "Declare prerequisites",
+      operations: [{ action: "set_plan_dependencies", id: "ship", expectedRevision: 2, fields: { planIds: ["foundation"] } }],
+    });
+    context.service.mutate({
+      reason: "Declare ordered implementation steps",
+      operations: [{ action: "set_plan_steps", id: "ship", expectedRevision: 3, fields: { steps: [
+        { id: "ship-api", title: "Implement API", status: "complete", targetRefs: ["block:api"] },
+        { id: "ship-ui", title: "Connect UI", status: "complete", targetRefs: ["block:ui", "chain:delivery"] },
+      ] } }],
+    });
+    context.service.recordCheckpoint({
+      id: "ship-real", targetType: "plan", targetId: "ship", title: "Real target acceptance",
+      status: "pending", requiredEvidenceLevel: "real_target",
+    });
+    context.service.mutate({
+      reason: "Gate completion on real target evidence",
+      operations: [{ action: "set_plan_checkpoints", id: "ship", expectedRevision: 4, fields: { checkpoints: [
+        { checkpointId: "ship-real", stepId: "ship-ui", required: true },
+      ] } }],
+    });
+    let plan = context.service.snapshot().plans.find((item) => item.id === "ship");
+    assert.equal(plan.derivedStatus, "verifying");
+    assert.deepEqual(plan.progress, { completedSteps: 2, totalSteps: 2, passedRequiredCheckpoints: 0, totalRequiredCheckpoints: 1 });
+    assert.throws(() => context.service.recordCheckpoint({
+      id: "ship-real", expectedRevision: 1, targetType: "plan", targetId: "ship", title: "Real target acceptance",
+      status: "passed", evidenceLevel: "integration", requiredEvidenceLevel: "real_target", evidence: [{ run: "integration" }],
+    }), /requires real_target evidence/);
+    context.service.recordCheckpoint({
+      id: "ship-real", expectedRevision: 1, targetType: "plan", targetId: "ship", title: "Real target acceptance",
+      status: "passed", evidenceLevel: "real_target", requiredEvidenceLevel: "real_target", evidence: [{ run: "production-like" }],
+    });
+    plan = context.service.snapshot().plans.find((item) => item.id === "ship");
+    assert.equal(plan.derivedStatus, "complete");
+    assert.deepEqual(plan.progress, { completedSteps: 2, totalSteps: 2, passedRequiredCheckpoints: 1, totalRequiredCheckpoints: 1 });
+    const opened = context.service.entityOpen({ type: "plan", id: "ship" });
+    assert.deepEqual(opened.dependencies, [{ planId: "foundation", position: 0 }]);
+    assert.deepEqual(opened.steps.map((item) => item.id), ["ship-api", "ship-ui"]);
+    assert.deepEqual(opened.checkpointRefs, [{ checkpointId: "ship-real", stepId: "ship-ui", position: 0, required: true }]);
+    assert.match(opened.markdown, /real_target\/real_target/);
+    const task = context.service.contextForTask({ task: "finish shipping", focusRefs: ["plan:ship"] });
+    assert.match(task.markdown, /delivery #9/);
+    assert.match(task.markdown, /2\/2 steps/);
+    assert.match(context.service.projectMap().markdown, /delivery #9/);
+    assert.equal(context.service.validate().valid, true);
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("Plan dependency cycles and invalidated checkpoint evidence are rejected or reopened", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create dependent plans",
+      operations: [
+        { action: "create_plan", id: "first", fields: { title: "First" } },
+        { action: "create_plan", id: "second", fields: { title: "Second" } },
+      ],
+    });
+    context.service.mutate({
+      reason: "Make the second plan wait for the first",
+      operations: [{ action: "set_plan_dependencies", id: "second", expectedRevision: 1, fields: { planIds: ["first"] } }],
+    });
+    assert.throws(() => context.service.mutate({
+      reason: "Attempt a dependency cycle",
+      operations: [{ action: "set_plan_dependencies", id: "first", expectedRevision: 1, fields: { planIds: ["second"] } }],
+    }), /must remain acyclic/);
+    context.service.recordCheckpoint({
+      id: "stale-proof", targetType: "plan", targetId: "second", title: "Stale proof",
+      status: "retest_required", evidenceLevel: "integration", requiredEvidenceLevel: "integration",
+      invalidatedAt: "2026-09-04T00:00:00.000Z",
+    });
+    context.service.mutate({
+      reason: "Attach the invalidated gate",
+      operations: [{ action: "set_plan_checkpoints", id: "second", expectedRevision: 2, fields: { checkpoints: [{ checkpointId: "stale-proof" }] } }],
+    });
+    const second = context.service.snapshot().plans.find((item) => item.id === "second");
+    assert.equal(second.derivedStatus, "retest_required");
+    assert.match(second.derivedReason, /run again/);
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("hierarchical Plan context preserves one canonical change across multiple Chain scopes", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create overlapping delivery paths",
+      operations: [
+        { action: "create_block", id: "api", fields: { kind: "service", title: "API", summary: "Accept requests" } },
+        { action: "create_block", id: "core", fields: { kind: "function", title: "Core", summary: "Apply rules" } },
+        { action: "create_block", id: "store", fields: { kind: "database", title: "Store", summary: "Persist state" } },
+        { action: "create_chain", id: "request", fields: { title: "Request path" } },
+        { action: "create_chain", id: "persistence", fields: { title: "Persistence path" } },
+        { action: "create_link", id: "api-core", fields: { sourceType: "block", sourceId: "api", targetType: "block", targetId: "core", kind: "calls" } },
+        { action: "create_link", id: "core-store", fields: { sourceType: "block", sourceId: "core", targetType: "block", targetId: "store", kind: "writes" } },
+        { action: "create_plan", id: "refactor", fields: { title: "Refactor routing", summary: "Make writes deterministic", goal: "One explicit transaction path" } },
+      ],
+    });
+    context.service.mutate({ reason: "Define paths", operations: [
+      { action: "set_chain_path", id: "request", expectedRevision: 1, fields: { nodeIds: ["api", "core"], linkIds: ["api-core"] } },
+      { action: "set_chain_path", id: "persistence", expectedRevision: 1, fields: { nodeIds: ["core", "store"], linkIds: ["core-store"] } },
+    ] });
+    context.service.mutate({ reason: "Describe affected Chain segments", operations: [{
+      action: "set_plan_chain_scopes", id: "refactor", expectedRevision: 1, fields: { scopes: [
+        { id: "request-scope", chainId: "request", title: "Validate before Core", nodeIds: ["api", "core"], linkIds: ["api-core"], rationale: "Reject invalid input early" },
+        { id: "persistence-scope", chainId: "persistence", title: "Commit after Core", nodeIds: ["core", "store"], linkIds: ["core-store"], rationale: "Keep writes atomic" },
+      ] },
+    }] });
+    context.service.mutate({ reason: "Describe exact entity changes", operations: [{
+      action: "set_plan_changes", id: "refactor", expectedRevision: 2, fields: { changes: [
+        { id: "change-core", entityType: "block", entityId: "core", title: "Centralize transaction", currentBehavior: "Each caller writes independently", proposedBehavior: "Core owns one transaction", rationale: "Avoid partial writes", prohibitions: ["Do not move validation into Store"], expectedEffects: ["Atomic persistence"], sourceRefs: ["src/core.ts:20"] },
+        { id: "change-link", entityType: "link", entityId: "core-store", title: "Strengthen write contract", proposedBehavior: "Write only committed state" },
+      ] },
+    }] });
+    context.service.mutate({ reason: "Reuse the Core change in both scopes", operations: [{
+      action: "set_plan_chain_change_refs", id: "refactor", expectedRevision: 3, fields: { refs: [
+        { chainScopeId: "request-scope", planChangeId: "change-core" },
+        { chainScopeId: "persistence-scope", planChangeId: "change-core" },
+        { chainScopeId: "persistence-scope", planChangeId: "change-link" },
+      ] },
+    }] });
+    const snapshot = context.service.snapshot();
+    assert.equal(snapshot.planChanges.filter((item) => item.entityId === "core").length, 1);
+    assert.equal(snapshot.planChainChangeRefs.filter((item) => item.planChangeId === "change-core").length, 2);
+    const opened = context.service.planContext({ id: "refactor", maxChars: 12000 });
+    assert.equal(opened.hierarchy.length, 2);
+    assert.equal(opened.hierarchy[0].changes[0].id, "change-core");
+    assert.equal(opened.hierarchy[1].changes[0].id, "change-core");
+    assert.match(opened.markdown, /Current: Each caller writes independently/);
+    assert.match(opened.markdown, /Proposed: Core owns one transaction/);
+    assert.match(opened.markdown, /src\/core\.ts:20/);
+    assert.ok(opened.markdown.length <= 12000);
+    assert.throws(() => context.service.mutate({ reason: "Reject an off-path segment", operations: [{
+      action: "set_plan_chain_scopes", id: "refactor", expectedRevision: 4,
+      fields: { scopes: [{ chainId: "request", title: "Wrong", nodeIds: ["store"] }] },
+    }] }), /outside chain:request/);
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("checkpoint DAG derives aggregate state, keeps optional failures as warnings, and rejects cycles", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({ reason: "Create checkpoint targets", operations: [
+      { action: "create_block", id: "worker", fields: { kind: "service", title: "Worker" } },
+      { action: "create_plan", id: "ship", fields: { title: "Ship worker" } },
+    ] });
+    context.service.recordCheckpoint({ id: "static", targetType: "block", targetId: "worker", title: "Static checks", status: "pending" });
+    context.service.recordCheckpoint({ id: "optional", targetType: "block", targetId: "worker", title: "Optional benchmark", status: "pending" });
+    context.service.recordCheckpoint({ id: "gate", targetType: "plan", targetId: "ship", title: "Worker gate", status: "pending", checkpointKind: "aggregate" });
+    context.service.mutate({ reason: "Build aggregate gate", operations: [{
+      action: "set_checkpoint_dependencies", id: "gate", expectedRevision: 1,
+      fields: { children: [{ checkpointId: "static" }, { checkpointId: "optional", required: false }] },
+    }] });
+    context.service.recordCheckpoint({ id: "static", expectedRevision: 1, targetType: "block", targetId: "worker", title: "Static checks", status: "passed", evidenceLevel: "static" });
+    context.service.recordCheckpoint({ id: "optional", expectedRevision: 1, targetType: "block", targetId: "worker", title: "Optional benchmark", status: "failed" });
+    let gate = context.service.snapshot().checkpoints.find((item) => item.id === "gate");
+    assert.equal(gate.status, "passed");
+    assert.deepEqual(gate.optionalWarnings, ["optional"]);
+    assert.throws(() => context.service.recordCheckpoint({
+      id: "gate", expectedRevision: 2, targetType: "plan", targetId: "ship", title: "Worker gate",
+      status: "passed", checkpointKind: "aggregate",
+    }), /cannot be recorded as passed/);
+    assert.throws(() => context.service.mutate({ reason: "Create checkpoint cycle", operations: [{
+      action: "set_checkpoint_dependencies", id: "static", expectedRevision: 2,
+      fields: { children: [{ checkpointId: "gate" }] },
+    }] }), /must remain acyclic/);
+    context.service.mutate({ reason: "Bind the same proof to Plan and Block change", operations: [{
+      action: "set_checkpoint_bindings", id: "static", expectedRevision: 2,
+      fields: { bindings: [{ subjectType: "block", subjectId: "worker" }, { subjectType: "plan", subjectId: "ship", role: "shared" }] },
+    }] });
+    assert.equal(context.service.snapshot().checkpointBindings.length, 2);
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("changes_since returns compact incremental mutation receipts", () => {
+  const context = fixture();
+  try {
+    const first = context.service.mutate({ reason: "Create one Block", operations: [
+      { action: "create_block", id: "one", fields: { kind: "service", title: "One" } },
+    ] });
+    const baseline = context.service.snapshot().changeSequence;
+    context.service.mutate({ reason: "Update one Block", operations: [
+      { action: "update_block", id: "one", expectedRevision: 1, fields: { summary: "Changed" } },
+    ] });
+    const changes = context.service.changesSince({ sequence: baseline });
+    assert.equal(first.receipts[0].uiLocation, "Canvas > block:one");
+    assert.equal(changes.changes.length, 1);
+    assert.equal(changes.changes[0].ref, "block:one");
+    assert.equal(changes.nextSequence, baseline + 1);
+  } finally {
+    context.cleanup();
+  }
+});

@@ -3,27 +3,33 @@ import SwiftUI
 struct DetailView: View {
     @ObservedObject var store: GraphStore
     let selection: GraphSelection
+    @State private var expandedScopeIDs: Set<String> = []
+    @State private var expandedChangeIDs: Set<String> = []
+    @State private var expandedCheckpointIDs: Set<String> = []
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top) {
                     Text(store.title(for: selection))
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .foregroundStyle(MdflowTheme.ink)
+                        .lineLimit(3)
                     Spacer()
-                    Button { store.requestFocus(selection) } label: {
-                        Label(store.text("focusMode"), systemImage: "scope")
+                    Button { store.clearSelection() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
+                    .help(store.activeLocale == "zh-Hans" ? "关闭详情" : "Close details")
                 }
                 entityContent
                 revisionSection
                 checkpointSection
                 historySection
             }
-            .padding(24)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
         }
         .background(MdflowTheme.surface)
     }
@@ -34,9 +40,13 @@ struct DetailView: View {
         case .block:
             if let block = store.snapshot.blocks.first(where: { $0.id == selection.id }) {
                 HStack(spacing: 8) {
-                    metadataPill(block.architectureLayer)
-                    metadataPill(block.scope)
-                    if block.localOrder != 0 { metadataPill("#\(block.localOrder)") }
+                    metadataLabel(block.architectureLayer)
+                    metadataSeparator
+                    metadataLabel(block.scope)
+                    if block.localOrder != 0 {
+                        metadataSeparator
+                        metadataLabel("#\(block.localOrder)")
+                    }
                 }
                 section(store.text("summary").uppercased(), text: store.blockText(block, field: "summary"))
                 section(store.text("details").uppercased(), text: store.blockText(block, field: "body"))
@@ -64,50 +74,243 @@ struct DetailView: View {
             }
         case .plan:
             if let plan = store.snapshot.plans.first(where: { $0.id == selection.id }) {
+                HStack(spacing: 7) {
+                    metadataLabel("\(plan.phase) #\(plan.order)")
+                    metadataSeparator
+                    metadataLabel(plan.priority)
+                    metadataSeparator
+                    Text(plan.derivedStatus.uppercased())
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(MdflowTheme.planColor(plan.derivedStatus))
+                }
+                planProgress(plan)
+                if !plan.statusReason.isEmpty { section(store.activeLocale == "zh-Hans" ? "状态原因" : "STATE REASON", text: plan.statusReason) }
                 section(store.text("summary").uppercased(), text: store.planText(plan, field: "summary"))
                 section(store.text("goal").uppercased(), text: store.planText(plan, field: "goal"))
                 section(store.text("nextAction").uppercased(), text: store.planText(plan, field: "nextAction"))
-                if !store.targetChains(for: plan.id).isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        sectionLabel(store.text("targetChains").uppercased())
-                        ForEach(store.targetChains(for: plan.id)) { chain in
-                            Button { store.select(GraphSelection(type: .chain, id: chain.id)) } label: {
+                let dependencies = store.planDependencies(for: plan.id)
+                if !dependencies.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionLabel(store.activeLocale == "zh-Hans" ? "前置计划" : "PREREQUISITES")
+                        ForEach(dependencies) { dependency in
+                            Button { store.focusPlan(dependency.id) } label: {
                                 HStack {
-                                    Circle().fill(MdflowTheme.deliveryColor(chain.deliveryState)).frame(width: 7, height: 7)
-                                    Text(store.chainText(chain, field: "title"))
-                                    Spacer()
-                                    Image(systemName: "scope")
+                                    Image(systemName: dependency.derivedStatus == "complete" ? "checkmark.circle.fill" : "clock.fill")
+                                        .foregroundStyle(MdflowTheme.planColor(dependency.derivedStatus))
+                                    Text(store.planText(dependency, field: "title")); Spacer(); Text(dependency.derivedStatus.uppercased())
+                                        .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.planColor(dependency.derivedStatus))
                                 }
-                                .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                                .foregroundStyle(MdflowTheme.ink)
-                                .padding(10)
-                                .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 9))
-                            }
-                            .buttonStyle(.plain)
+                                .font(.system(size: 11.5, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.ink)
+                                .padding(.vertical, 7)
+                                .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
+                            }.buttonStyle(.plain)
                         }
                     }
                 }
+                planDocument(plan)
                 structuredList(store.text("proposedDelta").uppercased(), value: plan.proposedDelta)
                 structuredList(store.text("blockers").uppercased(), value: plan.blockers)
             }
         }
     }
 
-    private func metadataPill(_ value: String) -> some View {
+    private func metadataLabel(_ value: String) -> some View {
         Text(value.uppercased())
             .font(.system(size: 8, weight: .bold, design: .monospaced))
             .tracking(0.7)
             .foregroundStyle(MdflowTheme.muted)
-            .padding(.horizontal, 7)
-            .frame(height: 22)
-            .background(MdflowTheme.canvas, in: Capsule())
+    }
+
+    private var metadataSeparator: some View {
+        Text("·")
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundStyle(MdflowTheme.hairline)
+    }
+
+    @ViewBuilder
+    private func planDocument(_ plan: PlanItem) -> some View {
+        let scopes = store.planChainScopes(for: plan.id)
+        if scopes.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                sectionLabel(store.activeLocale == "zh-Hans" ? "变更结构" : "CHANGE STRUCTURE")
+                Label(
+                    store.activeLocale == "zh-Hans" ? "待迁移：此计划还没有 ChainScope 与逐实体修改，不能用 0/0 表示完成。" : "Migration required: this Plan has no ChainScopes or per-entity changes; 0/0 is not completion.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                .foregroundStyle(MdflowTheme.pending)
+                .padding(.vertical, 6)
+                .padding(.leading, 10)
+                .overlay(alignment: .leading) { Rectangle().fill(MdflowTheme.pending).frame(width: 1) }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 7) {
+                sectionLabel(store.activeLocale == "zh-Hans" ? "按链路展开的修改" : "CHANGES BY CHAIN")
+                ForEach(scopes) { scope in
+                    Button {
+                        toggle(scope.id, in: &expandedScopeIDs)
+                    } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            disclosureChevron(expandedScopeIDs.contains(scope.id))
+                                .padding(.top, 3)
+                            Text(String(format: "%02d", scope.position + 1))
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(MdflowTheme.planColor(scope.status))
+                                .frame(width: 22, alignment: .leading)
+                                .padding(.top, 3)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(scope.title)
+                                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                                Text(store.snapshot.chains.first(where: { $0.id == scope.chainId }).map { store.chainText($0, field: "title") } ?? scope.chainId)
+                                    .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(MdflowTheme.muted)
+                                if !scope.summary.isEmpty {
+                                    Text(scope.summary)
+                                        .font(.system(size: 10.5, design: .rounded))
+                                        .foregroundStyle(MdflowTheme.muted)
+                                        .lineLimit(2)
+                                        .padding(.top, 1)
+                                }
+                            }
+                            Spacer(minLength: 8)
+                            Text(scope.status.uppercased())
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundStyle(MdflowTheme.planColor(scope.status))
+                                .padding(.top, 3)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(scope.position + 1), \(scope.title)")
+                    .accessibilityValue(expandedScopeIDs.contains(scope.id) ? (store.activeLocale == "zh-Hans" ? "已展开" : "Expanded") : (store.activeLocale == "zh-Hans" ? "已折叠" : "Collapsed"))
+
+                    if expandedScopeIDs.contains(scope.id) {
+                        VStack(alignment: .leading, spacing: 9) {
+                            if !scope.summary.isEmpty { detailParagraph(label: store.text("summary"), value: scope.summary) }
+                            if !scope.rationale.isEmpty { detailParagraph(label: store.activeLocale == "zh-Hans" ? "原因" : "RATIONALE", value: scope.rationale) }
+                            structuredList(store.activeLocale == "zh-Hans" ? "禁止事项" : "PROHIBITIONS", value: scope.prohibitions)
+                            let changes = store.planChanges(for: scope)
+                            if changes.isEmpty {
+                                Text(store.activeLocale == "zh-Hans" ? "尚未声明此链路中的具体 Block / Link 修改。" : "No concrete Block or Link change has been declared for this Chain scope.")
+                                    .font(.system(size: 11, design: .rounded)).foregroundStyle(MdflowTheme.pending)
+                            }
+                            ForEach(changes) { change in
+                                planChangeCard(change)
+                            }
+                            let gates = store.checkpoints(subjectType: "plan_chain_scope", subjectID: scope.id)
+                            if !gates.isEmpty {
+                                VStack(alignment: .leading, spacing: 7) {
+                                    sectionLabel(store.activeLocale == "zh-Hans" ? "CHAIN 验收" : "CHAIN GATES")
+                                    ForEach(gates) { checkpoint in checkpointSummary(checkpoint) }
+                                }
+                            }
+                        }
+                        .padding(.top, 7)
+                        .padding(.leading, 46)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                    Divider().opacity(0.7)
+                        .padding(.leading, 46)
+                }
+            }
+            .animation(.easeOut(duration: 0.14), value: expandedScopeIDs)
+        }
+    }
+
+    private func planChangeCard(_ change: PlanChangeItem) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                toggle(change.id, in: &expandedChangeIDs)
+            } label: {
+                HStack(alignment: .top, spacing: 7) {
+                    disclosureChevron(expandedChangeIDs.contains(change.id))
+                        .padding(.top, 2)
+                    Text(change.entityType.uppercased())
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(MdflowTheme.focus)
+                        .frame(width: 42, alignment: .leading)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(change.title)
+                            .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        if !change.summary.isEmpty {
+                            Text(change.summary)
+                                .font(.system(size: 10.5, design: .rounded))
+                                .foregroundStyle(MdflowTheme.muted)
+                                .lineLimit(2)
+                        }
+                    }
+                    Spacer(minLength: 6)
+                    Image(systemName: checkpointSymbol(change.status))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(MdflowTheme.planColor(change.status))
+                        .padding(.top, 2)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if expandedChangeIDs.contains(change.id) {
+            VStack(alignment: .leading, spacing: 8) {
+                detailParagraph(label: store.activeLocale == "zh-Hans" ? "当前行为" : "CURRENT", value: change.currentBehavior)
+                detailParagraph(label: store.activeLocale == "zh-Hans" ? "目标行为" : "PROPOSED", value: change.proposedBehavior)
+                detailParagraph(label: store.activeLocale == "zh-Hans" ? "修改原因" : "RATIONALE", value: change.rationale)
+                structuredList(store.activeLocale == "zh-Hans" ? "禁止事项" : "MUST NOT", value: change.prohibitions)
+                structuredList(store.activeLocale == "zh-Hans" ? "预期影响" : "EXPECTED EFFECTS", value: change.expectedEffects)
+                structuredList(store.activeLocale == "zh-Hans" ? "文件与代码位置" : "FILES & CODE", value: change.sourceRefs)
+                let checks = store.checkpoints(subjectType: "plan_change", subjectID: change.id)
+                if !checks.isEmpty {
+                    ForEach(checks) { checkpoint in checkpointSummary(checkpoint) }
+                }
+                Button {
+                    store.locatePlanChange(change)
+                } label: {
+                    Label(store.activeLocale == "zh-Hans" ? "在 Canvas 中定位" : "Locate on Canvas", systemImage: "scope")
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(MdflowTheme.focus)
+                }
+                .buttonStyle(.plain)
+            }
+            .font(.system(size: 11.5, design: .rounded))
+            .padding(.top, 7)
+            .padding(.leading, 20)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.vertical, 5)
+        .padding(.leading, 9)
+        .overlay(alignment: .leading) {
+            Rectangle().fill(MdflowTheme.hairline).frame(width: 1)
+        }
+        .animation(.easeOut(duration: 0.14), value: expandedChangeIDs)
+    }
+
+    @ViewBuilder
+    private func detailParagraph(label: String, value: String) -> some View {
+        if !value.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                sectionLabel(label.uppercased())
+                Text(value).font(.system(size: 11.5, design: .rounded)).foregroundStyle(MdflowTheme.ink.opacity(0.86)).lineSpacing(3).textSelection(.enabled)
+            }
+        }
+    }
+
+    private func checkpointSummary(_ checkpoint: CheckpointItem) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: checkpointSymbol(checkpoint.status)).foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(checkpoint.title).font(.system(size: 11, weight: .medium, design: .rounded))
+                Text("\(checkpoint.status) · \(checkpoint.evidenceLevel)/\(checkpoint.requiredEvidenceLevel)")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+            }
+        }
     }
 
     @ViewBuilder
     private func chainMembershipSection(_ blockID: String) -> some View {
         let chains = store.chains(containing: blockID)
         if !chains.isEmpty {
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 6) {
                 sectionLabel(store.text("memberships").uppercased())
                 ForEach(chains) { chain in
                     let position = store.chainPosition(chain.id, blockID: blockID)
@@ -125,8 +328,8 @@ struct DetailView: View {
                         }
                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
                         .foregroundStyle(MdflowTheme.ink)
-                        .padding(10)
-                        .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 9))
+                        .padding(.vertical, 7)
+                        .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(store.chainText(chain, field: "title")), step \((position?.index ?? 0) + 1) of \(position?.count ?? 0)")
@@ -138,7 +341,7 @@ struct DetailView: View {
     @ViewBuilder
     private func relationSection(_ title: String, links: [LinkItem], blockID: String) -> some View {
         if !links.isEmpty {
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 6) {
                 sectionLabel(title)
                 ForEach(links) { link in
                     let otherID = link.sourceId == blockID ? link.targetId : link.sourceId
@@ -156,8 +359,8 @@ struct DetailView: View {
                         }
                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
                         .foregroundStyle(MdflowTheme.ink)
-                        .padding(10)
-                        .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 9))
+                        .padding(.vertical, 7)
+                        .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
                     }
                     .buttonStyle(.plain)
                 }
@@ -169,7 +372,7 @@ struct DetailView: View {
     private func relatedPlanSection(_ blockID: String) -> some View {
         let plans = store.plans(containing: blockID)
         if !plans.isEmpty {
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 6) {
                 sectionLabel(store.text("relatedPlans").uppercased())
                 ForEach(plans) { plan in
                     Button { store.select(GraphSelection(type: .plan, id: plan.id)) } label: {
@@ -183,8 +386,8 @@ struct DetailView: View {
                         }
                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
                         .foregroundStyle(MdflowTheme.ink)
-                        .padding(10)
-                        .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 9))
+                        .padding(.vertical, 7)
+                        .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
                     }
                     .buttonStyle(.plain)
                 }
@@ -195,26 +398,77 @@ struct DetailView: View {
     @ViewBuilder
     private func chainPathSection(_ chainID: String) -> some View {
         let nodeIDs = store.chainNodeIDs(chainID)
+        let linkIDs = store.chainLinkIDs(chainID)
         if !nodeIDs.isEmpty {
             VStack(alignment: .leading, spacing: 7) {
                 sectionLabel(store.text("path").uppercased())
                 ForEach(Array(nodeIDs.enumerated()), id: \.element) { index, id in
                     Button { store.select(GraphSelection(type: .block, id: id)) } label: {
-                        HStack(spacing: 9) {
+                        HStack(alignment: .top, spacing: 9) {
                             Text("\(index + 1)")
                                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                                 .foregroundStyle(store.chainColor(chainID))
                                 .frame(width: 18, height: 18)
                                 .background(store.chainColor(chainID).opacity(0.1), in: Circle())
-                            Text(store.block(id).map { store.blockText($0, field: "title") } ?? id)
-                            Spacer()
-                            if index < nodeIDs.count - 1 { Image(systemName: "arrow.down") }
+                            if let block = store.block(id) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(store.blockText(block, field: "title"))
+                                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                                    HStack(spacing: 5) {
+                                        Text(block.kind.uppercased())
+                                        Text("·")
+                                        Text(block.architectureLayer.uppercased())
+                                        if let role = store.snapshot.chainNodes.first(where: { $0.chainId == chainID && $0.blockId == id })?.role,
+                                           !role.isEmpty {
+                                            Text("·")
+                                            Text(role.uppercased())
+                                        }
+                                    }
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(MdflowTheme.muted)
+                                    if !store.blockText(block, field: "summary").isEmpty {
+                                        Text(store.blockText(block, field: "summary"))
+                                            .font(.system(size: 10.5, design: .rounded))
+                                            .foregroundStyle(MdflowTheme.muted)
+                                            .lineLimit(3)
+                                    }
+                                }
+                            } else {
+                                Text(id)
+                            }
+                            Spacer(minLength: 6)
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(MdflowTheme.muted)
                         }
-                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
                         .foregroundStyle(MdflowTheme.ink)
-                        .padding(.vertical, 5)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+
+                    if index < nodeIDs.count - 1,
+                       let link = store.snapshot.links.first(where: {
+                           linkIDs.contains($0.id) && $0.sourceId == id && $0.targetId == nodeIDs[index + 1]
+                       }) {
+                        HStack(alignment: .top, spacing: 7) {
+                            Rectangle()
+                                .fill(MdflowTheme.linkKindColor(link.kind))
+                                .frame(width: 1, height: 28)
+                                .padding(.leading, 9)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text((link.label.isEmpty ? link.kind : link.label).uppercased())
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(MdflowTheme.linkKindColor(link.kind))
+                                if !link.contract.isEmpty {
+                                    Text(store.localized(type: "link", id: link.id, field: "contract", fallback: link.contract))
+                                        .font(.system(size: 9.5, design: .rounded))
+                                        .foregroundStyle(MdflowTheme.muted)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                        .padding(.leading, 1)
+                    }
                 }
             }
         }
@@ -241,9 +495,8 @@ struct DetailView: View {
         } label: {
             Text(store.block(blockID).map { store.blockText($0, field: "title") } ?? blockID)
                 .lineLimit(2)
-                .padding(.horizontal, 8)
-                .frame(minHeight: 30)
-                .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 8))
+                .padding(.vertical, 5)
+                .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
         }
         .buttonStyle(.plain)
     }
@@ -267,12 +520,12 @@ struct DetailView: View {
     @ViewBuilder
     private func section(_ title: String, text: String) -> some View {
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 6) {
                 sectionLabel(title)
                 Text(text)
-                    .font(.system(size: 12.5, weight: .regular, design: .rounded))
+                    .font(.system(size: 12, weight: .regular, design: .rounded))
                     .foregroundStyle(MdflowTheme.ink.opacity(0.86))
-                    .lineSpacing(4)
+                    .lineSpacing(2)
                     .textSelection(.enabled)
             }
         }
@@ -282,7 +535,7 @@ struct DetailView: View {
     private func sourceSection(_ blockID: String) -> some View {
         let sources = store.sourceReferences(for: blockID)
         if !sources.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
                 sectionLabel(store.text("files").uppercased())
                 ForEach(sources) { source in
                     Button {
@@ -302,11 +555,8 @@ struct DetailView: View {
                         }
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(MdflowTheme.ink)
-                        .padding(11)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(MdflowTheme.canvas)
-                        )
+                        .padding(.vertical, 7)
+                        .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
                     }
                     .buttonStyle(.plain)
                 }
@@ -318,11 +568,39 @@ struct DetailView: View {
     private var checkpointSection: some View {
         let checkpoints = store.checkpoints(for: selection)
         if !checkpoints.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 7) {
                 sectionLabel(store.text("checkpoints").uppercased())
                 ForEach(checkpoints) { checkpoint in
-                    DisclosureGroup {
+                    Button {
+                        toggle(checkpoint.id, in: &expandedCheckpointIDs)
+                    } label: {
+                        HStack(spacing: 8) {
+                            disclosureChevron(expandedCheckpointIDs.contains(checkpoint.id))
+                            Image(systemName: checkpointSymbol(checkpoint.status))
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+                            Text(checkpoint.title)
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                            Spacer(minLength: 6)
+                            Text(checkpoint.status.uppercased())
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if expandedCheckpointIDs.contains(checkpoint.id) {
                         VStack(alignment: .leading, spacing: 7) {
+                            HStack(spacing: 7) {
+                                Text("\(checkpoint.evidenceLevel) / \(checkpoint.requiredEvidenceLevel)")
+                                Text(checkpoint.coverage.uppercased())
+                                if selection.type == .plan, let reference = store.checkpointReference(planID: selection.id, checkpointID: checkpoint.id) {
+                                    Text(reference.required ? (store.activeLocale == "zh-Hans" ? "必需" : "REQUIRED") : (store.activeLocale == "zh-Hans" ? "可选" : "OPTIONAL"))
+                                }
+                            }
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
                             if !checkpoint.criteria.isEmpty { Text(checkpoint.criteria) }
                             ForEach(structuredItems(checkpoint.evidence)) { item in
                                 HStack(alignment: .top, spacing: 7) {
@@ -341,17 +619,13 @@ struct DetailView: View {
                         .font(.system(size: 11.5, design: .rounded))
                         .foregroundStyle(MdflowTheme.muted)
                         .padding(.top, 7)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(checkpointColor(checkpoint.status))
-                                .frame(width: 7, height: 7)
-                            Text(checkpoint.title)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                        }
+                        .padding(.leading, 34)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
+                    Divider().opacity(0.65).padding(.leading, 34)
                 }
             }
+            .animation(.easeOut(duration: 0.14), value: expandedCheckpointIDs)
         }
     }
 
@@ -359,10 +633,10 @@ struct DetailView: View {
     private var historySection: some View {
         let history = store.history(for: selection)
         if !history.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 sectionLabel(store.text("history").uppercased())
                 ForEach(history.prefix(12)) { item in
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
                         Text("r\(item.revision)")
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                             .foregroundStyle(MdflowTheme.muted)
@@ -389,12 +663,55 @@ struct DetailView: View {
             .foregroundStyle(MdflowTheme.muted)
     }
 
-    private func checkpointColor(_ status: String) -> Color {
+    private func disclosureChevron(_ expanded: Bool) -> some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(MdflowTheme.muted.opacity(0.7))
+            .frame(width: 11, height: 14)
+            .rotationEffect(.degrees(expanded ? 90 : 0))
+    }
+
+    private func toggle(_ id: String, in values: inout Set<String>) {
+        if values.contains(id) {
+            values.remove(id)
+        } else {
+            values.insert(id)
+        }
+    }
+
+    private func checkpointSymbol(_ status: String) -> String {
         switch status {
-        case "passed": MdflowTheme.success
-        case "failed": MdflowTheme.failure
-        case "blocked": MdflowTheme.unstable
-        default: MdflowTheme.pending
+        case "passed": "checkmark.circle.fill"
+        case "partial_pass": "circle.lefthalf.filled"
+        case "running": "arrow.triangle.2.circlepath.circle.fill"
+        case "failed": "xmark.circle.fill"
+        case "blocked": "stop.circle.fill"
+        case "retest_required": "arrow.clockwise.circle.fill"
+        case "not_supported": "nosign"
+        default: "circle"
+        }
+    }
+
+    private func planProgress(_ plan: PlanItem) -> some View {
+        let usesChanges = !store.planChainScopes(for: plan.id).isEmpty || !store.planChanges(for: plan.id).isEmpty
+        let unit = usesChanges
+            ? (store.activeLocale == "zh-Hans" ? "修改" : "changes")
+            : (store.activeLocale == "zh-Hans" ? "步骤" : "steps")
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(store.activeLocale == "zh-Hans" ? "进度" : "PROGRESS")
+                Spacer()
+                Text("\(plan.progress.completedSteps)/\(plan.progress.totalSteps) \(unit) · \(plan.progress.passedRequiredCheckpoints)/\(plan.progress.totalRequiredCheckpoints) gates")
+            }
+            .font(.system(size: 8.5, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+            GeometryReader { geometry in
+                let total = max(1, plan.progress.totalSteps + plan.progress.totalRequiredCheckpoints)
+                let complete = plan.progress.completedSteps + plan.progress.passedRequiredCheckpoints
+                ZStack(alignment: .leading) {
+                    Capsule().fill(MdflowTheme.hairline)
+                    Capsule().fill(MdflowTheme.planColor(plan.derivedStatus)).frame(width: geometry.size.width * CGFloat(complete) / CGFloat(total))
+                }
+            }.frame(height: 3)
         }
     }
 
@@ -402,18 +719,15 @@ struct DetailView: View {
     private func structuredList(_ title: String, value: String) -> some View {
         let items = structuredItems(value)
         if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 7) {
                 sectionLabel(title)
                 ForEach(items) { item in
                     HStack(alignment: .top, spacing: 9) {
                         if let eyebrow = item.eyebrow {
-                            Text(localizedType(eyebrow))
+                            Text("[\(localizedType(eyebrow))]")
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
                                 .tracking(0.7)
                                 .foregroundStyle(MdflowTheme.focus)
-                                .padding(.horizontal, 6)
-                                .frame(height: 20)
-                                .background(MdflowTheme.focus.opacity(0.08), in: Capsule())
                         } else {
                             Circle().fill(MdflowTheme.focus.opacity(0.65)).frame(width: 5, height: 5).padding(.top, 7)
                         }

@@ -92,10 +92,26 @@ import Testing
         cardSize: CGSize(width: 196, height: 108),
         lane: 7
     )
-    #expect(points.count >= 4)
+    #expect(points.count >= 2)
     #expect(zip(points, points.dropFirst()).allSatisfy { left, right in
         left.x == right.x || left.y == right.y
     })
+}
+
+@Test func alignedBuildingsUseOneDirectRoadWithoutDecorativeBends() {
+    let horizontal = NetworkLayoutEngine.orthogonalRoute(
+        source: CGPoint(x: 40, y: 100), target: CGPoint(x: 400, y: 100),
+        cardSize: CGSize(width: 196, height: 108), lane: 0
+    )
+    #expect(horizontal.count == 2)
+    #expect(horizontal[0].y == horizontal[1].y)
+
+    let vertical = NetworkLayoutEngine.orthogonalRoute(
+        source: CGPoint(x: 100, y: 40), target: CGPoint(x: 100, y: 400),
+        cardSize: CGSize(width: 196, height: 108), lane: 0
+    )
+    #expect(vertical.count == 2)
+    #expect(vertical[0].x == vertical[1].x)
 }
 
 @Test func separateStreetLanesNeverCoverTheSameSegment() {

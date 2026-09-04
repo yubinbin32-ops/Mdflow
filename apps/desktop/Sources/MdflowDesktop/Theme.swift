@@ -38,9 +38,37 @@ enum MdflowTheme {
         case "complete": success
         case "active": focus
         case "verifying", "ready": pending
-        case "blocked": failure
+        case "blocked", "failed": failure
+        case "retest_required": Color(red: 0.92, green: 0.43, blue: 0.16)
         case "cancelled": muted.opacity(0.35)
         default: muted.opacity(0.65)
+        }
+    }
+
+    static func linkKindColor(_ kind: String) -> Color {
+        switch kind {
+        case "flows_to": Color(red: 0.25, green: 0.31, blue: 0.42)
+        case "calls": Color(red: 0.10, green: 0.46, blue: 0.80)
+        case "reads": Color(red: 0.10, green: 0.58, blue: 0.55)
+        case "writes": Color(red: 0.77, green: 0.39, blue: 0.08)
+        case "depends_on": Color(red: 0.48, green: 0.34, blue: 0.70)
+        case "implements": Color(red: 0.10, green: 0.55, blue: 0.34)
+        case "validates": Color(red: 0.15, green: 0.45, blue: 0.80)
+        case "constrains": Color(red: 0.58, green: 0.32, blue: 0.16)
+        case "supersedes": Color(red: 0.74, green: 0.24, blue: 0.32)
+        default: muted
+        }
+    }
+
+    static func checkpointColor(_ status: String) -> Color {
+        switch status {
+        case "passed": success
+        case "partial_pass": pending
+        case "running": focus
+        case "failed": failure
+        case "blocked": unstable
+        case "retest_required": Color(red: 0.92, green: 0.43, blue: 0.16)
+        default: muted
         }
     }
 

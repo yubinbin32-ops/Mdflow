@@ -23290,9 +23290,16 @@ CREATE TABLE IF NOT EXISTS plans (
   goal TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'draft',
   priority TEXT NOT NULL DEFAULT 'normal',
+  phase TEXT NOT NULL DEFAULT 'implementation',
+  plan_order INTEGER NOT NULL DEFAULT 0,
   proposed_delta_json TEXT NOT NULL DEFAULT '[]',
+  completion_policy_json TEXT NOT NULL DEFAULT '{}',
   next_action TEXT NOT NULL DEFAULT '',
   blockers_json TEXT NOT NULL DEFAULT '[]',
+  status_reason TEXT NOT NULL DEFAULT '',
+  started_at TEXT,
+  completed_at TEXT,
+  invalidated_at TEXT,
   current_revision INTEGER NOT NULL DEFAULT 1,
   archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
@@ -23304,6 +23311,88 @@ CREATE TABLE IF NOT EXISTS plan_chain_refs (
   chain_id TEXT NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
   position INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY(plan_id, chain_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_dependencies (
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  depends_on_plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(plan_id, depends_on_plan_id),
+  CHECK(plan_id != depends_on_plan_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_steps (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  action TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  target_refs_json TEXT NOT NULL DEFAULT '[]',
+  proposed_delta_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plan_checkpoint_refs (
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  step_id TEXT REFERENCES plan_steps(id) ON DELETE SET NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  required INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY(plan_id, checkpoint_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_chain_scopes (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  chain_id TEXT NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  rationale TEXT NOT NULL DEFAULT '',
+  start_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+  end_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+  node_ids_json TEXT NOT NULL DEFAULT '[]',
+  link_ids_json TEXT NOT NULL DEFAULT '[]',
+  expected_delta_json TEXT NOT NULL DEFAULT '[]',
+  prohibitions_json TEXT NOT NULL DEFAULT '[]',
+  localizations_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'pending',
+  current_revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(plan_id, chain_id, id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_changes (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  entity_type TEXT NOT NULL CHECK(entity_type IN ('block', 'link', 'chain')),
+  entity_id TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  current_behavior TEXT NOT NULL DEFAULT '',
+  proposed_behavior TEXT NOT NULL DEFAULT '',
+  rationale TEXT NOT NULL DEFAULT '',
+  prohibitions_json TEXT NOT NULL DEFAULT '[]',
+  expected_effects_json TEXT NOT NULL DEFAULT '[]',
+  source_refs_json TEXT NOT NULL DEFAULT '[]',
+  localizations_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'pending',
+  current_revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(plan_id, entity_type, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_chain_change_refs (
+  chain_scope_id TEXT NOT NULL REFERENCES plan_chain_scopes(id) ON DELETE CASCADE,
+  plan_change_id TEXT NOT NULL REFERENCES plan_changes(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'affected',
+  position INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(chain_scope_id, plan_change_id)
 );
 
 CREATE TABLE IF NOT EXISTS chain_members (
@@ -23361,10 +23450,36 @@ CREATE TABLE IF NOT EXISTS checkpoints (
   title TEXT NOT NULL,
   criteria TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'pending',
+  checkpoint_kind TEXT NOT NULL DEFAULT 'atomic',
+  aggregation_policy_json TEXT NOT NULL DEFAULT '{}',
+  eligible_after_children INTEGER NOT NULL DEFAULT 0,
+  evidence_level TEXT NOT NULL DEFAULT 'none',
+  required_evidence_level TEXT NOT NULL DEFAULT 'static',
+  coverage TEXT NOT NULL DEFAULT 'complete',
   evidence_json TEXT NOT NULL DEFAULT '[]',
+  invalidated_at TEXT,
   current_revision INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS checkpoint_bindings (
+  checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  subject_type TEXT NOT NULL CHECK(subject_type IN ('block', 'link', 'chain', 'plan', 'plan_change', 'plan_chain_scope')),
+  subject_id TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'leaf',
+  required INTEGER NOT NULL DEFAULT 1,
+  position INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(checkpoint_id, subject_type, subject_id, role)
+);
+
+CREATE TABLE IF NOT EXISTS checkpoint_dependencies (
+  parent_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  child_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  required INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY(parent_checkpoint_id, child_checkpoint_id),
+  CHECK(parent_checkpoint_id != child_checkpoint_id)
 );
 
 CREATE TABLE IF NOT EXISTS change_sets (
@@ -23385,6 +23500,13 @@ CREATE TABLE IF NOT EXISTS history (
   action TEXT NOT NULL,
   revision INTEGER NOT NULL,
   summary TEXT NOT NULL,
+  plan_id TEXT,
+  chain_scope_id TEXT,
+  before_json TEXT NOT NULL DEFAULT '{}',
+  after_json TEXT NOT NULL DEFAULT '{}',
+  changed_fields_json TEXT NOT NULL DEFAULT '[]',
+  affected_refs_json TEXT NOT NULL DEFAULT '[]',
+  evidence_refs_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
 );
 
@@ -23403,10 +23525,18 @@ CREATE INDEX IF NOT EXISTS idx_chains_project ON chains(project_id, archived);
 CREATE INDEX IF NOT EXISTS idx_links_project ON links(project_id, archived);
 CREATE INDEX IF NOT EXISTS idx_plans_project ON plans(project_id, archived, status);
 CREATE INDEX IF NOT EXISTS idx_plan_chain_refs_plan ON plan_chain_refs(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_dependencies_plan ON plan_dependencies(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_steps_plan ON plan_steps(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_checkpoint_refs_plan ON plan_checkpoint_refs(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_chain_scopes_plan ON plan_chain_scopes(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_changes_plan ON plan_changes(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_chain_change_refs_scope ON plan_chain_change_refs(chain_scope_id, position);
 CREATE INDEX IF NOT EXISTS idx_chain_nodes_chain ON chain_nodes(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_chain_edges_chain ON chain_edges(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_background_scopes_block ON background_scopes(block_id);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_target ON checkpoints(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_checkpoint_bindings_subject ON checkpoint_bindings(subject_type, subject_id, position);
+CREATE INDEX IF NOT EXISTS idx_checkpoint_dependencies_parent ON checkpoint_dependencies(parent_checkpoint_id, position);
 CREATE INDEX IF NOT EXISTS idx_history_entity ON history(entity_type, entity_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_change_feed_project ON change_feed(project_id, sequence DESC);
 CREATE INDEX IF NOT EXISTS idx_localized_text_entity ON localized_text(entity_type, entity_id, locale);
@@ -23483,6 +23613,136 @@ function migrateBlockArchitecture(database) {
     database.exec("ALTER TABLE blocks ADD COLUMN local_order INTEGER NOT NULL DEFAULT 0;");
   }
 }
+function addColumnIfMissing(database, table, column, definition) {
+  const columns = new Set(database.prepare(`PRAGMA table_info(${table})`).all().map((item) => item.name));
+  if (!columns.has(column)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+}
+function migratePlanWorkflow(database) {
+  addColumnIfMissing(database, "plans", "phase", "TEXT NOT NULL DEFAULT 'implementation'");
+  addColumnIfMissing(database, "plans", "plan_order", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(database, "plans", "completion_policy_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "plans", "status_reason", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(database, "plans", "started_at", "TEXT");
+  addColumnIfMissing(database, "plans", "completed_at", "TEXT");
+  addColumnIfMissing(database, "plans", "invalidated_at", "TEXT");
+  addColumnIfMissing(database, "checkpoints", "evidence_level", "TEXT NOT NULL DEFAULT 'none'");
+  addColumnIfMissing(database, "checkpoints", "required_evidence_level", "TEXT NOT NULL DEFAULT 'static'");
+  addColumnIfMissing(database, "checkpoints", "coverage", "TEXT NOT NULL DEFAULT 'complete'");
+  addColumnIfMissing(database, "checkpoints", "invalidated_at", "TEXT");
+  addColumnIfMissing(database, "checkpoints", "checkpoint_kind", "TEXT NOT NULL DEFAULT 'atomic'");
+  addColumnIfMissing(database, "checkpoints", "aggregation_policy_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "checkpoints", "eligible_after_children", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(database, "history", "plan_id", "TEXT");
+  addColumnIfMissing(database, "history", "chain_scope_id", "TEXT");
+  addColumnIfMissing(database, "history", "before_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "history", "after_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "history", "changed_fields_json", "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing(database, "history", "affected_refs_json", "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing(database, "history", "evidence_refs_json", "TEXT NOT NULL DEFAULT '[]'");
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS plan_dependencies (
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      depends_on_plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(plan_id, depends_on_plan_id),
+      CHECK(plan_id != depends_on_plan_id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_steps (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      action TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      target_refs_json TEXT NOT NULL DEFAULT '[]',
+      proposed_delta_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS plan_checkpoint_refs (
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      step_id TEXT REFERENCES plan_steps(id) ON DELETE SET NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      required INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY(plan_id, checkpoint_id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_chain_scopes (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      chain_id TEXT NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      rationale TEXT NOT NULL DEFAULT '',
+      start_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+      end_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+      node_ids_json TEXT NOT NULL DEFAULT '[]',
+      link_ids_json TEXT NOT NULL DEFAULT '[]',
+      expected_delta_json TEXT NOT NULL DEFAULT '[]',
+      prohibitions_json TEXT NOT NULL DEFAULT '[]',
+      localizations_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'pending',
+      current_revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(plan_id, chain_id, id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_changes (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      entity_type TEXT NOT NULL CHECK(entity_type IN ('block', 'link', 'chain')),
+      entity_id TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      current_behavior TEXT NOT NULL DEFAULT '',
+      proposed_behavior TEXT NOT NULL DEFAULT '',
+      rationale TEXT NOT NULL DEFAULT '',
+      prohibitions_json TEXT NOT NULL DEFAULT '[]',
+      expected_effects_json TEXT NOT NULL DEFAULT '[]',
+      source_refs_json TEXT NOT NULL DEFAULT '[]',
+      localizations_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'pending',
+      current_revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(plan_id, entity_type, entity_id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_chain_change_refs (
+      chain_scope_id TEXT NOT NULL REFERENCES plan_chain_scopes(id) ON DELETE CASCADE,
+      plan_change_id TEXT NOT NULL REFERENCES plan_changes(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'affected',
+      position INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(chain_scope_id, plan_change_id)
+    );
+    CREATE TABLE IF NOT EXISTS checkpoint_bindings (
+      checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      subject_type TEXT NOT NULL CHECK(subject_type IN ('block', 'link', 'chain', 'plan', 'plan_change', 'plan_chain_scope')),
+      subject_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'leaf',
+      required INTEGER NOT NULL DEFAULT 1,
+      position INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(checkpoint_id, subject_type, subject_id, role)
+    );
+    CREATE TABLE IF NOT EXISTS checkpoint_dependencies (
+      parent_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      child_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      required INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY(parent_checkpoint_id, child_checkpoint_id),
+      CHECK(parent_checkpoint_id != child_checkpoint_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_plan_dependencies_plan ON plan_dependencies(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_steps_plan ON plan_steps(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_checkpoint_refs_plan ON plan_checkpoint_refs(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_chain_scopes_plan ON plan_chain_scopes(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_changes_plan ON plan_changes(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_chain_change_refs_scope ON plan_chain_change_refs(chain_scope_id, position);
+    CREATE INDEX IF NOT EXISTS idx_checkpoint_bindings_subject ON checkpoint_bindings(subject_type, subject_id, position);
+    CREATE INDEX IF NOT EXISTS idx_checkpoint_dependencies_parent ON checkpoint_dependencies(parent_checkpoint_id, position);
+  `);
+}
 function backfillChainPaths(database) {
   database.exec(`
     INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
@@ -23511,6 +23771,7 @@ function openDatabase(databasePath) {
   database.exec(SCHEMA);
   migratePlanCapableTables(database);
   migrateBlockArchitecture(database);
+  migratePlanWorkflow(database);
   backfillChainPaths(database);
   return database;
 }
@@ -23633,7 +23894,21 @@ var HEALTH_STATES = /* @__PURE__ */ new Set([
   "unstable",
   "disputed"
 ]);
-var PLAN_STATUSES = /* @__PURE__ */ new Set(["draft", "ready", "active", "verifying", "complete", "blocked", "cancelled"]);
+var PLAN_STATUSES = /* @__PURE__ */ new Set(["draft", "ready", "active", "verifying", "complete", "blocked", "failed", "retest_required", "cancelled"]);
+var PLAN_STEP_STATUSES = /* @__PURE__ */ new Set(["pending", "active", "complete", "blocked", "failed", "skipped"]);
+var CHECKPOINT_STATUSES = /* @__PURE__ */ new Set([
+  "pending",
+  "running",
+  "passed",
+  "partial_pass",
+  "failed",
+  "blocked",
+  "not_supported",
+  "retest_required"
+]);
+var CHECKPOINT_KINDS = /* @__PURE__ */ new Set(["atomic", "aggregate", "integration"]);
+var EVIDENCE_LEVELS = /* @__PURE__ */ new Set(["none", "static", "simulated", "integration", "real_target", "human_review"]);
+var EVIDENCE_LEVEL_RANK = new Map([...EVIDENCE_LEVELS].map((value, index) => [value, index]));
 var LINK_KINDS = /* @__PURE__ */ new Set([
   "flows_to",
   "calls",
@@ -23696,9 +23971,16 @@ var EDITABLE_PLAN_FIELDS = /* @__PURE__ */ new Set([
   "goal",
   "status",
   "priority",
+  "phase",
+  "planOrder",
   "proposedDelta",
+  "completionPolicy",
   "nextAction",
   "blockers",
+  "statusReason",
+  "startedAt",
+  "completedAt",
+  "invalidatedAt",
   "archived"
 ]);
 var LOCALIZED_FIELDS = {
@@ -23732,11 +24014,14 @@ function assertAllowed(value, allowed, label) {
   if (!allowed.has(value)) throw new Error(`Invalid ${label}: ${value}`);
 }
 function entityExists(database, projectId, type, id) {
-  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "link" ? "links" : type === "plan" ? "plans" : null;
+  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "link" ? "links" : type === "plan" ? "plans" : type === "plan_change" ? "plan_changes" : type === "plan_chain_scope" ? "plan_chain_scopes" : null;
   if (!table) return false;
-  return Boolean(
-    database.prepare(`SELECT 1 FROM ${table} WHERE project_id = ? AND id = ?`).get(projectId, id)
-  );
+  if (["plan_changes", "plan_chain_scopes"].includes(table)) {
+    return Boolean(database.prepare(
+      `SELECT 1 FROM ${table} item JOIN plans p ON p.id = item.plan_id WHERE p.project_id = ? AND item.id = ?`
+    ).get(projectId, id));
+  }
+  return Boolean(database.prepare(`SELECT 1 FROM ${table} WHERE project_id = ? AND id = ?`).get(projectId, id));
 }
 function normalizeBlock(row) {
   return {
@@ -23799,13 +24084,173 @@ function normalizePlan(row) {
     goal: row.goal,
     status: row.status,
     priority: row.priority,
+    phase: row.phase,
+    planOrder: row.plan_order,
     proposedDelta: parseJson(row.proposed_delta_json, []),
+    completionPolicy: parseJson(row.completion_policy_json, {}),
     nextAction: row.next_action,
     blockers: parseJson(row.blockers_json, []),
+    statusReason: row.status_reason,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    invalidatedAt: row.invalidated_at,
     currentRevision: row.current_revision,
     archived: Boolean(row.archived),
     updatedAt: row.updated_at
   };
+}
+function normalizePlanChainScope(row) {
+  return {
+    id: row.id,
+    planId: row.plan_id,
+    chainId: row.chain_id,
+    position: row.position,
+    title: row.title,
+    summary: row.summary,
+    rationale: row.rationale,
+    startBlockId: row.start_block_id,
+    endBlockId: row.end_block_id,
+    nodeIds: parseJson(row.node_ids_json, []),
+    linkIds: parseJson(row.link_ids_json, []),
+    expectedDelta: parseJson(row.expected_delta_json, []),
+    prohibitions: parseJson(row.prohibitions_json, []),
+    localizations: parseJson(row.localizations_json, {}),
+    status: row.status,
+    currentRevision: row.current_revision,
+    updatedAt: row.updated_at
+  };
+}
+function normalizePlanChange(row) {
+  return {
+    id: row.id,
+    planId: row.plan_id,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    position: row.position,
+    title: row.title,
+    summary: row.summary,
+    currentBehavior: row.current_behavior,
+    proposedBehavior: row.proposed_behavior,
+    rationale: row.rationale,
+    prohibitions: parseJson(row.prohibitions_json, []),
+    expectedEffects: parseJson(row.expected_effects_json, []),
+    sourceRefs: parseJson(row.source_refs_json, []),
+    localizations: parseJson(row.localizations_json, {}),
+    status: row.status,
+    currentRevision: row.current_revision,
+    updatedAt: row.updated_at
+  };
+}
+function deriveCheckpointStates(checkpoints, dependencies) {
+  const byId = new Map(checkpoints.map((checkpoint) => [checkpoint.id, { ...checkpoint, recordedStatus: checkpoint.status }]));
+  const childrenByParent = /* @__PURE__ */ new Map();
+  for (const dependency of dependencies) {
+    const values = childrenByParent.get(dependency.parentCheckpointId) ?? [];
+    values.push(dependency);
+    childrenByParent.set(dependency.parentCheckpointId, values);
+  }
+  const visiting = /* @__PURE__ */ new Set();
+  const resolved = /* @__PURE__ */ new Set();
+  const derive = (id) => {
+    const checkpoint = byId.get(id);
+    if (!checkpoint || resolved.has(id)) return checkpoint;
+    if (visiting.has(id)) throw new Error("Checkpoint dependency graph must remain acyclic");
+    visiting.add(id);
+    const dependenciesForCheckpoint = (childrenByParent.get(id) ?? []).sort((a, b) => a.position - b.position);
+    const children = dependenciesForCheckpoint.map((dependency) => ({
+      dependency,
+      checkpoint: derive(dependency.childCheckpointId)
+    })).filter((item) => item.checkpoint);
+    const required2 = children.filter((item) => item.dependency.required).map((item) => item.checkpoint);
+    const optional2 = children.filter((item) => !item.dependency.required).map((item) => item.checkpoint);
+    checkpoint.optionalWarnings = optional2.filter((child) => ["failed", "blocked", "retest_required", "not_supported"].includes(child.status)).map((child) => child.id);
+    if (children.length > 0) {
+      const statuses = required2.map((child) => child.status);
+      const gatesPassed = required2.length > 0 && required2.every(checkpointSatisfiesGate);
+      if (required2.some((child) => child.invalidatedAt || child.status === "retest_required")) checkpoint.status = "retest_required";
+      else if (statuses.includes("failed")) checkpoint.status = "failed";
+      else if (statuses.includes("blocked")) checkpoint.status = "blocked";
+      else if (statuses.length > 0 && statuses.every((status) => status === "not_supported")) checkpoint.status = "not_supported";
+      else if (checkpoint.checkpointKind === "integration" || checkpoint.eligibleAfterChildren) {
+        checkpoint.eligible = gatesPassed;
+        checkpoint.status = gatesPassed ? checkpoint.recordedStatus : statuses.some((status) => status === "passed") ? "partial_pass" : "pending";
+      } else if (gatesPassed) {
+        checkpoint.status = "passed";
+        checkpoint.coverage = "complete";
+        checkpoint.evidenceLevel = required2.reduce((level, child) => Math.min(level, EVIDENCE_LEVEL_RANK.get(child.evidenceLevel) ?? 0), Number.MAX_SAFE_INTEGER);
+        checkpoint.evidenceLevel = [...EVIDENCE_LEVEL_RANK.entries()].find(([, rank]) => rank === checkpoint.evidenceLevel)?.[0] ?? "none";
+        if ((EVIDENCE_LEVEL_RANK.get(checkpoint.evidenceLevel) ?? 0) < (EVIDENCE_LEVEL_RANK.get(checkpoint.requiredEvidenceLevel) ?? 0)) {
+          checkpoint.status = "partial_pass";
+        }
+      } else if (statuses.includes("running")) checkpoint.status = "running";
+      else if (statuses.some((status) => ["passed", "partial_pass"].includes(status))) checkpoint.status = "partial_pass";
+      else checkpoint.status = "pending";
+    }
+    visiting.delete(id);
+    resolved.add(id);
+    return checkpoint;
+  };
+  for (const checkpoint of checkpoints) derive(checkpoint.id);
+  return [...byId.values()];
+}
+function checkpointSatisfiesGate(checkpoint) {
+  return checkpoint?.status === "passed" && checkpoint.coverage === "complete" && (EVIDENCE_LEVEL_RANK.get(checkpoint.evidenceLevel) ?? 0) >= (EVIDENCE_LEVEL_RANK.get(checkpoint.requiredEvidenceLevel) ?? 0) && !checkpoint.invalidatedAt;
+}
+function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, checkpoints, chainScopes = [], changes = [], checkpointBindings = []) {
+  const ownDependencies = dependencies.filter((item) => item.planId === plan.id);
+  const ownSteps = steps.filter((item) => item.planId === plan.id);
+  const ownScopes = chainScopes.filter((item) => item.planId === plan.id);
+  const ownChanges = changes.filter((item) => item.planId === plan.id);
+  const ownCheckpointRefs = checkpointRefs.filter((item) => item.planId === plan.id);
+  const requiredRefs = ownCheckpointRefs.filter((item) => item.required);
+  const checkpointById = new Map(checkpoints.map((item) => [item.id, item]));
+  const scopeIDs = new Set(ownScopes.map((item) => item.id));
+  const requiredCheckpointIDs = /* @__PURE__ */ new Set([
+    ...requiredRefs.map((item) => item.checkpointId),
+    ...checkpoints.filter((item) => item.targetType === "plan" && item.targetId === plan.id).map((item) => item.id),
+    ...checkpointBindings.filter((binding) => binding.required && (binding.subjectType === "plan" && binding.subjectId === plan.id || binding.subjectType === "plan_chain_scope" && scopeIDs.has(binding.subjectId))).map((binding) => binding.checkpointId)
+  ]);
+  const requiredCheckpoints = [...requiredCheckpointIDs].map((id) => checkpointById.get(id)).filter(Boolean);
+  const completedGates = requiredCheckpoints.filter(checkpointSatisfiesGate).length;
+  const usesDetailedChanges = ownScopes.length > 0 || ownChanges.length > 0;
+  const completedWork = usesDetailedChanges ? ownChanges.filter((item) => ["complete", "passed"].includes(item.status)).length : ownSteps.filter((item) => ["complete", "skipped"].includes(item.status)).length;
+  const totalWork = usesDetailedChanges ? ownChanges.length : ownSteps.length;
+  const progress = {
+    completedSteps: completedWork,
+    totalSteps: totalWork,
+    passedRequiredCheckpoints: completedGates,
+    totalRequiredCheckpoints: requiredCheckpoints.length
+  };
+  let derivedStatus = plan.status;
+  let derivedReason = plan.statusReason;
+  if (plan.invalidatedAt || requiredCheckpoints.some((item) => item.invalidatedAt || item.status === "retest_required")) {
+    derivedStatus = "retest_required";
+    derivedReason ||= "A required checkpoint was invalidated and must be run again.";
+  } else if (plan.status === "cancelled") {
+    derivedStatus = "cancelled";
+  } else if (ownSteps.some((item) => item.status === "failed") || requiredCheckpoints.some((item) => item.status === "failed")) {
+    derivedStatus = "failed";
+    derivedReason ||= "A required step or checkpoint failed.";
+  } else if (plan.blockers.length || ownSteps.some((item) => item.status === "blocked") || requiredCheckpoints.some((item) => item.status === "blocked")) {
+    derivedStatus = "blocked";
+    derivedReason ||= "A required step, checkpoint, or explicit blocker prevents progress.";
+  } else {
+    const incompleteDependencies = ownDependencies.filter((item) => {
+      const dependency = allPlans.find((candidate) => candidate.id === item.dependsOnPlanId);
+      return dependency?.status !== "complete";
+    });
+    if (incompleteDependencies.length) {
+      derivedStatus = "ready";
+      derivedReason ||= `Waiting for ${incompleteDependencies.length} prerequisite plan(s).`;
+    } else if (totalWork > 0 && progress.completedSteps === totalWork && requiredCheckpoints.length > 0 && completedGates === requiredCheckpoints.length) {
+      derivedStatus = "complete";
+      derivedReason ||= usesDetailedChanges ? "All declared entity changes and required checkpoint gates passed." : "All ordered steps and required checkpoint gates passed.";
+    } else if (totalWork > 0 && progress.completedSteps === totalWork) {
+      derivedStatus = "verifying";
+      derivedReason ||= usesDetailedChanges ? "Declared changes are complete; checkpoint evidence remains." : "Implementation steps are complete; checkpoint evidence remains.";
+    }
+  }
+  return { ...plan, derivedStatus, derivedReason, progress };
 }
 function normalizeLocalizations(rows) {
   return rows.map((row) => ({
@@ -23829,6 +24274,39 @@ function localizedValue(map, type, id, locale, field, fallback = "") {
 }
 function localizedSearchText(snapshot, type, id) {
   return snapshot.localizations.filter((item) => item.entityType === type && item.entityId === id).map((item) => item.value).join(" ");
+}
+function operationEntityType(action) {
+  if (action.includes("block") || ["add_source_ref", "remove_source_ref", "set_background_scopes"].includes(action)) return "block";
+  if (action.includes("chain") && !action.startsWith("set_plan_")) return "chain";
+  if (action.includes("link")) return "link";
+  if (action.includes("plan")) return "plan";
+  if (action.includes("checkpoint")) return "checkpoint";
+  return null;
+}
+function affectedRefsForOperation(operation) {
+  const refs = /* @__PURE__ */ new Set();
+  const fields = operation.fields ?? {};
+  const add = (type, id) => {
+    if (id) refs.add(`${type}:${id}`);
+  };
+  for (const id of fields.nodeIds ?? []) add("block", id);
+  for (const id of fields.linkIds ?? []) add("link", id);
+  for (const id of fields.chainIds ?? []) add("chain", id);
+  for (const id of fields.planIds ?? []) add("plan", id);
+  for (const scope of fields.scopes ?? []) {
+    add("chain", scope.chainId);
+    for (const id of scope.nodeIds ?? []) add("block", id);
+    for (const id of scope.linkIds ?? []) add("link", id);
+  }
+  for (const change of fields.changes ?? []) add(change.entityType, change.entityId);
+  for (const ref of fields.refs ?? []) {
+    add("plan_chain_scope", ref.chainScopeId);
+    add("plan_change", ref.planChangeId);
+  }
+  for (const binding of fields.bindings ?? []) add(binding.subjectType, binding.subjectId);
+  for (const child of fields.children ?? []) add("checkpoint", child.checkpointId);
+  for (const checkpoint of fields.checkpoints ?? []) add("checkpoint", checkpoint.checkpointId);
+  return [...refs];
 }
 function taskTerms(task) {
   const stopWords = /* @__PURE__ */ new Set([
@@ -23897,7 +24375,7 @@ var MdflowService = class {
     const projectId = this.paths.descriptor.id;
     const blocks = this.database.prepare("SELECT * FROM blocks WHERE project_id = ? AND archived = 0 ORDER BY title").all(projectId).map(normalizeBlock);
     const chains = this.database.prepare("SELECT * FROM chains WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC").all(projectId).map(normalizeChain);
-    const plans = this.database.prepare("SELECT * FROM plans WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC").all(projectId).map(normalizePlan);
+    let plans = this.database.prepare("SELECT * FROM plans WHERE project_id = ? AND archived = 0 ORDER BY phase, plan_order, priority, updated_at DESC").all(projectId).map(normalizePlan);
     const links = this.database.prepare("SELECT * FROM links WHERE project_id = ? AND archived = 0 ORDER BY created_at").all(projectId).map(normalizeLink);
     const chainNodes = this.database.prepare(
       `SELECT cn.* FROM chain_nodes cn JOIN chains c ON c.id = cn.chain_id
@@ -23911,6 +24389,53 @@ var MdflowService = class {
       `SELECT pcr.* FROM plan_chain_refs pcr JOIN plans p ON p.id = pcr.plan_id
          WHERE p.project_id = ? AND p.archived = 0 ORDER BY pcr.plan_id, pcr.position`
     ).all(projectId).map((row) => ({ planId: row.plan_id, chainId: row.chain_id, position: row.position }));
+    const planDependencies = this.database.prepare(
+      `SELECT pd.* FROM plan_dependencies pd JOIN plans p ON p.id = pd.plan_id
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY pd.plan_id, pd.position`
+    ).all(projectId).map((row) => ({ planId: row.plan_id, dependsOnPlanId: row.depends_on_plan_id, position: row.position }));
+    const planSteps = this.database.prepare(
+      `SELECT ps.* FROM plan_steps ps JOIN plans p ON p.id = ps.plan_id
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY ps.plan_id, ps.position`
+    ).all(projectId).map((row) => ({
+      id: row.id,
+      planId: row.plan_id,
+      position: row.position,
+      title: row.title,
+      action: row.action,
+      status: row.status,
+      targetRefs: parseJson(row.target_refs_json, []),
+      proposedDelta: parseJson(row.proposed_delta_json, []),
+      updatedAt: row.updated_at
+    }));
+    const planCheckpointRefs = this.database.prepare(
+      `SELECT pcr.* FROM plan_checkpoint_refs pcr JOIN plans p ON p.id = pcr.plan_id
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY pcr.plan_id, pcr.position`
+    ).all(projectId).map((row) => ({
+      planId: row.plan_id,
+      checkpointId: row.checkpoint_id,
+      stepId: row.step_id,
+      position: row.position,
+      required: Boolean(row.required)
+    }));
+    const planChainScopes = this.database.prepare(
+      `SELECT pcs.* FROM plan_chain_scopes pcs JOIN plans p ON p.id = pcs.plan_id
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY pcs.plan_id, pcs.position`
+    ).all(projectId).map(normalizePlanChainScope);
+    const planChanges = this.database.prepare(
+      `SELECT pc.* FROM plan_changes pc JOIN plans p ON p.id = pc.plan_id
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY pc.plan_id, pc.position`
+    ).all(projectId).map(normalizePlanChange);
+    const planChainChangeRefs = this.database.prepare(
+      `SELECT pccr.* FROM plan_chain_change_refs pccr
+         JOIN plan_chain_scopes pcs ON pcs.id = pccr.chain_scope_id
+         JOIN plans p ON p.id = pcs.plan_id
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY pccr.chain_scope_id, pccr.position`
+    ).all(projectId).map((row) => ({
+      chainScopeId: row.chain_scope_id,
+      planChangeId: row.plan_change_id,
+      role: row.role,
+      position: row.position
+    }));
     const backgroundScopes = this.database.prepare(
       `SELECT bs.* FROM background_scopes bs JOIN blocks b ON b.id = bs.block_id
          WHERE b.project_id = ? ORDER BY bs.block_id, bs.scope_type, bs.scope_value`
@@ -23928,17 +24453,56 @@ var MdflowService = class {
       role: row.role,
       gitCommit: row.git_commit
     }));
-    const checkpoints = this.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? ORDER BY updated_at DESC").all(projectId).map((row) => ({
+    const rawCheckpoints = this.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? ORDER BY updated_at DESC").all(projectId).map((row) => ({
       id: row.id,
       targetType: row.target_type,
       targetId: row.target_id,
       title: row.title,
       criteria: row.criteria,
       status: row.status,
+      checkpointKind: row.checkpoint_kind,
+      aggregationPolicy: parseJson(row.aggregation_policy_json, {}),
+      eligibleAfterChildren: Boolean(row.eligible_after_children),
+      evidenceLevel: row.evidence_level,
+      requiredEvidenceLevel: row.required_evidence_level,
+      coverage: row.coverage,
       evidence: parseJson(row.evidence_json, []),
+      invalidatedAt: row.invalidated_at,
       currentRevision: row.current_revision,
       updatedAt: row.updated_at
     }));
+    const checkpointBindings = this.database.prepare(
+      `SELECT cb.* FROM checkpoint_bindings cb JOIN checkpoints c ON c.id = cb.checkpoint_id
+         WHERE c.project_id = ? ORDER BY cb.checkpoint_id, cb.position`
+    ).all(projectId).map((row) => ({
+      checkpointId: row.checkpoint_id,
+      subjectType: row.subject_type,
+      subjectId: row.subject_id,
+      role: row.role,
+      required: Boolean(row.required),
+      position: row.position
+    }));
+    const checkpointDependencies = this.database.prepare(
+      `SELECT cd.* FROM checkpoint_dependencies cd JOIN checkpoints c ON c.id = cd.parent_checkpoint_id
+         WHERE c.project_id = ? ORDER BY cd.parent_checkpoint_id, cd.position`
+    ).all(projectId).map((row) => ({
+      parentCheckpointId: row.parent_checkpoint_id,
+      childCheckpointId: row.child_checkpoint_id,
+      position: row.position,
+      required: Boolean(row.required)
+    }));
+    const checkpoints = deriveCheckpointStates(rawCheckpoints, checkpointDependencies);
+    plans = plans.map((plan) => derivePlanState(
+      plan,
+      plans,
+      planDependencies,
+      planSteps,
+      planCheckpointRefs,
+      checkpoints,
+      planChainScopes,
+      planChanges,
+      checkpointBindings
+    ));
     const localizations = normalizeLocalizations(
       this.database.prepare(
         `SELECT lt.* FROM localized_text lt
@@ -23969,9 +24533,17 @@ var MdflowService = class {
       chainNodes,
       chainEdges,
       planChainRefs,
+      planDependencies,
+      planSteps,
+      planCheckpointRefs,
+      planChainScopes,
+      planChanges,
+      planChainChangeRefs,
       backgroundScopes,
       sourceRefs,
       checkpoints,
+      checkpointBindings,
+      checkpointDependencies,
       localizations
     };
   }
@@ -24007,9 +24579,11 @@ var MdflowService = class {
     for (const plan of plans) {
       const count = snapshot.planChainRefs.filter((item) => item.planId === plan.id).length;
       const title = localizedValue(translations, "plan", plan.id, locale, "title", plan.title);
+      const progress = `${plan.progress.completedSteps}/${plan.progress.totalSteps} steps \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} gates`;
       lines.push(
-        `- [plan:${plan.id}] ${title} \u2014 ${plan.status}, ${count} target chain(s)`
+        `- [plan:${plan.id}] ${title} \u2014 ${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus} \xB7 ${progress} \xB7 ${count} target chain(s)`
       );
+      if (plan.derivedReason) lines.push(`  ${plan.derivedReason}`);
     }
     lines.push("", "## Project network");
     lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
@@ -24038,7 +24612,13 @@ var MdflowService = class {
           id: plan.id,
           title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title),
           status: plan.status,
+          derivedStatus: plan.derivedStatus,
+          derivedReason: plan.derivedReason,
           priority: plan.priority,
+          phase: plan.phase,
+          order: plan.planOrder,
+          progress: plan.progress,
+          dependencyPlanIds: snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.dependsOnPlanId),
           targetChainIds: snapshot.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId)
         })),
         criticalBlocks: snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
@@ -24130,13 +24710,22 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }
     if (!entity) throw new Error(`${type}:${id} not found`);
     const checkpoints = this.database.prepare(
-      "SELECT * FROM checkpoints WHERE project_id = ? AND target_type = ? AND target_id = ? ORDER BY updated_at DESC"
-    ).all(projectId, type, id).map((row) => ({
+      type === "plan" ? `SELECT DISTINCT c.* FROM checkpoints c
+           LEFT JOIN plan_checkpoint_refs pcr ON pcr.checkpoint_id = c.id
+           WHERE c.project_id = ? AND ((c.target_type = ? AND c.target_id = ?) OR pcr.plan_id = ?)
+           ORDER BY c.updated_at DESC` : "SELECT * FROM checkpoints WHERE project_id = ? AND target_type = ? AND target_id = ? ORDER BY updated_at DESC"
+    ).all(...type === "plan" ? [projectId, type, id, id] : [projectId, type, id]).map((row) => ({
       id: row.id,
+      targetType: row.target_type,
+      targetId: row.target_id,
       title: row.title,
       criteria: row.criteria,
       status: row.status,
+      evidenceLevel: row.evidence_level,
+      requiredEvidenceLevel: row.required_evidence_level,
+      coverage: row.coverage,
       evidence: parseJson(row.evidence_json, []),
+      invalidatedAt: row.invalidated_at,
       updatedAt: row.updated_at
     }));
     const history = this.database.prepare(
@@ -24165,6 +24754,17 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     })) : [];
     const pathEdges = type === "chain" ? this.database.prepare("SELECT link_id, position FROM chain_edges WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({ linkId: row.link_id, position: row.position })) : [];
     const targetChains = type === "plan" ? this.database.prepare("SELECT chain_id, position FROM plan_chain_refs WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ chainId: row.chain_id, position: row.position })) : [];
+    const dependencies = type === "plan" ? this.database.prepare("SELECT depends_on_plan_id, position FROM plan_dependencies WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ planId: row.depends_on_plan_id, position: row.position })) : [];
+    const steps = type === "plan" ? this.database.prepare("SELECT * FROM plan_steps WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({
+      id: row.id,
+      position: row.position,
+      title: row.title,
+      action: row.action,
+      status: row.status,
+      targetRefs: parseJson(row.target_refs_json, []),
+      proposedDelta: parseJson(row.proposed_delta_json, [])
+    })) : [];
+    const checkpointRefs = type === "plan" ? this.database.prepare("SELECT checkpoint_id, step_id, position, required FROM plan_checkpoint_refs WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ checkpointId: row.checkpoint_id, stepId: row.step_id, position: row.position, required: Boolean(row.required) })) : [];
     assertAllowed(locale, LOCALES, "locale");
     const snapshot = this.snapshot();
     const translations = localizationMap(snapshot);
@@ -24184,6 +24784,11 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }
     if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
     if (entity.status) lines.push(`- Status: ${entity.status}`);
+    if (type === "plan") {
+      lines.push(`- Phase: ${entity.phase}`);
+      lines.push(`- Order: ${entity.planOrder}`);
+      lines.push(`- Priority: ${entity.priority}`);
+    }
     if (entity.healthState) lines.push(`- Health: ${entity.healthState}`);
     if (displaySummary) lines.push("", "## Summary", displaySummary);
     if (type === "block") {
@@ -24203,6 +24808,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         lines.push("", "## Target chains");
         for (const target of targetChains) lines.push(`- [chain:${target.chainId}]`);
       }
+      if (dependencies.length) {
+        lines.push("", "## Prerequisites", ...dependencies.map((item) => `- [plan:${item.planId}]`));
+      }
+      if (steps.length) {
+        lines.push("", "## Ordered steps");
+        for (const step of steps) lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` \u2014 ${step.action}` : ""}`);
+      }
       if (entity.proposedDelta.length) lines.push("", "## Proposed graph delta", JSON.stringify(entity.proposedDelta));
       if (entity.blockers.length) lines.push("", "## Blockers", ...entity.blockers.map((item) => `- ${item}`));
     }
@@ -24216,13 +24828,170 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }
     if (checkpoints.length) {
       lines.push("", "## Checkpoints");
-      for (const checkpoint of checkpoints) lines.push(`- ${checkpoint.status}: ${checkpoint.title}`);
+      for (const checkpoint of checkpoints) {
+        const required2 = checkpointRefs.find((item) => item.checkpointId === checkpoint.id)?.required;
+        lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel}${required2 === false ? " \xB7 optional" : ""}: ${checkpoint.title}`);
+      }
     }
     if (history.length) {
       lines.push("", "## Relevant history");
       for (const item of history) lines.push(`- r${item.revision} ${item.action}: ${item.summary}`);
     }
-    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, checkpoints, history, markdown: lines.join("\n") };
+    if (type === "plan") {
+      const detailed = this.planContext({ id, locale, maxChars: 24e3 });
+      return {
+        entity: detailed.plan,
+        sourceRefs,
+        pathNodes,
+        pathEdges,
+        targetChains,
+        dependencies,
+        steps,
+        checkpointRefs,
+        checkpoints: detailed.checkpoints,
+        history,
+        hierarchy: detailed.hierarchy,
+        markdown: detailed.markdown
+      };
+    }
+    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, markdown: lines.join("\n") };
+  }
+  planContext({ id, locale = "en", maxChars = 12e3 }) {
+    assertAllowed(locale, LOCALES, "locale");
+    const snapshot = this.snapshot();
+    const plan = snapshot.plans.find((item) => item.id === id);
+    if (!plan) throw new Error(`plan:${id} not found`);
+    const translations = localizationMap(snapshot);
+    const scopes = snapshot.planChainScopes.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
+    const changes = snapshot.planChanges.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
+    const bindingsBySubject = /* @__PURE__ */ new Map();
+    for (const binding of snapshot.checkpointBindings) {
+      const key = `${binding.subjectType}:${binding.subjectId}`;
+      const values = bindingsBySubject.get(key) ?? [];
+      const checkpoint = snapshot.checkpoints.find((item) => item.id === binding.checkpointId);
+      if (checkpoint) values.push({ ...binding, checkpoint });
+      bindingsBySubject.set(key, values);
+    }
+    const scopeChangeRefs = /* @__PURE__ */ new Map();
+    for (const ref of snapshot.planChainChangeRefs) {
+      const values = scopeChangeRefs.get(ref.chainScopeId) ?? [];
+      const change = changes.find((item) => item.id === ref.planChangeId);
+      if (change) values.push({ ...ref, change });
+      scopeChangeRefs.set(ref.chainScopeId, values);
+    }
+    const hierarchy = scopes.map((scope) => ({
+      ...scope,
+      chain: snapshot.chains.find((item) => item.id === scope.chainId) ?? null,
+      changes: (scopeChangeRefs.get(scope.id) ?? []).sort((a, b) => a.position - b.position).map((item) => ({
+        ...item.change,
+        role: item.role,
+        checkpoints: bindingsBySubject.get(`plan_change:${item.change.id}`) ?? []
+      })),
+      checkpoints: bindingsBySubject.get(`plan_chain_scope:${scope.id}`) ?? []
+    }));
+    const unattachedChanges = changes.filter((change) => !snapshot.planChainChangeRefs.some((ref) => ref.planChangeId === change.id));
+    const planCheckpoints = [
+      ...bindingsBySubject.get(`plan:${id}`) ?? [],
+      ...snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === id).map((checkpoint) => ({ checkpoint, role: "plan", required: true, position: 0 })),
+      ...snapshot.planCheckpointRefs.filter((ref) => ref.planId === id).map((ref) => {
+        const checkpoint = snapshot.checkpoints.find((item) => item.id === ref.checkpointId);
+        return checkpoint ? { ...ref, checkpoint } : null;
+      }).filter(Boolean)
+    ].filter((item, index, values) => values.findIndex((candidate) => candidate.checkpoint.id === item.checkpoint.id) === index);
+    const title = localizedValue(translations, "plan", id, locale, "title", plan.title);
+    const summary = localizedValue(translations, "plan", id, locale, "summary", plan.summary);
+    const goal = localizedValue(translations, "plan", id, locale, "goal", plan.goal);
+    const lines = [
+      `# ${title}`,
+      `${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus}`,
+      "",
+      summary || "No summary.",
+      "",
+      "## Goal",
+      goal || "\u2014"
+    ];
+    const nextAction = localizedValue(translations, "plan", id, locale, "nextAction", plan.nextAction);
+    if (nextAction) lines.push("", "## Next action", nextAction);
+    if (plan.proposedDelta.length) lines.push("", "## Overall change", ...plan.proposedDelta.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+    if (plan.blockers.length) lines.push("", "## Blockers / prohibitions", ...plan.blockers.map((item) => `- ${item}`));
+    if (hierarchy.length === 0) {
+      lines.push("", "## Chain scopes", "\u5F85\u8FC1\u79FB\uFF1A\u6B64 Plan \u5C1A\u672A\u58F0\u660E ChainScope \u548C\u9010\u5B9E\u4F53\u53D8\u66F4\uFF0C\u4E0D\u80FD\u6309 0/0 \u89C6\u4E3A\u5B8C\u6210\u3002");
+    }
+    for (const scope of hierarchy) {
+      lines.push("", `## ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "\u2014");
+      if (scope.rationale) lines.push(`Reason: ${scope.rationale}`);
+      if (scope.nodeIds.length || scope.linkIds.length) lines.push(`Path: ${scope.nodeIds.map((nodeId) => `block:${nodeId}`).join(" \u2192 ")}${scope.linkIds.length ? ` \xB7 Links ${scope.linkIds.map((linkId) => `link:${linkId}`).join(", ")}` : ""}`);
+      if (scope.prohibitions.length) lines.push("Prohibitions:", ...scope.prohibitions.map((item) => `- ${item}`));
+      for (const change of scope.changes) {
+        lines.push("", `### ${change.title} [${change.entityType}:${change.entityId}]`, change.summary || "\u2014");
+        if (change.currentBehavior) lines.push(`Current: ${change.currentBehavior}`);
+        if (change.proposedBehavior) lines.push(`Proposed: ${change.proposedBehavior}`);
+        if (change.rationale) lines.push(`Reason: ${change.rationale}`);
+        if (change.prohibitions.length) lines.push(`Must not: ${change.prohibitions.join("; ")}`);
+        if (change.expectedEffects.length) lines.push(`Expected: ${change.expectedEffects.join("; ")}`);
+        if (change.sourceRefs.length) lines.push(`Sources: ${change.sourceRefs.join(", ")}`);
+        for (const binding of change.checkpoints) {
+          const checkpoint = binding.checkpoint;
+          lines.push(`- Checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+        }
+      }
+      for (const binding of scope.checkpoints) {
+        const checkpoint = binding.checkpoint;
+        lines.push(`- Chain gate ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+      }
+    }
+    if (unattachedChanges.length) {
+      lines.push("", "## Cross-Chain changes");
+      for (const change of unattachedChanges) lines.push(`- ${change.title} [${change.entityType}:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary}`);
+    }
+    if (planCheckpoints.length) {
+      lines.push("", "## Plan acceptance");
+      for (const binding of planCheckpoints) {
+        const checkpoint = binding.checkpoint;
+        lines.push(`- ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+      }
+    }
+    let markdown = lines.join("\n");
+    if (markdown.length > maxChars) markdown = `${markdown.slice(0, Math.max(0, maxChars - 64))}
+
+[truncated; open a referenced entity for detail]`;
+    return {
+      plan,
+      hierarchy,
+      unattachedChanges,
+      checkpoints: planCheckpoints.map((item) => item.checkpoint),
+      dependencies: snapshot.planDependencies.filter((item) => item.planId === id),
+      markdown
+    };
+  }
+  changesSince({ sequence = 0, limit = 100 } = {}) {
+    if (!Number.isInteger(sequence) || sequence < 0) throw new Error("sequence must be a non-negative integer");
+    const boundedLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+    const rows = this.database.prepare(
+      `SELECT cf.sequence, cf.change_set_id, cf.entity_type, cf.entity_id, cf.action, cf.created_at,
+              h.revision, h.summary, h.plan_id, h.chain_scope_id, h.before_json, h.after_json,
+              h.changed_fields_json, h.affected_refs_json, h.evidence_refs_json
+       FROM change_feed cf
+       LEFT JOIN history h ON h.change_set_id = cf.change_set_id AND h.entity_type = cf.entity_type
+         AND h.entity_id = cf.entity_id AND h.action = cf.action
+       WHERE cf.project_id = ? AND cf.sequence > ? ORDER BY cf.sequence LIMIT ?`
+    ).all(this.paths.descriptor.id, sequence, boundedLimit).map((row) => ({
+      sequence: row.sequence,
+      changeSetId: row.change_set_id,
+      ref: `${row.entity_type}:${row.entity_id}`,
+      action: row.action,
+      revision: row.revision,
+      summary: row.summary,
+      planId: row.plan_id,
+      chainScopeId: row.chain_scope_id,
+      before: parseJson(row.before_json, {}),
+      after: parseJson(row.after_json, {}),
+      changedFields: parseJson(row.changed_fields_json, []),
+      affectedRefs: parseJson(row.affected_refs_json, []),
+      evidenceRefs: parseJson(row.evidence_refs_json, []),
+      createdAt: row.created_at
+    }));
+    return { fromSequence: sequence, nextSequence: rows.at(-1)?.sequence ?? sequence, changes: rows };
   }
   contextForTask({ task, focusRefs = [], maxChars = 6e3, locale = "en" }) {
     const snapshot = this.snapshot();
@@ -24293,8 +25062,11 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const relevantLinks = snapshot.links.filter(
       (link) => (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) && (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId))
     );
+    const relevantScopeIDs = new Set(snapshot.planChainScopes.filter((scope) => selectedPlanIds.has(scope.planId)).map((scope) => scope.id));
+    const relevantChangeIDs = new Set(snapshot.planChanges.filter((change) => selectedPlanIds.has(change.planId)).map((change) => change.id));
+    const boundCheckpointIDs = new Set(snapshot.checkpointBindings.filter((binding) => binding.subjectType === "plan" && selectedPlanIds.has(binding.subjectId) || binding.subjectType === "plan_chain_scope" && relevantScopeIDs.has(binding.subjectId) || binding.subjectType === "plan_change" && relevantChangeIDs.has(binding.subjectId)).map((binding) => binding.checkpointId));
     const relevantCheckpoints = snapshot.checkpoints.filter(
-      (checkpoint) => checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId) || checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId) || checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId)
+      (checkpoint) => checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId) || checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId) || checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId) || boundCheckpointIDs.has(checkpoint.id)
     );
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
     const constraints = relevantBlocks.filter((block) => ["principle", "decision"].includes(block.kind));
@@ -24315,7 +25087,27 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         const title = localizedValue(translations, "plan", plan.id, locale, "title", plan.title);
         const summary = localizedValue(translations, "plan", plan.id, locale, "summary", plan.summary);
         const nextAction = localizedValue(translations, "plan", plan.id, locale, "nextAction", plan.nextAction);
-        lines.push(`- [plan:${plan.id}] ${title} \u2014 ${plan.status}`);
+        lines.push(`- [plan:${plan.id}] ${title} \u2014 ${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus}`);
+        const scopes = snapshot.planChainScopes.filter((scope) => scope.planId === plan.id).sort((a, b) => a.position - b.position);
+        const changes = snapshot.planChanges.filter((change) => change.planId === plan.id).sort((a, b) => a.position - b.position);
+        lines.push(`  Progress: ${plan.progress.completedSteps}/${plan.progress.totalSteps} ${scopes.length || changes.length ? "changes" : "steps"} \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} required gates`);
+        if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
+        const dependencies = snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
+        if (dependencies.length) lines.push(`  Prerequisites: ${dependencies.map((item) => `[plan:${item.dependsOnPlanId}]`).join(", ")}`);
+        const steps = snapshot.planSteps.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
+        for (const step of steps) lines.push(`  ${step.position + 1}. ${step.status}: ${step.title}${step.targetRefs.length ? ` (${step.targetRefs.join(", ")})` : ""}`);
+        for (const scope of scopes) {
+          lines.push(`  ChainScope ${scope.position + 1}: ${scope.title} [chain:${scope.chainId}] \u2014 ${scope.summary || scope.rationale}`);
+          if (scope.prohibitions.length) lines.push(`    Prohibitions: ${scope.prohibitions.join("; ")}`);
+          const changeIDs = snapshot.planChainChangeRefs.filter((ref) => ref.chainScopeId === scope.id).sort((a, b) => a.position - b.position).map((ref) => ref.planChangeId);
+          for (const changeID of changeIDs) {
+            const change = changes.find((item) => item.id === changeID);
+            if (!change) continue;
+            lines.push(`    - [${change.entityType}:${change.entityId}] ${change.title}: ${change.currentBehavior || "\u2014"} -> ${change.proposedBehavior || change.summary || "\u2014"}`);
+            if (change.prohibitions.length) lines.push(`      Must not: ${change.prohibitions.join("; ")}`);
+            if (change.sourceRefs.length) lines.push(`      Sources: ${change.sourceRefs.join(", ")}`);
+          }
+        }
         if (summary) lines.push(`  ${summary}`);
         if (nextAction) lines.push(`  Next: ${nextAction}`);
       }
@@ -24361,10 +25153,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const failing = relevantCheckpoints.filter((checkpoint) => checkpoint.status !== "passed");
     if (failing.length) {
       lines.push("## Open checkpoints");
-      for (const checkpoint of failing) lines.push(`- ${checkpoint.status}: ${checkpoint.title}`);
+      for (const checkpoint of failing) {
+        lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.coverage}: ${checkpoint.title}`);
+      }
       lines.push("");
     }
-    lines.push("## Expand", "Use entity_open with a Block, Chain, Link, or Plan ID when more detail is needed.");
+    lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, or Link when more detail is needed.");
     const markdown = lines.join("\n").slice(0, maxChars);
     return {
       graphRevision: snapshot.project.graphRevision,
@@ -24379,8 +25173,8 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
   mutate({ actor = "agent", reason, task = "", gitHead = null, operations }) {
     if (!reason?.trim()) throw new Error("reason is required");
     if (!Array.isArray(operations) || operations.length === 0) throw new Error("operations are required");
-    if (operations.length > 10) throw new Error("graph_mutate accepts at most 10 operations");
-    if (JSON.stringify(operations).length > 8192) throw new Error("graph_mutate input exceeds 8 KB");
+    if (operations.length > 20) throw new Error("graph_mutate accepts at most 20 operations");
+    if (JSON.stringify(operations).length > 65536) throw new Error("graph_mutate input exceeds 64 KB");
     const database = this.database;
     const projectId = this.paths.descriptor.id;
     const changeSetId = identifier("change");
@@ -24392,11 +25186,21 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
            VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).run(changeSetId, projectId, actor, reason.trim(), task, gitHead, timestamp);
       for (const operation of operations) {
+        const predictedType = operationEntityType(operation.action);
+        const before = predictedType && operation.id ? this.historyState(predictedType, operation.id) : {};
         const receipt = this.applyOperation(operation, { changeSetId, timestamp });
+        receipt.ref = `${receipt.entityType}:${receipt.id}`;
+        receipt.uiLocation = this.uiLocationFor(receipt.entityType, receipt.id);
+        receipt.readBack = { ref: receipt.ref, revision: receipt.revision };
+        const after = this.historyState(receipt.entityType, receipt.id);
+        const changedFields = Object.keys(operation.fields ?? {});
+        const affectedRefs = affectedRefsForOperation(operation);
         receipts.push(receipt);
         database.prepare(
-          `INSERT INTO history(change_set_id, entity_type, entity_id, action, revision, summary, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO history(
+              change_set_id, entity_type, entity_id, action, revision, summary, plan_id,
+              before_json, after_json, changed_fields_json, affected_refs_json, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
           changeSetId,
           receipt.entityType,
@@ -24404,6 +25208,11 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
           receipt.action,
           receipt.revision,
           receipt.summary,
+          receipt.entityType === "plan" ? receipt.id : null,
+          JSON.stringify(before ?? {}),
+          JSON.stringify(after ?? {}),
+          JSON.stringify(changedFields),
+          JSON.stringify(affectedRefs),
           timestamp
         );
         database.prepare(
@@ -24417,6 +25226,61 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       const graphRevision = database.prepare("SELECT graph_revision FROM projects WHERE id = ?").get(projectId).graph_revision;
       return { changeSetId, graphRevision, receipts };
     });
+  }
+  historyState(entityType, id) {
+    if (entityType === "block") {
+      const row = this.database.prepare("SELECT * FROM blocks WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+      return row ? {
+        ...normalizeBlock(row),
+        sourceRefs: this.database.prepare("SELECT path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id").all(id)
+      } : {};
+    }
+    if (entityType === "chain") {
+      const row = this.database.prepare("SELECT * FROM chains WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+      return row ? {
+        ...normalizeChain(row),
+        nodeIds: this.database.prepare("SELECT block_id FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(id).map((item) => item.block_id),
+        linkIds: this.database.prepare("SELECT link_id FROM chain_edges WHERE chain_id = ? ORDER BY position").all(id).map((item) => item.link_id)
+      } : {};
+    }
+    if (entityType === "link") {
+      const row = this.database.prepare("SELECT * FROM links WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+      return row ? normalizeLink(row) : {};
+    }
+    if (entityType === "plan") {
+      const row = this.database.prepare("SELECT * FROM plans WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+      return row ? {
+        ...normalizePlan(row),
+        chainScopeIds: this.database.prepare("SELECT id FROM plan_chain_scopes WHERE plan_id = ? ORDER BY position").all(id).map((item) => item.id),
+        changeIds: this.database.prepare("SELECT id FROM plan_changes WHERE plan_id = ? ORDER BY position").all(id).map((item) => item.id)
+      } : {};
+    }
+    if (entityType === "checkpoint") {
+      const row = this.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+      return row ? {
+        id: row.id,
+        targetType: row.target_type,
+        targetId: row.target_id,
+        title: row.title,
+        status: row.status,
+        checkpointKind: row.checkpoint_kind,
+        evidenceLevel: row.evidence_level,
+        requiredEvidenceLevel: row.required_evidence_level,
+        coverage: row.coverage,
+        bindings: this.database.prepare("SELECT subject_type, subject_id, role, required FROM checkpoint_bindings WHERE checkpoint_id = ? ORDER BY position").all(id),
+        children: this.database.prepare("SELECT child_checkpoint_id, required FROM checkpoint_dependencies WHERE parent_checkpoint_id = ? ORDER BY position").all(id),
+        currentRevision: row.current_revision
+      } : {};
+    }
+    return {};
+  }
+  uiLocationFor(entityType, id) {
+    if (entityType === "plan") return `Project > Plans > plan:${id}`;
+    if (entityType === "chain") return `Project > Chains > chain:${id}`;
+    if (entityType === "block") return `Canvas > block:${id}`;
+    if (entityType === "link") return `Canvas > link:${id}`;
+    if (entityType === "source_ref") return `Project > Block details > Files & Code > ${id}`;
+    return `Project > ${entityType}:${id}`;
   }
   applyOperation(operation, context) {
     switch (operation.action) {
@@ -24442,6 +25306,22 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         return this.updateEntity("plan", operation, context);
       case "set_plan_chains":
         return this.setPlanChains(operation, context);
+      case "set_plan_dependencies":
+        return this.setPlanDependencies(operation, context);
+      case "set_plan_steps":
+        return this.setPlanSteps(operation, context);
+      case "set_plan_checkpoints":
+        return this.setPlanCheckpoints(operation, context);
+      case "set_plan_chain_scopes":
+        return this.setPlanChainScopes(operation, context);
+      case "set_plan_changes":
+        return this.setPlanChanges(operation, context);
+      case "set_plan_chain_change_refs":
+        return this.setPlanChainChangeRefs(operation, context);
+      case "set_checkpoint_bindings":
+        return this.setCheckpointBindings(operation, context);
+      case "set_checkpoint_dependencies":
+        return this.setCheckpointDependencies(operation, context);
       case "set_chain_path":
         return this.setChainPath(operation, context);
       case "set_background_scopes":
@@ -24495,9 +25375,10 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const id = operation.id ?? identifier("plan");
     this.database.prepare(
       `INSERT INTO plans(
-        id, project_id, title, summary, goal, status, priority, proposed_delta_json,
-        next_action, blockers_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, project_id, title, summary, goal, status, priority, phase, plan_order,
+        proposed_delta_json, completion_policy_json, next_action, blockers_json, status_reason,
+        started_at, completed_at, invalidated_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       this.paths.descriptor.id,
@@ -24506,9 +25387,16 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       fields.goal ?? "",
       fields.status ?? "draft",
       fields.priority ?? "normal",
+      fields.phase ?? "implementation",
+      fields.planOrder ?? 0,
       JSON.stringify(fields.proposedDelta ?? []),
+      JSON.stringify(fields.completionPolicy ?? {}),
       fields.nextAction ?? "",
       JSON.stringify(fields.blockers ?? []),
+      fields.statusReason ?? "",
+      fields.startedAt ?? null,
+      fields.completedAt ?? null,
+      fields.invalidatedAt ?? null,
       timestamp,
       timestamp
     );
@@ -24534,6 +25422,310 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const revision = plan.current_revision + 1;
     this.database.prepare("UPDATE plans SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
     return { entityType: "plan", id: operation.id, action: "chains-set", revision, summary: `${chainIds.length} target chain(s)` };
+  }
+  planForMutation(operation, action) {
+    if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
+      throw new Error(`${action} requires id and expectedRevision`);
+    }
+    const plan = this.database.prepare("SELECT * FROM plans WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, operation.id);
+    if (!plan) throw new Error(`plan:${operation.id} not found`);
+    if (plan.current_revision !== operation.expectedRevision) {
+      throw new Error(`Revision conflict for plan:${operation.id}; expected ${operation.expectedRevision}, current ${plan.current_revision}`);
+    }
+    return plan;
+  }
+  finishPlanRelationMutation(plan, operation, action, summary) {
+    const revision = plan.current_revision + 1;
+    this.database.prepare("UPDATE plans SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
+    return { entityType: "plan", id: operation.id, action, revision, summary };
+  }
+  setPlanDependencies(operation) {
+    const plan = this.planForMutation(operation, "set_plan_dependencies");
+    const planIds = operation.fields?.planIds ?? [];
+    if (!Array.isArray(planIds) || new Set(planIds).size !== planIds.length) throw new Error("planIds must be unique");
+    for (const dependencyId of planIds) {
+      if (dependencyId === operation.id) throw new Error("Plan cannot depend on itself");
+      if (!entityExists(this.database, this.paths.descriptor.id, "plan", dependencyId)) throw new Error(`plan:${dependencyId} not found`);
+    }
+    const existing = this.database.prepare("SELECT plan_id, depends_on_plan_id FROM plan_dependencies").all();
+    const adjacency = /* @__PURE__ */ new Map();
+    for (const row of existing) {
+      if (row.plan_id === operation.id) continue;
+      if (!adjacency.has(row.plan_id)) adjacency.set(row.plan_id, []);
+      adjacency.get(row.plan_id).push(row.depends_on_plan_id);
+    }
+    adjacency.set(operation.id, planIds);
+    const visiting = /* @__PURE__ */ new Set();
+    const visited = /* @__PURE__ */ new Set();
+    const hasCycle = (id) => {
+      if (visiting.has(id)) return true;
+      if (visited.has(id)) return false;
+      visiting.add(id);
+      for (const next of adjacency.get(id) ?? []) if (hasCycle(next)) return true;
+      visiting.delete(id);
+      visited.add(id);
+      return false;
+    };
+    if ([...adjacency.keys()].some(hasCycle)) throw new Error("Plan dependencies must remain acyclic");
+    this.database.prepare("DELETE FROM plan_dependencies WHERE plan_id = ?").run(operation.id);
+    const insert = this.database.prepare("INSERT INTO plan_dependencies(plan_id, depends_on_plan_id, position) VALUES (?, ?, ?)");
+    planIds.forEach((id, index) => insert.run(operation.id, id, index));
+    return this.finishPlanRelationMutation(plan, operation, "dependencies-set", `${planIds.length} prerequisite plan(s)`);
+  }
+  setPlanSteps(operation, { timestamp }) {
+    const plan = this.planForMutation(operation, "set_plan_steps");
+    const steps = operation.fields?.steps ?? [];
+    if (!Array.isArray(steps)) throw new Error("steps must be an array");
+    const ids = steps.map((step, index) => step.id ?? `${operation.id}-step-${index + 1}`);
+    if (new Set(ids).size !== ids.length) throw new Error("Plan step IDs must be unique");
+    for (const [index, step] of steps.entries()) {
+      if (!step.title?.trim()) throw new Error(`Plan step ${index + 1} requires title`);
+      assertAllowed(step.status ?? "pending", PLAN_STEP_STATUSES, "plan step status");
+      for (const ref of step.targetRefs ?? []) {
+        const [type, id] = String(ref).split(":", 2);
+        if (!id || !entityExists(this.database, this.paths.descriptor.id, type, id)) throw new Error(`Missing Plan step target: ${ref}`);
+      }
+    }
+    this.database.prepare("DELETE FROM plan_steps WHERE plan_id = ?").run(operation.id);
+    const insert = this.database.prepare(
+      `INSERT INTO plan_steps(id, plan_id, position, title, action, status, target_refs_json, proposed_delta_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    steps.forEach((step, index) => insert.run(
+      ids[index],
+      operation.id,
+      index,
+      step.title.trim(),
+      step.action ?? "",
+      step.status ?? "pending",
+      JSON.stringify(step.targetRefs ?? []),
+      JSON.stringify(step.proposedDelta ?? []),
+      timestamp,
+      timestamp
+    ));
+    return this.finishPlanRelationMutation(plan, operation, "steps-set", `${steps.length} ordered step(s)`);
+  }
+  setPlanCheckpoints(operation) {
+    const plan = this.planForMutation(operation, "set_plan_checkpoints");
+    const checkpoints = operation.fields?.checkpoints ?? [];
+    if (!Array.isArray(checkpoints)) throw new Error("checkpoints must be an array");
+    const stepIds = new Set(this.database.prepare("SELECT id FROM plan_steps WHERE plan_id = ?").all(operation.id).map((row) => row.id));
+    for (const item of checkpoints) {
+      if (!item.checkpointId || !this.database.prepare("SELECT 1 FROM checkpoints WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, item.checkpointId)) {
+        throw new Error(`checkpoint:${item.checkpointId ?? ""} not found`);
+      }
+      if (item.stepId && !stepIds.has(item.stepId)) throw new Error(`Plan step not found: ${item.stepId}`);
+    }
+    this.database.prepare("DELETE FROM plan_checkpoint_refs WHERE plan_id = ?").run(operation.id);
+    const insert = this.database.prepare(
+      "INSERT INTO plan_checkpoint_refs(plan_id, checkpoint_id, step_id, position, required) VALUES (?, ?, ?, ?, ?)"
+    );
+    checkpoints.forEach((item, index) => insert.run(operation.id, item.checkpointId, item.stepId ?? null, index, item.required === false ? 0 : 1));
+    return this.finishPlanRelationMutation(plan, operation, "checkpoints-set", `${checkpoints.length} checkpoint gate(s)`);
+  }
+  setPlanChainScopes(operation, { timestamp }) {
+    const plan = this.planForMutation(operation, "set_plan_chain_scopes");
+    const scopes = operation.fields?.scopes ?? [];
+    if (!Array.isArray(scopes)) throw new Error("scopes must be an array");
+    const ids = scopes.map((scope, index) => scope.id ?? `${operation.id}-chain-scope-${index + 1}`);
+    if (new Set(ids).size !== ids.length) throw new Error("Plan ChainScope IDs must be unique");
+    for (const [index, scope] of scopes.entries()) {
+      if (!scope.chainId || !entityExists(this.database, this.paths.descriptor.id, "chain", scope.chainId)) {
+        throw new Error(`chain:${scope.chainId ?? ""} not found`);
+      }
+      if (!scope.title?.trim()) throw new Error(`Plan ChainScope ${index + 1} requires title`);
+      const chainNodeIds = this.database.prepare("SELECT block_id FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.block_id);
+      const chainLinkIds = this.database.prepare("SELECT link_id FROM chain_edges WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.link_id);
+      const nodeIds = scope.nodeIds ?? chainNodeIds;
+      const linkIds = scope.linkIds ?? chainLinkIds;
+      let lastPosition = -1;
+      for (const blockId of nodeIds) {
+        const position = chainNodeIds.indexOf(blockId);
+        if (position < 0) throw new Error(`Plan ChainScope references block:${blockId} outside chain:${scope.chainId}`);
+        if (position <= lastPosition) throw new Error(`Plan ChainScope nodes must follow chain:${scope.chainId} order`);
+        lastPosition = position;
+      }
+      for (const linkId of linkIds) {
+        if (!chainLinkIds.includes(linkId)) throw new Error(`Plan ChainScope references link:${linkId} outside chain:${scope.chainId}`);
+      }
+      if (scope.startBlockId && nodeIds[0] !== scope.startBlockId) throw new Error("startBlockId must be the first scoped node");
+      if (scope.endBlockId && nodeIds.at(-1) !== scope.endBlockId) throw new Error("endBlockId must be the last scoped node");
+    }
+    this.database.prepare("DELETE FROM plan_chain_scopes WHERE plan_id = ?").run(operation.id);
+    const insert = this.database.prepare(
+      `INSERT INTO plan_chain_scopes(
+        id, plan_id, chain_id, position, title, summary, rationale, start_block_id, end_block_id,
+        node_ids_json, link_ids_json, expected_delta_json, prohibitions_json, localizations_json,
+        status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    scopes.forEach((scope, index) => {
+      const chainNodeIds = this.database.prepare("SELECT block_id FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.block_id);
+      const chainLinkIds = this.database.prepare("SELECT link_id FROM chain_edges WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.link_id);
+      insert.run(
+        ids[index],
+        operation.id,
+        scope.chainId,
+        index,
+        scope.title.trim(),
+        scope.summary ?? "",
+        scope.rationale ?? "",
+        scope.startBlockId ?? (scope.nodeIds ?? chainNodeIds)[0] ?? null,
+        scope.endBlockId ?? (scope.nodeIds ?? chainNodeIds).at(-1) ?? null,
+        JSON.stringify(scope.nodeIds ?? chainNodeIds),
+        JSON.stringify(scope.linkIds ?? chainLinkIds),
+        JSON.stringify(scope.expectedDelta ?? []),
+        JSON.stringify(scope.prohibitions ?? []),
+        JSON.stringify(scope.localizations ?? {}),
+        scope.status ?? "pending",
+        timestamp,
+        timestamp
+      );
+    });
+    this.database.prepare("DELETE FROM plan_chain_refs WHERE plan_id = ?").run(operation.id);
+    const targetInsert = this.database.prepare("INSERT INTO plan_chain_refs(plan_id, chain_id, position) VALUES (?, ?, ?)");
+    [...new Set(scopes.map((scope) => scope.chainId))].forEach((chainId, index) => targetInsert.run(operation.id, chainId, index));
+    return this.finishPlanRelationMutation(plan, operation, "chain-scopes-set", `${scopes.length} detailed Chain scope(s)`);
+  }
+  setPlanChanges(operation, { timestamp }) {
+    const plan = this.planForMutation(operation, "set_plan_changes");
+    const changes = operation.fields?.changes ?? [];
+    if (!Array.isArray(changes)) throw new Error("changes must be an array");
+    const keys = changes.map((change) => `${change.entityType}:${change.entityId}`);
+    if (new Set(keys).size !== keys.length) throw new Error("A Plan may define only one canonical change per entity");
+    for (const [index, change] of changes.entries()) {
+      if (!change.title?.trim()) throw new Error(`Plan change ${index + 1} requires title`);
+      if (!["block", "link", "chain"].includes(change.entityType) || !entityExists(this.database, this.paths.descriptor.id, change.entityType, change.entityId)) {
+        throw new Error(`${change.entityType}:${change.entityId} not found`);
+      }
+    }
+    this.database.prepare("DELETE FROM plan_changes WHERE plan_id = ?").run(operation.id);
+    const insert = this.database.prepare(
+      `INSERT INTO plan_changes(
+        id, plan_id, entity_type, entity_id, position, title, summary, current_behavior, proposed_behavior,
+        rationale, prohibitions_json, expected_effects_json, source_refs_json, localizations_json,
+        status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    changes.forEach((change, index) => insert.run(
+      change.id ?? `${operation.id}-${change.entityType}-${change.entityId}`,
+      operation.id,
+      change.entityType,
+      change.entityId,
+      index,
+      change.title.trim(),
+      change.summary ?? "",
+      change.currentBehavior ?? "",
+      change.proposedBehavior ?? "",
+      change.rationale ?? "",
+      JSON.stringify(change.prohibitions ?? []),
+      JSON.stringify(change.expectedEffects ?? []),
+      JSON.stringify(change.sourceRefs ?? []),
+      JSON.stringify(change.localizations ?? {}),
+      change.status ?? "pending",
+      timestamp,
+      timestamp
+    ));
+    return this.finishPlanRelationMutation(plan, operation, "changes-set", `${changes.length} canonical entity change(s)`);
+  }
+  setPlanChainChangeRefs(operation) {
+    const plan = this.planForMutation(operation, "set_plan_chain_change_refs");
+    const refs = operation.fields?.refs ?? [];
+    if (!Array.isArray(refs)) throw new Error("refs must be an array");
+    const scopes = new Set(this.database.prepare("SELECT id FROM plan_chain_scopes WHERE plan_id = ?").all(operation.id).map((row) => row.id));
+    const changes = new Set(this.database.prepare("SELECT id FROM plan_changes WHERE plan_id = ?").all(operation.id).map((row) => row.id));
+    for (const ref of refs) {
+      if (!scopes.has(ref.chainScopeId)) throw new Error(`Plan ChainScope not found: ${ref.chainScopeId}`);
+      if (!changes.has(ref.planChangeId)) throw new Error(`Plan change not found: ${ref.planChangeId}`);
+    }
+    this.database.prepare(
+      "DELETE FROM plan_chain_change_refs WHERE chain_scope_id IN (SELECT id FROM plan_chain_scopes WHERE plan_id = ?)"
+    ).run(operation.id);
+    const insert = this.database.prepare(
+      "INSERT INTO plan_chain_change_refs(chain_scope_id, plan_change_id, role, position) VALUES (?, ?, ?, ?)"
+    );
+    refs.forEach((ref, index) => insert.run(ref.chainScopeId, ref.planChangeId, ref.role ?? "affected", ref.position ?? index));
+    return this.finishPlanRelationMutation(plan, operation, "chain-change-refs-set", `${refs.length} Chain-to-change reference(s)`);
+  }
+  checkpointForMutation(operation, action) {
+    if (!operation.id || !Number.isInteger(operation.expectedRevision)) throw new Error(`${action} requires id and expectedRevision`);
+    const checkpoint = this.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, operation.id);
+    if (!checkpoint) throw new Error(`checkpoint:${operation.id} not found`);
+    if (checkpoint.current_revision !== operation.expectedRevision) {
+      throw new Error(`Revision conflict for checkpoint:${operation.id}; expected ${operation.expectedRevision}, current ${checkpoint.current_revision}`);
+    }
+    return checkpoint;
+  }
+  finishCheckpointRelationMutation(checkpoint, operation, action, summary) {
+    const revision = checkpoint.current_revision + 1;
+    this.database.prepare("UPDATE checkpoints SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
+    return { entityType: "checkpoint", id: operation.id, action, revision, summary };
+  }
+  setCheckpointBindings(operation) {
+    const checkpoint = this.checkpointForMutation(operation, "set_checkpoint_bindings");
+    const bindings = operation.fields?.bindings ?? [];
+    if (!Array.isArray(bindings)) throw new Error("bindings must be an array");
+    for (const binding of bindings) {
+      if (!entityExists(this.database, this.paths.descriptor.id, binding.subjectType, binding.subjectId)) {
+        throw new Error(`${binding.subjectType}:${binding.subjectId} not found`);
+      }
+    }
+    this.database.prepare("DELETE FROM checkpoint_bindings WHERE checkpoint_id = ?").run(operation.id);
+    const insert = this.database.prepare(
+      "INSERT INTO checkpoint_bindings(checkpoint_id, subject_type, subject_id, role, required, position) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    bindings.forEach((binding, index) => insert.run(
+      operation.id,
+      binding.subjectType,
+      binding.subjectId,
+      binding.role ?? "leaf",
+      binding.required === false ? 0 : 1,
+      binding.position ?? index
+    ));
+    return this.finishCheckpointRelationMutation(checkpoint, operation, "bindings-set", `${bindings.length} subject binding(s)`);
+  }
+  setCheckpointDependencies(operation) {
+    const checkpoint = this.checkpointForMutation(operation, "set_checkpoint_dependencies");
+    const children = operation.fields?.children ?? [];
+    if (!Array.isArray(children)) throw new Error("children must be an array");
+    const ids = children.map((child) => child.checkpointId);
+    if (new Set(ids).size !== ids.length) throw new Error("Checkpoint child IDs must be unique");
+    for (const childId of ids) {
+      if (childId === operation.id) throw new Error("Checkpoint cannot depend on itself");
+      if (!this.database.prepare("SELECT 1 FROM checkpoints WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, childId)) {
+        throw new Error(`checkpoint:${childId ?? ""} not found`);
+      }
+    }
+    const rows = this.database.prepare(
+      `SELECT cd.parent_checkpoint_id, cd.child_checkpoint_id FROM checkpoint_dependencies cd
+       JOIN checkpoints c ON c.id = cd.parent_checkpoint_id WHERE c.project_id = ?`
+    ).all(this.paths.descriptor.id);
+    const adjacency = /* @__PURE__ */ new Map();
+    for (const row of rows) {
+      if (row.parent_checkpoint_id === operation.id) continue;
+      const values = adjacency.get(row.parent_checkpoint_id) ?? [];
+      values.push(row.child_checkpoint_id);
+      adjacency.set(row.parent_checkpoint_id, values);
+    }
+    adjacency.set(operation.id, ids);
+    const visiting = /* @__PURE__ */ new Set();
+    const visited = /* @__PURE__ */ new Set();
+    const hasCycle = (id) => {
+      if (visiting.has(id)) return true;
+      if (visited.has(id)) return false;
+      visiting.add(id);
+      for (const child of adjacency.get(id) ?? []) if (hasCycle(child)) return true;
+      visiting.delete(id);
+      visited.add(id);
+      return false;
+    };
+    if ([...adjacency.keys()].some(hasCycle)) throw new Error("Checkpoint dependencies must remain acyclic");
+    this.database.prepare("DELETE FROM checkpoint_dependencies WHERE parent_checkpoint_id = ?").run(operation.id);
+    const insert = this.database.prepare(
+      "INSERT INTO checkpoint_dependencies(parent_checkpoint_id, child_checkpoint_id, position, required) VALUES (?, ?, ?, ?)"
+    );
+    children.forEach((child, index) => insert.run(operation.id, child.checkpointId, child.position ?? index, child.required === false ? 0 : 1));
+    return this.finishCheckpointRelationMutation(checkpoint, operation, "dependencies-set", `${children.length} child checkpoint(s)`);
   }
   setChainPath(operation) {
     if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
@@ -24729,9 +25921,9 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       if (field === "deliveryState") assertAllowed(rawValue, DELIVERY_STATES, "delivery state");
       if (field === "healthState") assertAllowed(rawValue, HEALTH_STATES, "health state");
       if (field === "status") assertAllowed(rawValue, PLAN_STATUSES, "plan status");
-      const column = field === "proposedDelta" ? "proposed_delta_json" : field === "blockers" ? "blockers_json" : camelToColumn(field);
+      const column = field === "proposedDelta" ? "proposed_delta_json" : field === "completionPolicy" ? "completion_policy_json" : field === "blockers" ? "blockers_json" : camelToColumn(field);
       updates.push(`${column} = ?`);
-      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers"].includes(field) ? JSON.stringify(rawValue ?? []) : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
+      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers", "completionPolicy"].includes(field) ? JSON.stringify(rawValue ?? (field === "completionPolicy" ? {} : [])) : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
     }
     if (updates.length === 0 && localizations == null) throw new Error(`update_${type} has no fields`);
     const revision = existing.current_revision + 1;
@@ -24801,14 +25993,41 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       sourceId
     };
   }
-  recordCheckpoint({ actor = "agent", id, targetType, targetId, title, criteria = "", status, evidence = [], expectedRevision }) {
+  recordCheckpoint({
+    actor = "agent",
+    id,
+    targetType,
+    targetId,
+    title,
+    criteria = "",
+    status,
+    checkpointKind = "atomic",
+    aggregationPolicy = {},
+    eligibleAfterChildren = false,
+    evidenceLevel,
+    requiredEvidenceLevel = "static",
+    coverage = "complete",
+    evidence = [],
+    invalidatedAt = null,
+    expectedRevision
+  }) {
     if (!["block", "chain", "link", "plan"].includes(targetType)) throw new Error(`Invalid targetType: ${targetType}`);
     if (!title?.trim()) throw new Error("title is required");
-    if (!["pending", "running", "passed", "failed", "blocked"].includes(status)) {
-      throw new Error(`Invalid checkpoint status: ${status}`);
-    }
+    assertAllowed(status, CHECKPOINT_STATUSES, "checkpoint status");
+    assertAllowed(checkpointKind, CHECKPOINT_KINDS, "checkpoint kind");
     if (!entityExists(this.database, this.paths.descriptor.id, targetType, targetId)) {
       throw new Error(`${targetType}:${targetId} not found`);
+    }
+    const resolvedEvidenceLevel = evidenceLevel ?? (status === "passed" ? "static" : "none");
+    assertAllowed(resolvedEvidenceLevel, EVIDENCE_LEVELS, "evidence level");
+    assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
+    if (!["complete", "partial"].includes(coverage)) throw new Error(`Invalid checkpoint coverage: ${coverage}`);
+    if (status === "passed" && coverage !== "complete") throw new Error("Passed checkpoint requires complete coverage");
+    if (checkpointKind === "aggregate" && status === "passed") {
+      throw new Error("Aggregate checkpoint status is derived from child checkpoints and cannot be recorded as passed");
+    }
+    if (status === "passed" && (EVIDENCE_LEVEL_RANK.get(resolvedEvidenceLevel) ?? 0) < (EVIDENCE_LEVEL_RANK.get(requiredEvidenceLevel) ?? 0)) {
+      throw new Error(`Passed checkpoint requires ${requiredEvidenceLevel} evidence, received ${resolvedEvidenceLevel}`);
     }
     const checkpointId = id ?? identifier("checkpoint");
     const timestamp = now();
@@ -24822,6 +26041,9 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       let revision = 1;
       let action = "created";
       if (existing) {
+        if (existing.project_id !== this.paths.descriptor.id || existing.target_type !== targetType || existing.target_id !== targetId) {
+          throw new Error(`checkpoint:${checkpointId} target cannot be changed`);
+        }
         if (!Number.isInteger(expectedRevision) || expectedRevision !== existing.current_revision) {
           throw new Error(
             `Revision conflict for checkpoint:${checkpointId}; expected ${expectedRevision}, current ${existing.current_revision}`
@@ -24830,14 +26052,33 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         revision = existing.current_revision + 1;
         action = "updated";
         this.database.prepare(
-          `UPDATE checkpoints SET title = ?, criteria = ?, status = ?, evidence_json = ?,
+          `UPDATE checkpoints SET title = ?, criteria = ?, status = ?, checkpoint_kind = ?,
+             aggregation_policy_json = ?, eligible_after_children = ?, evidence_level = ?,
+             required_evidence_level = ?, coverage = ?, evidence_json = ?, invalidated_at = ?,
              current_revision = ?, updated_at = ? WHERE id = ?`
-        ).run(title, criteria, status, JSON.stringify(evidence), revision, timestamp, checkpointId);
+        ).run(
+          title,
+          criteria,
+          status,
+          checkpointKind,
+          JSON.stringify(aggregationPolicy ?? {}),
+          Number(Boolean(eligibleAfterChildren)),
+          resolvedEvidenceLevel,
+          requiredEvidenceLevel,
+          coverage,
+          JSON.stringify(evidence),
+          invalidatedAt,
+          revision,
+          timestamp,
+          checkpointId
+        );
       } else {
         this.database.prepare(
           `INSERT INTO checkpoints(
-              id, project_id, target_type, target_id, title, criteria, status, evidence_json, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              id, project_id, target_type, target_id, title, criteria, status, checkpoint_kind,
+              aggregation_policy_json, eligible_after_children, evidence_level,
+              required_evidence_level, coverage, evidence_json, invalidated_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
           checkpointId,
           this.paths.descriptor.id,
@@ -24846,13 +26087,20 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
           title,
           criteria,
           status,
+          checkpointKind,
+          JSON.stringify(aggregationPolicy ?? {}),
+          Number(Boolean(eligibleAfterChildren)),
+          resolvedEvidenceLevel,
+          requiredEvidenceLevel,
+          coverage,
           JSON.stringify(evidence),
+          invalidatedAt,
           timestamp,
           timestamp
         );
       }
       const targetTable = targetType === "block" ? "blocks" : targetType === "chain" ? "chains" : targetType === "link" ? "links" : "plans";
-      const healthState = status === "passed" ? "healthy" : status === "failed" ? "failing" : status === "blocked" ? "warning" : null;
+      const healthState = status === "passed" ? "healthy" : status === "failed" ? "failing" : ["blocked", "partial_pass", "retest_required"].includes(status) ? "warning" : null;
       if (healthState && targetType !== "plan") {
         this.database.prepare(`UPDATE ${targetTable} SET health_state = ?, updated_at = ? WHERE id = ?`).run(healthState, timestamp, targetId);
       }
@@ -24868,7 +26116,17 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       return {
         changeSetId,
         graphRevision: this.project().graph_revision,
-        checkpoint: { id: checkpointId, revision, status }
+        checkpoint: {
+          id: checkpointId,
+          revision,
+          status,
+          checkpointKind,
+          aggregationPolicy,
+          eligibleAfterChildren: Boolean(eligibleAfterChildren),
+          evidenceLevel: resolvedEvidenceLevel,
+          requiredEvidenceLevel,
+          coverage
+        }
       };
     });
   }
@@ -24905,6 +26163,24 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       if (!snapshot.plans.some((plan) => plan.id === target.planId)) errors.push(`Missing Plan: plan:${target.planId}`);
       if (!snapshot.chains.some((chain) => chain.id === target.chainId)) errors.push(`Missing Plan target: plan:${target.planId} -> chain:${target.chainId}`);
     }
+    for (const dependency of snapshot.planDependencies) {
+      if (!snapshot.plans.some((plan) => plan.id === dependency.planId)) errors.push(`Missing dependent Plan: plan:${dependency.planId}`);
+      if (!snapshot.plans.some((plan) => plan.id === dependency.dependsOnPlanId)) errors.push(`Missing prerequisite Plan: plan:${dependency.dependsOnPlanId}`);
+    }
+    for (const step of snapshot.planSteps) {
+      if (!snapshot.plans.some((plan) => plan.id === step.planId)) errors.push(`Missing Plan for step: ${step.id}`);
+      for (const ref of step.targetRefs) {
+        const [type, id] = String(ref).split(":", 2);
+        if (!id || !entityExists(this.database, this.paths.descriptor.id, type, id)) errors.push(`Missing Plan step target: ${step.id} -> ${ref}`);
+      }
+    }
+    for (const ref of snapshot.planCheckpointRefs) {
+      if (!snapshot.plans.some((plan) => plan.id === ref.planId)) errors.push(`Missing Plan checkpoint owner: plan:${ref.planId}`);
+      if (!snapshot.checkpoints.some((checkpoint) => checkpoint.id === ref.checkpointId)) errors.push(`Missing Plan checkpoint: plan:${ref.planId} -> checkpoint:${ref.checkpointId}`);
+      if (ref.stepId && !snapshot.planSteps.some((step) => step.id === ref.stepId && step.planId === ref.planId)) {
+        errors.push(`Checkpoint references a foreign Plan step: checkpoint:${ref.checkpointId} -> ${ref.stepId}`);
+      }
+    }
     for (const scope of snapshot.backgroundScopes) {
       if (!snapshot.blocks.some((block) => block.id === scope.blockId)) errors.push(`Missing Background Block: block:${scope.blockId}`);
     }
@@ -24930,10 +26206,16 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }
     for (const plan of snapshot.plans) {
       if (plan.status === "complete") {
-        const passed = snapshot.checkpoints.some(
-          (checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === plan.id && checkpoint.status === "passed"
-        );
-        if (!passed) warnings.push(`Complete plan has no passed checkpoint: plan:${plan.id}`);
+        const required2 = snapshot.planCheckpointRefs.filter((item) => item.planId === plan.id && item.required);
+        const fallback = snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === plan.id);
+        const gates = required2.length ? required2.map((item) => snapshot.checkpoints.find((checkpoint) => checkpoint.id === item.checkpointId)).filter(Boolean) : fallback;
+        if (!gates.length || gates.some((checkpoint) => !checkpointSatisfiesGate(checkpoint))) {
+          warnings.push(`Complete plan has unsatisfied checkpoint gates: plan:${plan.id}`);
+        }
+        const steps = snapshot.planSteps.filter((step) => step.planId === plan.id);
+        if (steps.length && steps.some((step) => !["complete", "skipped"].includes(step.status))) {
+          warnings.push(`Complete plan has unfinished steps: plan:${plan.id}`);
+        }
       }
       if (snapshot.planChainRefs.every((item) => item.planId !== plan.id)) warnings.push(`Plan has no target Chain: plan:${plan.id}`);
     }
@@ -24991,7 +26273,7 @@ var router = new ProjectServiceRouter();
 var server = new McpServer(
   { name: "mdflow", version: "0.2.0" },
   {
-    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot. Repeat projectRoot when practical; an omitted follow-up inherits the most recently resolved root in this connection. Change it explicitly when switching projects. Plans are independent work entities that target Chain path overlays. Use graph_mutate for durable architecture or progress changes, checkpoint_record for evidence, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
+    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }
 );
 var projectRootInput = { projectRoot: string2().min(1).optional() };
@@ -25050,6 +26332,34 @@ server.registerTool(
   }
 );
 server.registerTool(
+  "plan_context",
+  {
+    description: "Read one Plan as a compact hierarchical development document: overview, ordered ChainScopes, inline Block/Link/Chain changes, checkpoint gates, and exact source refs. This is the primary read before implementing a Plan.",
+    inputSchema: {
+      ...projectRootInput,
+      id: string2().min(1),
+      maxChars: number2().int().min(1e3).max(24e3).default(12e3),
+      locale: _enum(["en", "zh-Hans"]).optional()
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.planContext(payload));
+    return result(data, data.markdown);
+  }
+);
+server.registerTool(
+  "changes_since",
+  {
+    description: "Read only graph/checkpoint mutations after a known change sequence. Use this for live synchronization and compact read-back instead of reloading the project.",
+    inputSchema: {
+      ...projectRootInput,
+      sequence: number2().int().min(0).default(0),
+      limit: number2().int().min(1).max(500).default(100)
+    }
+  },
+  async (input) => result(withProject(input, (service, payload) => service.changesSince(payload)))
+);
+server.registerTool(
   "entity_open",
   {
     description: "Open one Block, Chain, Link, or Plan with only its relevant checkpoints, code refs, targets, and recent history.",
@@ -25105,6 +26415,14 @@ server.registerTool(
             "create_plan",
             "update_plan",
             "set_plan_chains",
+            "set_plan_dependencies",
+            "set_plan_steps",
+            "set_plan_checkpoints",
+            "set_plan_chain_scopes",
+            "set_plan_changes",
+            "set_plan_chain_change_refs",
+            "set_checkpoint_bindings",
+            "set_checkpoint_dependencies",
             "set_chain_path",
             "set_background_scopes"
           ]),
@@ -25113,7 +26431,7 @@ server.registerTool(
           fields: record(string2(), unknown()).optional(),
           summary: string2().optional()
         })
-      ).min(1).max(10)
+      ).min(1).max(20)
     }
   },
   async (input) => {
@@ -25134,8 +26452,15 @@ server.registerTool(
       targetId: string2().min(1),
       title: string2().min(1),
       criteria: string2().optional(),
-      status: _enum(["pending", "running", "passed", "failed", "blocked"]),
+      status: _enum(["pending", "running", "passed", "partial_pass", "failed", "blocked", "not_supported", "retest_required"]),
+      checkpointKind: _enum(["atomic", "aggregate", "integration"]).optional(),
+      aggregationPolicy: record(string2(), unknown()).optional(),
+      eligibleAfterChildren: boolean2().optional(),
+      evidenceLevel: _enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).optional(),
+      requiredEvidenceLevel: _enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).optional(),
+      coverage: _enum(["complete", "partial"]).optional(),
       evidence: array(record(string2(), unknown())).optional(),
+      invalidatedAt: string2().nullable().optional(),
       expectedRevision: number2().int().optional()
     }
   },

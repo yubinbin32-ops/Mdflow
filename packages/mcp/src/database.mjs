@@ -80,9 +80,16 @@ CREATE TABLE IF NOT EXISTS plans (
   goal TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'draft',
   priority TEXT NOT NULL DEFAULT 'normal',
+  phase TEXT NOT NULL DEFAULT 'implementation',
+  plan_order INTEGER NOT NULL DEFAULT 0,
   proposed_delta_json TEXT NOT NULL DEFAULT '[]',
+  completion_policy_json TEXT NOT NULL DEFAULT '{}',
   next_action TEXT NOT NULL DEFAULT '',
   blockers_json TEXT NOT NULL DEFAULT '[]',
+  status_reason TEXT NOT NULL DEFAULT '',
+  started_at TEXT,
+  completed_at TEXT,
+  invalidated_at TEXT,
   current_revision INTEGER NOT NULL DEFAULT 1,
   archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
@@ -94,6 +101,88 @@ CREATE TABLE IF NOT EXISTS plan_chain_refs (
   chain_id TEXT NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
   position INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY(plan_id, chain_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_dependencies (
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  depends_on_plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(plan_id, depends_on_plan_id),
+  CHECK(plan_id != depends_on_plan_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_steps (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  action TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  target_refs_json TEXT NOT NULL DEFAULT '[]',
+  proposed_delta_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plan_checkpoint_refs (
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  step_id TEXT REFERENCES plan_steps(id) ON DELETE SET NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  required INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY(plan_id, checkpoint_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_chain_scopes (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  chain_id TEXT NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  rationale TEXT NOT NULL DEFAULT '',
+  start_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+  end_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+  node_ids_json TEXT NOT NULL DEFAULT '[]',
+  link_ids_json TEXT NOT NULL DEFAULT '[]',
+  expected_delta_json TEXT NOT NULL DEFAULT '[]',
+  prohibitions_json TEXT NOT NULL DEFAULT '[]',
+  localizations_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'pending',
+  current_revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(plan_id, chain_id, id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_changes (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  entity_type TEXT NOT NULL CHECK(entity_type IN ('block', 'link', 'chain')),
+  entity_id TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  current_behavior TEXT NOT NULL DEFAULT '',
+  proposed_behavior TEXT NOT NULL DEFAULT '',
+  rationale TEXT NOT NULL DEFAULT '',
+  prohibitions_json TEXT NOT NULL DEFAULT '[]',
+  expected_effects_json TEXT NOT NULL DEFAULT '[]',
+  source_refs_json TEXT NOT NULL DEFAULT '[]',
+  localizations_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'pending',
+  current_revision INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(plan_id, entity_type, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS plan_chain_change_refs (
+  chain_scope_id TEXT NOT NULL REFERENCES plan_chain_scopes(id) ON DELETE CASCADE,
+  plan_change_id TEXT NOT NULL REFERENCES plan_changes(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'affected',
+  position INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(chain_scope_id, plan_change_id)
 );
 
 CREATE TABLE IF NOT EXISTS chain_members (
@@ -151,10 +240,36 @@ CREATE TABLE IF NOT EXISTS checkpoints (
   title TEXT NOT NULL,
   criteria TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'pending',
+  checkpoint_kind TEXT NOT NULL DEFAULT 'atomic',
+  aggregation_policy_json TEXT NOT NULL DEFAULT '{}',
+  eligible_after_children INTEGER NOT NULL DEFAULT 0,
+  evidence_level TEXT NOT NULL DEFAULT 'none',
+  required_evidence_level TEXT NOT NULL DEFAULT 'static',
+  coverage TEXT NOT NULL DEFAULT 'complete',
   evidence_json TEXT NOT NULL DEFAULT '[]',
+  invalidated_at TEXT,
   current_revision INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS checkpoint_bindings (
+  checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  subject_type TEXT NOT NULL CHECK(subject_type IN ('block', 'link', 'chain', 'plan', 'plan_change', 'plan_chain_scope')),
+  subject_id TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'leaf',
+  required INTEGER NOT NULL DEFAULT 1,
+  position INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(checkpoint_id, subject_type, subject_id, role)
+);
+
+CREATE TABLE IF NOT EXISTS checkpoint_dependencies (
+  parent_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  child_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  required INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY(parent_checkpoint_id, child_checkpoint_id),
+  CHECK(parent_checkpoint_id != child_checkpoint_id)
 );
 
 CREATE TABLE IF NOT EXISTS change_sets (
@@ -175,6 +290,13 @@ CREATE TABLE IF NOT EXISTS history (
   action TEXT NOT NULL,
   revision INTEGER NOT NULL,
   summary TEXT NOT NULL,
+  plan_id TEXT,
+  chain_scope_id TEXT,
+  before_json TEXT NOT NULL DEFAULT '{}',
+  after_json TEXT NOT NULL DEFAULT '{}',
+  changed_fields_json TEXT NOT NULL DEFAULT '[]',
+  affected_refs_json TEXT NOT NULL DEFAULT '[]',
+  evidence_refs_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
 );
 
@@ -193,10 +315,18 @@ CREATE INDEX IF NOT EXISTS idx_chains_project ON chains(project_id, archived);
 CREATE INDEX IF NOT EXISTS idx_links_project ON links(project_id, archived);
 CREATE INDEX IF NOT EXISTS idx_plans_project ON plans(project_id, archived, status);
 CREATE INDEX IF NOT EXISTS idx_plan_chain_refs_plan ON plan_chain_refs(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_dependencies_plan ON plan_dependencies(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_steps_plan ON plan_steps(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_checkpoint_refs_plan ON plan_checkpoint_refs(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_chain_scopes_plan ON plan_chain_scopes(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_changes_plan ON plan_changes(plan_id, position);
+CREATE INDEX IF NOT EXISTS idx_plan_chain_change_refs_scope ON plan_chain_change_refs(chain_scope_id, position);
 CREATE INDEX IF NOT EXISTS idx_chain_nodes_chain ON chain_nodes(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_chain_edges_chain ON chain_edges(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_background_scopes_block ON background_scopes(block_id);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_target ON checkpoints(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_checkpoint_bindings_subject ON checkpoint_bindings(subject_type, subject_id, position);
+CREATE INDEX IF NOT EXISTS idx_checkpoint_dependencies_parent ON checkpoint_dependencies(parent_checkpoint_id, position);
 CREATE INDEX IF NOT EXISTS idx_history_entity ON history(entity_type, entity_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_change_feed_project ON change_feed(project_id, sequence DESC);
 CREATE INDEX IF NOT EXISTS idx_localized_text_entity ON localized_text(entity_type, entity_id, locale);
@@ -277,6 +407,138 @@ function migrateBlockArchitecture(database) {
   }
 }
 
+function addColumnIfMissing(database, table, column, definition) {
+  const columns = new Set(database.prepare(`PRAGMA table_info(${table})`).all().map((item) => item.name));
+  if (!columns.has(column)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+}
+
+function migratePlanWorkflow(database) {
+  addColumnIfMissing(database, "plans", "phase", "TEXT NOT NULL DEFAULT 'implementation'");
+  addColumnIfMissing(database, "plans", "plan_order", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(database, "plans", "completion_policy_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "plans", "status_reason", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(database, "plans", "started_at", "TEXT");
+  addColumnIfMissing(database, "plans", "completed_at", "TEXT");
+  addColumnIfMissing(database, "plans", "invalidated_at", "TEXT");
+  addColumnIfMissing(database, "checkpoints", "evidence_level", "TEXT NOT NULL DEFAULT 'none'");
+  addColumnIfMissing(database, "checkpoints", "required_evidence_level", "TEXT NOT NULL DEFAULT 'static'");
+  addColumnIfMissing(database, "checkpoints", "coverage", "TEXT NOT NULL DEFAULT 'complete'");
+  addColumnIfMissing(database, "checkpoints", "invalidated_at", "TEXT");
+  addColumnIfMissing(database, "checkpoints", "checkpoint_kind", "TEXT NOT NULL DEFAULT 'atomic'");
+  addColumnIfMissing(database, "checkpoints", "aggregation_policy_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "checkpoints", "eligible_after_children", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(database, "history", "plan_id", "TEXT");
+  addColumnIfMissing(database, "history", "chain_scope_id", "TEXT");
+  addColumnIfMissing(database, "history", "before_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "history", "after_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "history", "changed_fields_json", "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing(database, "history", "affected_refs_json", "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing(database, "history", "evidence_refs_json", "TEXT NOT NULL DEFAULT '[]'");
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS plan_dependencies (
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      depends_on_plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(plan_id, depends_on_plan_id),
+      CHECK(plan_id != depends_on_plan_id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_steps (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      action TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      target_refs_json TEXT NOT NULL DEFAULT '[]',
+      proposed_delta_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS plan_checkpoint_refs (
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      step_id TEXT REFERENCES plan_steps(id) ON DELETE SET NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      required INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY(plan_id, checkpoint_id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_chain_scopes (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      chain_id TEXT NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      rationale TEXT NOT NULL DEFAULT '',
+      start_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+      end_block_id TEXT REFERENCES blocks(id) ON DELETE SET NULL,
+      node_ids_json TEXT NOT NULL DEFAULT '[]',
+      link_ids_json TEXT NOT NULL DEFAULT '[]',
+      expected_delta_json TEXT NOT NULL DEFAULT '[]',
+      prohibitions_json TEXT NOT NULL DEFAULT '[]',
+      localizations_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'pending',
+      current_revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(plan_id, chain_id, id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_changes (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+      entity_type TEXT NOT NULL CHECK(entity_type IN ('block', 'link', 'chain')),
+      entity_id TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      current_behavior TEXT NOT NULL DEFAULT '',
+      proposed_behavior TEXT NOT NULL DEFAULT '',
+      rationale TEXT NOT NULL DEFAULT '',
+      prohibitions_json TEXT NOT NULL DEFAULT '[]',
+      expected_effects_json TEXT NOT NULL DEFAULT '[]',
+      source_refs_json TEXT NOT NULL DEFAULT '[]',
+      localizations_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'pending',
+      current_revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(plan_id, entity_type, entity_id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_chain_change_refs (
+      chain_scope_id TEXT NOT NULL REFERENCES plan_chain_scopes(id) ON DELETE CASCADE,
+      plan_change_id TEXT NOT NULL REFERENCES plan_changes(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'affected',
+      position INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(chain_scope_id, plan_change_id)
+    );
+    CREATE TABLE IF NOT EXISTS checkpoint_bindings (
+      checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      subject_type TEXT NOT NULL CHECK(subject_type IN ('block', 'link', 'chain', 'plan', 'plan_change', 'plan_chain_scope')),
+      subject_id TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'leaf',
+      required INTEGER NOT NULL DEFAULT 1,
+      position INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(checkpoint_id, subject_type, subject_id, role)
+    );
+    CREATE TABLE IF NOT EXISTS checkpoint_dependencies (
+      parent_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      child_checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      required INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY(parent_checkpoint_id, child_checkpoint_id),
+      CHECK(parent_checkpoint_id != child_checkpoint_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_plan_dependencies_plan ON plan_dependencies(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_steps_plan ON plan_steps(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_checkpoint_refs_plan ON plan_checkpoint_refs(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_chain_scopes_plan ON plan_chain_scopes(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_changes_plan ON plan_changes(plan_id, position);
+    CREATE INDEX IF NOT EXISTS idx_plan_chain_change_refs_scope ON plan_chain_change_refs(chain_scope_id, position);
+    CREATE INDEX IF NOT EXISTS idx_checkpoint_bindings_subject ON checkpoint_bindings(subject_type, subject_id, position);
+    CREATE INDEX IF NOT EXISTS idx_checkpoint_dependencies_parent ON checkpoint_dependencies(parent_checkpoint_id, position);
+  `);
+}
+
 function backfillChainPaths(database) {
   database.exec(`
     INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
@@ -306,6 +568,7 @@ export function openDatabase(databasePath) {
   database.exec(SCHEMA);
   migratePlanCapableTables(database);
   migrateBlockArchitecture(database);
+  migratePlanWorkflow(database);
   backfillChainPaths(database);
   return database;
 }

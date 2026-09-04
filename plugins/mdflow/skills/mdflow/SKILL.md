@@ -1,56 +1,75 @@
 ---
 name: mdflow
-description: Use the local mdflow project graph to retrieve task-scoped development context and synchronize durable architecture, contracts, code references, progress, risks, and checkpoint evidence. Applies when a project contains .mdflow/project.json or the user asks to use mdflow.
+description: Use a verified local mdflow project graph to retrieve task-scoped development context and synchronize architecture, contracts, code locations, ordered Plans, progress, risks, and checkpoint evidence. Applies when a project contains .mdflow/project.json or the user asks to use mdflow.
 ---
 
 # mdflow
 
-Use mdflow as the project's context source, not as a ceremony performed only at task boundaries.
+Use mdflow as the canonical development-context system after its graph has passed validation. Public/release documentation may remain Markdown; ordinary development architecture, planning, progress, evidence, and implementation locations belong in mdflow.
+
+## Trust gate
+
+- Resolve the absolute repository root and pass it as `projectRoot` to every tool call. Never reuse entity IDs across project roots.
+- If `.mdflow/project.json` is absent, register the project, then build its graph from verified source facts. Do not claim Markdown replacement until the graph can reconstruct the project's essential architecture, contracts, decisions, Plans, checkpoints, and code locations.
+- If the graph is known to be incomplete, stale, under migration, or under repair, treat it as untrusted. Read the smallest explicitly relevant source/document set, repair and validate the graph, then switch back to mdflow-first use.
+- Never copy examples, test-project facts, or another repository's graph into the active project.
 
 ## Read progressively
 
-- Determine the absolute repository root for the project being changed. Pass it as `projectRoot` to every mdflow tool call; when the user switches projects, change `projectRoot` deliberately and never reuse entities across roots.
-- If the root has no `.mdflow/project.json`, call `project_register` once before any other mdflow tool.
-- At the start of relevant project work, call `context_for_task` with `projectRoot`, the actual task, and a modest budget. This happens before listing repository files, opening development Markdown, broad source search, or reading implementation files for orientation.
-- Use `project_map` to understand the whole architecture, then `entity_open` or `graph_search` only when the task context does not answer the next decision.
-- Open only source references returned by mdflow and the smallest immediately related code neighborhood needed to make the change. Do not use directory traversal, broad `rg --files`, or read every document to learn a registered project.
-- If mdflow lacks a required fact, record the gap or risk, perform a targeted source investigation, and write the confirmed result and source references back before relying on it later.
-- Broad file or Markdown reading is allowed only when the user explicitly requests that file, when producing public release documentation, or when mdflow is unavailable or being repaired.
-- Do not request or reconstruct the entire graph when a Block, Link, or Chain is sufficient.
+For a trusted graph, call `context_for_task` before broad file discovery, opening development Markdown, or reading implementation files for orientation. Use this order:
 
-## Synchronize when the project meaning changes
+1. `context_for_task` with the actual task and a modest character budget.
+2. `plan_context` when implementing or reviewing a Plan. Read its ChainScopes, inline entity changes, prohibitions, code locations, and gates before opening files.
+3. `project_map` when whole-project order or active Plan sequencing matters.
+4. `entity_open` for exact Block, Chain, Link, or non-Plan details.
+5. `changes_since` after a known change sequence to synchronize only incremental mutations.
+6. `graph_search` only when the returned references are insufficient.
+7. Open source references returned by mdflow and the smallest immediately related code neighborhood.
 
-Use `graph_mutate` whenever work creates or changes a durable responsibility, flow, interface, data contract, implementation location, risk, plan, or delivery state. Do not emit graph writes for inconsequential code formatting or every intermediate thought.
+The context must cover the facts needed for the task: positive requirements, prohibitions, state transitions, architecture, interfaces/contracts, current progress, decisions, risks, code locations, ordered steps, checkpoint gates, and relevant history. If a required fact is missing, record the gap, investigate narrowly, and repair it before relying on mdflow later.
 
-- A Plan is an independent work-management entity that targets one or more Chains. A Chain is only a reusable path overlay through global Blocks and Links; neither owns or duplicates those graph entities.
-- Todo is derived from unfinished Plan checkpoints and next actions. Do not create a Todo Block, Plan Block, or Plan Chain.
-- Before implementing a new capability, ensure the smallest accurate Block/Chain structure exists.
-- Keep Blocks semantic and stable. Attach implementation, test, schema, style, or configuration locations with `add_source_ref`; remove stale or duplicate locations with `remove_source_ref`. Never replace a responsibility with a file path.
-- Update existing entities with their latest `expectedRevision`. If a revision conflicts, reopen the entity and reconcile instead of overwriting it.
-- Keep each mutation small, cohesive, and truthful. Record the reason the graph changed.
-- When updating a localized title, summary, body, contract, goal, or next action, update every supported locale in the same mutation. If a translation is omitted, mdflow removes the stale localized value and falls back to the canonical fact.
-- When implementation reveals that the architecture was wrong, update the architecture immediately; do not preserve a knowingly false plan until the end.
+## Build and maintain the graph in semantic order
 
-### Mutation vocabulary
+1. Create stable global Blocks for durable responsibilities. A Block is not a file, Todo, Plan, or arbitrary note.
+2. Create typed global Links for real relationships. Link style and meaning come from `kind`, never Chain membership.
+3. Define ordered Chains as reusable paths over existing Block and Link IDs. A Block may be in multiple Chains; Chains never own or duplicate Blocks.
+4. Create ordered Plans, then define `plan_chain_scopes` for the exact portions of each Chain that change.
+5. Define one canonical `plan_change` per affected Block, Link, or Chain. Record current behavior, proposed behavior, reason, prohibitions, expected effects, and exact source locations. Reuse that same change from multiple ChainScopes through references; never duplicate it.
+6. Build checkpoint bindings and a dependency DAG. Atomic checks bind to the affected change/entity; aggregate Chain gates derive from required children; integration gates become eligible only after their children pass; Plan gates aggregate Chain and cross-Chain acceptance.
+7. Attach implementation/test/schema/configuration locations to Blocks using source references. Keep one canonical fact in one storage location and derive other views from it.
 
-Use the storage vocabulary directly so a mutation does not require a discovery retry:
+Plan phase/order should make a new project readable from foundation through delivery. Todo is derived from unfinished Plan steps, gates, blockers, and next actions; do not create Todo Blocks or Plan Chains.
 
-- Block `kind`: `principle`, `product`, `requirement`, `decision`, `flow`, `ui`, `service`, `function`, `integration`, `data`, `database`, `risk`, `test`, or `checkpoint`.
-- Block `architectureLayer`: `client`, `boundary`, `application`, `domain`, `data`, `external`, `quality`, `infrastructure`, or `unspecified`. Set it explicitly for product Blocks; reserve `unspecified` for migration or a recorded classification gap.
-- Block `scope` names the bounded product/domain area shared across frontend, backend, database, and external integration components. `localOrder` is an integer used only to stabilize order within one scope and architecture layer.
-- Link `kind`: `flows_to`, `calls`, `reads`, `writes`, `depends_on`, `implements`, `validates`, `constrains`, or `supersedes`.
-- Block/Chain `deliveryState`: `proposed`, `planned`, `implementing`, `verifying`, `complete`, or `deprecated`.
-- `healthState`: `unknown`, `healthy`, `warning`, `failing`, `unstable`, or `disputed`.
-- Plan `status`: `draft`, `ready`, `active`, `verifying`, `complete`, `blocked`, or `cancelled`.
+## Mutation fidelity
 
-For `create_link`, set `sourceType`, `sourceId`, `targetType`, `targetId`, and `kind`. For `set_chain_path`, pass ordered `nodeIds` and the existing ordered `linkIds` that connect them. For `set_plan_chains`, pass ordered existing `chainIds`.
+- Keep every mutation small, cohesive, and truthful. Use current `expectedRevision`; on conflict, reopen and reconcile.
+- When meaning changes, update every supported locale in the same mutation. Do not translate identifiers or create duplicate localized entities.
+- After every meaningful write:
+  1. inspect every returned `ref`, `revision`, and `uiLocation` receipt;
+  2. call `entity_open` for every changed semantic entity;
+  3. compare the read-back against the intended positive requirements, prohibitions, ordering, contracts, and acceptance conditions;
+  4. run `graph_validate` when topology, Plan workflow, completion, or contracts changed.
+- If read-back loses or distorts a fact, stop implementing from that graph. Correct the graph/schema/Skill before recording more progress.
+- When implementation disproves the documented architecture, update the architecture immediately.
 
 ## Progress and evidence
 
-- Use delivery state for lifecycle progress and health state for correctness/risk. Do not encode both meanings in one status.
-- Move work to `verifying` when implementation exists but evidence is incomplete.
-- Record failures with a specific checkpoint or risk and keep them visible while investigating.
-- Use `checkpoint_record` for tests and observable acceptance evidence. Only mark a Block or Chain complete/healthy when the relevant checkpoint evidence actually passed.
-- After meaningful updates, run `graph_validate` when links, Chain membership, completion state, or contracts may have become inconsistent.
+- Block/Chain delivery lifecycle: `proposed`, `planned`, `implementing`, `verifying`, `complete`, `deprecated`.
+- Plan status: `draft`, `ready`, `active`, `verifying`, `complete`, `blocked`, `failed`, `retest_required`, `cancelled`.
+- Plan step status: `pending`, `active`, `complete`, `blocked`, `failed`, `skipped`.
+- Checkpoint outcome: `pending`, `running`, `passed`, `partial_pass`, `failed`, `blocked`, `not_supported`, `retest_required`.
+- Evidence level, weakest to strongest: `none`, `static`, `simulated`, `integration`, `real_target`, `human_review`.
+- A passed gate requires complete coverage and evidence at least as strong as its required level. Static analysis is not real-target proof.
+- Aggregate checkpoint status is derived and cannot be manually forced to passed. Required failure/blocked/retest states propagate; optional failures remain visible warnings without blocking success.
+- Reject checkpoint dependency cycles. A Chain integration checkpoint runs only after its required Block/Link children pass.
+- Mark stale evidence `retest_required` when the implementation or environment invalidates it.
+- Never declare a Plan complete while dependencies, required steps, or required gates are incomplete.
 
-The App is a live read-only projection. MCP mutations commit to a change feed, so keep the graph current enough that a person watching the Canvas sees the real implementation state without needing a refresh.
+## Storage vocabulary
+
+- Block `kind`: `principle`, `product`, `requirement`, `decision`, `flow`, `ui`, `service`, `function`, `integration`, `data`, `database`, `risk`, `test`, `checkpoint`.
+- Block `architectureLayer`: `client`, `boundary`, `application`, `domain`, `data`, `external`, `quality`, `infrastructure`, `unspecified`.
+- Link `kind`: `flows_to`, `calls`, `reads`, `writes`, `depends_on`, `implements`, `validates`, `constrains`, `supersedes`.
+- `scope` is semantic metadata only; it does not imply Canvas position. Set `localOrder` only to stabilize order inside a semantic area.
+
+The desktop App is a live read-only projection. MCP writes must produce a change-feed event and become visible without manual refresh.

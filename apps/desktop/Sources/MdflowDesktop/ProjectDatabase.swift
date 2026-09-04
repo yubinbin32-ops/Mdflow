@@ -108,15 +108,20 @@ final class ProjectDatabase {
                 revision: row.int("current_revision")
             )
         }
-        let plans = try rows(
+        var plans = try rows(
             "SELECT * FROM plans WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC",
             bindings: [project.id]
         ).map { row in
             PlanItem(
                 id: row.text("id"), title: row.text("title"), summary: row.text("summary"),
-                goal: row.text("goal"), status: row.text("status"), priority: row.text("priority"),
-                proposedDelta: row.text("proposed_delta_json"), nextAction: row.text("next_action"),
-                blockers: row.text("blockers_json"), revision: row.int("current_revision")
+                goal: row.text("goal"), status: row.text("status"), derivedStatus: row.text("status"),
+                statusReason: row.text("status_reason"), priority: row.text("priority"),
+                phase: row.text("phase").isEmpty ? "implementation" : row.text("phase"), order: row.int("plan_order"),
+                proposedDelta: row.text("proposed_delta_json"), completionPolicy: row.text("completion_policy_json"),
+                nextAction: row.text("next_action"), blockers: row.text("blockers_json"),
+                startedAt: row.optionalText("started_at"), completedAt: row.optionalText("completed_at"),
+                invalidatedAt: row.optionalText("invalidated_at"), progress: .empty,
+                revision: row.int("current_revision")
             )
         }
         let links = try rows(
@@ -163,6 +168,89 @@ final class ProjectDatabase {
         ).map { row in
             PlanChainReference(planId: row.text("plan_id"), chainId: row.text("chain_id"), position: row.int("position"))
         }
+        let planDependencies = try optionalRows(
+            """
+            SELECT pd.* FROM plan_dependencies pd JOIN plans p ON p.id = pd.plan_id
+            WHERE p.project_id = ? AND p.archived = 0 ORDER BY pd.plan_id, pd.position
+            """,
+            table: "plan_dependencies", bindings: [project.id]
+        ).map { row in
+            PlanDependency(planId: row.text("plan_id"), dependsOnPlanId: row.text("depends_on_plan_id"), position: row.int("position"))
+        }
+        let planSteps = try optionalRows(
+            """
+            SELECT ps.* FROM plan_steps ps JOIN plans p ON p.id = ps.plan_id
+            WHERE p.project_id = ? AND p.archived = 0 ORDER BY ps.plan_id, ps.position
+            """,
+            table: "plan_steps", bindings: [project.id]
+        ).map { row in
+            PlanStep(
+                id: row.text("id"), planId: row.text("plan_id"), position: row.int("position"),
+                title: row.text("title"), action: row.text("action"), status: row.text("status"),
+                targetReferences: row.text("target_refs_json"), proposedDelta: row.text("proposed_delta_json"),
+                updatedAt: row.text("updated_at")
+            )
+        }
+        let planCheckpointReferences = try optionalRows(
+            """
+            SELECT pcr.* FROM plan_checkpoint_refs pcr JOIN plans p ON p.id = pcr.plan_id
+            WHERE p.project_id = ? AND p.archived = 0 ORDER BY pcr.plan_id, pcr.position
+            """,
+            table: "plan_checkpoint_refs", bindings: [project.id]
+        ).map { row in
+            PlanCheckpointReference(
+                planId: row.text("plan_id"), checkpointId: row.text("checkpoint_id"),
+                stepId: row.optionalText("step_id"), position: row.int("position"), required: row.int("required") != 0
+            )
+        }
+        let planChainScopes = try optionalRows(
+            """
+            SELECT pcs.* FROM plan_chain_scopes pcs JOIN plans p ON p.id = pcs.plan_id
+            WHERE p.project_id = ? AND p.archived = 0 ORDER BY pcs.plan_id, pcs.position
+            """,
+            table: "plan_chain_scopes", bindings: [project.id]
+        ).map { row in
+            PlanChainScopeItem(
+                id: row.text("id"), planId: row.text("plan_id"), chainId: row.text("chain_id"),
+                position: row.int("position"), title: row.text("title"), summary: row.text("summary"),
+                rationale: row.text("rationale"), startBlockId: row.optionalText("start_block_id"),
+                endBlockId: row.optionalText("end_block_id"), nodeIds: row.text("node_ids_json"),
+                linkIds: row.text("link_ids_json"), expectedDelta: row.text("expected_delta_json"),
+                prohibitions: row.text("prohibitions_json"), status: row.text("status"),
+                revision: row.int("current_revision")
+            )
+        }
+        let planChanges = try optionalRows(
+            """
+            SELECT pc.* FROM plan_changes pc JOIN plans p ON p.id = pc.plan_id
+            WHERE p.project_id = ? AND p.archived = 0 ORDER BY pc.plan_id, pc.position
+            """,
+            table: "plan_changes", bindings: [project.id]
+        ).map { row in
+            PlanChangeItem(
+                id: row.text("id"), planId: row.text("plan_id"), entityType: row.text("entity_type"),
+                entityId: row.text("entity_id"), position: row.int("position"), title: row.text("title"),
+                summary: row.text("summary"), currentBehavior: row.text("current_behavior"),
+                proposedBehavior: row.text("proposed_behavior"), rationale: row.text("rationale"),
+                prohibitions: row.text("prohibitions_json"), expectedEffects: row.text("expected_effects_json"),
+                sourceRefs: row.text("source_refs_json"), status: row.text("status"),
+                revision: row.int("current_revision")
+            )
+        }
+        let planChainChangeReferences = try optionalRows(
+            """
+            SELECT pccr.* FROM plan_chain_change_refs pccr
+            JOIN plan_chain_scopes pcs ON pcs.id = pccr.chain_scope_id
+            JOIN plans p ON p.id = pcs.plan_id
+            WHERE p.project_id = ? AND p.archived = 0 ORDER BY pccr.chain_scope_id, pccr.position
+            """,
+            table: "plan_chain_change_refs", bindings: [project.id]
+        ).map { row in
+            PlanChainChangeReference(
+                chainScopeId: row.text("chain_scope_id"), planChangeId: row.text("plan_change_id"),
+                role: row.text("role"), position: row.int("position")
+            )
+        }
         let backgroundScopes = try rows(
             """
             SELECT bs.* FROM background_scopes bs JOIN blocks b ON b.id = bs.block_id
@@ -191,7 +279,7 @@ final class ProjectDatabase {
                 gitCommit: row.optionalText("git_commit")
             )
         }
-        let checkpoints = try rows(
+        var checkpoints = try rows(
             "SELECT * FROM checkpoints WHERE project_id = ? ORDER BY updated_at DESC",
             bindings: [project.id]
         ).map { row in
@@ -202,10 +290,52 @@ final class ProjectDatabase {
                 title: row.text("title"),
                 criteria: row.text("criteria"),
                 status: row.text("status"),
+                kind: row.text("checkpoint_kind").isEmpty ? "atomic" : row.text("checkpoint_kind"),
+                aggregationPolicy: row.text("aggregation_policy_json").isEmpty ? "{}" : row.text("aggregation_policy_json"),
+                eligibleAfterChildren: row.int("eligible_after_children") != 0,
+                evidenceLevel: row.text("evidence_level").isEmpty ? "none" : row.text("evidence_level"),
+                requiredEvidenceLevel: row.text("required_evidence_level").isEmpty ? "static" : row.text("required_evidence_level"),
+                coverage: row.text("coverage").isEmpty ? "complete" : row.text("coverage"),
                 evidence: row.text("evidence_json"),
+                invalidatedAt: row.optionalText("invalidated_at"),
                 revision: row.int("current_revision"),
                 updatedAt: row.text("updated_at")
             )
+        }
+        let checkpointBindings = try optionalRows(
+            """
+            SELECT cb.* FROM checkpoint_bindings cb JOIN checkpoints c ON c.id = cb.checkpoint_id
+            WHERE c.project_id = ? ORDER BY cb.checkpoint_id, cb.position
+            """,
+            table: "checkpoint_bindings", bindings: [project.id]
+        ).map { row in
+            CheckpointBinding(
+                checkpointId: row.text("checkpoint_id"), subjectType: row.text("subject_type"),
+                subjectId: row.text("subject_id"), role: row.text("role"),
+                required: row.int("required") != 0, position: row.int("position")
+            )
+        }
+        let checkpointDependencies = try optionalRows(
+            """
+            SELECT cd.* FROM checkpoint_dependencies cd JOIN checkpoints c ON c.id = cd.parent_checkpoint_id
+            WHERE c.project_id = ? ORDER BY cd.parent_checkpoint_id, cd.position
+            """,
+            table: "checkpoint_dependencies", bindings: [project.id]
+        ).map { row in
+            CheckpointDependency(
+                parentCheckpointId: row.text("parent_checkpoint_id"), childCheckpointId: row.text("child_checkpoint_id"),
+                position: row.int("position"), required: row.int("required") != 0
+            )
+        }
+        checkpoints = Self.deriveCheckpoints(checkpoints, dependencies: checkpointDependencies)
+        plans = plans.map { plan in
+            Self.derive(plan: plan, allPlans: plans, dependencies: planDependencies, steps: planSteps,
+                        checkpointReferences: planCheckpointReferences, checkpoints: checkpoints,
+                        chainScopes: planChainScopes, changes: planChanges, bindings: checkpointBindings)
+        }.sorted { left, right in
+            if left.phase != right.phase { return left.phase < right.phase }
+            if left.order != right.order { return left.order < right.order }
+            return left.title.localizedCaseInsensitiveCompare(right.title) == .orderedAscending
         }
         let localizations = try rows(
             """
@@ -266,9 +396,17 @@ final class ProjectDatabase {
             chainNodes: chainNodes,
             chainEdges: chainEdges,
             planChainReferences: planChainReferences,
+            planDependencies: planDependencies,
+            planSteps: planSteps,
+            planCheckpointReferences: planCheckpointReferences,
+            planChainScopes: planChainScopes,
+            planChanges: planChanges,
+            planChainChangeReferences: planChainChangeReferences,
             backgroundScopes: backgroundScopes,
             sourceReferences: sourceReferences,
             checkpoints: checkpoints,
+            checkpointBindings: checkpointBindings,
+            checkpointDependencies: checkpointDependencies,
             localizations: localizations,
             history: history,
             latestChanges: latestChanges
@@ -278,6 +416,119 @@ final class ProjectDatabase {
     private func scalarInt(_ sql: String, bindings: [String]) throws -> Int {
         let result = try rows(sql, bindings: bindings)
         return result.first?.values.values.first.flatMap(Int.init) ?? 0
+    }
+
+    private func optionalRows(_ sql: String, table: String, bindings: [String]) throws -> [SQLiteRow] {
+        let exists = try rows("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", bindings: [table])
+        return exists.isEmpty ? [] : try rows(sql, bindings: bindings)
+    }
+
+    private static func derive(
+        plan: PlanItem, allPlans: [PlanItem], dependencies: [PlanDependency], steps: [PlanStep],
+        checkpointReferences: [PlanCheckpointReference], checkpoints: [CheckpointItem],
+        chainScopes: [PlanChainScopeItem], changes: [PlanChangeItem], bindings: [CheckpointBinding]
+    ) -> PlanItem {
+        let ownSteps = steps.filter { $0.planId == plan.id }
+        let ownScopes = chainScopes.filter { $0.planId == plan.id }
+        let ownChanges = changes.filter { $0.planId == plan.id }
+        let referencedIDs = Set(checkpointReferences.filter { $0.planId == plan.id && $0.required }.map(\.checkpointId))
+        let scopedIDs = Set(bindings.filter { binding in
+            (binding.subjectType == "plan" && binding.subjectId == plan.id) ||
+                (binding.subjectType == "plan_chain_scope" && ownScopes.contains { $0.id == binding.subjectId })
+        }.filter(\.required).map(\.checkpointId))
+        let directIDs = Set(checkpoints.filter { $0.targetType == "plan" && $0.targetId == plan.id }.map(\.id))
+        let gateIDs = referencedIDs.union(scopedIDs).union(directIDs)
+        let gates = gateIDs.compactMap { id in checkpoints.first { $0.id == id } }
+        let passed = gates.filter { checkpoint in
+            checkpoint.status == "passed" && checkpoint.coverage == "complete" && checkpoint.invalidatedAt == nil &&
+                evidenceRank(checkpoint.evidenceLevel) >= evidenceRank(checkpoint.requiredEvidenceLevel)
+        }.count
+        let usesDetailedChanges = !ownScopes.isEmpty || !ownChanges.isEmpty
+        let completedWork = usesDetailedChanges
+            ? ownChanges.filter { ["complete", "passed"].contains($0.status) }.count
+            : ownSteps.filter { ["complete", "skipped"].contains($0.status) }.count
+        let totalWork = usesDetailedChanges ? ownChanges.count : ownSteps.count
+        let progress = PlanProgress(
+            completedSteps: completedWork,
+            totalSteps: totalWork,
+            passedRequiredCheckpoints: passed,
+            totalRequiredCheckpoints: gates.count
+        )
+        var status = plan.status
+        var reason = plan.statusReason
+        if plan.invalidatedAt != nil || gates.contains(where: { $0.invalidatedAt != nil || $0.status == "retest_required" }) {
+            status = "retest_required"; if reason.isEmpty { reason = "Required evidence must be run again." }
+        } else if ownSteps.contains(where: { $0.status == "failed" }) || gates.contains(where: { $0.status == "failed" }) {
+            status = "failed"; if reason.isEmpty { reason = "A required step or checkpoint failed." }
+        } else if ownSteps.contains(where: { $0.status == "blocked" }) || gates.contains(where: { $0.status == "blocked" }) || plan.blockers != "[]" {
+            status = "blocked"; if reason.isEmpty { reason = "A blocker prevents progress." }
+        } else if dependencies.filter({ $0.planId == plan.id }).contains(where: { dependency in
+            allPlans.first(where: { $0.id == dependency.dependsOnPlanId })?.status != "complete"
+        }) {
+            status = "ready"; if reason.isEmpty { reason = "Waiting for prerequisite Plans." }
+        } else if totalWork > 0 && progress.completedSteps == totalWork && !gates.isEmpty && passed == gates.count {
+            status = "complete"; if reason.isEmpty { reason = "All ordered steps and required gates passed." }
+        } else if totalWork > 0 && progress.completedSteps == totalWork {
+            status = "verifying"; if reason.isEmpty { reason = "Implementation is complete; evidence remains." }
+        }
+        return PlanItem(
+            id: plan.id, title: plan.title, summary: plan.summary, goal: plan.goal, status: plan.status,
+            derivedStatus: status, statusReason: reason, priority: plan.priority, phase: plan.phase, order: plan.order,
+            proposedDelta: plan.proposedDelta, completionPolicy: plan.completionPolicy, nextAction: plan.nextAction,
+            blockers: plan.blockers, startedAt: plan.startedAt, completedAt: plan.completedAt,
+            invalidatedAt: plan.invalidatedAt, progress: progress, revision: plan.revision
+        )
+    }
+
+    private static func deriveCheckpoints(_ values: [CheckpointItem], dependencies: [CheckpointDependency]) -> [CheckpointItem] {
+        var byID = Dictionary(uniqueKeysWithValues: values.map { ($0.id, $0) })
+        for _ in 0...dependencies.count {
+            for checkpoint in values {
+                let childRefs = dependencies.filter { $0.parentCheckpointId == checkpoint.id }
+                guard !childRefs.isEmpty else { continue }
+                let required = childRefs.filter(\.required).compactMap { byID[$0.childCheckpointId] }
+                let statuses = required.map(\.status)
+                var status = checkpoint.status
+                var evidence = checkpoint.evidenceLevel
+                if required.contains(where: { $0.invalidatedAt != nil || $0.status == "retest_required" }) { status = "retest_required" }
+                else if statuses.contains("failed") { status = "failed" }
+                else if statuses.contains("blocked") { status = "blocked" }
+                else if !required.isEmpty && required.allSatisfy({ checkpointPasses($0) }) {
+                    if checkpoint.kind == "integration" || checkpoint.eligibleAfterChildren {
+                        status = checkpoint.status
+                    } else {
+                        let rank = required.map { evidenceRank($0.evidenceLevel) }.min() ?? 0
+                        evidence = evidenceName(rank)
+                        status = rank >= evidenceRank(checkpoint.requiredEvidenceLevel) ? "passed" : "partial_pass"
+                    }
+                } else if statuses.contains("running") { status = "running" }
+                else if statuses.contains(where: { ["passed", "partial_pass"].contains($0) }) { status = "partial_pass" }
+                else { status = "pending" }
+                byID[checkpoint.id] = CheckpointItem(
+                    id: checkpoint.id, targetType: checkpoint.targetType, targetId: checkpoint.targetId,
+                    title: checkpoint.title, criteria: checkpoint.criteria, status: status, kind: checkpoint.kind,
+                    aggregationPolicy: checkpoint.aggregationPolicy, eligibleAfterChildren: checkpoint.eligibleAfterChildren,
+                    evidenceLevel: evidence, requiredEvidenceLevel: checkpoint.requiredEvidenceLevel,
+                    coverage: checkpoint.coverage, evidence: checkpoint.evidence, invalidatedAt: checkpoint.invalidatedAt,
+                    revision: checkpoint.revision, updatedAt: checkpoint.updatedAt
+                )
+            }
+        }
+        return values.compactMap { byID[$0.id] }
+    }
+
+    private static func checkpointPasses(_ checkpoint: CheckpointItem) -> Bool {
+        checkpoint.status == "passed" && checkpoint.coverage == "complete" && checkpoint.invalidatedAt == nil &&
+            evidenceRank(checkpoint.evidenceLevel) >= evidenceRank(checkpoint.requiredEvidenceLevel)
+    }
+
+    private static func evidenceName(_ rank: Int) -> String {
+        let values = ["none", "static", "simulated", "integration", "real_target", "human_review"]
+        return values[min(max(rank, 0), values.count - 1)]
+    }
+
+    private static func evidenceRank(_ value: String) -> Int {
+        ["none", "static", "simulated", "integration", "real_target", "human_review"].firstIndex(of: value) ?? 0
     }
 
     private func rows(_ sql: String, bindings: [String] = []) throws -> [SQLiteRow] {

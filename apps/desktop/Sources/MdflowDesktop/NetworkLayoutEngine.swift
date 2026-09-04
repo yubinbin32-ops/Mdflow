@@ -93,7 +93,8 @@ enum NetworkLayoutEngine {
         let sourceFrame = CGRect(origin: source, size: cardSize)
         let targetFrame = CGRect(origin: target, size: cardSize)
         let horizontal = abs(targetFrame.midX - sourceFrame.midX) >= abs(targetFrame.midY - sourceFrame.midY)
-        return fallbackRoute(source: sourceFrame, target: targetFrame, horizontal: horizontal, sourceOffset: lane, targetOffset: lane)
+        return directFirstRoute(source: sourceFrame, target: targetFrame, obstacles: [], used: [], lane: lane)
+            ?? fallbackRoute(source: sourceFrame, target: targetFrame, horizontal: horizontal, sourceOffset: lane, targetOffset: lane)
     }
 
     static func routeLane(index: Int, count: Int, maximumSpread: CGFloat = 24) -> CGFloat {
@@ -267,7 +268,9 @@ enum NetworkLayoutEngine {
     ) -> [String: [CGPoint]] {
         let outgoing = Dictionary(grouping: edges, by: \.sourceID).mapValues { $0.sorted { $0.id < $1.id } }
         let incoming = Dictionary(grouping: edges, by: \.targetID).mapValues { $0.sorted { $0.id < $1.id } }
-        let obstacles = frames.values.map { $0.insetBy(dx: -9, dy: -9) }
+        // Reserve enough space for both the Link road and the Chain enclosure
+        // drawn around it, so neither can cover an unrelated Block.
+        let obstacles = frames.values.map { $0.insetBy(dx: -20, dy: -20) }
         var used: [[CGPoint]] = []
         var result: [String: [CGPoint]] = [:]
         let orderedEdges = edges.sorted {
@@ -283,9 +286,12 @@ enum NetworkLayoutEngine {
             let targetIndex = incoming[edge.targetID]?.firstIndex(of: edge) ?? 0
             let sourceOffset = portOffset(index: sourceIndex, count: outgoing[edge.sourceID]?.count ?? 1, span: horizontal ? cardSize.height : cardSize.width)
             let targetOffset = portOffset(index: targetIndex, count: incoming[edge.targetID]?.count ?? 1, span: horizontal ? cardSize.height : cardSize.width)
-            let excluded = [source.insetBy(dx: -9, dy: -9), target.insetBy(dx: -9, dy: -9)]
+            let excluded = [source.insetBy(dx: -20, dy: -20), target.insetBy(dx: -20, dy: -20)]
             let activeObstacles = obstacles.filter { obstacle in !excluded.contains(where: { nearlyEqual($0, obstacle) }) }
-            let path = gridRoute(
+            let path = directFirstRoute(
+                source: source, target: target, obstacles: activeObstacles, used: used,
+                lane: abs(sourceOffset - targetOffset) < 0.1 ? sourceOffset : 0
+            ) ?? gridRoute(
                 source: source, target: target, horizontal: horizontal,
                 sourceOffset: sourceOffset, targetOffset: targetOffset,
                 obstacles: activeObstacles, used: used
@@ -295,6 +301,50 @@ enum NetworkLayoutEngine {
             used.append(clean)
         }
         return result
+    }
+
+    /// Prefer the visually simplest valid road before invoking the obstacle grid.
+    /// Candidates are scored by bends, shared-lane overlap, then distance.
+    private static func directFirstRoute(
+        source: CGRect, target: CGRect, obstacles: [CGRect], used: [[CGPoint]], lane: CGFloat
+    ) -> [CGPoint]? {
+        let dx = target.midX - source.midX
+        let dy = target.midY - source.midY
+        let horizontalStart = CGPoint(x: dx >= 0 ? source.maxX : source.minX, y: source.midY + lane)
+        let horizontalEnd = CGPoint(x: dx >= 0 ? target.minX : target.maxX, y: target.midY + lane)
+        let verticalStart = CGPoint(x: source.midX + lane, y: dy >= 0 ? source.maxY : source.minY)
+        let verticalEnd = CGPoint(x: target.midX + lane, y: dy >= 0 ? target.minY : target.maxY)
+
+        var candidates: [[CGPoint]] = []
+        if abs(horizontalStart.y - horizontalEnd.y) < 0.5 {
+            candidates.append([horizontalStart, horizontalEnd])
+        }
+        if abs(verticalStart.x - verticalEnd.x) < 0.5 {
+            candidates.append([verticalStart, verticalEnd])
+        }
+        candidates.append([horizontalStart, CGPoint(x: horizontalEnd.x, y: horizontalStart.y), horizontalEnd])
+        candidates.append([verticalStart, CGPoint(x: verticalStart.x, y: verticalEnd.y), verticalEnd])
+        let middleX = (horizontalStart.x + horizontalEnd.x) / 2
+        candidates.append([horizontalStart, CGPoint(x: middleX, y: horizontalStart.y), CGPoint(x: middleX, y: horizontalEnd.y), horizontalEnd])
+        let middleY = (verticalStart.y + verticalEnd.y) / 2
+        candidates.append([verticalStart, CGPoint(x: verticalStart.x, y: middleY), CGPoint(x: verticalEnd.x, y: middleY), verticalEnd])
+
+        return candidates.map(compact).filter { points in
+            zip(points, points.dropFirst()).allSatisfy { segmentIsClear($0, $1, obstacles: obstacles) }
+        }.min { left, right in
+            routeScore(left, used: used) < routeScore(right, used: used)
+        }
+    }
+
+    private static func routeScore(_ points: [CGPoint], used: [[CGPoint]]) -> CGFloat {
+        let bends = max(0, points.count - 2)
+        let overlap = zip(points, points.dropFirst()).reduce(0) { total, pair in
+            total + used.reduce(0) { $0 + segmentOverlap(pair.0, pair.1, path: $1) }
+        }
+        let length = zip(points, points.dropFirst()).reduce(CGFloat.zero) { total, pair in
+            total + abs(pair.1.x - pair.0.x) + abs(pair.1.y - pair.0.y)
+        }
+        return CGFloat(bends) * 10_000 + CGFloat(overlap) * 1_000 + length
     }
 
     private static func gridRoute(
