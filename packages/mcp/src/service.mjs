@@ -658,11 +658,13 @@ export class MdflowService {
     return { entity, sourceRefs, pathNodes, pathEdges, targetChains, checkpoints, history, markdown: lines.join("\n") };
   }
 
-  contextForTask({ task, focusRefs = [], maxChars = 8000, locale = "en" }) {
+  contextForTask({ task, focusRefs = [], maxChars = 6000, locale = "en" }) {
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const terms = taskTerms(task);
+    const planSignals = new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "计划", "进度", "阻塞", "发布"]);
+    const taskMentionsPlan = terms.some((term) => planSignals.has(term));
     const scoreText = (text) =>
       terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
     const scoredBlocks = snapshot.blocks
@@ -687,7 +689,7 @@ export class MdflowService {
         const semanticScore = scoreText(`${plan.title} ${plan.summary} ${plan.goal} ${plan.status} ${plan.nextAction} ${JSON.stringify(plan.proposedDelta)} ${JSON.stringify(plan.blockers)} ${localizedSearchText(snapshot, "plan", plan.id)}`);
         return { plan, semanticScore, score: semanticScore + (focused ? 100 : 0), focused };
       })
-      .filter((entry) => entry.focused || entry.semanticScore >= 1)
+      .filter((entry) => entry.focused || entry.semanticScore >= 3 || (taskMentionsPlan && entry.semanticScore >= 1))
       .sort((a, b) => b.score - a.score);
 
     if (scoredBlocks.length === 0 && scoredChains.length === 0 && scoredPlans.length === 0) {
@@ -696,15 +698,19 @@ export class MdflowService {
       }
     }
 
-    const selectedBlockIds = new Set(scoredBlocks.slice(0, 6).map((entry) => entry.block.id));
-    const selectedChainIds = new Set(scoredChains.slice(0, 2).map((entry) => entry.chain.id));
-    const selectedPlanIds = new Set(scoredPlans.slice(0, 2).map((entry) => entry.plan.id));
+    const selectedBlockIds = new Set(scoredBlocks.slice(0, 5).map((entry) => entry.block.id));
+    const selectedChainIds = new Set(scoredChains.slice(0, 1).map((entry) => entry.chain.id));
+    const selectedPlanIds = new Set(scoredPlans.slice(0, 1).map((entry) => entry.plan.id));
+    const detailedBlockIds = new Set([
+      ...scoredBlocks.slice(0, 3).map((entry) => entry.block.id),
+      ...focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)),
+    ]);
     const relatedChains = new Map();
     for (const node of snapshot.chainNodes) {
       if (selectedBlockIds.has(node.blockId)) relatedChains.set(node.chainId, (relatedChains.get(node.chainId) ?? 0) + 1);
     }
     for (const [chainId] of [...relatedChains.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
-      if (selectedChainIds.size >= 2) break;
+      if (selectedChainIds.size >= 1) break;
       selectedChainIds.add(chainId);
     }
     const traversalChainIds = new Set(selectedChainIds);
@@ -794,7 +800,7 @@ export class MdflowService {
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
         lines.push(`- [block:${block.id}] ${title} — ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
-        if (body) lines.push(`  Details: ${body}`);
+        if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");

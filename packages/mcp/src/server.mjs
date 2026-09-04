@@ -9,7 +9,7 @@ const server = new McpServer(
   { name: "mdflow", version: "0.2.0" },
   {
     instructions:
-      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot. Pass the same projectRoot to every later tool call; change it deliberately when switching projects. Plans are independent work entities that target Chain path overlays. Use graph_mutate for durable architecture or progress changes, checkpoint_record for evidence, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
+      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot. Repeat projectRoot when practical; an omitted follow-up inherits the most recently resolved root in this connection. Change it explicitly when switching projects. Plans are independent work entities that target Chain path overlays. Use graph_mutate for durable architecture or progress changes, checkpoint_record for evidence, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
   },
 );
 const projectRootInput = { projectRoot: z.string().min(1).optional() };
@@ -65,7 +65,7 @@ server.registerTool(
       ...projectRootInput,
       task: z.string().min(1),
       focusRefs: z.array(z.string()).max(20).optional(),
-      maxChars: z.number().int().min(1000).max(24000).default(8000),
+      maxChars: z.number().int().min(1000).max(24000).default(6000),
       locale: z.enum(["en", "zh-Hans"]).optional(),
     },
   },

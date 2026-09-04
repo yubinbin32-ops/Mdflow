@@ -196,17 +196,22 @@ struct ContentView: View {
     private var zoomControl: some View {
         HStack(spacing: 2) {
             Button { store.zoom(by: -0.1) } label: {
-                Image(systemName: "minus").frame(width: 42, height: 42)
+                Image(systemName: "minus")
+                    .frame(width: 48, height: 48)
+                    .contentShape(Rectangle())
             }
                 .help("Zoom out")
             Button { store.resetZoom() } label: {
                 Text("\(Int((store.canvasScale * 100).rounded()))%")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .frame(width: 58, height: 42)
+                    .frame(width: 64, height: 48)
+                    .contentShape(Rectangle())
             }
             .help("Reset zoom")
             Button { store.zoom(by: 0.1) } label: {
-                Image(systemName: "plus").frame(width: 42, height: 42)
+                Image(systemName: "plus")
+                    .frame(width: 48, height: 48)
+                    .contentShape(Rectangle())
             }
                 .help("Zoom in")
         }
@@ -215,6 +220,7 @@ struct ContentView: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(MdflowTheme.hairline))
         .contentShape(Rectangle())
+        .zIndex(100)
         .padding(18)
     }
 

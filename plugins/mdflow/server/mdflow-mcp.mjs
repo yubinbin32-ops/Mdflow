@@ -24158,11 +24158,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }
     return { entity, sourceRefs, pathNodes, pathEdges, targetChains, checkpoints, history, markdown: lines.join("\n") };
   }
-  contextForTask({ task, focusRefs = [], maxChars = 8e3, locale = "en" }) {
+  contextForTask({ task, focusRefs = [], maxChars = 6e3, locale = "en" }) {
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const terms = taskTerms(task);
+    const planSignals = /* @__PURE__ */ new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "\u8BA1\u5212", "\u8FDB\u5EA6", "\u963B\u585E", "\u53D1\u5E03"]);
+    const taskMentionsPlan = terms.some((term) => planSignals.has(term));
     const scoreText = (text) => terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
     const scoredBlocks = snapshot.blocks.map((block) => {
       const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
@@ -24176,21 +24178,25 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       const focused = focusRefs.includes(`plan:${plan.id}`);
       const semanticScore = scoreText(`${plan.title} ${plan.summary} ${plan.goal} ${plan.status} ${plan.nextAction} ${JSON.stringify(plan.proposedDelta)} ${JSON.stringify(plan.blockers)} ${localizedSearchText(snapshot, "plan", plan.id)}`);
       return { plan, semanticScore, score: semanticScore + (focused ? 100 : 0), focused };
-    }).filter((entry) => entry.focused || entry.semanticScore >= 1).sort((a, b) => b.score - a.score);
+    }).filter((entry) => entry.focused || entry.semanticScore >= 3 || taskMentionsPlan && entry.semanticScore >= 1).sort((a, b) => b.score - a.score);
     if (scoredBlocks.length === 0 && scoredChains.length === 0 && scoredPlans.length === 0) {
       for (const plan of snapshot.plans.filter((item) => ["active", "ready", "blocked"].includes(item.status)).slice(0, 3)) {
         scoredPlans.push({ plan, score: 1 });
       }
     }
-    const selectedBlockIds = new Set(scoredBlocks.slice(0, 6).map((entry) => entry.block.id));
-    const selectedChainIds = new Set(scoredChains.slice(0, 2).map((entry) => entry.chain.id));
-    const selectedPlanIds = new Set(scoredPlans.slice(0, 2).map((entry) => entry.plan.id));
+    const selectedBlockIds = new Set(scoredBlocks.slice(0, 5).map((entry) => entry.block.id));
+    const selectedChainIds = new Set(scoredChains.slice(0, 1).map((entry) => entry.chain.id));
+    const selectedPlanIds = new Set(scoredPlans.slice(0, 1).map((entry) => entry.plan.id));
+    const detailedBlockIds = /* @__PURE__ */ new Set([
+      ...scoredBlocks.slice(0, 3).map((entry) => entry.block.id),
+      ...focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length))
+    ]);
     const relatedChains = /* @__PURE__ */ new Map();
     for (const node2 of snapshot.chainNodes) {
       if (selectedBlockIds.has(node2.blockId)) relatedChains.set(node2.chainId, (relatedChains.get(node2.chainId) ?? 0) + 1);
     }
     for (const [chainId] of [...relatedChains.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
-      if (selectedChainIds.size >= 2) break;
+      if (selectedChainIds.size >= 1) break;
       selectedChainIds.add(chainId);
     }
     const traversalChainIds = new Set(selectedChainIds);
@@ -24269,7 +24275,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
         lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
-        if (body) lines.push(`  Details: ${body}`);
+        if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");
@@ -24840,16 +24846,18 @@ function createService(options = {}) {
 var ProjectServiceRouter = class {
   constructor(options = {}) {
     this.defaultProjectRoot = options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT;
+    this.activeProjectRoot = this.defaultProjectRoot;
     this.dataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
     this.maxEntries = options.maxEntries ?? 8;
     this.services = /* @__PURE__ */ new Map();
   }
   projectRoot(input = {}) {
-    return input.projectRoot ?? this.defaultProjectRoot ?? process.cwd();
+    return input.projectRoot ?? this.activeProjectRoot ?? this.defaultProjectRoot ?? process.cwd();
   }
   serviceFor(input = {}) {
     const paths = resolveProjectPaths({ projectRoot: this.projectRoot(input), dataRoot: this.dataRoot });
     const key = path2.resolve(paths.projectRoot);
+    this.activeProjectRoot = key;
     const cached2 = this.services.get(key);
     if (cached2) {
       this.services.delete(key);
@@ -24866,7 +24874,9 @@ var ProjectServiceRouter = class {
     return service;
   }
   register(input = {}) {
-    return registerProject(input);
+    const registered = registerProject(input);
+    this.activeProjectRoot = registered.projectRoot;
+    return registered;
   }
   close() {
     for (const service of this.services.values()) service.close();
@@ -24879,7 +24889,7 @@ var router = new ProjectServiceRouter();
 var server = new McpServer(
   { name: "mdflow", version: "0.2.0" },
   {
-    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot. Pass the same projectRoot to every later tool call; change it deliberately when switching projects. Plans are independent work entities that target Chain path overlays. Use graph_mutate for durable architecture or progress changes, checkpoint_record for evidence, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
+    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot. Repeat projectRoot when practical; an omitted follow-up inherits the most recently resolved root in this connection. Change it explicitly when switching projects. Plans are independent work entities that target Chain path overlays. Use graph_mutate for durable architecture or progress changes, checkpoint_record for evidence, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }
 );
 var projectRootInput = { projectRoot: string2().min(1).optional() };
@@ -24928,7 +24938,7 @@ server.registerTool(
       ...projectRootInput,
       task: string2().min(1),
       focusRefs: array(string2()).max(20).optional(),
-      maxChars: number2().int().min(1e3).max(24e3).default(8e3),
+      maxChars: number2().int().min(1e3).max(24e3).default(6e3),
       locale: _enum(["en", "zh-Hans"]).optional()
     }
   },

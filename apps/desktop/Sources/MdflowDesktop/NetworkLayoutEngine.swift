@@ -12,10 +12,14 @@ struct NetworkLayoutSnapshot: Equatable {
 }
 
 enum NetworkLayoutEngine {
+    static let horizontalStreetWidth: CGFloat = 132
+    static let verticalStreetWidth: CGFloat = 92
+
     static func make(
         nodeIDs: [String],
         edges: [LayoutEdge],
         focusPaths: [[String]],
+        districts: [String: Int] = [:],
         cardSize: CGSize,
         topInset: CGFloat
     ) -> NetworkLayoutSnapshot {
@@ -28,19 +32,74 @@ enum NetworkLayoutEngine {
             .map { $0.filter { visible.contains($0) } }
             .filter { !$0.isEmpty }
         if paths.isEmpty {
-            return overview(nodes: nodes, edges: edges, cardSize: cardSize, topInset: topInset)
+            return overview(nodes: nodes, edges: edges, districts: districts, cardSize: cardSize, topInset: topInset)
         }
         return focused(nodes: nodes, paths: paths, cardSize: cardSize, topInset: topInset)
     }
 
-    static func routeLane(for id: String, spread: CGFloat = 10) -> CGFloat {
-        let slot = Int(stableHash(id) % 9) - 4
-        return CGFloat(slot) * spread
+    static func routeLane(index: Int, count: Int, maximumSpread: CGFloat = 34) -> CGFloat {
+        guard count > 1 else { return 0 }
+        let step = min(5, maximumSpread * 2 / CGFloat(count - 1))
+        return (CGFloat(index) - CGFloat(count - 1) / 2) * step
+    }
+
+    static func orthogonalRoute(
+        source: CGPoint,
+        target: CGPoint,
+        cardSize: CGSize,
+        lane: CGFloat
+    ) -> [CGPoint] {
+        let sourceFrame = CGRect(origin: source, size: cardSize)
+        let targetFrame = CGRect(origin: target, size: cardSize)
+        let sourceCenter = CGPoint(x: sourceFrame.midX, y: sourceFrame.midY)
+        let targetCenter = CGPoint(x: targetFrame.midX, y: targetFrame.midY)
+        let horizontalDirection: CGFloat = targetCenter.x >= sourceCenter.x ? 1 : -1
+        let verticalDirection: CGFloat = targetCenter.y >= sourceCenter.y ? 1 : -1
+
+        if abs(targetCenter.x - sourceCenter.x) >= cardSize.width + horizontalStreetWidth / 2 {
+            let portOffset = min(cardSize.height / 3, max(-cardSize.height / 3, lane))
+            let start = CGPoint(
+                x: horizontalDirection > 0 ? sourceFrame.maxX : sourceFrame.minX,
+                y: sourceFrame.midY + portOffset
+            )
+            let end = CGPoint(
+                x: horizontalDirection > 0 ? targetFrame.minX : targetFrame.maxX,
+                y: targetFrame.midY + portOffset
+            )
+            let sourceStreetX = start.x + horizontalDirection * (horizontalStreetWidth / 2 + lane)
+            let targetStreetX = end.x - horizontalDirection * (horizontalStreetWidth / 2 - lane)
+            let streetY = (verticalDirection > 0 ? sourceFrame.maxY : sourceFrame.minY) +
+                verticalDirection * (verticalStreetWidth / 2 + lane)
+            return compact([
+                start,
+                CGPoint(x: sourceStreetX, y: start.y),
+                CGPoint(x: sourceStreetX, y: streetY),
+                CGPoint(x: targetStreetX, y: streetY),
+                CGPoint(x: targetStreetX, y: end.y),
+                end,
+            ])
+        }
+
+        let portOffset = min(cardSize.width / 3, max(-cardSize.width / 3, lane))
+        let start = CGPoint(x: sourceFrame.midX + portOffset, y: verticalDirection > 0 ? sourceFrame.maxY : sourceFrame.minY)
+        let end = CGPoint(x: targetFrame.midX + portOffset, y: verticalDirection > 0 ? targetFrame.minY : targetFrame.maxY)
+        let firstStreetY = start.y + verticalDirection * (verticalStreetWidth / 2 + lane)
+        let secondStreetY = end.y - verticalDirection * (verticalStreetWidth / 2 - lane)
+        let streetX = max(sourceFrame.maxX, targetFrame.maxX) + horizontalStreetWidth / 2 + lane
+        return compact([
+            start,
+            CGPoint(x: start.x, y: firstStreetY),
+            CGPoint(x: streetX, y: firstStreetY),
+            CGPoint(x: streetX, y: secondStreetY),
+            CGPoint(x: end.x, y: secondStreetY),
+            end,
+        ])
     }
 
     private static func overview(
         nodes: [String],
         edges: [LayoutEdge],
+        districts: [String: Int],
         cardSize: CGSize,
         topInset: CGFloat
     ) -> NetworkLayoutSnapshot {
@@ -49,31 +108,60 @@ enum NetworkLayoutEngine {
             degree[edge.sourceID, default: 0] += 1
             degree[edge.targetID, default: 0] += 1
         }
-        let ordered = nodes.sorted {
-            let lhs = degree[$0, default: 0]
-            let rhs = degree[$1, default: 0]
-            return lhs == rhs ? $0 < $1 : lhs > rhs
-        }
-        var centers: [String: CGPoint] = [:]
-        centers[ordered[0]] = .zero
-        var cursor = 1
-        var ring = 1
-        while cursor < ordered.count {
-            let capacity = min(ordered.count - cursor, 8 + (ring - 1) * 6)
-            let radiusX = CGFloat(250 + (ring - 1) * 250)
-            let radiusY = CGFloat(180 + (ring - 1) * 185)
-            let phase = CGFloat(stableHash(ordered[cursor]) % 360) * .pi / 180
-            for index in 0..<capacity {
-                let angle = phase + 2 * .pi * CGFloat(index) / CGFloat(capacity)
-                centers[ordered[cursor + index]] = CGPoint(
-                    x: cos(angle) * radiusX,
-                    y: sin(angle) * radiusY
-                )
+        let ranks = topologicalRanks(nodes: nodes, edges: edges)
+        let stages = Array(Set(ranks.values)).sorted()
+        let stageIndex = Dictionary(uniqueKeysWithValues: stages.enumerated().map { ($1, $0) })
+        let districtIDs = Array(Set(nodes.map { districts[$0, default: 2] })).sorted()
+        let maximumRowsPerDistrict = 3
+        var stageWidths = Array(repeating: 1, count: max(stages.count, 1))
+        var districtRows: [Int: Int] = [:]
+
+        for stage in stages {
+            for district in districtIDs {
+                let count = nodes.filter { ranks[$0] == stage && districts[$0, default: 2] == district }.count
+                guard count > 0 else { continue }
+                let width = Int(ceil(Double(count) / Double(maximumRowsPerDistrict)))
+                stageWidths[stageIndex[stage, default: 0]] = max(stageWidths[stageIndex[stage, default: 0]], width)
+                districtRows[district] = max(districtRows[district, default: 1], min(maximumRowsPerDistrict, count))
             }
-            cursor += capacity
-            ring += 1
         }
-        centers = separateOverlaps(in: centers, fixed: [], cardSize: cardSize)
+
+        var stageColumnOffsets: [Int: Int] = [:]
+        var columnCursor = 0
+        for stage in stages {
+            let index = stageIndex[stage, default: 0]
+            stageColumnOffsets[stage] = columnCursor
+            columnCursor += stageWidths[index] + 1
+        }
+        var districtRowOffsets: [Int: Int] = [:]
+        var rowCursor = 0
+        for district in districtIDs {
+            districtRowOffsets[district] = rowCursor
+            rowCursor += districtRows[district, default: 1] + 1
+        }
+
+        var centers: [String: CGPoint] = [:]
+        for stage in stages {
+            for district in districtIDs {
+                let ordered = nodes
+                    .filter { ranks[$0] == stage && districts[$0, default: 2] == district }
+                    .sorted {
+                        let lhs = degree[$0, default: 0]
+                        let rhs = degree[$1, default: 0]
+                        return lhs == rhs ? $0 < $1 : lhs > rhs
+                    }
+                for (index, id) in ordered.enumerated() {
+                    let localColumn = index / maximumRowsPerDistrict
+                    let localRow = index % maximumRowsPerDistrict
+                    let column = stageColumnOffsets[stage, default: 0] + localColumn
+                    let row = districtRowOffsets[district, default: 0] + localRow
+                    centers[id] = CGPoint(
+                        x: CGFloat(column) * (cardSize.width + horizontalStreetWidth),
+                        y: CGFloat(row) * (cardSize.height + verticalStreetWidth)
+                    )
+                }
+            }
+        }
         return normalize(centers: centers, cardSize: cardSize, topInset: topInset)
     }
 
@@ -83,8 +171,8 @@ enum NetworkLayoutEngine {
         cardSize: CGSize,
         topInset: CGFloat
     ) -> NetworkLayoutSnapshot {
-        let horizontalGap: CGFloat = 92
-        let verticalGap: CGFloat = 92
+        let horizontalGap = horizontalStreetWidth
+        let verticalGap = verticalStreetWidth
         let maximumColumns = 4
         var centers: [String: CGPoint] = [:]
         var occupied: [CGRect] = []
@@ -231,6 +319,43 @@ enum NetworkLayoutEngine {
 
     private static func rect(around center: CGPoint, size: CGSize) -> CGRect {
         CGRect(x: center.x - size.width / 2, y: center.y - size.height / 2, width: size.width, height: size.height)
+    }
+
+    private static func topologicalRanks(nodes: [String], edges: [LayoutEdge]) -> [String: Int] {
+        let nodeSet = Set(nodes)
+        let validEdges = edges.filter { nodeSet.contains($0.sourceID) && nodeSet.contains($0.targetID) && $0.sourceID != $0.targetID }
+        var incoming = Dictionary(uniqueKeysWithValues: nodes.map { ($0, 0) })
+        var outgoing: [String: [String]] = [:]
+        for edge in validEdges {
+            incoming[edge.targetID, default: 0] += 1
+            outgoing[edge.sourceID, default: []].append(edge.targetID)
+        }
+        var queue = nodes.filter { incoming[$0] == 0 }.sorted()
+        var ranks = Dictionary(uniqueKeysWithValues: nodes.map { ($0, 0) })
+        var visited = Set<String>()
+        while !queue.isEmpty {
+            let source = queue.removeFirst()
+            guard visited.insert(source).inserted else { continue }
+            for target in (outgoing[source] ?? []).sorted() {
+                ranks[target] = max(ranks[target, default: 0], ranks[source, default: 0] + 1)
+                incoming[target, default: 0] -= 1
+                if incoming[target] == 0 {
+                    queue.append(target)
+                    queue.sort()
+                }
+            }
+        }
+        for id in nodes where !visited.contains(id) {
+            let predecessors = validEdges.filter { $0.targetID == id && visited.contains($0.sourceID) }
+            ranks[id] = (predecessors.map { ranks[$0.sourceID, default: 0] }.max() ?? -1) + 1
+        }
+        return ranks
+    }
+
+    private static func compact(_ points: [CGPoint]) -> [CGPoint] {
+        points.reduce(into: []) { result, point in
+            if result.last != point { result.append(point) }
+        }
     }
 
     private static func stableHash(_ value: String) -> UInt64 {

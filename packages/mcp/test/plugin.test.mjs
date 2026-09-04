@@ -177,6 +177,18 @@ test("bundled plugin registers and isolates multiple projects in one Codex conne
     assert.equal(firstMap.structuredContent.map.criticalBlocks.length, 0);
     assert.equal(secondMap.structuredContent.map.criticalBlocks.length, 0);
 
+    const inherited = await client.callTool({ name: "entity_open", arguments: { type: "block", id: "architecture" } });
+    assert.equal(inherited.isError, undefined);
+    assert.match(inherited.content[0].text, /Second architecture/);
+
+    const switched = await client.callTool({ name: "entity_open", arguments: { projectRoot: firstRoot, type: "block", id: "architecture" } });
+    assert.equal(switched.isError, undefined);
+    assert.match(switched.content[0].text, /First architecture/);
+
+    const inheritedAfterSwitch = await client.callTool({ name: "entity_open", arguments: { type: "block", id: "architecture" } });
+    assert.equal(inheritedAfterSwitch.isError, undefined);
+    assert.match(inheritedAfterSwitch.content[0].text, /First architecture/);
+
     const invalid = await client.callTool({ name: "project_map", arguments: { projectRoot: invalidRoot } });
     assert.equal(invalid.isError, true);
     assert.match(invalid.content[0].text, /No \.mdflow\/project\.json found/);

@@ -29,6 +29,7 @@ struct GraphCanvasView: View {
                     ZStack(alignment: .topLeading) {
                         Color.clear.frame(width: 1, height: 1)
                         dotGrid
+                        districtLayer(currentLayout)
                         backgroundLayer
                         chainOutlineLayer(currentLayout)
                         linkLayer(currentLayout)
@@ -43,7 +44,8 @@ struct GraphCanvasView: View {
                         target: store.focusTarget.flatMap { focusPoint(for: $0, layout: currentLayout) },
                         scale: store.canvasScale,
                         requestID: store.focusRequestID,
-                        viewportSize: viewport.size
+                        viewportSize: viewport.size,
+                        onScrollZoom: { store.zoom(by: $0) }
                     )
                     .frame(width: 1, height: 1)
                 }
@@ -91,6 +93,9 @@ struct GraphCanvasView: View {
 
     private var focusedPaths: [[String]] {
         guard !store.highlightedChainIDs.isEmpty else { return [] }
+        if store.selection?.type == .plan, let planID = store.selection?.id {
+            return store.targetChains(for: planID).map { store.chainNodeIDs($0.id) }
+        }
         return store.snapshot.chains
             .filter { store.highlightedChainIDs.contains($0.id) }
             .map { store.chainNodeIDs($0.id) }
@@ -107,6 +112,7 @@ struct GraphCanvasView: View {
             nodeIDs: Array(visibleIDs),
             edges: edges,
             focusPaths: focusedPaths,
+            districts: Dictionary(uniqueKeysWithValues: visibleNetworkBlocks.map { ($0.id, districtIndex(for: $0.kind)) }),
             cardSize: cardSize,
             topInset: networkTop
         )
@@ -125,6 +131,29 @@ struct GraphCanvasView: View {
             context.fill(path, with: .color(MdflowTheme.hairline.opacity(0.48)))
         }
         .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func districtLayer(_ layout: NetworkLayout) -> some View {
+        if store.highlightedChainIDs.isEmpty {
+            ForEach(0..<5, id: \.self) { district in
+                if let bounds = districtBounds(district, layout: layout) {
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .fill(districtColor(district).opacity(0.035))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                                .stroke(districtColor(district).opacity(0.11), lineWidth: 1)
+                        )
+                        .frame(width: layout.size.width - 48, height: bounds.height)
+                        .position(x: layout.size.width / 2, y: bounds.midY)
+                    Text(districtTitle(district))
+                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                        .tracking(1.5)
+                        .foregroundStyle(districtColor(district).opacity(0.7))
+                        .position(x: 82, y: bounds.minY + 19)
+                }
+            }
+        }
     }
 
     private var backgroundLayer: some View {
@@ -173,7 +202,11 @@ struct GraphCanvasView: View {
                 let highlighted = store.highlightedChainIDs.contains(chain.id)
                 let otherFocused = !store.highlightedChainIDs.isEmpty && !highlighted
                 let opacity = otherFocused ? 0.025 : highlighted ? 0.82 : 0.24
-                let lane = chainLane(chain.id)
+                let lane = NetworkLayoutEngine.routeLane(
+                    index: index,
+                    count: store.snapshot.chains.count,
+                    maximumSpread: 22
+                )
 
                 for id in nodeIDs {
                     guard let origin = layout.positions[id] else { continue }
@@ -189,16 +222,16 @@ struct GraphCanvasView: View {
 
                 for pair in zip(nodeIDs, nodeIDs.dropFirst()) {
                     guard let source = layout.positions[pair.0], let target = layout.positions[pair.1] else { continue }
-                    let route = webPath(source: source, target: target, lane: lane)
+                    let route = streetPath(source: source, target: target, lane: lane)
                     context.stroke(
                         route,
                         with: .color(color.opacity(opacity * 0.65)),
-                        style: StrokeStyle(lineWidth: highlighted ? 17 : 12, lineCap: .round, lineJoin: .round)
+                        style: StrokeStyle(lineWidth: highlighted ? 8 : 5.5, lineCap: .round, lineJoin: .round)
                     )
                     context.stroke(
                         route,
                         with: .color(MdflowTheme.canvas.opacity(otherFocused ? 0.2 : 0.94)),
-                        style: StrokeStyle(lineWidth: highlighted ? 11 : 8, lineCap: .round, lineJoin: .round)
+                        style: StrokeStyle(lineWidth: highlighted ? 3 : 2, lineCap: .round, lineJoin: .round)
                     )
                 }
             }
@@ -208,7 +241,8 @@ struct GraphCanvasView: View {
 
     private func linkLayer(_ layout: NetworkLayout) -> some View {
         Canvas { context, _ in
-            for edge in projectedEdges {
+            let edges = projectedEdges
+            for (index, edge) in edges.enumerated() {
                 guard let source = layout.positions[edge.sourceId], let target = layout.positions[edge.targetId] else { continue }
                 let chainIndices = store.snapshot.chainEdges.filter { $0.linkId == edge.id }.compactMap { membership in
                     store.snapshot.chains.firstIndex(where: { $0.id == membership.chainId })
@@ -216,15 +250,18 @@ struct GraphCanvasView: View {
                 let highlightedIndex = chainIndices.first { store.highlightedChainIDs.contains(store.snapshot.chains[$0].id) }
                 let hasHighlight = !store.highlightedChainIDs.isEmpty
                 let color = highlightedIndex.map(chainColor) ?? MdflowTheme.healthColor(edge.healthState)
-                let opacity = highlightedIndex != nil ? 0.96 : hasHighlight ? 0.10 : 0.42
-                let lane = NetworkLayoutEngine.routeLane(for: edge.id)
-                let route = webPath(source: source, target: target, lane: lane)
+                let opacity = highlightedIndex != nil ? 0.96 : hasHighlight ? 0.035 : 0.42
+                let lane = highlightedIndex.map {
+                    NetworkLayoutEngine.routeLane(index: $0, count: store.snapshot.chains.count, maximumSpread: 22)
+                } ?? NetworkLayoutEngine.routeLane(index: index, count: edges.count)
+                let points = NetworkLayoutEngine.orthogonalRoute(source: source, target: target, cardSize: cardSize, lane: lane)
+                let route = streetPath(points)
                 context.stroke(
                     route,
                     with: .color(color.opacity(opacity)),
                     style: StrokeStyle(lineWidth: highlightedIndex != nil ? 2.8 : 1.25, lineCap: .round, lineJoin: .round, dash: edge.isVirtual ? [6, 5] : [])
                 )
-                drawArrow(context: &context, source: source, target: target, color: color.opacity(opacity))
+                drawArrow(context: &context, points: points, color: color.opacity(opacity))
             }
         }
         .allowsHitTesting(false)
@@ -429,43 +466,21 @@ struct GraphCanvasView: View {
         store.chains(containing: blockID).firstIndex(where: { $0.id == chainID }) ?? 0
     }
 
-    private func chainLane(_ chainID: String) -> CGFloat {
-        let index = store.snapshot.chains.firstIndex(where: { $0.id == chainID }) ?? 0
-        let midpoint = CGFloat(max(store.snapshot.chains.count - 1, 0)) / 2
-        return (CGFloat(index) - midpoint) * 4
+    private func streetPath(source: CGPoint, target: CGPoint, lane: CGFloat) -> Path {
+        streetPath(NetworkLayoutEngine.orthogonalRoute(source: source, target: target, cardSize: cardSize, lane: lane))
     }
 
-    private func webPath(source: CGPoint, target: CGPoint, lane: CGFloat) -> Path {
-        let start = edgePoint(origin: source, toward: target)
-        let end = edgePoint(origin: target, toward: source)
-        let dx = end.x - start.x
-        let dy = end.y - start.y
-        let distance = max(1, hypot(dx, dy))
-        let normal = CGPoint(x: -dy / distance * lane, y: dx / distance * lane)
+    private func streetPath(_ points: [CGPoint]) -> Path {
         var path = Path()
-        path.move(to: start)
-        path.addCurve(
-            to: end,
-            control1: CGPoint(x: start.x + dx * 0.36 + normal.x, y: start.y + dy * 0.14 + normal.y),
-            control2: CGPoint(x: start.x + dx * 0.64 + normal.x, y: start.y + dy * 0.86 + normal.y)
-        )
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        for point in points.dropFirst() { path.addLine(to: point) }
         return path
     }
 
-    private func edgePoint(origin: CGPoint, toward target: CGPoint) -> CGPoint {
-        let center = CGPoint(x: origin.x + cardSize.width / 2, y: origin.y + cardSize.height / 2)
-        let targetCenter = CGPoint(x: target.x + cardSize.width / 2, y: target.y + cardSize.height / 2)
-        let dx = targetCenter.x - center.x
-        let dy = targetCenter.y - center.y
-        if abs(dx / cardSize.width) > abs(dy / cardSize.height) {
-            return CGPoint(x: center.x + (dx >= 0 ? cardSize.width / 2 : -cardSize.width / 2), y: center.y)
-        }
-        return CGPoint(x: center.x, y: center.y + (dy >= 0 ? cardSize.height / 2 : -cardSize.height / 2))
-    }
-
-    private func drawArrow(context: inout GraphicsContext, source: CGPoint, target: CGPoint, color: Color) {
-        let start = edgePoint(origin: source, toward: target)
-        let end = edgePoint(origin: target, toward: source)
+    private func drawArrow(context: inout GraphicsContext, points: [CGPoint], color: Color) {
+        guard let end = points.last,
+              let start = points.dropLast().last else { return }
         let angle = atan2(end.y - start.y, end.x - start.x)
         let length: CGFloat = 7
         var arrow = Path()
@@ -474,6 +489,39 @@ struct GraphCanvasView: View {
         arrow.addLine(to: CGPoint(x: end.x - cos(angle + 0.55) * length, y: end.y - sin(angle + 0.55) * length))
         context.stroke(arrow, with: .color(color), lineWidth: 1.4)
     }
+
+    private func districtIndex(for kind: String) -> Int {
+        switch kind {
+        case "principle", "product", "requirement", "decision", "flow": 0
+        case "ui": 1
+        case "service", "function", "integration": 2
+        case "data", "database": 3
+        case "test", "checkpoint", "risk": 4
+        default: 2
+        }
+    }
+
+    private func districtBounds(_ district: Int, layout: NetworkLayout) -> CGRect? {
+        let rects = visibleNetworkBlocks
+            .filter { districtIndex(for: $0.kind) == district }
+            .compactMap { block -> CGRect? in
+                guard let origin = layout.positions[block.id] else { return nil }
+                return CGRect(origin: origin, size: cardSize)
+            }
+        guard var bounds = rects.first else { return nil }
+        for rect in rects.dropFirst() { bounds = bounds.union(rect) }
+        return CGRect(x: 24, y: bounds.minY - 42, width: layout.size.width - 48, height: bounds.height + 84)
+    }
+
+    private func districtTitle(_ district: Int) -> String {
+        let chinese = ["基础街区", "界面街区", "运行街区", "数据街区", "质量街区"]
+        let english = ["FOUNDATION DISTRICT", "INTERFACE DISTRICT", "RUNTIME DISTRICT", "DATA DISTRICT", "QUALITY DISTRICT"]
+        return store.activeLocale == "zh-Hans" ? chinese[district] : english[district]
+    }
+
+    private func districtColor(_ district: Int) -> Color {
+        [MdflowTheme.ink, MdflowTheme.focus, MdflowTheme.pending, MdflowTheme.success, MdflowTheme.failure][district]
+    }
 }
 
 private struct CanvasFocusBridge: NSViewRepresentable {
@@ -481,15 +529,31 @@ private struct CanvasFocusBridge: NSViewRepresentable {
     let scale: CGFloat
     let requestID: UUID
     let viewportSize: CGSize
+    let onScrollZoom: (CGFloat) -> Void
 
     final class Coordinator {
         var lastToken = ""
+        var scrollMonitor: Any?
+        var onScrollZoom: ((CGFloat) -> Void)?
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSView { NSView(frame: .zero) }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onScrollZoom = onScrollZoom
+        if context.coordinator.scrollMonitor == nil {
+            context.coordinator.scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak nsView, weak coordinator = context.coordinator] event in
+                guard event.modifierFlags.contains(.command),
+                      let scrollView = nsView?.enclosingScrollView,
+                      event.window === scrollView.window else { return event }
+                let location = scrollView.convert(event.locationInWindow, from: nil)
+                guard scrollView.bounds.contains(location) else { return event }
+                let amount = min(0.08, max(-0.08, event.scrollingDeltaY * 0.01))
+                coordinator?.onScrollZoom?(amount)
+                return nil
+            }
+        }
         guard let target else { return }
         let token = "\(requestID.uuidString):\(Int(viewportSize.width)):\(Int(viewportSize.height)):\(Int(scale * 1000))"
         guard context.coordinator.lastToken != token else { return }
@@ -512,6 +576,13 @@ private struct CanvasFocusBridge: NSViewRepresentable {
                 scrollView.contentView.animator().setBoundsOrigin(origin)
             }
             scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        if let scrollMonitor = coordinator.scrollMonitor {
+            NSEvent.removeMonitor(scrollMonitor)
+            coordinator.scrollMonitor = nil
         }
     }
 }
