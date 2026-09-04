@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import SwiftUI
@@ -5,11 +6,12 @@ import SwiftUI
 @MainActor
 final class GraphStore: ObservableObject {
     @Published private(set) var snapshot: GraphSnapshot
+    @Published private(set) var recentProjects: [RecentProject]
     @Published var selection: GraphSelection?
     @Published var highlightedChainIDs: Set<String> = []
-    @Published private(set) var focusTargetBlockID: String?
+    @Published private(set) var focusTarget: GraphSelection?
     @Published private(set) var focusRequestID = UUID()
-    @Published var enabledLenses: Set<ViewLens> = [.all]
+    @Published var enabledLenses: Set<ViewLens> = Set(ViewLens.allCases)
     @Published var searchText = ""
     @Published private(set) var recentlyChangedRefs: Set<String> = []
     @Published private(set) var errorMessage: String?
@@ -22,12 +24,23 @@ final class GraphStore: ObservableObject {
     private var location: ProjectLocation?
     private var database: ProjectDatabase?
     private var clearChangeTask: Task<Void, Never>?
+    private var focusTask: Task<Void, Never>?
+    private var projectViewStates: [String: ProjectViewState] = [:]
+
+    private struct ProjectViewState {
+        let selection: GraphSelection?
+        let highlightedChainIDs: Set<String>
+        let enabledLenses: Set<ViewLens>
+        let canvasScale: CGFloat
+    }
 
     init() {
         self.language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "mdflow.language") ?? "system") ?? .system
+        self.recentProjects = ProjectLocation.recentProjects()
         do {
             let resolvedLocation = try ProjectLocation.resolve()
             self.location = resolvedLocation
+            self.recentProjects = ProjectLocation.recentProjects()
             do {
                 let resolvedDatabase = try ProjectDatabase(location: resolvedLocation)
                 self.database = resolvedDatabase
@@ -47,6 +60,73 @@ final class GraphStore: ObservableObject {
         }
     }
 
+    func chooseProject() {
+        let panel = NSOpenPanel()
+        panel.title = text("openProject")
+        panel.message = text("openProjectHelp")
+        panel.prompt = text("open")
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        loadProject(at: url)
+    }
+
+    func openProject(_ project: RecentProject) {
+        loadProject(at: URL(fileURLWithPath: project.path, isDirectory: true))
+    }
+
+    private func loadProject(at url: URL) {
+        do {
+            let resolvedLocation = try ProjectLocation.resolve(startingAt: url)
+            let resolvedDatabase = try ProjectDatabase(location: resolvedLocation)
+            let next = try resolvedDatabase.loadSnapshot()
+            saveCurrentProjectViewState()
+            database?.close()
+            location = resolvedLocation
+            database = resolvedDatabase
+            recentProjects = ProjectLocation.recentProjects()
+            withAnimation(.smooth(duration: 0.24)) {
+                snapshot = next
+                restoreProjectViewState(for: next.project.id)
+                searchText = ""
+                recentlyChangedRefs.removeAll()
+                errorMessage = nil
+            }
+            if let selection { requestFocus(selection) }
+        } catch {
+            errorMessage = error.localizedDescription
+            Self.log(error, context: url.path)
+        }
+    }
+
+    private func saveCurrentProjectViewState() {
+        guard !snapshot.project.id.isEmpty else { return }
+        projectViewStates[snapshot.project.id] = ProjectViewState(
+            selection: selection,
+            highlightedChainIDs: highlightedChainIDs,
+            enabledLenses: enabledLenses,
+            canvasScale: canvasScale
+        )
+    }
+
+    private func restoreProjectViewState(for projectID: String) {
+        focusTask?.cancel()
+        focusTarget = nil
+        guard let state = projectViewStates[projectID] else {
+            selection = nil
+            highlightedChainIDs.removeAll()
+            enabledLenses = Set(ViewLens.allCases)
+            canvasScale = 1
+            return
+        }
+        selection = state.selection
+        highlightedChainIDs = state.highlightedChainIDs
+        enabledLenses = state.enabledLenses
+        canvasScale = state.canvasScale
+    }
+
     private static func log(_ error: Error, context: String) {
         let message = "mdflow: \(context): \(error.localizedDescription)\n"
         FileHandle.standardError.write(Data(message.utf8))
@@ -57,7 +137,6 @@ final class GraphStore: ObservableObject {
     }
 
     var visibleBlocks: [BlockItem] {
-        guard !enabledLenses.contains(.all) else { return snapshot.blocks }
         let regularLenses = enabledLenses.subtracting([.plan])
         var ids = Set(snapshot.blocks.filter { block in regularLenses.contains { $0.includes(block: block) } }.map(\.id))
         if enabledLenses.contains(.plan) {
@@ -84,49 +163,46 @@ final class GraphStore: ObservableObject {
     }
 
     func setLens(_ lens: ViewLens, enabled: Bool) {
-        if lens == .all {
-            enabledLenses = [.all]
-            return
-        }
-        enabledLenses.remove(.all)
         if enabled {
             enabledLenses.insert(lens)
         } else {
             enabledLenses.remove(lens)
         }
-        if enabledLenses.isEmpty { enabledLenses = [.all] }
     }
 
     func showOverview() {
         selection = nil
         highlightedChainIDs.removeAll()
-        focusTargetBlockID = nil
+        focusTarget = nil
+        focusTask?.cancel()
     }
 
     func focusPlan(_ id: String) {
-        selection = GraphSelection(type: .plan, id: id)
+        let target = GraphSelection(type: .plan, id: id)
+        selection = target
         highlightedChainIDs = Set(snapshot.planChainReferences.filter { $0.planId == id }.map(\.chainId))
-        focusFirstBlock(in: highlightedChainIDs)
+        requestFocus(target)
     }
 
     func select(_ value: GraphSelection) {
         selection = value
         switch value.type {
         case .block:
-            requestFocus(blockID: value.id)
+            requestFocus(value)
         case .chain:
             highlightedChainIDs = [value.id]
-            focusFirstBlock(in: highlightedChainIDs)
+            requestFocus(value)
         case .plan:
             highlightedChainIDs = Set(snapshot.planChainReferences.filter { $0.planId == value.id }.map(\.chainId))
-            focusFirstBlock(in: highlightedChainIDs)
+            requestFocus(value)
         case .link:
-            if let link = snapshot.links.first(where: { $0.id == value.id }) { requestFocus(blockID: link.targetId) }
+            if let link = snapshot.links.first(where: { $0.id == value.id }) {
+                requestFocus(GraphSelection(type: .block, id: link.targetId))
+            }
         }
     }
 
     func selectSearchResult(_ value: GraphSelection) {
-        selection = value
         select(value)
         searchText = ""
     }
@@ -232,40 +308,42 @@ final class GraphStore: ObservableObject {
         return snapshot.chains.filter { ids.contains($0.id) }
     }
 
-    func requestFocus(blockID: String) {
-        focusTargetBlockID = blockID
-        focusRequestID = UUID()
-    }
-
-    private func focusFirstBlock(in chainIDs: Set<String>) {
-        guard let target = snapshot.chainNodes.filter({ chainIDs.contains($0.chainId) }).sorted(by: { $0.position < $1.position }).first?.blockId else { return }
-        requestFocus(blockID: target)
+    func requestFocus(_ target: GraphSelection) {
+        focusTarget = target
+        focusTask?.cancel()
+        focusTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(140))
+            guard !Task.isCancelled, self?.focusTarget == target else { return }
+            self?.focusRequestID = UUID()
+        }
     }
 
     func text(_ key: String) -> String {
         let zh: [String: String] = [
             "overview":"概览", "plans":"计划", "search":"搜索", "settings":"设置", "done":"完成",
-            "summary":"摘要", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
+            "summary":"摘要", "details":"详情", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
             "plugin":"CODEX 插件", "pluginHelp":"开发插件包位于当前项目中。", "revealPlugin":"在访达中显示插件",
             "liveData":"实时数据", "liveHelp":"变化会自动同步，无需刷新。", "language":"语言", "system":"跟随系统",
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
             "goal":"目标", "nextAction":"下一步", "targetChains":"目标 Chain", "proposedDelta":"计划中的图变更", "blockers":"阻塞",
+            "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
             "all":"全部", "ui":"界面", "runtime":"运行时", "api":"API", "data":"数据", "quality":"质量", "plan":"计划"
         ]
         let en: [String: String] = [
             "overview":"Overview", "plans":"Plans", "search":"Search", "settings":"Settings", "done":"Done",
-            "summary":"Summary", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
+            "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
             "plugin":"CODEX PLUGIN", "pluginHelp":"The development plugin bundle is available in this project.", "revealPlugin":"Reveal Plugin",
             "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "system":"System",
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
             "goal":"Goal", "nextAction":"Next Action", "targetChains":"Target Chains", "proposedDelta":"Proposed Graph Delta", "blockers":"Blockers",
+            "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
             "all":"All", "ui":"UI", "runtime":"Runtime", "api":"API", "data":"Data", "quality":"QA", "plan":"Plan"
         ]
         return (activeLocale == "zh-Hans" ? zh : en)[key] ?? key
     }
 
     func lensTitle(_ lens: ViewLens) -> String {
-        switch lens { case .all: text("all"); case .ui: text("ui"); case .runtime: text("runtime"); case .api: text("api"); case .data: text("data"); case .quality: text("quality"); case .plan: text("plan") }
+        switch lens { case .ui: text("ui"); case .runtime: text("runtime"); case .api: text("api"); case .data: text("data"); case .quality: text("quality"); case .plan: text("plan") }
     }
 
     func zoom(by amount: CGFloat) { canvasScale = min(1.8, max(0.5, canvasScale + amount)) }
@@ -302,6 +380,7 @@ final class GraphStore: ObservableObject {
     }
 
     var databasePath: String { location?.database.path ?? "Unavailable" }
+    var projectRoot: String { location?.root.path ?? "" }
 }
 
 private extension String {

@@ -3258,8 +3258,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path3) {
+      let input = path3;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3668,8 +3668,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path2 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const path3 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7568,8 +7568,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path2, errorMaps, issueData } = params;
-  const fullPath = [...path2, ...issueData.path || []];
+  const { data, path: path3, errorMaps, issueData } = params;
+  const fullPath = [...path3, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7684,11 +7684,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path2, key) {
+  constructor(parent, value, path3, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path2;
+    this._path = path3;
     this._key = key;
   }
   get path() {
@@ -11270,10 +11270,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path2) {
-  if (!path2)
+function getElementAtPath(obj, path3) {
+  if (!path3)
     return obj;
-  return path2.reduce((acc, key) => acc?.[key], obj);
+  return path3.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11685,11 +11685,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path2, issues) {
+function prefixIssues(path3, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path2);
+    iss.path.unshift(path3);
     return iss;
   });
 }
@@ -12118,16 +12118,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path2 = []) => {
+  const processError = (error3, path3 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path2, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path3, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path3, ...issue2.path]);
       } else {
-        const fullpath = [...path2, ...issue2.path];
+        const fullpath = [...path3, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -16632,11 +16632,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path2) {
-  if (path2.length === 0) {
+function getDotPath(path3) {
+  if (path3.length === 0) {
     return "object root";
   }
-  return path2.reduce((acc, seg, index) => {
+  return path3.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23202,8 +23202,11 @@ var StdioServerTransport = class {
   }
 };
 
+// packages/mcp/src/project-router.mjs
+import path2 from "node:path";
+
 // packages/mcp/src/service.mjs
-import crypto from "node:crypto";
+import crypto2 from "node:crypto";
 
 // packages/mcp/src/database.mjs
 import { DatabaseSync } from "node:sqlite";
@@ -23477,7 +23480,10 @@ function backfillChainPaths(database) {
     JOIN links
       ON links.source_type = 'block' AND links.source_id = source.block_id
      AND links.target_type = 'block' AND links.target_id = target.block_id
-    WHERE links.archived = 0;
+    WHERE links.archived = 0
+      AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id);
+
+    DELETE FROM chain_members;
   `);
 }
 function openDatabase(databasePath) {
@@ -23503,9 +23509,14 @@ function transaction(database, callback) {
 }
 
 // packages/mcp/src/paths.mjs
+import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+var localDataIgnore = "*\n!.gitignore\n!project.json\n";
+function ensureLocalDataIgnore(descriptorDirectory) {
+  const ignorePath = path.join(descriptorDirectory, ".gitignore");
+  if (!fs.existsSync(ignorePath)) fs.writeFileSync(ignorePath, localDataIgnore, { flag: "wx" });
+}
 function findProjectRoot(startDirectory = process.cwd()) {
   let current = path.resolve(startDirectory);
   while (true) {
@@ -23527,15 +23538,40 @@ function readProjectDescriptor(projectRoot) {
   }
   return descriptor;
 }
+function registerProject(options = {}) {
+  if (!options.projectRoot) throw new Error("projectRoot is required to register an mdflow project");
+  const projectRoot = fs.realpathSync(path.resolve(options.projectRoot));
+  if (!fs.statSync(projectRoot).isDirectory()) throw new Error(`${projectRoot} is not a directory`);
+  const descriptorDirectory = path.join(projectRoot, ".mdflow");
+  const descriptorPath = path.join(descriptorDirectory, "project.json");
+  if (fs.existsSync(descriptorPath)) {
+    ensureLocalDataIgnore(descriptorDirectory);
+    return { projectRoot, descriptor: readProjectDescriptor(projectRoot), created: false };
+  }
+  const name = String(options.name ?? path.basename(projectRoot)).trim();
+  if (!name) throw new Error("Project name must not be empty");
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
+  const descriptor = {
+    id: String(options.id ?? `${slug}-${crypto.randomUUID().slice(0, 8)}`),
+    name,
+    schemaVersion: 1
+  };
+  fs.mkdirSync(descriptorDirectory, { recursive: true });
+  ensureLocalDataIgnore(descriptorDirectory);
+  const temporaryPath = `${descriptorPath}.tmp-${process.pid}-${crypto.randomUUID()}`;
+  fs.writeFileSync(temporaryPath, `${JSON.stringify(descriptor, null, 2)}
+`, { flag: "wx" });
+  fs.renameSync(temporaryPath, descriptorPath);
+  return { projectRoot, descriptor, created: true };
+}
 function resolveProjectPaths(options = {}) {
   const projectRoot = findProjectRoot(
     options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT ?? process.cwd()
   );
   const descriptor = readProjectDescriptor(projectRoot);
-  const dataRoot = path.resolve(
-    options.dataRoot ?? process.env.MDFLOW_DATA_DIR ?? path.join(os.homedir(), "Library", "Application Support", "mdflow", "projects")
-  );
-  const projectDataDirectory = path.join(dataRoot, descriptor.id);
+  const configuredDataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
+  const dataRoot = configuredDataRoot ? path.resolve(configuredDataRoot) : path.join(projectRoot, ".mdflow");
+  const projectDataDirectory = configuredDataRoot ? path.join(dataRoot, descriptor.id) : dataRoot;
   fs.mkdirSync(projectDataDirectory, { recursive: true });
   return {
     projectRoot,
@@ -23644,7 +23680,7 @@ function now() {
   return (/* @__PURE__ */ new Date()).toISOString();
 }
 function identifier(prefix) {
-  return `${prefix}_${crypto.randomUUID()}`;
+  return `${prefix}_${crypto2.randomUUID()}`;
 }
 function parseJson(value, fallback) {
   try {
@@ -23664,7 +23700,7 @@ function assertAllowed(value, allowed, label) {
   if (!allowed.has(value)) throw new Error(`Invalid ${label}: ${value}`);
 }
 function entityExists(database, projectId, type, id) {
-  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "plan" ? "plans" : null;
+  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "link" ? "links" : type === "plan" ? "plans" : null;
   if (!table) return false;
   return Boolean(
     database.prepare(`SELECT 1 FROM ${table} WHERE project_id = ? AND id = ?`).get(projectId, id)
@@ -23760,7 +23796,34 @@ function localizedSearchText(snapshot, type, id) {
   return snapshot.localizations.filter((item) => item.entityType === type && item.entityId === id).map((item) => item.value).join(" ");
 }
 function taskTerms(task) {
-  const terms = task.toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter((term) => term.length > 1);
+  const stopWords = /* @__PURE__ */ new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "how",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "the",
+    "this",
+    "to",
+    "what",
+    "when",
+    "where",
+    "which",
+    "with"
+  ]);
+  const terms = task.toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter((term) => term.length > 1 && !stopWords.has(term));
   const cjkRuns = task.match(/[\p{Script=Han}]+/gu) ?? [];
   for (const run of cjkRuns) {
     for (let index = 0; index < run.length - 1; index += 1) terms.push(run.slice(index, index + 2));
@@ -23801,27 +23864,17 @@ var MdflowService = class {
     const chains = this.database.prepare("SELECT * FROM chains WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC").all(projectId).map(normalizeChain);
     const plans = this.database.prepare("SELECT * FROM plans WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC").all(projectId).map(normalizePlan);
     const links = this.database.prepare("SELECT * FROM links WHERE project_id = ? AND archived = 0 ORDER BY created_at").all(projectId).map(normalizeLink);
-    const members2 = this.database.prepare(
-      `SELECT cm.* FROM chain_members cm
-         JOIN chains c ON c.id = cm.chain_id
-         WHERE c.project_id = ? ORDER BY cm.chain_id, cm.position`
-    ).all(projectId).map((row) => ({
-      chainId: row.chain_id,
-      memberType: row.member_type,
-      memberId: row.member_id,
-      position: row.position
-    }));
     const chainNodes = this.database.prepare(
       `SELECT cn.* FROM chain_nodes cn JOIN chains c ON c.id = cn.chain_id
-         WHERE c.project_id = ? ORDER BY cn.chain_id, cn.position`
+         WHERE c.project_id = ? AND c.archived = 0 ORDER BY cn.chain_id, cn.position`
     ).all(projectId).map((row) => ({ chainId: row.chain_id, blockId: row.block_id, position: row.position, role: row.role }));
     const chainEdges = this.database.prepare(
       `SELECT ce.* FROM chain_edges ce JOIN chains c ON c.id = ce.chain_id
-         WHERE c.project_id = ? ORDER BY ce.chain_id, ce.position`
+         WHERE c.project_id = ? AND c.archived = 0 ORDER BY ce.chain_id, ce.position`
     ).all(projectId).map((row) => ({ chainId: row.chain_id, linkId: row.link_id, position: row.position }));
     const planChainRefs = this.database.prepare(
       `SELECT pcr.* FROM plan_chain_refs pcr JOIN plans p ON p.id = pcr.plan_id
-         WHERE p.project_id = ? ORDER BY pcr.plan_id, pcr.position`
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY pcr.plan_id, pcr.position`
     ).all(projectId).map((row) => ({ planId: row.plan_id, chainId: row.chain_id, position: row.position }));
     const backgroundScopes = this.database.prepare(
       `SELECT bs.* FROM background_scopes bs JOIN blocks b ON b.id = bs.block_id
@@ -23878,7 +23931,6 @@ var MdflowService = class {
       chains,
       plans,
       links,
-      members: members2,
       chainNodes,
       chainEdges,
       planChainRefs,
@@ -23913,40 +23965,73 @@ var MdflowService = class {
       const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
       lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
     }
-    return { snapshot, markdown: lines.join("\n") };
+    return {
+      map: {
+        project: snapshot.project,
+        changeSequence: snapshot.changeSequence,
+        counts: {
+          blocks: snapshot.blocks.length,
+          links: snapshot.links.length,
+          chains: snapshot.chains.length,
+          plans: snapshot.plans.length
+        },
+        plans: plans.map((plan) => ({
+          id: plan.id,
+          title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title),
+          status: plan.status,
+          priority: plan.priority,
+          targetChainIds: snapshot.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId)
+        })),
+        criticalBlocks: snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
+          id: block.id,
+          title: localizedValue(translations, "block", block.id, locale, "title", block.title),
+          deliveryState: block.deliveryState,
+          healthState: block.healthState
+        }))
+      },
+      markdown: lines.join("\n")
+    };
   }
   search({ query, kinds = [], states = [], limit = 20, locale = "en" }) {
     const term = `%${query.trim()}%`;
+    const terms = taskTerms(query);
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const kindSet = new Set(kinds);
     const stateSet = new Set(states);
-    const blocks = snapshot.blocks.filter((block) => {
+    const score = (text) => terms.reduce((total, item) => total + (text.toLowerCase().includes(item) ? 1 : 0), 0);
+    const blocks = snapshot.blocks.map((block) => {
       const text = `${block.title}
 ${block.summary}
 ${block.body}
 ${block.contract}
 ${block.tags.join(" ")}
 ${localizedSearchText(snapshot, "block", block.id)}`;
-      return text.toLowerCase().includes(query.trim().toLowerCase()) && (kindSet.size === 0 || kindSet.has(block.kind)) && (stateSet.size === 0 || stateSet.has(block.deliveryState) || stateSet.has(block.healthState));
-    });
-    const chains = snapshot.chains.filter((chain) => {
+      return { item: block, score: score(text) };
+    }).filter(({ item: block, score: score2 }) => {
+      return score2 > 0 && (kindSet.size === 0 || kindSet.has(block.kind)) && (stateSet.size === 0 || stateSet.has(block.deliveryState) || stateSet.has(block.healthState));
+    }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+    const chains = snapshot.chains.map((chain) => {
       const text = `${chain.title}
 ${chain.intent}
 ${chain.inputContract}
 ${chain.outputContract}
 ${localizedSearchText(snapshot, "chain", chain.id)}`;
-      return text.toLowerCase().includes(query.trim().toLowerCase()) && (kindSet.size === 0 || kindSet.has("chain")) && (stateSet.size === 0 || stateSet.has(chain.deliveryState) || stateSet.has(chain.healthState));
-    });
-    const plans = snapshot.plans.filter((plan) => {
+      return { item: chain, score: score(text) };
+    }).filter(({ item: chain, score: score2 }) => {
+      return score2 > 0 && (kindSet.size === 0 || kindSet.has("chain")) && (stateSet.size === 0 || stateSet.has(chain.deliveryState) || stateSet.has(chain.healthState));
+    }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+    const plans = snapshot.plans.map((plan) => {
       const text = `${plan.title}
 ${plan.summary}
 ${plan.goal}
+${plan.status}
 ${plan.nextAction}
+${JSON.stringify(plan.blockers)}
 ${localizedSearchText(snapshot, "plan", plan.id)}`;
-      return text.toLowerCase().includes(query.trim().toLowerCase()) && (kindSet.size === 0 || kindSet.has("plan")) && (stateSet.size === 0 || stateSet.has(plan.status));
-    });
+      return { item: plan, score: score(text) };
+    }).filter(({ item: plan, score: score2 }) => score2 > 0 && (kindSet.size === 0 || kindSet.has("plan")) && (stateSet.size === 0 || stateSet.has(plan.status))).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
     const sourceRows = this.database.prepare(
       `SELECT sr.*, b.title FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
          WHERE b.project_id = ? AND (sr.path LIKE ? OR COALESCE(sr.symbol, '') LIKE ?) LIMIT ?`
@@ -24012,12 +24097,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       role: row.role,
       gitCommit: row.git_commit
     })) : [];
-    const members2 = type === "chain" ? this.database.prepare("SELECT chain_id, 'block' AS member_type, block_id AS member_id, position FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({
+    const pathNodes = type === "chain" ? this.database.prepare("SELECT chain_id, 'block' AS member_type, block_id AS member_id, position FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({
       memberType: row.member_type,
       memberId: row.member_id,
       position: row.position
     })) : [];
-    const edgeRefs = type === "chain" ? this.database.prepare("SELECT link_id, position FROM chain_edges WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({ linkId: row.link_id, position: row.position })) : [];
+    const pathEdges = type === "chain" ? this.database.prepare("SELECT link_id, position FROM chain_edges WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({ linkId: row.link_id, position: row.position })) : [];
     const targetChains = type === "plan" ? this.database.prepare("SELECT chain_id, position FROM plan_chain_refs WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ chainId: row.chain_id, position: row.position })) : [];
     assertAllowed(locale, LOCALES, "locale");
     const snapshot = this.snapshot();
@@ -24035,6 +24120,10 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     if (entity.status) lines.push(`- Status: ${entity.status}`);
     if (entity.healthState) lines.push(`- Health: ${entity.healthState}`);
     if (displaySummary) lines.push("", "## Summary", displaySummary);
+    if (type === "block") {
+      const displayBody = localizedValue(translations, type, id, locale, "body", entity.body ?? "");
+      if (displayBody) lines.push("", "## Details", displayBody);
+    }
     if (displayContract) lines.push("", "## Contract", displayContract);
     if (entity.inputContract || entity.outputContract) {
       lines.push("", "## Contract", `Input: ${displayInput || "\u2014"}`, `Output: ${displayOutput || "\u2014"}`);
@@ -24067,39 +24156,59 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       lines.push("", "## Relevant history");
       for (const item of history) lines.push(`- r${item.revision} ${item.action}: ${item.summary}`);
     }
-    return { entity, sourceRefs, members: members2, edgeRefs, targetChains, checkpoints, history, markdown: lines.join("\n") };
+    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, checkpoints, history, markdown: lines.join("\n") };
   }
-  contextForTask({ task, focusRefs = [], maxChars = 12e3, locale = "en" }) {
+  contextForTask({ task, focusRefs = [], maxChars = 8e3, locale = "en" }) {
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const terms = taskTerms(task);
     const scoreText = (text) => terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
-    const scoredBlocks = snapshot.blocks.map((block) => ({
-      block,
-      score: scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`) + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) + (["principle", "decision"].includes(block.kind) && block.priority === "critical" ? 2 : 0)
-    })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
+    const scoredBlocks = snapshot.blocks.map((block) => {
+      const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
+      return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
+    }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
     const scoredChains = snapshot.chains.map((chain) => ({
       chain,
       score: scoreText(`${chain.title} ${chain.intent} ${chain.inputContract} ${chain.outputContract} ${localizedSearchText(snapshot, "chain", chain.id)}`) + (focusRefs.includes(`chain:${chain.id}`) ? 100 : 0)
     })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
-    const scoredPlans = snapshot.plans.map((plan) => ({
-      plan,
-      score: scoreText(`${plan.title} ${plan.summary} ${plan.goal} ${plan.nextAction} ${JSON.stringify(plan.proposedDelta)} ${localizedSearchText(snapshot, "plan", plan.id)}`) + (focusRefs.includes(`plan:${plan.id}`) ? 100 : 0) + (["active", "blocked", "verifying"].includes(plan.status) ? 1 : 0)
-    })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
+    const scoredPlans = snapshot.plans.map((plan) => {
+      const focused = focusRefs.includes(`plan:${plan.id}`);
+      const semanticScore = scoreText(`${plan.title} ${plan.summary} ${plan.goal} ${plan.status} ${plan.nextAction} ${JSON.stringify(plan.proposedDelta)} ${JSON.stringify(plan.blockers)} ${localizedSearchText(snapshot, "plan", plan.id)}`);
+      return { plan, semanticScore, score: semanticScore + (focused ? 100 : 0), focused };
+    }).filter((entry) => entry.focused || entry.semanticScore >= 1).sort((a, b) => b.score - a.score);
     if (scoredBlocks.length === 0 && scoredChains.length === 0 && scoredPlans.length === 0) {
       for (const plan of snapshot.plans.filter((item) => ["active", "ready", "blocked"].includes(item.status)).slice(0, 3)) {
         scoredPlans.push({ plan, score: 1 });
       }
     }
-    const selectedBlockIds = new Set(scoredBlocks.slice(0, 12).map((entry) => entry.block.id));
-    const selectedChainIds = new Set(scoredChains.slice(0, 5).map((entry) => entry.chain.id));
-    const selectedPlanIds = new Set(scoredPlans.slice(0, 3).map((entry) => entry.plan.id));
+    const selectedBlockIds = new Set(scoredBlocks.slice(0, 6).map((entry) => entry.block.id));
+    const selectedChainIds = new Set(scoredChains.slice(0, 2).map((entry) => entry.chain.id));
+    const selectedPlanIds = new Set(scoredPlans.slice(0, 2).map((entry) => entry.plan.id));
+    const relatedChains = /* @__PURE__ */ new Map();
+    for (const node2 of snapshot.chainNodes) {
+      if (selectedBlockIds.has(node2.blockId)) relatedChains.set(node2.chainId, (relatedChains.get(node2.chainId) ?? 0) + 1);
+    }
+    for (const [chainId] of [...relatedChains.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+      if (selectedChainIds.size >= 2) break;
+      selectedChainIds.add(chainId);
+    }
+    const traversalChainIds = new Set(selectedChainIds);
     for (const target of snapshot.planChainRefs) {
       if (selectedPlanIds.has(target.planId)) selectedChainIds.add(target.chainId);
     }
-    for (const member of snapshot.chainNodes) {
-      if (selectedChainIds.has(member.chainId)) selectedBlockIds.add(member.blockId);
+    for (const chainId of traversalChainIds) {
+      const path3 = snapshot.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
+      if (focusRefs.includes(`chain:${chainId}`)) {
+        for (const blockId of path3.slice(0, 10)) selectedBlockIds.add(blockId);
+        continue;
+      }
+      const matchingPositions = path3.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
+      for (const position of matchingPositions) {
+        for (const index of [position - 1, position, position + 1]) {
+          if (path3[index]) selectedBlockIds.add(path3[index]);
+        }
+      }
     }
     for (const scope of snapshot.backgroundScopes) {
       if (scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue)) {
@@ -24113,7 +24222,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       (link) => (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) && (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId))
     );
     const relevantCheckpoints = snapshot.checkpoints.filter(
-      (checkpoint) => selectedBlockIds.has(checkpoint.targetId) || selectedChainIds.has(checkpoint.targetId)
+      (checkpoint) => checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId) || checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId) || checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId)
     );
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
     const constraints = relevantBlocks.filter((block) => ["principle", "decision"].includes(block.kind));
@@ -24123,6 +24232,8 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
         lines.push(`- [block:${block.id}] ${title}: ${summary}`);
+        const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
+        if (contract) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");
     }
@@ -24148,14 +24259,17 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       }
       lines.push("");
     }
-    if (relevantBlocks.length) {
+    const contentBlocks = relevantBlocks.filter((block) => !["principle", "decision"].includes(block.kind));
+    if (contentBlocks.length) {
       lines.push("## Relevant blocks");
-      for (const block of relevantBlocks) {
+      for (const block of contentBlocks) {
         const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
+        const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
         lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
+        if (body) lines.push(`  Details: ${body}`);
         if (contract) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");
@@ -24178,7 +24292,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       for (const checkpoint of failing) lines.push(`- ${checkpoint.status}: ${checkpoint.title}`);
       lines.push("");
     }
-    lines.push("## Expand", "Use entity_open with a block, chain, or link ID when more detail is needed.");
+    lines.push("## Expand", "Use entity_open with a Block, Chain, Link, or Plan ID when more detail is needed.");
     const markdown = lines.join("\n").slice(0, maxChars);
     return {
       graphRevision: snapshot.project.graphRevision,
@@ -24246,8 +24360,6 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         return this.createChain(operation, context);
       case "update_chain":
         return this.updateEntity("chain", operation, context);
-      case "set_chain_members":
-        return this.setChainMembers(operation, context);
       case "create_link":
         return this.createLink(operation, context);
       case "update_link":
@@ -24362,12 +24474,9 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     });
     this.database.prepare("DELETE FROM chain_nodes WHERE chain_id = ?").run(operation.id);
     this.database.prepare("DELETE FROM chain_edges WHERE chain_id = ?").run(operation.id);
-    this.database.prepare("DELETE FROM chain_members WHERE chain_id = ?").run(operation.id);
     const insertNode = this.database.prepare("INSERT INTO chain_nodes(chain_id, block_id, position, role) VALUES (?, ?, ?, 'path')");
-    const insertMember = this.database.prepare("INSERT INTO chain_members(chain_id, member_type, member_id, position) VALUES (?, 'block', ?, ?)");
     nodeIds.forEach((blockId, index) => {
       insertNode.run(operation.id, blockId, index);
-      insertMember.run(operation.id, blockId, index);
     });
     const insertEdge = this.database.prepare("INSERT INTO chain_edges(chain_id, link_id, position) VALUES (?, ?, ?)");
     links.forEach((link, index) => insertEdge.run(operation.id, link.id, index));
@@ -24588,52 +24697,14 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       sourceId
     };
   }
-  setChainMembers(operation) {
-    if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
-      throw new Error("set_chain_members requires id and expectedRevision");
-    }
-    const chain = this.database.prepare("SELECT * FROM chains WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, operation.id);
-    if (!chain) throw new Error(`chain:${operation.id} not found`);
-    if (chain.current_revision !== operation.expectedRevision) {
-      throw new Error(
-        `Revision conflict for chain:${operation.id}; expected ${operation.expectedRevision}, current ${chain.current_revision}`
-      );
-    }
-    const members2 = operation.members ?? [];
-    for (const member of members2) {
-      if (!entityExists(this.database, this.paths.descriptor.id, member.type, member.id)) {
-        throw new Error(`Missing chain member ${member.type}:${member.id}`);
-      }
-      if (member.type === "chain" && member.id === operation.id) throw new Error("A chain cannot contain itself");
-    }
-    this.database.prepare("DELETE FROM chain_members WHERE chain_id = ?").run(operation.id);
-    this.database.prepare("DELETE FROM chain_nodes WHERE chain_id = ?").run(operation.id);
-    this.database.prepare("DELETE FROM chain_edges WHERE chain_id = ?").run(operation.id);
-    const insert = this.database.prepare(
-      "INSERT INTO chain_members(chain_id, member_type, member_id, position) VALUES (?, ?, ?, ?)"
-    );
-    const insertNode = this.database.prepare(
-      "INSERT INTO chain_nodes(chain_id, block_id, position, role) VALUES (?, ?, ?, 'path')"
-    );
-    members2.forEach((member, index) => {
-      insert.run(operation.id, member.type, member.id, index);
-      if (member.type === "block") insertNode.run(operation.id, member.id, index);
-    });
-    const revision = chain.current_revision + 1;
-    this.database.prepare("UPDATE chains SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
-    return {
-      entityType: "chain",
-      id: operation.id,
-      action: "members-set",
-      revision,
-      summary: `${members2.length} members`
-    };
-  }
   recordCheckpoint({ actor = "agent", id, targetType, targetId, title, criteria = "", status, evidence = [], expectedRevision }) {
     if (!["block", "chain", "link", "plan"].includes(targetType)) throw new Error(`Invalid targetType: ${targetType}`);
     if (!title?.trim()) throw new Error("title is required");
     if (!["pending", "running", "passed", "failed", "blocked"].includes(status)) {
       throw new Error(`Invalid checkpoint status: ${status}`);
+    }
+    if (!entityExists(this.database, this.paths.descriptor.id, targetType, targetId)) {
+      throw new Error(`${targetType}:${targetId} not found`);
     }
     const checkpointId = id ?? identifier("checkpoint");
     const timestamp = now();
@@ -24712,11 +24783,6 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         warnings.push(`Missing contract: link:${link.id}`);
       }
     }
-    for (const member of snapshot.members) {
-      if (!refs.has(`${member.memberType}:${member.memberId}`)) {
-        errors.push(`Missing chain member: ${member.chainId} -> ${member.memberType}:${member.memberId}`);
-      }
-    }
     for (const chain of snapshot.chains) {
       const nodes = snapshot.chainNodes.filter((item) => item.chainId === chain.id);
       const edges = snapshot.chainEdges.filter((item) => item.chainId === chain.id);
@@ -24746,6 +24812,14 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
       }
     }
+    for (const chain of snapshot.chains) {
+      if (chain.deliveryState === "complete") {
+        const passed = snapshot.checkpoints.some(
+          (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chain.id && checkpoint.status === "passed"
+        );
+        if (!passed) warnings.push(`Complete Chain has no passed checkpoint: chain:${chain.id}`);
+      }
+    }
     for (const plan of snapshot.plans) {
       if (plan.status === "complete") {
         const passed = snapshot.checkpoints.some(
@@ -24762,9 +24836,58 @@ function createService(options = {}) {
   return new MdflowService(options);
 }
 
+// packages/mcp/src/project-router.mjs
+var ProjectServiceRouter = class {
+  constructor(options = {}) {
+    this.defaultProjectRoot = options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT;
+    this.dataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
+    this.maxEntries = options.maxEntries ?? 8;
+    this.services = /* @__PURE__ */ new Map();
+  }
+  projectRoot(input = {}) {
+    return input.projectRoot ?? this.defaultProjectRoot ?? process.cwd();
+  }
+  serviceFor(input = {}) {
+    const paths = resolveProjectPaths({ projectRoot: this.projectRoot(input), dataRoot: this.dataRoot });
+    const key = path2.resolve(paths.projectRoot);
+    const cached2 = this.services.get(key);
+    if (cached2) {
+      this.services.delete(key);
+      this.services.set(key, cached2);
+      return cached2;
+    }
+    const service = createService({ projectRoot: key, dataRoot: this.dataRoot });
+    this.services.set(key, service);
+    while (this.services.size > this.maxEntries) {
+      const [oldestKey, oldestService] = this.services.entries().next().value;
+      this.services.delete(oldestKey);
+      oldestService.close();
+    }
+    return service;
+  }
+  register(input = {}) {
+    return registerProject(input);
+  }
+  close() {
+    for (const service of this.services.values()) service.close();
+    this.services.clear();
+  }
+};
+
 // packages/mcp/src/server.mjs
-var service = createService();
-var server = new McpServer({ name: "mdflow", version: "0.1.0" });
+var router = new ProjectServiceRouter();
+var server = new McpServer(
+  { name: "mdflow", version: "0.2.0" },
+  {
+    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot. Pass the same projectRoot to every later tool call; change it deliberately when switching projects. Plans are independent work entities that target Chain path overlays. Use graph_mutate for durable architecture or progress changes, checkpoint_record for evidence, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
+  }
+);
+var projectRootInput = { projectRoot: string2().min(1).optional() };
+function withProject(input, callback) {
+  const service = router.serviceFor(input);
+  const { projectRoot: _projectRoot, ...payload } = input;
+  return callback(service, payload);
+}
 function result(data, markdown) {
   return {
     content: [{ type: "text", text: markdown ?? JSON.stringify(data) }],
@@ -24772,14 +24895,29 @@ function result(data, markdown) {
   };
 }
 server.registerTool(
+  "project_register",
+  {
+    description: "Register an existing directory as an mdflow project. This creates only .mdflow/project.json and is idempotent when the descriptor already exists.",
+    inputSchema: {
+      projectRoot: string2().min(1),
+      name: string2().min(1).optional(),
+      id: string2().min(1).optional()
+    }
+  },
+  async (input) => {
+    const data = router.register(input);
+    return result(data, `${data.created ? "Registered" : "Opened"} ${data.descriptor.name} at ${data.projectRoot}.`);
+  }
+);
+server.registerTool(
   "project_map",
   {
     description: "Read a compact map of the current mdflow project and its plan chains without loading entity bodies.",
-    inputSchema: { locale: _enum(["en", "zh-Hans"]).optional() }
+    inputSchema: { ...projectRootInput, locale: _enum(["en", "zh-Hans"]).optional() }
   },
   async (input) => {
-    const data = service.projectMap(input);
-    return result({ snapshot: data.snapshot }, data.markdown);
+    const data = withProject(input, (service, payload) => service.projectMap(payload));
+    return result({ map: data.map }, data.markdown);
   }
 );
 server.registerTool(
@@ -24787,14 +24925,15 @@ server.registerTool(
   {
     description: "Get a budgeted Markdown context pack for the current development task. Use at task start and expand only selected refs.",
     inputSchema: {
+      ...projectRootInput,
       task: string2().min(1),
       focusRefs: array(string2()).max(20).optional(),
-      maxChars: number2().int().min(1e3).max(24e3).optional(),
+      maxChars: number2().int().min(1e3).max(24e3).default(8e3),
       locale: _enum(["en", "zh-Hans"]).optional()
     }
   },
   async (input) => {
-    const data = service.contextForTask(input);
+    const data = withProject(input, (service, payload) => service.contextForTask(payload));
     return result(data, data.markdown);
   }
 );
@@ -24803,6 +24942,7 @@ server.registerTool(
   {
     description: "Open one Block, Chain, Link, or Plan with only its relevant checkpoints, code refs, targets, and recent history.",
     inputSchema: {
+      ...projectRootInput,
       type: _enum(["block", "chain", "link", "plan"]),
       id: string2().min(1),
       historyLimit: number2().int().min(0).max(30).optional(),
@@ -24810,7 +24950,7 @@ server.registerTool(
     }
   },
   async (input) => {
-    const data = service.entityOpen(input);
+    const data = withProject(input, (service, payload) => service.entityOpen(payload));
     return result(data, data.markdown);
   }
 );
@@ -24819,6 +24959,7 @@ server.registerTool(
   {
     description: "Search graph entities and source paths without loading the entire project.",
     inputSchema: {
+      ...projectRootInput,
       query: string2().min(1),
       kinds: array(string2()).optional(),
       states: array(string2()).optional(),
@@ -24826,13 +24967,14 @@ server.registerTool(
       locale: _enum(["en", "zh-Hans"]).optional()
     }
   },
-  async (input) => result(service.search(input))
+  async (input) => result(withProject(input, (service, payload) => service.search(payload)))
 );
 server.registerTool(
   "graph_mutate",
   {
-    description: "Atomically create or patch Blocks, Chains, Links, memberships, and source refs. Use whenever implementation changes architecture or progress; keep each call small and provide expectedRevision for updates.",
+    description: "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, Background scopes, and source refs. Use whenever implementation changes architecture or progress; keep each call small and provide expectedRevision for updates.",
     inputSchema: {
+      ...projectRootInput,
       actor: string2().optional(),
       reason: string2().min(1),
       task: string2().optional(),
@@ -24846,7 +24988,6 @@ server.registerTool(
             "remove_source_ref",
             "create_chain",
             "update_chain",
-            "set_chain_members",
             "create_link",
             "update_link",
             "create_plan",
@@ -24858,14 +24999,13 @@ server.registerTool(
           id: string2().optional(),
           expectedRevision: number2().int().optional(),
           fields: record(string2(), unknown()).optional(),
-          members: array(object2({ type: _enum(["block", "chain"]), id: string2() })).optional(),
           summary: string2().optional()
         })
       ).min(1).max(10)
     }
   },
   async (input) => {
-    const data = service.mutate(input);
+    const data = withProject(input, (service, payload) => service.mutate(payload));
     const text = `Applied ${data.receipts.length} operation(s). Graph revision ${data.graphRevision}. ChangeSet ${data.changeSetId}.`;
     return result(data, text);
   }
@@ -24875,6 +25015,7 @@ server.registerTool(
   {
     description: "Create or update a checkpoint with evidence. Passed checkpoints are the only basis for healthy completion states.",
     inputSchema: {
+      ...projectRootInput,
       actor: string2().optional(),
       id: string2().optional(),
       targetType: _enum(["block", "chain", "link", "plan"]),
@@ -24886,19 +25027,23 @@ server.registerTool(
       expectedRevision: number2().int().optional()
     }
   },
-  async (input) => result(service.recordCheckpoint(input))
+  async (input) => result(withProject(input, (service, payload) => service.recordCheckpoint(payload)))
 );
 server.registerTool(
   "graph_validate",
   {
-    description: "Validate graph references, contracts, chain membership, and checkpoint-backed completion.",
-    inputSchema: {}
+    description: "Validate global graph references, Chain paths, Plan targets, Background scopes, contracts, and checkpoint-backed completion.",
+    inputSchema: { ...projectRootInput }
   },
-  async () => result(service.validate())
+  async (input) => result(withProject(input, (service) => service.validate()))
 );
 var transport = new StdioServerTransport();
 await server.connect(transport);
 process.on("SIGINT", () => {
-  service.close();
+  router.close();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  router.close();
   process.exit(0);
 });

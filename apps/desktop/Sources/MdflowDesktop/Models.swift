@@ -6,6 +6,12 @@ struct ProjectDescriptor: Decodable {
     let schemaVersion: Int
 }
 
+struct RecentProject: Identifiable, Codable, Equatable {
+    var id: String { path }
+    let path: String
+    let name: String
+}
+
 struct ProjectInfo: Equatable {
     let id: String
     let name: String
@@ -50,13 +56,6 @@ struct LinkItem: Identifiable, Equatable {
     let contract: String
     let healthState: String
     let revision: Int
-}
-
-struct ChainMember: Equatable {
-    let chainId: String
-    let memberType: String
-    let memberId: String
-    let position: Int
 }
 
 struct ChainNode: Equatable {
@@ -152,7 +151,6 @@ struct GraphSnapshot: Equatable {
     let chains: [ChainItem]
     let plans: [PlanItem]
     let links: [LinkItem]
-    let members: [ChainMember]
     let chainNodes: [ChainNode]
     let chainEdges: [ChainEdge]
     let planChainReferences: [PlanChainReference]
@@ -171,7 +169,6 @@ struct GraphSnapshot: Equatable {
             chains: [],
             plans: [],
             links: [],
-            members: [],
             chainNodes: [],
             chainEdges: [],
             planChainReferences: [],
@@ -198,7 +195,6 @@ struct GraphSelection: Equatable, Hashable {
 }
 
 enum ViewLens: String, CaseIterable, Identifiable {
-    case all = "All"
     case ui = "UI"
     case runtime = "Runtime"
     case api = "API"
@@ -210,7 +206,6 @@ enum ViewLens: String, CaseIterable, Identifiable {
 
     func includes(block: BlockItem) -> Bool {
         switch self {
-        case .all: true
         case .ui: ["ui", "flow"].contains(block.kind)
         case .runtime: ["service", "function", "integration"].contains(block.kind)
         case .api: ["service", "integration"].contains(block.kind)

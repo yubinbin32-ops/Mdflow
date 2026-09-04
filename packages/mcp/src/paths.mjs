@@ -1,6 +1,13 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+
+const localDataIgnore = "*\n!.gitignore\n!project.json\n";
+
+function ensureLocalDataIgnore(descriptorDirectory) {
+  const ignorePath = path.join(descriptorDirectory, ".gitignore");
+  if (!fs.existsSync(ignorePath)) fs.writeFileSync(ignorePath, localDataIgnore, { flag: "wx" });
+}
 
 export function findProjectRoot(startDirectory = process.cwd()) {
   let current = path.resolve(startDirectory);
@@ -25,17 +32,42 @@ export function readProjectDescriptor(projectRoot) {
   return descriptor;
 }
 
+export function registerProject(options = {}) {
+  if (!options.projectRoot) throw new Error("projectRoot is required to register an mdflow project");
+  const projectRoot = fs.realpathSync(path.resolve(options.projectRoot));
+  if (!fs.statSync(projectRoot).isDirectory()) throw new Error(`${projectRoot} is not a directory`);
+
+  const descriptorDirectory = path.join(projectRoot, ".mdflow");
+  const descriptorPath = path.join(descriptorDirectory, "project.json");
+  if (fs.existsSync(descriptorPath)) {
+    ensureLocalDataIgnore(descriptorDirectory);
+    return { projectRoot, descriptor: readProjectDescriptor(projectRoot), created: false };
+  }
+
+  const name = String(options.name ?? path.basename(projectRoot)).trim();
+  if (!name) throw new Error("Project name must not be empty");
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
+  const descriptor = {
+    id: String(options.id ?? `${slug}-${crypto.randomUUID().slice(0, 8)}`),
+    name,
+    schemaVersion: 1,
+  };
+  fs.mkdirSync(descriptorDirectory, { recursive: true });
+  ensureLocalDataIgnore(descriptorDirectory);
+  const temporaryPath = `${descriptorPath}.tmp-${process.pid}-${crypto.randomUUID()}`;
+  fs.writeFileSync(temporaryPath, `${JSON.stringify(descriptor, null, 2)}\n`, { flag: "wx" });
+  fs.renameSync(temporaryPath, descriptorPath);
+  return { projectRoot, descriptor, created: true };
+}
+
 export function resolveProjectPaths(options = {}) {
   const projectRoot = findProjectRoot(
     options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT ?? process.cwd(),
   );
   const descriptor = readProjectDescriptor(projectRoot);
-  const dataRoot = path.resolve(
-    options.dataRoot ??
-      process.env.MDFLOW_DATA_DIR ??
-      path.join(os.homedir(), "Library", "Application Support", "mdflow", "projects"),
-  );
-  const projectDataDirectory = path.join(dataRoot, descriptor.id);
+  const configuredDataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
+  const dataRoot = configuredDataRoot ? path.resolve(configuredDataRoot) : path.join(projectRoot, ".mdflow");
+  const projectDataDirectory = configuredDataRoot ? path.join(dataRoot, descriptor.id) : dataRoot;
   fs.mkdirSync(projectDataDirectory, { recursive: true });
 
   return {

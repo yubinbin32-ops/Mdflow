@@ -1,6 +1,9 @@
 import Foundation
 
 struct ProjectLocation {
+    private static let recentProjectsKey = "mdflow.recentProjects"
+    private static let legacyRecentProjectKey = "mdflow.recentProjectRoot"
+
     let root: URL
     let descriptor: ProjectDescriptor
     let database: URL
@@ -13,11 +16,24 @@ struct ProjectLocation {
             }
             return arguments[index + 1]
         }()
-        let environmentRoot = ProcessInfo.processInfo.environment["MDFLOW_PROJECT_ROOT"]
-        var candidate = URL(
-            fileURLWithPath: explicitRoot ?? environmentRoot ?? FileManager.default.currentDirectoryPath,
+        if let explicitRoot {
+            return try resolve(startingAt: URL(fileURLWithPath: explicitRoot, isDirectory: true))
+        }
+        if let environmentRoot = ProcessInfo.processInfo.environment["MDFLOW_PROJECT_ROOT"] {
+            return try resolve(startingAt: URL(fileURLWithPath: environmentRoot, isDirectory: true))
+        }
+        if let recentRoot = recentProjects().first?.path,
+           let recent = try? resolve(startingAt: URL(fileURLWithPath: recentRoot, isDirectory: true)) {
+            return recent
+        }
+        return try resolve(startingAt: URL(
+            fileURLWithPath: FileManager.default.currentDirectoryPath,
             isDirectory: true
-        ).standardizedFileURL
+        ))
+    }
+
+    static func resolve(startingAt root: URL) throws -> ProjectLocation {
+        var candidate = root.standardizedFileURL
 
         while candidate.path != "/" {
             let descriptorURL = candidate.appending(path: ".mdflow/project.json")
@@ -27,22 +43,47 @@ struct ProjectLocation {
                 let dataRoot: URL
                 if let override = ProcessInfo.processInfo.environment["MDFLOW_DATA_DIR"] {
                     dataRoot = URL(fileURLWithPath: override, isDirectory: true)
+                        .appending(path: descriptor.id, directoryHint: .isDirectory)
                 } else {
-                    dataRoot = FileManager.default.homeDirectoryForCurrentUser
-                        .appending(path: "Library/Application Support/mdflow/projects", directoryHint: .isDirectory)
+                    dataRoot = candidate.appending(path: ".mdflow", directoryHint: .isDirectory)
                 }
-                return ProjectLocation(
+                let location = ProjectLocation(
                     root: candidate,
                     descriptor: descriptor,
-                    database: dataRoot
-                        .appending(path: descriptor.id, directoryHint: .isDirectory)
-                        .appending(path: "mdflow.sqlite")
+                    database: dataRoot.appending(path: "mdflow.sqlite")
                 )
+                remember(location)
+                return location
             }
             candidate.deleteLastPathComponent()
         }
         throw CocoaError(.fileNoSuchFile, userInfo: [
             NSLocalizedDescriptionKey: "No .mdflow/project.json found. Open mdflow from a registered project."
         ])
+    }
+
+    static func recentProjects() -> [RecentProject] {
+        var projects: [RecentProject] = []
+        if let data = UserDefaults.standard.data(forKey: recentProjectsKey),
+           let decoded = try? JSONDecoder().decode([RecentProject].self, from: data) {
+            projects = decoded
+        } else if let legacyPath = UserDefaults.standard.string(forKey: legacyRecentProjectKey) {
+            let name = URL(fileURLWithPath: legacyPath).lastPathComponent
+            projects = [RecentProject(path: legacyPath, name: name)]
+        }
+        return projects.filter {
+            FileManager.default.fileExists(atPath: URL(fileURLWithPath: $0.path).appending(path: ".mdflow/project.json").path)
+        }
+    }
+
+    private static func remember(_ location: ProjectLocation) {
+        let current = RecentProject(path: location.root.path, name: location.descriptor.name)
+        var projects = recentProjects().filter { $0.path != current.path }
+        projects.insert(current, at: 0)
+        if projects.count > 8 { projects.removeLast(projects.count - 8) }
+        if let data = try? JSONEncoder().encode(projects) {
+            UserDefaults.standard.set(data, forKey: recentProjectsKey)
+            UserDefaults.standard.removeObject(forKey: legacyRecentProjectKey)
+        }
     }
 }

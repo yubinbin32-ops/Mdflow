@@ -9,7 +9,9 @@ Use mdflow as the project's context source, not as a ceremony performed only at 
 
 ## Read progressively
 
-- At the start of relevant project work, call `context_for_task` with the actual task and a modest budget.
+- Determine the absolute repository root for the project being changed. Pass it as `projectRoot` to every mdflow tool call; when the user switches projects, change `projectRoot` deliberately and never reuse entities across roots.
+- If the root has no `.mdflow/project.json`, call `project_register` once before any other mdflow tool.
+- At the start of relevant project work, call `context_for_task` with `projectRoot`, the actual task, and a modest budget.
 - Use `entity_open` or `graph_search` only when the returned references do not answer the next decision.
 - Do not request or reconstruct the entire graph when a Block, Link, or Chain is sufficient.
 
@@ -17,7 +19,8 @@ Use mdflow as the project's context source, not as a ceremony performed only at 
 
 Use `graph_mutate` whenever work creates or changes a durable responsibility, flow, interface, data contract, implementation location, risk, plan, or delivery state. Do not emit graph writes for inconsequential code formatting or every intermediate thought.
 
-- A Plan is a Chain. Planned work is represented by its unfinished member Blocks, not a separate Todo list.
+- A Plan is an independent work-management entity that targets one or more Chains. A Chain is only a reusable path overlay through global Blocks and Links; neither owns or duplicates those graph entities.
+- Todo is derived from unfinished Plan checkpoints and next actions. Do not create a Todo Block, Plan Block, or Plan Chain.
 - Before implementing a new capability, ensure the smallest accurate Block/Chain structure exists.
 - Keep Blocks semantic and stable. Attach implementation, test, schema, style, or configuration locations with `add_source_ref`; remove stale or duplicate locations with `remove_source_ref`. Never replace a responsibility with a file path.
 - Update existing entities with their latest `expectedRevision`. If a revision conflicts, reopen the entity and reconcile instead of overwriting it.

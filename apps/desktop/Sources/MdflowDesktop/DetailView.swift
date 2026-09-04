@@ -24,6 +24,8 @@ struct DetailView: View {
         switch selection.type {
         case .block:
             if let block = store.snapshot.blocks.first(where: { $0.id == selection.id }) {
+                section(store.text("summary").uppercased(), text: store.blockText(block, field: "summary"))
+                section(store.text("details").uppercased(), text: store.blockText(block, field: "body"))
                 section(store.text("contract").uppercased(), text: store.blockText(block, field: "contract"))
                 sourceSection(block.id)
             }
@@ -41,6 +43,7 @@ struct DetailView: View {
             }
         case .plan:
             if let plan = store.snapshot.plans.first(where: { $0.id == selection.id }) {
+                section(store.text("summary").uppercased(), text: store.planText(plan, field: "summary"))
                 section(store.text("goal").uppercased(), text: store.planText(plan, field: "goal"))
                 section(store.text("nextAction").uppercased(), text: store.planText(plan, field: "nextAction"))
                 if !store.targetChains(for: plan.id).isEmpty {
@@ -63,8 +66,8 @@ struct DetailView: View {
                         }
                     }
                 }
-                section(store.text("proposedDelta").uppercased(), text: prettyJSON(plan.proposedDelta))
-                section(store.text("blockers").uppercased(), text: prettyJSON(plan.blockers))
+                structuredList(store.text("proposedDelta").uppercased(), value: plan.proposedDelta)
+                structuredList(store.text("blockers").uppercased(), value: plan.blockers)
             }
         }
     }
@@ -129,7 +132,19 @@ struct DetailView: View {
                     DisclosureGroup {
                         VStack(alignment: .leading, spacing: 7) {
                             if !checkpoint.criteria.isEmpty { Text(checkpoint.criteria) }
-                            if checkpoint.evidence != "[]" { Text(checkpoint.evidence).textSelection(.enabled) }
+                            ForEach(structuredItems(checkpoint.evidence)) { item in
+                                HStack(alignment: .top, spacing: 7) {
+                                    Circle().fill(MdflowTheme.focus.opacity(0.65)).frame(width: 4, height: 4).padding(.top, 6)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        if let eyebrow = item.eyebrow {
+                                            Text(localizedType(eyebrow))
+                                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                                .tracking(0.8)
+                                        }
+                                        Text(item.text).textSelection(.enabled)
+                                    }
+                                }
+                            }
                         }
                         .font(.system(size: 11.5, design: .rounded))
                         .foregroundStyle(MdflowTheme.muted)
@@ -191,12 +206,61 @@ struct DetailView: View {
         }
     }
 
-    private func prettyJSON(_ value: String) -> String {
-        guard let data = value.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data),
-              let formatted = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted]),
-              let string = String(data: formatted, encoding: .utf8)
-        else { return value == "[]" ? "" : value }
-        return value == "[]" ? "" : string
+    @ViewBuilder
+    private func structuredList(_ title: String, value: String) -> some View {
+        let items = structuredItems(value)
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                sectionLabel(title)
+                ForEach(items) { item in
+                    HStack(alignment: .top, spacing: 9) {
+                        if let eyebrow = item.eyebrow {
+                            Text(localizedType(eyebrow))
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .tracking(0.7)
+                                .foregroundStyle(MdflowTheme.focus)
+                                .padding(.horizontal, 6)
+                                .frame(height: 20)
+                                .background(MdflowTheme.focus.opacity(0.08), in: Capsule())
+                        } else {
+                            Circle().fill(MdflowTheme.focus.opacity(0.65)).frame(width: 5, height: 5).padding(.top, 7)
+                        }
+                        Text(item.text)
+                            .font(.system(size: 11.5, design: .rounded))
+                            .foregroundStyle(MdflowTheme.ink.opacity(0.86))
+                            .lineSpacing(3)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+        }
+    }
+
+    private struct StructuredItem: Identifiable {
+        let id: Int
+        let eyebrow: String?
+        let text: String
+    }
+
+    private func structuredItems(_ value: String) -> [StructuredItem] {
+        guard value != "[]", let data = value.data(using: .utf8),
+              let values = try? JSONSerialization.jsonObject(with: data) as? [Any]
+        else { return value.isEmpty || value == "[]" ? [] : [StructuredItem(id: 0, eyebrow: nil, text: value)] }
+        return values.enumerated().compactMap { index, item in
+            if let text = item as? String { return StructuredItem(id: index, eyebrow: nil, text: text) }
+            guard let dictionary = item as? [String: Any] else { return nil }
+            let eyebrow = dictionary["type"] as? String ?? dictionary["kind"] as? String
+            let preferred = dictionary["change"] as? String ?? dictionary["result"] as? String ?? dictionary["message"] as? String
+            let remaining = dictionary.keys.sorted().filter { !["type", "kind", "change", "result", "message"].contains($0) }.map {
+                "\($0): \(String(describing: dictionary[$0]!))"
+            }
+            let text = ([preferred].compactMap { $0 } + remaining).joined(separator: " · ")
+            return text.isEmpty ? nil : StructuredItem(id: index, eyebrow: eyebrow, text: text)
+        }
+    }
+
+    private func localizedType(_ value: String) -> String {
+        guard store.activeLocale == "zh-Hans" else { return value.uppercased() }
+        return ["schema": "模型", "canvas": "画布", "interaction": "交互", "evaluation": "验证", "automated-test": "自动测试"][value] ?? value.uppercased()
     }
 }

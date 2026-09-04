@@ -1,6 +1,6 @@
 {
   "name": "mdflow",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260904080939",
   "description": "Keep project architecture, implementation progress, checkpoints, and code references synchronized through a task-scoped graph.",
   "author": {
     "name": "mdflow"
@@ -17,7 +17,9 @@
       "Architecture and progress synchronization",
       "Checkpoint evidence"
     ],
-    "defaultPrompt": "Use mdflow to understand this task, then keep the project graph synchronized as the implementation changes."
+    "defaultPrompt": [
+      "Use mdflow to understand this task and keep its project graph synchronized."
+    ]
   },
   "mcpServers": "./.mcp.json"
 }

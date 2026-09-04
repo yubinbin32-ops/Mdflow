@@ -273,7 +273,10 @@ function backfillChainPaths(database) {
     JOIN links
       ON links.source_type = 'block' AND links.source_id = source.block_id
      AND links.target_type = 'block' AND links.target_id = target.block_id
-    WHERE links.archived = 0;
+    WHERE links.archived = 0
+      AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id);
+
+    DELETE FROM chain_members;
   `);
 }
 

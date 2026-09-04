@@ -23,19 +23,31 @@ final class ProjectDatabase {
         self.location = location
         guard FileManager.default.fileExists(atPath: location.database.path) else {
             throw CocoaError(.fileNoSuchFile, userInfo: [
-                NSLocalizedDescriptionKey: "The mdflow database does not exist yet. Run the MCP server or `npm run seed`."
+                NSLocalizedDescriptionKey: "The mdflow database does not exist yet. Connect the mdflow MCP server to this project first."
             ])
         }
-        let result = sqlite3_open_v2(location.database.path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil)
+        // WAL readers need permission to create or reuse the shared-memory sidecar.
+        // Open the file read-write, then enforce a query-only connection before any reads.
+        let result = sqlite3_open_v2(location.database.path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil)
         guard result == SQLITE_OK else {
             let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "Unable to open database"
             throw DatabaseError.open(message)
         }
         sqlite3_busy_timeout(handle, 3_000)
+        guard sqlite3_exec(handle, "PRAGMA query_only = ON", nil, nil, nil) == SQLITE_OK else {
+            let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "Unable to enforce query-only mode"
+            throw DatabaseError.open(message)
+        }
     }
 
     deinit {
+        close()
+    }
+
+    func close() {
+        guard let handle else { return }
         sqlite3_close(handle)
+        self.handle = nil
     }
 
     func changeSequence() throws -> Int {
@@ -119,21 +131,6 @@ final class ProjectDatabase {
                 contract: row.text("contract"),
                 healthState: row.text("health_state"),
                 revision: row.int("current_revision")
-            )
-        }
-        let members = try rows(
-            """
-            SELECT cm.* FROM chain_members cm
-            JOIN chains c ON c.id = cm.chain_id
-            WHERE c.project_id = ? ORDER BY cm.chain_id, cm.position
-            """,
-            bindings: [project.id]
-        ).map { row in
-            ChainMember(
-                chainId: row.text("chain_id"),
-                memberType: row.text("member_type"),
-                memberId: row.text("member_id"),
-                position: row.int("position")
             )
         }
         let chainNodes = try rows(
@@ -263,7 +260,6 @@ final class ProjectDatabase {
             chains: chains,
             plans: plans,
             links: links,
-            members: members,
             chainNodes: chainNodes,
             chainEdges: chainEdges,
             planChainReferences: planChainReferences,

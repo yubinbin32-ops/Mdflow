@@ -32,20 +32,48 @@ struct ContentView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button { store.showOverview() } label: {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(store.snapshot.project.name)
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundStyle(MdflowTheme.ink)
-                    Text(store.text("overview").uppercased())
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .tracking(1.4)
-                        .foregroundStyle(MdflowTheme.muted)
+            HStack(spacing: 4) {
+                Button { store.showOverview() } label: {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(store.snapshot.project.name)
+                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .foregroundStyle(MdflowTheme.ink)
+                            .lineLimit(1)
+                        Text(store.text("overview").uppercased())
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .tracking(1.4)
+                            .foregroundStyle(MdflowTheme.muted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(18)
+                .buttonStyle(.plain)
+
+                Menu {
+                    if !store.recentProjects.isEmpty {
+                        Section(store.text("recentProjects")) {
+                            ForEach(store.recentProjects) { project in
+                                Button { store.openProject(project) } label: {
+                                    if project.path == store.projectRoot {
+                                        Label(project.name, systemImage: "checkmark")
+                                    } else {
+                                        Text(project.name)
+                                    }
+                                }
+                            }
+                        }
+                        Divider()
+                    }
+                    Button(store.text("openProject")) { store.chooseProject() }
+                } label: {
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(MdflowTheme.muted)
+                        .frame(width: 26, height: 30)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
             }
-            .buttonStyle(.plain)
+            .padding(18)
 
             Divider().padding(.horizontal, 14)
 
@@ -166,32 +194,41 @@ struct ContentView: View {
     }
 
     private var zoomControl: some View {
-        HStack(spacing: 0) {
-            Button { store.zoom(by: -0.1) } label: { Image(systemName: "minus") }
+        HStack(spacing: 2) {
+            Button { store.zoom(by: -0.1) } label: {
+                Image(systemName: "minus").frame(width: 42, height: 42)
+            }
                 .help("Zoom out")
             Button { store.resetZoom() } label: {
                 Text("\(Int((store.canvasScale * 100).rounded()))%")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .frame(width: 50)
+                    .frame(width: 58, height: 42)
             }
             .help("Reset zoom")
-            Button { store.zoom(by: 0.1) } label: { Image(systemName: "plus") }
+            Button { store.zoom(by: 0.1) } label: {
+                Image(systemName: "plus").frame(width: 42, height: 42)
+            }
                 .help("Zoom in")
         }
         .buttonStyle(.plain)
-        .frame(height: 32)
-        .padding(.horizontal, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(MdflowTheme.hairline))
-        .padding(16)
+        .padding(5)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(MdflowTheme.hairline))
+        .contentShape(Rectangle())
+        .padding(18)
     }
 
     @ViewBuilder
     private var errorBanner: some View {
         if let error = store.errorMessage {
-            Text(error)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(MdflowTheme.failure)
+            VStack(alignment: .leading, spacing: 9) {
+                Text(error)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(MdflowTheme.failure)
+                Button(store.text("openProject")) { store.chooseProject() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(MdflowTheme.surface)
@@ -236,6 +273,7 @@ private struct SettingsView: View {
                     .textSelection(.enabled)
                 Text(store.text("liveHelp"))
                     .font(.system(size: 12, design: .rounded))
+                Button(store.text("changeProject")) { store.chooseProject() }
             }
             Spacer()
         }

@@ -137,7 +137,7 @@ function assertAllowed(value, allowed, label) {
 }
 
 function entityExists(database, projectId, type, id) {
-  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "plan" ? "plans" : null;
+  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "link" ? "links" : type === "plan" ? "plans" : null;
   if (!table) return false;
   return Boolean(
     database.prepare(`SELECT 1 FROM ${table} WHERE project_id = ? AND id = ?`).get(projectId, id),
@@ -245,10 +245,14 @@ function localizedSearchText(snapshot, type, id) {
 }
 
 function taskTerms(task) {
+  const stopWords = new Set([
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "how", "in", "is", "it",
+    "of", "on", "or", "the", "this", "to", "what", "when", "where", "which", "with",
+  ]);
   const terms = task
     .toLowerCase()
     .split(/[^\p{L}\p{N}_-]+/u)
-    .filter((term) => term.length > 1);
+    .filter((term) => term.length > 1 && !stopWords.has(term));
   const cjkRuns = task.match(/[\p{Script=Han}]+/gu) ?? [];
   for (const run of cjkRuns) {
     for (let index = 0; index < run.length - 1; index += 1) terms.push(run.slice(index, index + 2));
@@ -308,37 +312,24 @@ export class MdflowService {
       .prepare("SELECT * FROM links WHERE project_id = ? AND archived = 0 ORDER BY created_at")
       .all(projectId)
       .map(normalizeLink);
-    const members = this.database
-      .prepare(
-        `SELECT cm.* FROM chain_members cm
-         JOIN chains c ON c.id = cm.chain_id
-         WHERE c.project_id = ? ORDER BY cm.chain_id, cm.position`,
-      )
-      .all(projectId)
-      .map((row) => ({
-        chainId: row.chain_id,
-        memberType: row.member_type,
-        memberId: row.member_id,
-        position: row.position,
-      }));
     const chainNodes = this.database
       .prepare(
         `SELECT cn.* FROM chain_nodes cn JOIN chains c ON c.id = cn.chain_id
-         WHERE c.project_id = ? ORDER BY cn.chain_id, cn.position`,
+         WHERE c.project_id = ? AND c.archived = 0 ORDER BY cn.chain_id, cn.position`,
       )
       .all(projectId)
       .map((row) => ({ chainId: row.chain_id, blockId: row.block_id, position: row.position, role: row.role }));
     const chainEdges = this.database
       .prepare(
         `SELECT ce.* FROM chain_edges ce JOIN chains c ON c.id = ce.chain_id
-         WHERE c.project_id = ? ORDER BY ce.chain_id, ce.position`,
+         WHERE c.project_id = ? AND c.archived = 0 ORDER BY ce.chain_id, ce.position`,
       )
       .all(projectId)
       .map((row) => ({ chainId: row.chain_id, linkId: row.link_id, position: row.position }));
     const planChainRefs = this.database
       .prepare(
         `SELECT pcr.* FROM plan_chain_refs pcr JOIN plans p ON p.id = pcr.plan_id
-         WHERE p.project_id = ? ORDER BY pcr.plan_id, pcr.position`,
+         WHERE p.project_id = ? AND p.archived = 0 ORDER BY pcr.plan_id, pcr.position`,
       )
       .all(projectId)
       .map((row) => ({ planId: row.plan_id, chainId: row.chain_id, position: row.position }));
@@ -412,7 +403,6 @@ export class MdflowService {
       chains,
       plans,
       links,
-      members,
       chainNodes,
       chainEdges,
       planChainRefs,
@@ -448,38 +438,68 @@ export class MdflowService {
       const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
       lines.push(`- [block:${block.id}] ${title} — ${block.deliveryState}/${block.healthState}`);
     }
-    return { snapshot, markdown: lines.join("\n") };
+    return {
+      map: {
+        project: snapshot.project,
+        changeSequence: snapshot.changeSequence,
+        counts: {
+          blocks: snapshot.blocks.length,
+          links: snapshot.links.length,
+          chains: snapshot.chains.length,
+          plans: snapshot.plans.length,
+        },
+        plans: plans.map((plan) => ({
+          id: plan.id,
+          title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title),
+          status: plan.status,
+          priority: plan.priority,
+          targetChainIds: snapshot.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId),
+        })),
+        criticalBlocks: snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
+          id: block.id,
+          title: localizedValue(translations, "block", block.id, locale, "title", block.title),
+          deliveryState: block.deliveryState,
+          healthState: block.healthState,
+        })),
+      },
+      markdown: lines.join("\n"),
+    };
   }
 
   search({ query, kinds = [], states = [], limit = 20, locale = "en" }) {
     const term = `%${query.trim()}%`;
+    const terms = taskTerms(query);
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const kindSet = new Set(kinds);
     const stateSet = new Set(states);
-    const blocks = snapshot.blocks.filter((block) => {
+    const score = (text) => terms.reduce((total, item) => total + (text.toLowerCase().includes(item) ? 1 : 0), 0);
+    const blocks = snapshot.blocks.map((block) => {
       const text = `${block.title}\n${block.summary}\n${block.body}\n${block.contract}\n${block.tags.join(" ")}\n${localizedSearchText(snapshot, "block", block.id)}`;
-      return (
-        text.toLowerCase().includes(query.trim().toLowerCase()) &&
+      return { item: block, score: score(text) };
+    }).filter(({ item: block, score }) => {
+      return (score > 0 &&
         (kindSet.size === 0 || kindSet.has(block.kind)) &&
         (stateSet.size === 0 || stateSet.has(block.deliveryState) || stateSet.has(block.healthState))
       );
-    });
-    const chains = snapshot.chains.filter((chain) => {
+    }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+    const chains = snapshot.chains.map((chain) => {
       const text = `${chain.title}\n${chain.intent}\n${chain.inputContract}\n${chain.outputContract}\n${localizedSearchText(snapshot, "chain", chain.id)}`;
-      return (
-        text.toLowerCase().includes(query.trim().toLowerCase()) &&
+      return { item: chain, score: score(text) };
+    }).filter(({ item: chain, score }) => {
+      return (score > 0 &&
         (kindSet.size === 0 || kindSet.has("chain")) &&
         (stateSet.size === 0 || stateSet.has(chain.deliveryState) || stateSet.has(chain.healthState))
       );
-    });
-    const plans = snapshot.plans.filter((plan) => {
-      const text = `${plan.title}\n${plan.summary}\n${plan.goal}\n${plan.nextAction}\n${localizedSearchText(snapshot, "plan", plan.id)}`;
-      return text.toLowerCase().includes(query.trim().toLowerCase()) &&
+    }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+    const plans = snapshot.plans.map((plan) => {
+      const text = `${plan.title}\n${plan.summary}\n${plan.goal}\n${plan.status}\n${plan.nextAction}\n${JSON.stringify(plan.blockers)}\n${localizedSearchText(snapshot, "plan", plan.id)}`;
+      return { item: plan, score: score(text) };
+    }).filter(({ item: plan, score }) => score > 0 &&
         (kindSet.size === 0 || kindSet.has("plan")) &&
-        (stateSet.size === 0 || stateSet.has(plan.status));
-    });
+        (stateSet.size === 0 || stateSet.has(plan.status)))
+      .sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
     const sourceRows = this.database
       .prepare(
         `SELECT sr.*, b.title FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
@@ -561,7 +581,7 @@ export class MdflowService {
               gitCommit: row.git_commit,
             }))
         : [];
-    const members =
+    const pathNodes =
       type === "chain"
         ? this.database
             .prepare("SELECT chain_id, 'block' AS member_type, block_id AS member_id, position FROM chain_nodes WHERE chain_id = ? ORDER BY position")
@@ -572,7 +592,7 @@ export class MdflowService {
               position: row.position,
             }))
         : [];
-    const edgeRefs =
+    const pathEdges =
       type === "chain"
         ? this.database.prepare("SELECT link_id, position FROM chain_edges WHERE chain_id = ? ORDER BY position").all(id)
             .map((row) => ({ linkId: row.link_id, position: row.position }))
@@ -599,6 +619,10 @@ export class MdflowService {
     if (entity.status) lines.push(`- Status: ${entity.status}`);
     if (entity.healthState) lines.push(`- Health: ${entity.healthState}`);
     if (displaySummary) lines.push("", "## Summary", displaySummary);
+    if (type === "block") {
+      const displayBody = localizedValue(translations, type, id, locale, "body", entity.body ?? "");
+      if (displayBody) lines.push("", "## Details", displayBody);
+    }
     if (displayContract) lines.push("", "## Contract", displayContract);
     if (entity.inputContract || entity.outputContract) {
       lines.push("", "## Contract", `Input: ${displayInput || "—"}`, `Output: ${displayOutput || "—"}`);
@@ -631,10 +655,10 @@ export class MdflowService {
       lines.push("", "## Relevant history");
       for (const item of history) lines.push(`- r${item.revision} ${item.action}: ${item.summary}`);
     }
-    return { entity, sourceRefs, members, edgeRefs, targetChains, checkpoints, history, markdown: lines.join("\n") };
+    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, checkpoints, history, markdown: lines.join("\n") };
   }
 
-  contextForTask({ task, focusRefs = [], maxChars = 12000, locale = "en" }) {
+  contextForTask({ task, focusRefs = [], maxChars = 8000, locale = "en" }) {
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
@@ -642,13 +666,10 @@ export class MdflowService {
     const scoreText = (text) =>
       terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
     const scoredBlocks = snapshot.blocks
-      .map((block) => ({
-        block,
-        score:
-          scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`) +
-          (focusRefs.includes(`block:${block.id}`) ? 100 : 0) +
-          (["principle", "decision"].includes(block.kind) && block.priority === "critical" ? 2 : 0),
-      }))
+      .map((block) => {
+        const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
+        return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
+      })
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score);
     const scoredChains = snapshot.chains
@@ -661,14 +682,12 @@ export class MdflowService {
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score);
     const scoredPlans = snapshot.plans
-      .map((plan) => ({
-        plan,
-        score:
-          scoreText(`${plan.title} ${plan.summary} ${plan.goal} ${plan.nextAction} ${JSON.stringify(plan.proposedDelta)} ${localizedSearchText(snapshot, "plan", plan.id)}`) +
-          (focusRefs.includes(`plan:${plan.id}`) ? 100 : 0) +
-          (["active", "blocked", "verifying"].includes(plan.status) ? 1 : 0),
-      }))
-      .filter((entry) => entry.score > 0)
+      .map((plan) => {
+        const focused = focusRefs.includes(`plan:${plan.id}`);
+        const semanticScore = scoreText(`${plan.title} ${plan.summary} ${plan.goal} ${plan.status} ${plan.nextAction} ${JSON.stringify(plan.proposedDelta)} ${JSON.stringify(plan.blockers)} ${localizedSearchText(snapshot, "plan", plan.id)}`);
+        return { plan, semanticScore, score: semanticScore + (focused ? 100 : 0), focused };
+      })
+      .filter((entry) => entry.focused || entry.semanticScore >= 1)
       .sort((a, b) => b.score - a.score);
 
     if (scoredBlocks.length === 0 && scoredChains.length === 0 && scoredPlans.length === 0) {
@@ -677,14 +696,36 @@ export class MdflowService {
       }
     }
 
-    const selectedBlockIds = new Set(scoredBlocks.slice(0, 12).map((entry) => entry.block.id));
-    const selectedChainIds = new Set(scoredChains.slice(0, 5).map((entry) => entry.chain.id));
-    const selectedPlanIds = new Set(scoredPlans.slice(0, 3).map((entry) => entry.plan.id));
+    const selectedBlockIds = new Set(scoredBlocks.slice(0, 6).map((entry) => entry.block.id));
+    const selectedChainIds = new Set(scoredChains.slice(0, 2).map((entry) => entry.chain.id));
+    const selectedPlanIds = new Set(scoredPlans.slice(0, 2).map((entry) => entry.plan.id));
+    const relatedChains = new Map();
+    for (const node of snapshot.chainNodes) {
+      if (selectedBlockIds.has(node.blockId)) relatedChains.set(node.chainId, (relatedChains.get(node.chainId) ?? 0) + 1);
+    }
+    for (const [chainId] of [...relatedChains.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+      if (selectedChainIds.size >= 2) break;
+      selectedChainIds.add(chainId);
+    }
+    const traversalChainIds = new Set(selectedChainIds);
     for (const target of snapshot.planChainRefs) {
       if (selectedPlanIds.has(target.planId)) selectedChainIds.add(target.chainId);
     }
-    for (const member of snapshot.chainNodes) {
-      if (selectedChainIds.has(member.chainId)) selectedBlockIds.add(member.blockId);
+    for (const chainId of traversalChainIds) {
+      const path = snapshot.chainNodes
+        .filter((item) => item.chainId === chainId)
+        .sort((a, b) => a.position - b.position)
+        .map((item) => item.blockId);
+      if (focusRefs.includes(`chain:${chainId}`)) {
+        for (const blockId of path.slice(0, 10)) selectedBlockIds.add(blockId);
+        continue;
+      }
+      const matchingPositions = path.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
+      for (const position of matchingPositions) {
+        for (const index of [position - 1, position, position + 1]) {
+          if (path[index]) selectedBlockIds.add(path[index]);
+        }
+      }
     }
     for (const scope of snapshot.backgroundScopes) {
       if (scope.scopeType === "project" ||
@@ -702,7 +743,10 @@ export class MdflowService {
         (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId)),
     );
     const relevantCheckpoints = snapshot.checkpoints.filter(
-      (checkpoint) => selectedBlockIds.has(checkpoint.targetId) || selectedChainIds.has(checkpoint.targetId),
+      (checkpoint) =>
+        (checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId)) ||
+        (checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId)) ||
+        (checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId)),
     );
 
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
@@ -713,6 +757,8 @@ export class MdflowService {
         const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
         lines.push(`- [block:${block.id}] ${title}: ${summary}`);
+        const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
+        if (contract) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");
     }
@@ -738,14 +784,17 @@ export class MdflowService {
       }
       lines.push("");
     }
-    if (relevantBlocks.length) {
+    const contentBlocks = relevantBlocks.filter((block) => !["principle", "decision"].includes(block.kind));
+    if (contentBlocks.length) {
       lines.push("## Relevant blocks");
-      for (const block of relevantBlocks) {
+      for (const block of contentBlocks) {
         const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
+        const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
         lines.push(`- [block:${block.id}] ${title} — ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
+        if (body) lines.push(`  Details: ${body}`);
         if (contract) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");
@@ -768,7 +817,7 @@ export class MdflowService {
       for (const checkpoint of failing) lines.push(`- ${checkpoint.status}: ${checkpoint.title}`);
       lines.push("");
     }
-    lines.push("## Expand", "Use entity_open with a block, chain, or link ID when more detail is needed.");
+    lines.push("## Expand", "Use entity_open with a Block, Chain, Link, or Plan ID when more detail is needed.");
     const markdown = lines.join("\n").slice(0, maxChars);
     return {
       graphRevision: snapshot.project.graphRevision,
@@ -851,8 +900,6 @@ export class MdflowService {
         return this.createChain(operation, context);
       case "update_chain":
         return this.updateEntity("chain", operation, context);
-      case "set_chain_members":
-        return this.setChainMembers(operation, context);
       case "create_link":
         return this.createLink(operation, context);
       case "update_link":
@@ -965,12 +1012,9 @@ export class MdflowService {
     });
     this.database.prepare("DELETE FROM chain_nodes WHERE chain_id = ?").run(operation.id);
     this.database.prepare("DELETE FROM chain_edges WHERE chain_id = ?").run(operation.id);
-    this.database.prepare("DELETE FROM chain_members WHERE chain_id = ?").run(operation.id);
     const insertNode = this.database.prepare("INSERT INTO chain_nodes(chain_id, block_id, position, role) VALUES (?, ?, ?, 'path')");
-    const insertMember = this.database.prepare("INSERT INTO chain_members(chain_id, member_type, member_id, position) VALUES (?, 'block', ?, ?)");
     nodeIds.forEach((blockId, index) => {
       insertNode.run(operation.id, blockId, index);
-      insertMember.run(operation.id, blockId, index);
     });
     const insertEdge = this.database.prepare("INSERT INTO chain_edges(chain_id, link_id, position) VALUES (?, ?, ?)");
     links.forEach((link, index) => insertEdge.run(operation.id, link.id, index));
@@ -1216,57 +1260,14 @@ export class MdflowService {
     };
   }
 
-  setChainMembers(operation) {
-    if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
-      throw new Error("set_chain_members requires id and expectedRevision");
-    }
-    const chain = this.database
-      .prepare("SELECT * FROM chains WHERE project_id = ? AND id = ?")
-      .get(this.paths.descriptor.id, operation.id);
-    if (!chain) throw new Error(`chain:${operation.id} not found`);
-    if (chain.current_revision !== operation.expectedRevision) {
-      throw new Error(
-        `Revision conflict for chain:${operation.id}; expected ${operation.expectedRevision}, current ${chain.current_revision}`,
-      );
-    }
-    const members = operation.members ?? [];
-    for (const member of members) {
-      if (!entityExists(this.database, this.paths.descriptor.id, member.type, member.id)) {
-        throw new Error(`Missing chain member ${member.type}:${member.id}`);
-      }
-      if (member.type === "chain" && member.id === operation.id) throw new Error("A chain cannot contain itself");
-    }
-    this.database.prepare("DELETE FROM chain_members WHERE chain_id = ?").run(operation.id);
-    this.database.prepare("DELETE FROM chain_nodes WHERE chain_id = ?").run(operation.id);
-    this.database.prepare("DELETE FROM chain_edges WHERE chain_id = ?").run(operation.id);
-    const insert = this.database.prepare(
-      "INSERT INTO chain_members(chain_id, member_type, member_id, position) VALUES (?, ?, ?, ?)",
-    );
-    const insertNode = this.database.prepare(
-      "INSERT INTO chain_nodes(chain_id, block_id, position, role) VALUES (?, ?, ?, 'path')",
-    );
-    members.forEach((member, index) => {
-      insert.run(operation.id, member.type, member.id, index);
-      if (member.type === "block") insertNode.run(operation.id, member.id, index);
-    });
-    const revision = chain.current_revision + 1;
-    this.database
-      .prepare("UPDATE chains SET current_revision = ?, updated_at = ? WHERE id = ?")
-      .run(revision, now(), operation.id);
-    return {
-      entityType: "chain",
-      id: operation.id,
-      action: "members-set",
-      revision,
-      summary: `${members.length} members`,
-    };
-  }
-
   recordCheckpoint({ actor = "agent", id, targetType, targetId, title, criteria = "", status, evidence = [], expectedRevision }) {
     if (!["block", "chain", "link", "plan"].includes(targetType)) throw new Error(`Invalid targetType: ${targetType}`);
     if (!title?.trim()) throw new Error("title is required");
     if (!["pending", "running", "passed", "failed", "blocked"].includes(status)) {
       throw new Error(`Invalid checkpoint status: ${status}`);
+    }
+    if (!entityExists(this.database, this.paths.descriptor.id, targetType, targetId)) {
+      throw new Error(`${targetType}:${targetId} not found`);
     }
     const checkpointId = id ?? identifier("checkpoint");
     const timestamp = now();
@@ -1360,11 +1361,6 @@ export class MdflowService {
         warnings.push(`Missing contract: link:${link.id}`);
       }
     }
-    for (const member of snapshot.members) {
-      if (!refs.has(`${member.memberType}:${member.memberId}`)) {
-        errors.push(`Missing chain member: ${member.chainId} -> ${member.memberType}:${member.memberId}`);
-      }
-    }
     for (const chain of snapshot.chains) {
       const nodes = snapshot.chainNodes.filter((item) => item.chainId === chain.id);
       const edges = snapshot.chainEdges.filter((item) => item.chainId === chain.id);
@@ -1392,6 +1388,14 @@ export class MdflowService {
           (checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpoint.status === "passed",
         );
         if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
+      }
+    }
+    for (const chain of snapshot.chains) {
+      if (chain.deliveryState === "complete") {
+        const passed = snapshot.checkpoints.some(
+          (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chain.id && checkpoint.status === "passed",
+        );
+        if (!passed) warnings.push(`Complete Chain has no passed checkpoint: chain:${chain.id}`);
       }
     }
     for (const plan of snapshot.plans) {

@@ -12,6 +12,10 @@ let package = Package(
         .executableTarget(
             name: "MdflowDesktop",
             dependencies: ["CSQLite"]
-        )
+        ),
+        .testTarget(
+            name: "MdflowDesktopTests",
+            dependencies: ["MdflowDesktop"]
+        ),
     ]
 )
