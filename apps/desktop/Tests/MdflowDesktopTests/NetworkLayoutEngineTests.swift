@@ -12,7 +12,7 @@ import Testing
     #expect(overlaps(in: first, cardSize: CGSize(width: 196, height: 108)).isEmpty)
 }
 
-@Test func overviewLayoutUsesOrderedStagesAndDistrictStreets() {
+@Test func orderedChainCreatesACompactTurningPrimaryRoad() {
     let ids = ["start", "ui", "service", "data", "test"]
     let edges = [
         LayoutEdge(id: "one", sourceID: "start", targetID: "ui"),
@@ -21,11 +21,16 @@ import Testing
         LayoutEdge(id: "four", sourceID: "data", targetID: "test"),
     ]
     let districts = ["start": 0, "ui": 1, "service": 2, "data": 3, "test": 4]
-    let layout = NetworkLayoutEngine.make(nodeIDs: ids, edges: edges, focusPaths: [], districts: districts, cardSize: CGSize(width: 196, height: 108), topInset: 190)
-    let x = ids.compactMap { layout.positions[$0]?.x }
-    let y = ids.compactMap { layout.positions[$0]?.y }
-    #expect(x == x.sorted())
-    #expect(y == y.sorted())
+    let size = CGSize(width: 196, height: 108)
+    let layout = NetworkLayoutEngine.make(nodeIDs: ids, edges: edges, focusPaths: [ids], districts: districts, cardSize: size, topInset: 190)
+    let positions = ids.compactMap { layout.positions[$0] }
+    #expect(positions.count == ids.count)
+    #expect(zip(positions, positions.dropFirst()).allSatisfy { left, right in
+        let horizontalNeighbor = abs(left.x - right.x) == size.width + NetworkLayoutEngine.horizontalStreetWidth && left.y == right.y
+        let verticalNeighbor = abs(left.y - right.y) == size.height + NetworkLayoutEngine.verticalStreetWidth && left.x == right.x
+        return horizontalNeighbor || verticalNeighbor
+    })
+    #expect(Set(positions.map(\.y)).count > 1)
 }
 
 @Test func focusedLayoutKeepsTheGlobalNetworkStableAndTheChainOrdered() {
@@ -38,12 +43,40 @@ import Testing
         LayoutEdge(id: "other-edge-\($0)", sourceID: path[$0 % path.count], targetID: "other-\($0)")
     }
     let size = CGSize(width: 196, height: 108)
-    let overview = NetworkLayoutEngine.make(nodeIDs: ids, edges: pathEdges + otherEdges, focusPaths: [], cardSize: size, topInset: 190)
+    let overview = NetworkLayoutEngine.make(nodeIDs: ids, edges: pathEdges + otherEdges, focusPaths: [path], cardSize: size, topInset: 190)
     let focused = NetworkLayoutEngine.make(nodeIDs: ids, edges: pathEdges + otherEdges, focusPaths: [path], cardSize: size, topInset: 190)
 
-    #expect(path.compactMap { focused.positions[$0]?.x } == path.compactMap { focused.positions[$0]?.x }.sorted())
     #expect(overview.positions == focused.positions)
     #expect(overlaps(in: focused, cardSize: size).isEmpty)
+}
+
+@Test func scopeAndArchitectureMetadataNeverCreateSpatialBands() {
+    let ids = ["web", "api", "domain", "database", "provider"]
+    let edges = [
+        LayoutEdge(id: "request", sourceID: "web", targetID: "api"),
+        LayoutEdge(id: "command", sourceID: "api", targetID: "domain"),
+        LayoutEdge(id: "write", sourceID: "domain", targetID: "database"),
+        LayoutEdge(id: "callback", sourceID: "provider", targetID: "api"),
+        LayoutEdge(id: "cycle", sourceID: "database", targetID: "domain"),
+    ]
+    let metadata = Dictionary(uniqueKeysWithValues: ids.enumerated().map {
+        ($1, LayoutNodeMetadata(layer: $0, scope: $0 < 4 ? "orders" : "payments", order: $0))
+    })
+    let layout = NetworkLayoutEngine.make(
+        nodeIDs: ids, edges: edges, focusPaths: [], metadata: metadata,
+        cardSize: CGSize(width: 196, height: 108), topInset: 74
+    )
+    let changedMetadata = Dictionary(uniqueKeysWithValues: ids.enumerated().map {
+        ($1, LayoutNodeMetadata(layer: 7 - $0, scope: "different-\($0)", order: $0))
+    })
+    let changed = NetworkLayoutEngine.make(
+        nodeIDs: ids, edges: edges, focusPaths: [], metadata: changedMetadata,
+        cardSize: CGSize(width: 196, height: 108), topInset: 74
+    )
+    #expect(layout.scopeBands.isEmpty)
+    #expect(layout.layerBands.isEmpty)
+    #expect(layout.positions == changed.positions)
+    #expect(overlaps(in: layout, cardSize: CGSize(width: 196, height: 108)).isEmpty)
 }
 
 @Test func linkRoutesReceiveStableSeparateLanes() {

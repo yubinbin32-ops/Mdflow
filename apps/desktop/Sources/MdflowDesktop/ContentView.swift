@@ -33,20 +33,11 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
-                Button { store.showOverview() } label: {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(store.snapshot.project.name)
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundStyle(MdflowTheme.ink)
-                            .lineLimit(1)
-                        Text(store.text("overview").uppercased())
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .tracking(1.4)
-                            .foregroundStyle(MdflowTheme.muted)
-                    }
+                Text(store.snapshot.project.name)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(MdflowTheme.ink)
+                    .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
 
                 Menu {
                     if !store.recentProjects.isEmpty {
@@ -76,6 +67,76 @@ struct ContentView: View {
             .padding(18)
 
             Divider().padding(.horizontal, 14)
+
+            Button { store.showOverview() } label: {
+                Label(store.text("overview"), systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(MdflowTheme.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .frame(height: 38)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(store.selection == nil ? MdflowTheme.focus.opacity(0.09) : .clear)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 7)
+            .padding(.top, 10)
+
+            Text(store.text("chains").uppercased())
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .tracking(1.4)
+                .foregroundStyle(MdflowTheme.muted)
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
+                .padding(.bottom, 7)
+
+            VStack(spacing: 2) {
+                ForEach(store.snapshot.chains) { chain in
+                    Button { store.select(GraphSelection(type: .chain, id: chain.id)) } label: {
+                        HStack(spacing: 9) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(store.chainColor(chain.id))
+                                .frame(width: 18, height: 4)
+                            Text(store.chainText(chain, field: "title"))
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(MdflowTheme.ink)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 32)
+                        .background(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(store.selection == GraphSelection(type: .chain, id: chain.id) ? store.chainColor(chain.id).opacity(0.1) : .clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 7)
+
+            if !projectRuleBlocks.isEmpty {
+                Text(store.text("projectRules").uppercased())
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .tracking(1.2)
+                    .foregroundStyle(MdflowTheme.muted)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 12)
+                ForEach(projectRuleBlocks) { block in
+                    Button { store.select(GraphSelection(type: .block, id: block.id)) } label: {
+                        Label(store.blockText(block, field: "title"), systemImage: "shield.lefthalf.filled")
+                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                            .foregroundStyle(MdflowTheme.ink)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 18)
+                            .frame(height: 30)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
 
             Text(store.text("plans").uppercased())
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
@@ -124,7 +185,20 @@ struct ContentView: View {
     }
 
     private var canvasToolbar: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
+            Button { store.showOverview() } label: {
+                Label(store.text("overview"), systemImage: "network")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
+            Button { store.fitOverview() } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+            }
+            .buttonStyle(.plain)
+            .help(store.text("fitNetwork"))
+
+            Divider().frame(height: 18)
             ForEach(ViewLens.allCases) { lens in
                 Toggle(
                     store.lensTitle(lens),
@@ -150,6 +224,11 @@ struct ContentView: View {
         .padding(.horizontal, 16)
         .frame(height: 50)
         .background(MdflowTheme.surface.opacity(0.96))
+    }
+
+    private var projectRuleBlocks: [BlockItem] {
+        let ids = Set(store.snapshot.backgroundScopes.filter { $0.scopeType == "project" }.map(\.blockId))
+        return store.snapshot.blocks.filter { ids.contains($0.id) }
     }
 
     private var zoomControl: some View {

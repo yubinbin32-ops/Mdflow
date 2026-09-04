@@ -52,12 +52,27 @@ const LINK_KINDS = new Set([
   "supersedes",
 ]);
 
+const ARCHITECTURE_LAYERS = new Set([
+  "client",
+  "boundary",
+  "application",
+  "domain",
+  "data",
+  "external",
+  "quality",
+  "infrastructure",
+  "unspecified",
+]);
+
 const EDITABLE_BLOCK_FIELDS = new Set([
   "kind",
   "title",
   "summary",
   "body",
   "contract",
+  "scope",
+  "architectureLayer",
+  "localOrder",
   "deliveryState",
   "healthState",
   "priority",
@@ -152,6 +167,9 @@ function normalizeBlock(row) {
     summary: row.summary,
     body: row.body,
     contract: row.contract,
+    scope: row.scope,
+    architectureLayer: row.architecture_layer,
+    localOrder: row.local_order,
     deliveryState: row.delivery_state,
     healthState: row.health_state,
     priority: row.priority,
@@ -417,6 +435,31 @@ export class MdflowService {
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
+    const layerCounts = Object.fromEntries(
+      [...ARCHITECTURE_LAYERS]
+        .map((layer) => [layer, snapshot.blocks.filter((block) => block.architectureLayer === layer).length])
+        .filter(([, count]) => count > 0),
+    );
+    const scopeCounts = Object.fromEntries(
+      [...new Set(snapshot.blocks.map((block) => block.scope))]
+        .sort()
+        .map((scope) => [scope, snapshot.blocks.filter((block) => block.scope === scope).length]),
+    );
+    const architectureGroups = [...new Set(snapshot.blocks.map((block) => `${block.architectureLayer}\u0000${block.scope}`))]
+      .sort()
+      .map((key) => {
+        const [layer, scope] = key.split("\u0000");
+        const members = snapshot.blocks
+          .filter((block) => block.architectureLayer === layer && block.scope === scope)
+          .sort((left, right) => left.localOrder - right.localOrder || left.id.localeCompare(right.id));
+        return {
+          layer,
+          scope,
+          count: members.length,
+          blockRefs: members.slice(0, 50).map((block) => `block:${block.id}`),
+          truncated: members.length > 50,
+        };
+      });
     const lines = [
       `# ${snapshot.project.name}`,
       `Graph revision: ${snapshot.project.graphRevision}`,
@@ -434,6 +477,8 @@ export class MdflowService {
     }
     lines.push("", "## Project network");
     lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
+    lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" · ") || "None"}`);
+    lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" · ") || "None"}`);
     for (const block of snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8)) {
       const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
       lines.push(`- [block:${block.id}] ${title} — ${block.deliveryState}/${block.healthState}`);
@@ -447,6 +492,11 @@ export class MdflowService {
           links: snapshot.links.length,
           chains: snapshot.chains.length,
           plans: snapshot.plans.length,
+        },
+        architecture: {
+          layerCounts,
+          scopeCounts,
+          groups: architectureGroups,
         },
         plans: plans.map((plan) => ({
           id: plan.id,
@@ -476,7 +526,7 @@ export class MdflowService {
     const stateSet = new Set(states);
     const score = (text) => terms.reduce((total, item) => total + (text.toLowerCase().includes(item) ? 1 : 0), 0);
     const blocks = snapshot.blocks.map((block) => {
-      const text = `${block.title}\n${block.summary}\n${block.body}\n${block.contract}\n${block.tags.join(" ")}\n${localizedSearchText(snapshot, "block", block.id)}`;
+      const text = `${block.title}\n${block.summary}\n${block.body}\n${block.contract}\n${block.scope}\n${block.architectureLayer}\n${block.tags.join(" ")}\n${localizedSearchText(snapshot, "block", block.id)}`;
       return { item: block, score: score(text) };
     }).filter(({ item: block, score }) => {
       return (score > 0 &&
@@ -615,6 +665,11 @@ export class MdflowService {
     const lines = [`# ${displayTitle}`, ""];
     lines.push(`- Ref: ${type}:${id}`);
     lines.push(`- Revision: ${entity.currentRevision}`);
+    if (type === "block") {
+      lines.push(`- Architecture: ${entity.architectureLayer}`);
+      lines.push(`- Scope: ${entity.scope}`);
+      lines.push(`- Local order: ${entity.localOrder}`);
+    }
     if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
     if (entity.status) lines.push(`- Status: ${entity.status}`);
     if (entity.healthState) lines.push(`- Health: ${entity.healthState}`);
@@ -669,7 +724,7 @@ export class MdflowService {
       terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
     const scoredBlocks = snapshot.blocks
       .map((block) => {
-        const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
+        const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.scope} ${block.architectureLayer} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
         return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
       })
       .filter((entry) => entry.score > 0)
@@ -798,7 +853,7 @@ export class MdflowService {
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
         const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
-        lines.push(`- [block:${block.id}] ${title} — ${block.deliveryState}/${block.healthState}`);
+        lines.push(`- [block:${block.id}] ${title} — ${block.architectureLayer}/${block.scope} · ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract) lines.push(`  Contract: ${contract}`);
@@ -950,6 +1005,21 @@ export class MdflowService {
     }
   }
 
+  removeStaleLocalizations(entityType, entityId, changedFields, localizations) {
+    const localizedFields = LOCALIZED_FIELDS[entityType];
+    const explicitlyUpdated = new Set(
+      Object.values(localizations ?? {}).flatMap((values) => Object.keys(values ?? {})),
+    );
+    const remove = this.database.prepare(
+      "DELETE FROM localized_text WHERE entity_type = ? AND entity_id = ? AND field = ?",
+    );
+    for (const field of changedFields) {
+      if (localizedFields.has(field) && !explicitlyUpdated.has(field)) {
+        remove.run(entityType, entityId, field);
+      }
+    }
+  }
+
   createPlan(operation, { timestamp }) {
     const fields = operation.fields ?? {};
     if (!fields.title?.trim()) throw new Error("create_plan requires fields.title");
@@ -1055,16 +1125,23 @@ export class MdflowService {
   createBlock(operation, { timestamp }) {
     const fields = operation.fields ?? {};
     assertAllowed(fields.kind, BLOCK_KINDS, "block kind");
+    assertAllowed(fields.architectureLayer ?? "unspecified", ARCHITECTURE_LAYERS, "architecture layer");
     assertAllowed(fields.deliveryState ?? "proposed", DELIVERY_STATES, "delivery state");
     assertAllowed(fields.healthState ?? "unknown", HEALTH_STATES, "health state");
     if (!fields.title?.trim()) throw new Error("create_block requires fields.title");
+    if (fields.scope != null && (typeof fields.scope !== "string" || !fields.scope.trim())) {
+      throw new Error("fields.scope must be a non-empty string");
+    }
+    if (fields.localOrder != null && !Number.isInteger(fields.localOrder)) {
+      throw new Error("fields.localOrder must be an integer");
+    }
     const id = operation.id ?? identifier("block");
     this.database
       .prepare(
         `INSERT INTO blocks(
-          id, project_id, kind, title, summary, body, contract, delivery_state, health_state,
-          priority, confidence, tags_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, project_id, kind, title, summary, body, contract, scope, architecture_layer,
+          local_order, delivery_state, health_state, priority, confidence, tags_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -1074,6 +1151,9 @@ export class MdflowService {
         fields.summary ?? "",
         fields.body ?? "",
         fields.contract ?? "",
+        fields.scope?.trim() ?? "general",
+        fields.architectureLayer ?? "unspecified",
+        fields.localOrder ?? 0,
         fields.deliveryState ?? "proposed",
         fields.healthState ?? "unknown",
         fields.priority ?? "normal",
@@ -1181,12 +1261,19 @@ export class MdflowService {
       if (!config.allowed.has(field)) throw new Error(`Field ${field} is not editable on ${type}`);
       if (field === "kind" && type === "block") assertAllowed(rawValue, BLOCK_KINDS, "block kind");
       if (field === "kind" && type === "link") assertAllowed(rawValue, LINK_KINDS, "link kind");
+      if (field === "architectureLayer") assertAllowed(rawValue, ARCHITECTURE_LAYERS, "architecture layer");
+      if (field === "scope" && (typeof rawValue !== "string" || !rawValue.trim())) {
+        throw new Error("scope must be a non-empty string");
+      }
+      if (field === "localOrder" && !Number.isInteger(rawValue)) {
+        throw new Error("localOrder must be an integer");
+      }
       if (field === "deliveryState") assertAllowed(rawValue, DELIVERY_STATES, "delivery state");
       if (field === "healthState") assertAllowed(rawValue, HEALTH_STATES, "health state");
       if (field === "status") assertAllowed(rawValue, PLAN_STATUSES, "plan status");
       const column = field === "proposedDelta" ? "proposed_delta_json" : field === "blockers" ? "blockers_json" : camelToColumn(field);
       updates.push(`${column} = ?`);
-      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers"].includes(field) ? JSON.stringify(rawValue ?? []) : field === "archived" ? Number(Boolean(rawValue)) : rawValue);
+      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers"].includes(field) ? JSON.stringify(rawValue ?? []) : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
     }
     if (updates.length === 0 && localizations == null) throw new Error(`update_${type} has no fields`);
     const revision = existing.current_revision + 1;
@@ -1195,6 +1282,7 @@ export class MdflowService {
     this.database
       .prepare(`UPDATE ${config.table} SET ${updates.join(", ")} WHERE project_id = ? AND id = ?`)
       .run(...values);
+    this.removeStaleLocalizations(type, operation.id, Object.keys(fields), localizations);
     this.applyLocalizations(type, operation.id, localizations, timestamp);
     const normalized = config.normalizer(
       this.database
@@ -1395,6 +1483,10 @@ export class MdflowService {
         );
         if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
       }
+    }
+    const unspecifiedBlocks = snapshot.blocks.filter((block) => block.architectureLayer === "unspecified");
+    if (unspecifiedBlocks.length > 0) {
+      warnings.push(`${unspecifiedBlocks.length} block(s) have no architecture layer`);
     }
     for (const chain of snapshot.chains) {
       if (chain.deliveryState === "complete") {

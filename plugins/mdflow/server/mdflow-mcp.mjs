@@ -23229,6 +23229,9 @@ CREATE TABLE IF NOT EXISTS blocks (
   summary TEXT NOT NULL DEFAULT '',
   body TEXT NOT NULL DEFAULT '',
   contract TEXT NOT NULL DEFAULT '',
+  scope TEXT NOT NULL DEFAULT 'general',
+  architecture_layer TEXT NOT NULL DEFAULT 'unspecified',
+  local_order INTEGER NOT NULL DEFAULT 0,
   delivery_state TEXT NOT NULL DEFAULT 'proposed',
   health_state TEXT NOT NULL DEFAULT 'unknown',
   priority TEXT NOT NULL DEFAULT 'normal',
@@ -23466,6 +23469,20 @@ function migratePlanCapableTables(database) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_localized_text_entity ON localized_text(entity_type, entity_id, locale);");
   database.exec("CREATE INDEX IF NOT EXISTS idx_checkpoints_target ON checkpoints(target_type, target_id);");
 }
+function migrateBlockArchitecture(database) {
+  const columns = new Set(
+    database.prepare("PRAGMA table_info(blocks)").all().map((column) => column.name)
+  );
+  if (!columns.has("scope")) {
+    database.exec("ALTER TABLE blocks ADD COLUMN scope TEXT NOT NULL DEFAULT 'general';");
+  }
+  if (!columns.has("architecture_layer")) {
+    database.exec("ALTER TABLE blocks ADD COLUMN architecture_layer TEXT NOT NULL DEFAULT 'unspecified';");
+  }
+  if (!columns.has("local_order")) {
+    database.exec("ALTER TABLE blocks ADD COLUMN local_order INTEGER NOT NULL DEFAULT 0;");
+  }
+}
 function backfillChainPaths(database) {
   database.exec(`
     INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
@@ -23493,6 +23510,7 @@ function openDatabase(databasePath) {
   database.exec("PRAGMA busy_timeout = 3000;");
   database.exec(SCHEMA);
   migratePlanCapableTables(database);
+  migrateBlockArchitecture(database);
   backfillChainPaths(database);
   return database;
 }
@@ -23627,12 +23645,26 @@ var LINK_KINDS = /* @__PURE__ */ new Set([
   "constrains",
   "supersedes"
 ]);
+var ARCHITECTURE_LAYERS = /* @__PURE__ */ new Set([
+  "client",
+  "boundary",
+  "application",
+  "domain",
+  "data",
+  "external",
+  "quality",
+  "infrastructure",
+  "unspecified"
+]);
 var EDITABLE_BLOCK_FIELDS = /* @__PURE__ */ new Set([
   "kind",
   "title",
   "summary",
   "body",
   "contract",
+  "scope",
+  "architectureLayer",
+  "localOrder",
   "deliveryState",
   "healthState",
   "priority",
@@ -23714,6 +23746,9 @@ function normalizeBlock(row) {
     summary: row.summary,
     body: row.body,
     contract: row.contract,
+    scope: row.scope,
+    architectureLayer: row.architecture_layer,
+    localOrder: row.local_order,
     deliveryState: row.delivery_state,
     healthState: row.health_state,
     priority: row.priority,
@@ -23944,6 +23979,23 @@ var MdflowService = class {
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
+    const layerCounts = Object.fromEntries(
+      [...ARCHITECTURE_LAYERS].map((layer) => [layer, snapshot.blocks.filter((block) => block.architectureLayer === layer).length]).filter(([, count]) => count > 0)
+    );
+    const scopeCounts = Object.fromEntries(
+      [...new Set(snapshot.blocks.map((block) => block.scope))].sort().map((scope) => [scope, snapshot.blocks.filter((block) => block.scope === scope).length])
+    );
+    const architectureGroups = [...new Set(snapshot.blocks.map((block) => `${block.architectureLayer}\0${block.scope}`))].sort().map((key) => {
+      const [layer, scope] = key.split("\0");
+      const members2 = snapshot.blocks.filter((block) => block.architectureLayer === layer && block.scope === scope).sort((left, right) => left.localOrder - right.localOrder || left.id.localeCompare(right.id));
+      return {
+        layer,
+        scope,
+        count: members2.length,
+        blockRefs: members2.slice(0, 50).map((block) => `block:${block.id}`),
+        truncated: members2.length > 50
+      };
+    });
     const lines = [
       `# ${snapshot.project.name}`,
       `Graph revision: ${snapshot.project.graphRevision}`,
@@ -23961,6 +24013,8 @@ var MdflowService = class {
     }
     lines.push("", "## Project network");
     lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
+    lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" \xB7 ") || "None"}`);
+    lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" \xB7 ") || "None"}`);
     for (const block of snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8)) {
       const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
       lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
@@ -23974,6 +24028,11 @@ var MdflowService = class {
           links: snapshot.links.length,
           chains: snapshot.chains.length,
           plans: snapshot.plans.length
+        },
+        architecture: {
+          layerCounts,
+          scopeCounts,
+          groups: architectureGroups
         },
         plans: plans.map((plan) => ({
           id: plan.id,
@@ -24006,6 +24065,8 @@ var MdflowService = class {
 ${block.summary}
 ${block.body}
 ${block.contract}
+${block.scope}
+${block.architectureLayer}
 ${block.tags.join(" ")}
 ${localizedSearchText(snapshot, "block", block.id)}`;
       return { item: block, score: score(text) };
@@ -24116,6 +24177,11 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const lines = [`# ${displayTitle}`, ""];
     lines.push(`- Ref: ${type}:${id}`);
     lines.push(`- Revision: ${entity.currentRevision}`);
+    if (type === "block") {
+      lines.push(`- Architecture: ${entity.architectureLayer}`);
+      lines.push(`- Scope: ${entity.scope}`);
+      lines.push(`- Local order: ${entity.localOrder}`);
+    }
     if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
     if (entity.status) lines.push(`- Status: ${entity.status}`);
     if (entity.healthState) lines.push(`- Health: ${entity.healthState}`);
@@ -24167,7 +24233,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const taskMentionsPlan = terms.some((term) => planSignals.has(term));
     const scoreText = (text) => terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
     const scoredBlocks = snapshot.blocks.map((block) => {
-      const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
+      const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.scope} ${block.architectureLayer} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
       return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
     }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
     const scoredChains = snapshot.chains.map((chain) => ({
@@ -24273,7 +24339,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
         const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
-        lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
+        lines.push(`- [block:${block.id}] ${title} \u2014 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract) lines.push(`  Contract: ${contract}`);
@@ -24408,6 +24474,20 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       }
     }
   }
+  removeStaleLocalizations(entityType, entityId, changedFields, localizations) {
+    const localizedFields = LOCALIZED_FIELDS[entityType];
+    const explicitlyUpdated = new Set(
+      Object.values(localizations ?? {}).flatMap((values) => Object.keys(values ?? {}))
+    );
+    const remove = this.database.prepare(
+      "DELETE FROM localized_text WHERE entity_type = ? AND entity_id = ? AND field = ?"
+    );
+    for (const field of changedFields) {
+      if (localizedFields.has(field) && !explicitlyUpdated.has(field)) {
+        remove.run(entityType, entityId, field);
+      }
+    }
+  }
   createPlan(operation, { timestamp }) {
     const fields = operation.fields ?? {};
     if (!fields.title?.trim()) throw new Error("create_plan requires fields.title");
@@ -24514,15 +24594,22 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
   createBlock(operation, { timestamp }) {
     const fields = operation.fields ?? {};
     assertAllowed(fields.kind, BLOCK_KINDS, "block kind");
+    assertAllowed(fields.architectureLayer ?? "unspecified", ARCHITECTURE_LAYERS, "architecture layer");
     assertAllowed(fields.deliveryState ?? "proposed", DELIVERY_STATES, "delivery state");
     assertAllowed(fields.healthState ?? "unknown", HEALTH_STATES, "health state");
     if (!fields.title?.trim()) throw new Error("create_block requires fields.title");
+    if (fields.scope != null && (typeof fields.scope !== "string" || !fields.scope.trim())) {
+      throw new Error("fields.scope must be a non-empty string");
+    }
+    if (fields.localOrder != null && !Number.isInteger(fields.localOrder)) {
+      throw new Error("fields.localOrder must be an integer");
+    }
     const id = operation.id ?? identifier("block");
     this.database.prepare(
       `INSERT INTO blocks(
-          id, project_id, kind, title, summary, body, contract, delivery_state, health_state,
-          priority, confidence, tags_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, project_id, kind, title, summary, body, contract, scope, architecture_layer,
+          local_order, delivery_state, health_state, priority, confidence, tags_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       this.paths.descriptor.id,
@@ -24531,6 +24618,9 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       fields.summary ?? "",
       fields.body ?? "",
       fields.contract ?? "",
+      fields.scope?.trim() ?? "general",
+      fields.architectureLayer ?? "unspecified",
+      fields.localOrder ?? 0,
       fields.deliveryState ?? "proposed",
       fields.healthState ?? "unknown",
       fields.priority ?? "normal",
@@ -24629,18 +24719,26 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       if (!config2.allowed.has(field)) throw new Error(`Field ${field} is not editable on ${type}`);
       if (field === "kind" && type === "block") assertAllowed(rawValue, BLOCK_KINDS, "block kind");
       if (field === "kind" && type === "link") assertAllowed(rawValue, LINK_KINDS, "link kind");
+      if (field === "architectureLayer") assertAllowed(rawValue, ARCHITECTURE_LAYERS, "architecture layer");
+      if (field === "scope" && (typeof rawValue !== "string" || !rawValue.trim())) {
+        throw new Error("scope must be a non-empty string");
+      }
+      if (field === "localOrder" && !Number.isInteger(rawValue)) {
+        throw new Error("localOrder must be an integer");
+      }
       if (field === "deliveryState") assertAllowed(rawValue, DELIVERY_STATES, "delivery state");
       if (field === "healthState") assertAllowed(rawValue, HEALTH_STATES, "health state");
       if (field === "status") assertAllowed(rawValue, PLAN_STATUSES, "plan status");
       const column = field === "proposedDelta" ? "proposed_delta_json" : field === "blockers" ? "blockers_json" : camelToColumn(field);
       updates.push(`${column} = ?`);
-      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers"].includes(field) ? JSON.stringify(rawValue ?? []) : field === "archived" ? Number(Boolean(rawValue)) : rawValue);
+      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers"].includes(field) ? JSON.stringify(rawValue ?? []) : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
     }
     if (updates.length === 0 && localizations == null) throw new Error(`update_${type} has no fields`);
     const revision = existing.current_revision + 1;
     updates.push("current_revision = ?", "updated_at = ?");
     values.push(revision, timestamp, this.paths.descriptor.id, operation.id);
     this.database.prepare(`UPDATE ${config2.table} SET ${updates.join(", ")} WHERE project_id = ? AND id = ?`).run(...values);
+    this.removeStaleLocalizations(type, operation.id, Object.keys(fields), localizations);
     this.applyLocalizations(type, operation.id, localizations, timestamp);
     const normalized = config2.normalizer(
       this.database.prepare(`SELECT * FROM ${config2.table} WHERE project_id = ? AND id = ?`).get(this.paths.descriptor.id, operation.id)
@@ -24817,6 +24915,10 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         );
         if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
       }
+    }
+    const unspecifiedBlocks = snapshot.blocks.filter((block) => block.architectureLayer === "unspecified");
+    if (unspecifiedBlocks.length > 0) {
+      warnings.push(`${unspecifiedBlocks.length} block(s) have no architecture layer`);
     }
     for (const chain of snapshot.chains) {
       if (chain.deliveryState === "complete") {

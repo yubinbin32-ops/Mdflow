@@ -11,6 +11,8 @@ final class GraphStore: ObservableObject {
     @Published var highlightedChainIDs: Set<String> = []
     @Published private(set) var focusTarget: GraphSelection?
     @Published private(set) var focusRequestID = UUID()
+    @Published private(set) var overviewFitRequestID = UUID()
+    @Published var isolateFocused = false
     @Published var enabledLenses: Set<ViewLens> = Set(ViewLens.allCases)
     @Published private(set) var recentlyChangedRefs: Set<String> = []
     @Published private(set) var errorMessage: String?
@@ -32,6 +34,8 @@ final class GraphStore: ObservableObject {
         let highlightedChainIDs: Set<String>
         let enabledLenses: Set<ViewLens>
         let canvasScale: CGFloat
+        let focusTarget: GraphSelection?
+        let isolateFocused: Bool
     }
 
     init() {
@@ -93,7 +97,7 @@ final class GraphStore: ObservableObject {
                 recentlyChangedRefs.removeAll()
                 errorMessage = nil
             }
-            if let selection { requestFocus(selection) }
+            if let focusTarget { requestFocus(focusTarget) }
         } catch {
             errorMessage = error.localizedDescription
             Self.log(error, context: url.path)
@@ -106,16 +110,19 @@ final class GraphStore: ObservableObject {
             selection: selection,
             highlightedChainIDs: highlightedChainIDs,
             enabledLenses: enabledLenses,
-            canvasScale: canvasScale
+            canvasScale: canvasScale,
+            focusTarget: focusTarget,
+            isolateFocused: isolateFocused
         )
     }
 
     private func restoreProjectViewState(for projectID: String) {
         focusTask?.cancel()
-        focusTarget = nil
         guard let state = projectViewStates[projectID] else {
             selection = nil
             highlightedChainIDs.removeAll()
+            focusTarget = nil
+            isolateFocused = false
             enabledLenses = Set(ViewLens.allCases)
             canvasScale = 1
             return
@@ -124,6 +131,8 @@ final class GraphStore: ObservableObject {
         highlightedChainIDs = state.highlightedChainIDs
         enabledLenses = state.enabledLenses
         canvasScale = state.canvasScale
+        focusTarget = state.focusTarget
+        isolateFocused = state.isolateFocused
     }
 
     private static func log(_ error: Error, context: String) {
@@ -144,10 +153,6 @@ final class GraphStore: ObservableObject {
             ids.formUnion(snapshot.chainNodes.filter { chainIDs.contains($0.chainId) }.map(\.blockId))
         }
         ids.formUnion(snapshot.backgroundScopes.map(\.blockId))
-        if let selection {
-            let backgroundIDs = Set(snapshot.backgroundScopes.map(\.blockId))
-            ids.formIntersection(relatedBlockIDs(for: selection).union(backgroundIDs))
-        }
         return snapshot.blocks.filter { ids.contains($0.id) }
     }
 
@@ -163,7 +168,9 @@ final class GraphStore: ObservableObject {
         selection = nil
         highlightedChainIDs.removeAll()
         focusTarget = nil
+        isolateFocused = false
         focusTask?.cancel()
+        overviewFitRequestID = UUID()
     }
 
     func focusPlan(_ id: String) {
@@ -178,7 +185,9 @@ final class GraphStore: ObservableObject {
         switch value.type {
         case .block:
             highlightedChainIDs.removeAll()
-            requestFocus(value)
+            focusTask?.cancel()
+            focusTarget = value
+            isolateFocused = false
         case .chain:
             highlightedChainIDs = [value.id]
             requestFocus(value)
@@ -186,17 +195,21 @@ final class GraphStore: ObservableObject {
             highlightedChainIDs = Set(snapshot.planChainReferences.filter { $0.planId == value.id }.map(\.chainId))
             requestFocus(value)
         case .link:
-            if let link = snapshot.links.first(where: { $0.id == value.id }) {
-                requestFocus(GraphSelection(type: .block, id: link.targetId))
-            }
+            break
         }
     }
 
     func clearSelection() {
         selection = nil
         highlightedChainIDs.removeAll()
-        focusTarget = nil
+    }
+
+    func fitOverview() { overviewFitRequestID = UUID() }
+
+    func exitFocus() {
         focusTask?.cancel()
+        focusTarget = nil
+        isolateFocused = false
     }
 
     func refreshIfChanged() {
@@ -331,10 +344,23 @@ final class GraphStore: ObservableObject {
     func relatedBlockIDs(for selection: GraphSelection) -> Set<String> {
         switch selection.type {
         case .block:
-            var ids: Set<String> = [selection.id]
-            for link in incomingLinks(for: selection.id) { ids.insert(link.sourceId) }
-            for link in outgoingLinks(for: selection.id) { ids.insert(link.targetId) }
-            return ids
+            // A Block explains its architectural role through the entire connected
+            // component. Limiting this to one hop hides downstream consequences.
+            let links = snapshot.links.filter { $0.sourceType == "block" && $0.targetType == "block" }
+            var adjacency: [String: Set<String>] = [:]
+            for link in links {
+                adjacency[link.sourceId, default: []].insert(link.targetId)
+                adjacency[link.targetId, default: []].insert(link.sourceId)
+            }
+            var visited: Set<String> = [selection.id]
+            var queue = [selection.id]
+            while !queue.isEmpty {
+                let current = queue.removeFirst()
+                for neighbor in (adjacency[current] ?? []).sorted() where visited.insert(neighbor).inserted {
+                    queue.append(neighbor)
+                }
+            }
+            return visited
         case .chain:
             return Set(chainNodeIDs(selection.id))
         case .plan:
@@ -347,6 +373,7 @@ final class GraphStore: ObservableObject {
     }
 
     func requestFocus(_ target: GraphSelection) {
+        selection = target
         focusTarget = target
         focusTask?.cancel()
         focusTask = Task { [weak self] in
@@ -357,16 +384,18 @@ final class GraphStore: ObservableObject {
     }
 
     func magnify(_ target: GraphSelection, minimumScale: CGFloat = 1.08) {
-        focusTask?.cancel()
-        selection = target
-        focusTarget = target
         canvasScale = max(canvasScale, minimumScale)
-        focusRequestID = UUID()
+        requestFocus(target)
+    }
+
+    func isRelatedToFocus(_ blockID: String) -> Bool {
+        guard let focusTarget else { return true }
+        return relatedBlockIDs(for: focusTarget).contains(blockID)
     }
 
     func text(_ key: String) -> String {
         let zh: [String: String] = [
-            "overview":"概览", "plans":"计划", "settings":"设置", "done":"完成",
+            "overview":"整体网络", "plans":"计划", "chains":"链路", "settings":"设置", "done":"完成",
             "summary":"摘要", "details":"详情", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
             "plugin":"CODEX 插件", "pluginHelp":"开发插件包位于当前项目中。", "revealPlugin":"在访达中显示插件",
             "installPlugin":"一键安装", "installingPlugin":"正在安装…", "pluginInstalled":"已安装；新任务中即可使用", "pluginInstallFailed":"安装失败",
@@ -374,11 +403,12 @@ final class GraphStore: ObservableObject {
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
             "goal":"目标", "nextAction":"下一步", "targetChains":"目标 Chain", "proposedDelta":"计划中的图变更", "blockers":"阻塞",
             "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
+            "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则",
             "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
             "all":"全部", "ui":"界面", "runtime":"运行时", "api":"API", "data":"数据", "quality":"质量", "plan":"计划"
         ]
         let en: [String: String] = [
-            "overview":"Overview", "plans":"Plans", "settings":"Settings", "done":"Done",
+            "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
             "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
             "plugin":"CODEX PLUGIN", "pluginHelp":"The development plugin bundle is available in this project.", "revealPlugin":"Reveal Plugin",
             "installPlugin":"Install in Codex", "installingPlugin":"Installing…", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
@@ -386,6 +416,7 @@ final class GraphStore: ObservableObject {
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
             "goal":"Goal", "nextAction":"Next Action", "targetChains":"Target Chains", "proposedDelta":"Proposed Graph Delta", "blockers":"Blockers",
             "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
+            "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules",
             "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
             "all":"All", "ui":"UI", "runtime":"Runtime", "api":"API", "data":"Data", "quality":"QA", "plan":"Plan"
         ]
@@ -396,8 +427,8 @@ final class GraphStore: ObservableObject {
         switch lens { case .ui: text("ui"); case .runtime: text("runtime"); case .api: text("api"); case .data: text("data"); case .quality: text("quality"); case .plan: text("plan") }
     }
 
-    func zoom(by amount: CGFloat) { canvasScale = min(1.8, max(0.5, canvasScale + amount)) }
-    func setZoom(_ value: CGFloat) { canvasScale = min(1.8, max(0.5, value)) }
+    func zoom(by amount: CGFloat) { canvasScale = min(1.8, max(0.25, canvasScale + amount)) }
+    func setZoom(_ value: CGFloat) { canvasScale = min(1.8, max(0.25, value)) }
     func resetZoom() { canvasScale = 1 }
 
     func checkpoints(for value: GraphSelection) -> [CheckpointItem] {

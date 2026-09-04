@@ -26,6 +26,9 @@ struct BlockItem: Identifiable, Equatable {
     let summary: String
     let body: String
     let contract: String
+    let scope: String
+    let architectureLayer: String
+    let localOrder: Int
     let deliveryState: String
     let healthState: String
     let priority: String

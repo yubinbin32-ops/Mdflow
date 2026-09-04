@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS blocks (
   summary TEXT NOT NULL DEFAULT '',
   body TEXT NOT NULL DEFAULT '',
   contract TEXT NOT NULL DEFAULT '',
+  scope TEXT NOT NULL DEFAULT 'general',
+  architecture_layer TEXT NOT NULL DEFAULT 'unspecified',
+  local_order INTEGER NOT NULL DEFAULT 0,
   delivery_state TEXT NOT NULL DEFAULT 'proposed',
   health_state TEXT NOT NULL DEFAULT 'unknown',
   priority TEXT NOT NULL DEFAULT 'normal',
@@ -259,6 +262,21 @@ function migratePlanCapableTables(database) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_checkpoints_target ON checkpoints(target_type, target_id);");
 }
 
+function migrateBlockArchitecture(database) {
+  const columns = new Set(
+    database.prepare("PRAGMA table_info(blocks)").all().map((column) => column.name),
+  );
+  if (!columns.has("scope")) {
+    database.exec("ALTER TABLE blocks ADD COLUMN scope TEXT NOT NULL DEFAULT 'general';");
+  }
+  if (!columns.has("architecture_layer")) {
+    database.exec("ALTER TABLE blocks ADD COLUMN architecture_layer TEXT NOT NULL DEFAULT 'unspecified';");
+  }
+  if (!columns.has("local_order")) {
+    database.exec("ALTER TABLE blocks ADD COLUMN local_order INTEGER NOT NULL DEFAULT 0;");
+  }
+}
+
 function backfillChainPaths(database) {
   database.exec(`
     INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
@@ -287,6 +305,7 @@ export function openDatabase(databasePath) {
   database.exec("PRAGMA busy_timeout = 3000;");
   database.exec(SCHEMA);
   migratePlanCapableTables(database);
+  migrateBlockArchitecture(database);
   backfillChainPaths(database);
   return database;
 }

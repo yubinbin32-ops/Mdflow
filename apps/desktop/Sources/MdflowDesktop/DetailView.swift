@@ -7,9 +7,17 @@ struct DetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                Text(store.title(for: selection))
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(MdflowTheme.ink)
+                HStack(alignment: .top) {
+                    Text(store.title(for: selection))
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(MdflowTheme.ink)
+                    Spacer()
+                    Button { store.requestFocus(selection) } label: {
+                        Label(store.text("focusMode"), systemImage: "scope")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
                 entityContent
                 revisionSection
                 checkpointSection
@@ -25,6 +33,11 @@ struct DetailView: View {
         switch selection.type {
         case .block:
             if let block = store.snapshot.blocks.first(where: { $0.id == selection.id }) {
+                HStack(spacing: 8) {
+                    metadataPill(block.architectureLayer)
+                    metadataPill(block.scope)
+                    if block.localOrder != 0 { metadataPill("#\(block.localOrder)") }
+                }
                 section(store.text("summary").uppercased(), text: store.blockText(block, field: "summary"))
                 section(store.text("details").uppercased(), text: store.blockText(block, field: "body"))
                 section(store.text("contract").uppercased(), text: store.blockText(block, field: "contract"))
@@ -78,6 +91,16 @@ struct DetailView: View {
                 structuredList(store.text("blockers").uppercased(), value: plan.blockers)
             }
         }
+    }
+
+    private func metadataPill(_ value: String) -> some View {
+        Text(value.uppercased())
+            .font(.system(size: 8, weight: .bold, design: .monospaced))
+            .tracking(0.7)
+            .foregroundStyle(MdflowTheme.muted)
+            .padding(.horizontal, 7)
+            .frame(height: 22)
+            .background(MdflowTheme.canvas, in: Capsule())
     }
 
     @ViewBuilder

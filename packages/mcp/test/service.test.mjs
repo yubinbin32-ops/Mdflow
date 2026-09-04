@@ -350,6 +350,55 @@ test("localized fields are stored and Chinese tasks retrieve the same semantic g
   }
 });
 
+test("Blocks carry explicit architecture placement and reject invalid layers", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Classify one full-stack component",
+      operations: [{
+        action: "create_block", id: "orders", fields: {
+          kind: "service", title: "Orders", scope: "commerce", architectureLayer: "application", localOrder: 20,
+        },
+      }],
+    });
+    const block = context.service.snapshot().blocks[0];
+    assert.equal(block.scope, "commerce");
+    assert.equal(block.architectureLayer, "application");
+    assert.equal(block.localOrder, 20);
+    assert.deepEqual(context.service.projectMap().map.architecture.layerCounts, { application: 1 });
+    assert.match(context.service.entityOpen({ type: "block", id: "orders" }).markdown, /Architecture: application/);
+    assert.throws(() => context.service.mutate({
+      reason: "Reject an unknown layer",
+      operations: [{ action: "update_block", id: "orders", expectedRevision: 1, fields: { architectureLayer: "middle" } }],
+    }), /Invalid architecture layer/);
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("updating canonical content removes untranslated stale localized facts", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create localized plan",
+      operations: [{ action: "create_plan", id: "release", fields: {
+        title: "Release", nextAction: "Run old check",
+        localizations: { "zh-Hans": { title: "发布", nextAction: "运行旧检查" } },
+      } }],
+    });
+    context.service.mutate({
+      reason: "Advance canonical next action",
+      operations: [{ action: "update_plan", id: "release", expectedRevision: 1, fields: { nextAction: "Run new check" } }],
+    });
+    const opened = context.service.entityOpen({ type: "plan", id: "release", locale: "zh-Hans" });
+    assert.match(opened.markdown, /Run new check/);
+    assert.doesNotMatch(opened.markdown, /运行旧检查/);
+    assert.match(opened.markdown, /# 发布/);
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("a project-owned graph replaces broad prose with bounded golden task contexts", () => {
   const context = fixture();
   try {

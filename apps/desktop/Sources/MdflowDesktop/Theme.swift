@@ -62,4 +62,19 @@ enum MdflowTheme {
     static func chainColor(index: Int) -> Color {
         chainPalette[index % chainPalette.count]
     }
+
+    static func blockKindColor(_ kind: String) -> Color {
+        switch kind {
+        case "ui", "flow": Color(red: 0.19, green: 0.43, blue: 0.92)
+        case "service": Color(red: 0.08, green: 0.55, blue: 0.36)
+        case "function": Color(red: 0.06, green: 0.48, blue: 0.62)
+        case "integration": Color(red: 0.43, green: 0.32, blue: 0.78)
+        case "data": Color(red: 0.88, green: 0.42, blue: 0.14)
+        case "database": Color(red: 0.69, green: 0.28, blue: 0.66)
+        case "test", "checkpoint": Color(red: 0.18, green: 0.46, blue: 0.82)
+        case "risk": failure
+        case "principle", "decision", "requirement", "product": Color(red: 0.45, green: 0.34, blue: 0.17)
+        default: muted
+        }
+    }
 }
