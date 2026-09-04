@@ -8,8 +8,11 @@ struct GraphCanvasView: View {
     @State private var manualFocusID = UUID()
     @State private var didFitOverview = false
 
-    private let cardSize = CGSize(width: 196, height: 108)
     private let networkTop: CGFloat = 74
+
+    private var cardSize: CGSize {
+        visibleNetworkBlocks.count > 30 ? CGSize(width: 166, height: 88) : CGSize(width: 196, height: 108)
+    }
 
     var body: some View {
         GeometryReader { viewport in
@@ -81,6 +84,16 @@ struct GraphCanvasView: View {
                 DispatchQueue.main.async { fitOverview(in: layout, viewport: viewport.size) }
             }
             .onChange(of: store.overviewFitRequestID) { fitOverview(in: layout, viewport: viewport.size) }
+            .onChange(of: store.snapshot.project.id) {
+                manualFocusPoint = nil
+                DispatchQueue.main.async {
+                    if store.focusTarget != nil {
+                        fitFocusedSelection(in: layout, viewport: viewport.size)
+                    } else {
+                        fitOverview(in: layout, viewport: viewport.size)
+                    }
+                }
+            }
             .onChange(of: store.focusRequestID) {
                 manualFocusPoint = nil
                 fitFocusedSelection(in: layout, viewport: viewport.size)
@@ -396,26 +409,29 @@ struct GraphCanvasView: View {
         let memberships = store.chains(containing: block.id)
         let stateColor = MdflowTheme.deliveryColor(block.deliveryState)
         let typeColor = MdflowTheme.blockKindColor(block.kind)
-        let semanticCompact = store.canvasScale < 0.72
+        let semanticCompact = store.canvasScale < 0.72 || visibleNetworkBlocks.count > 30
+        let ultraCompact = store.canvasScale < 0.55
         let buildingShape = BlockBuildingShape(kind: block.kind)
 
-        return VStack(alignment: .leading, spacing: semanticCompact ? 9 : 7) {
+        return VStack(alignment: .leading, spacing: ultraCompact ? 5 : semanticCompact ? 8 : 7) {
                 HStack(spacing: 7) {
                     Image(systemName: blockSymbol(block.kind))
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: ultraCompact ? 11 : 9, weight: .semibold))
                         .foregroundStyle(typeColor)
-                        .frame(width: 22, height: 22)
+                        .frame(width: ultraCompact ? 20 : 22, height: ultraCompact ? 20 : 22)
                         .background(typeColor.opacity(0.1), in: Circle())
-                    Text(block.kind.uppercased())
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .tracking(1.1)
-                        .foregroundStyle(MdflowTheme.muted)
+                    if !ultraCompact {
+                        Text(block.kind.uppercased())
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .tracking(1.1)
+                            .foregroundStyle(MdflowTheme.muted)
+                    }
                     Spacer()
                     Circle().fill(stateColor).frame(width: 7, height: 7)
                         .accessibilityLabel(block.deliveryState)
                 }
                 Text(store.blockText(block, field: "title"))
-                    .font(.system(size: semanticCompact ? 14 : 12.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: ultraCompact ? 17 : semanticCompact ? 14 : 12.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(MdflowTheme.ink)
                     .lineLimit(semanticCompact ? 2 : 1)
                 if !semanticCompact {
@@ -436,13 +452,15 @@ struct GraphCanvasView: View {
                             .accessibilityLabel("\(store.chainText(chain, field: "title")) \((position?.index ?? 0) + 1) of \(position?.count ?? 0)")
                     }
                     Spacer()
-                    Text(block.deliveryState.uppercased())
-                        .font(.system(size: 7.5, weight: .bold, design: .monospaced))
-                        .tracking(0.7)
-                        .foregroundStyle(stateColor)
+                    if !ultraCompact {
+                        Text(block.deliveryState.uppercased())
+                            .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                            .tracking(0.7)
+                            .foregroundStyle(stateColor)
+                    }
                 }
         }
-        .padding(11)
+        .padding(semanticCompact ? 8 : 11)
         .frame(width: cardSize.width, height: cardSize.height, alignment: .topLeading)
         .background(
             buildingShape
@@ -462,9 +480,9 @@ struct GraphCanvasView: View {
 
     private func fitFocusedSelection(in layout: NetworkLayoutSnapshot, viewport: CGSize) {
         guard let target = store.focusTarget, let bounds = focusBounds(for: target, layout: layout) else { return }
-        let horizontal = max(0.58, (viewport.width - 96) / max(bounds.width, 1))
-        let vertical = max(0.58, (viewport.height - 96) / max(bounds.height, 1))
-        store.setZoom(min(1.18, horizontal, vertical))
+        let horizontal = (viewport.width - 96) / max(bounds.width, 1)
+        let vertical = (viewport.height - 96) / max(bounds.height, 1)
+        store.setZoom(max(0.32, min(1.18, horizontal, vertical)))
     }
 
     private func fitOverview(in layout: NetworkLayoutSnapshot, viewport: CGSize) {
