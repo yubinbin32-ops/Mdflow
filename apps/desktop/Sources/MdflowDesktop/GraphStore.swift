@@ -12,10 +12,10 @@ final class GraphStore: ObservableObject {
     @Published private(set) var focusTarget: GraphSelection?
     @Published private(set) var focusRequestID = UUID()
     @Published var enabledLenses: Set<ViewLens> = Set(ViewLens.allCases)
-    @Published var searchText = ""
     @Published private(set) var recentlyChangedRefs: Set<String> = []
     @Published private(set) var errorMessage: String?
     @Published var settingsPresented = false
+    @Published private(set) var pluginInstallStatus: PluginInstallStatus = .idle
     @Published var canvasScale: CGFloat = 1
     @Published var language: AppLanguage {
         didSet { UserDefaults.standard.set(language.rawValue, forKey: "mdflow.language") }
@@ -90,7 +90,6 @@ final class GraphStore: ObservableObject {
             withAnimation(.smooth(duration: 0.24)) {
                 snapshot = next
                 restoreProjectViewState(for: next.project.id)
-                searchText = ""
                 recentlyChangedRefs.removeAll()
                 errorMessage = nil
             }
@@ -144,22 +143,12 @@ final class GraphStore: ObservableObject {
             let chainIDs = Set(snapshot.planChainReferences.filter { planIDs.contains($0.planId) }.map(\.chainId))
             ids.formUnion(snapshot.chainNodes.filter { chainIDs.contains($0.chainId) }.map(\.blockId))
         }
+        ids.formUnion(snapshot.backgroundScopes.map(\.blockId))
+        if let selection {
+            let backgroundIDs = Set(snapshot.backgroundScopes.map(\.blockId))
+            ids.formIntersection(relatedBlockIDs(for: selection).union(backgroundIDs))
+        }
         return snapshot.blocks.filter { ids.contains($0.id) }
-    }
-
-    var searchResults: [GraphSelection] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return [] }
-        let chainResults = snapshot.chains
-            .filter { "\($0.title) \($0.intent) \(localizedSearchText(type: "chain", id: $0.id))".lowercased().contains(query) }
-            .map { GraphSelection(type: .chain, id: $0.id) }
-        let blockResults = snapshot.blocks
-            .filter { "\($0.title) \($0.summary) \($0.contract) \(localizedSearchText(type: "block", id: $0.id))".lowercased().contains(query) }
-            .map { GraphSelection(type: .block, id: $0.id) }
-        let planResults = snapshot.plans
-            .filter { "\($0.title) \($0.summary) \($0.goal) \($0.nextAction) \(localizedSearchText(type: "plan", id: $0.id))".lowercased().contains(query) }
-            .map { GraphSelection(type: .plan, id: $0.id) }
-        return Array((planResults + chainResults + blockResults).prefix(8))
     }
 
     func setLens(_ lens: ViewLens, enabled: Bool) {
@@ -188,6 +177,7 @@ final class GraphStore: ObservableObject {
         selection = value
         switch value.type {
         case .block:
+            highlightedChainIDs.removeAll()
             requestFocus(value)
         case .chain:
             highlightedChainIDs = [value.id]
@@ -202,14 +192,11 @@ final class GraphStore: ObservableObject {
         }
     }
 
-    func selectSearchResult(_ value: GraphSelection) {
-        select(value)
-        searchText = ""
-    }
-
     func clearSelection() {
         selection = nil
         highlightedChainIDs.removeAll()
+        focusTarget = nil
+        focusTask?.cancel()
     }
 
     func refreshIfChanged() {
@@ -305,7 +292,58 @@ final class GraphStore: ObservableObject {
 
     func chains(containing blockID: String) -> [ChainItem] {
         let ids = Set(snapshot.chainNodes.filter { $0.blockId == blockID }.map(\.chainId))
-        return snapshot.chains.filter { ids.contains($0.id) }
+        return snapshot.chains.filter { ids.contains($0.id) }.sorted { $0.id < $1.id }
+    }
+
+    func chainColor(_ chainID: String) -> Color {
+        let ordered = snapshot.chains.map(\.id).sorted()
+        return MdflowTheme.chainColor(index: ordered.firstIndex(of: chainID) ?? 0)
+    }
+
+    func incomingLinks(for blockID: String) -> [LinkItem] {
+        snapshot.links.filter {
+            $0.sourceType == "block" && $0.targetType == "block" && $0.targetId == blockID
+        }.sorted { $0.id < $1.id }
+    }
+
+    func outgoingLinks(for blockID: String) -> [LinkItem] {
+        snapshot.links.filter {
+            $0.sourceType == "block" && $0.targetType == "block" && $0.sourceId == blockID
+        }.sorted { $0.id < $1.id }
+    }
+
+    func block(_ id: String) -> BlockItem? {
+        snapshot.blocks.first { $0.id == id }
+    }
+
+    func chainPosition(_ chainID: String, blockID: String) -> (index: Int, count: Int)? {
+        let nodes = snapshot.chainNodes.filter { $0.chainId == chainID }.sorted { $0.position < $1.position }
+        guard let index = nodes.firstIndex(where: { $0.blockId == blockID }) else { return nil }
+        return (index, nodes.count)
+    }
+
+    func plans(containing blockID: String) -> [PlanItem] {
+        let chainIDs = Set(snapshot.chainNodes.filter { $0.blockId == blockID }.map(\.chainId))
+        let planIDs = Set(snapshot.planChainReferences.filter { chainIDs.contains($0.chainId) }.map(\.planId))
+        return snapshot.plans.filter { planIDs.contains($0.id) }
+    }
+
+    func relatedBlockIDs(for selection: GraphSelection) -> Set<String> {
+        switch selection.type {
+        case .block:
+            var ids: Set<String> = [selection.id]
+            for link in incomingLinks(for: selection.id) { ids.insert(link.sourceId) }
+            for link in outgoingLinks(for: selection.id) { ids.insert(link.targetId) }
+            return ids
+        case .chain:
+            return Set(chainNodeIDs(selection.id))
+        case .plan:
+            let chainIDs = Set(targetChains(for: selection.id).map(\.id))
+            return Set(snapshot.chainNodes.filter { chainIDs.contains($0.chainId) }.map(\.blockId))
+        case .link:
+            guard let link = snapshot.links.first(where: { $0.id == selection.id }) else { return [] }
+            return [link.sourceId, link.targetId]
+        }
     }
 
     func requestFocus(_ target: GraphSelection) {
@@ -318,24 +356,36 @@ final class GraphStore: ObservableObject {
         }
     }
 
+    func magnify(_ target: GraphSelection, minimumScale: CGFloat = 1.08) {
+        focusTask?.cancel()
+        selection = target
+        focusTarget = target
+        canvasScale = max(canvasScale, minimumScale)
+        focusRequestID = UUID()
+    }
+
     func text(_ key: String) -> String {
         let zh: [String: String] = [
-            "overview":"概览", "plans":"计划", "search":"搜索", "settings":"设置", "done":"完成",
+            "overview":"概览", "plans":"计划", "settings":"设置", "done":"完成",
             "summary":"摘要", "details":"详情", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
             "plugin":"CODEX 插件", "pluginHelp":"开发插件包位于当前项目中。", "revealPlugin":"在访达中显示插件",
+            "installPlugin":"一键安装", "installingPlugin":"正在安装…", "pluginInstalled":"已安装；新任务中即可使用", "pluginInstallFailed":"安装失败",
             "liveData":"实时数据", "liveHelp":"变化会自动同步，无需刷新。", "language":"语言", "system":"跟随系统",
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
             "goal":"目标", "nextAction":"下一步", "targetChains":"目标 Chain", "proposedDelta":"计划中的图变更", "blockers":"阻塞",
+            "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
             "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
             "all":"全部", "ui":"界面", "runtime":"运行时", "api":"API", "data":"数据", "quality":"质量", "plan":"计划"
         ]
         let en: [String: String] = [
-            "overview":"Overview", "plans":"Plans", "search":"Search", "settings":"Settings", "done":"Done",
+            "overview":"Overview", "plans":"Plans", "settings":"Settings", "done":"Done",
             "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
             "plugin":"CODEX PLUGIN", "pluginHelp":"The development plugin bundle is available in this project.", "revealPlugin":"Reveal Plugin",
+            "installPlugin":"Install in Codex", "installingPlugin":"Installing…", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
             "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "system":"System",
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
             "goal":"Goal", "nextAction":"Next Action", "targetChains":"Target Chains", "proposedDelta":"Proposed Graph Delta", "blockers":"Blockers",
+            "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
             "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
             "all":"All", "ui":"UI", "runtime":"Runtime", "api":"API", "data":"Data", "quality":"QA", "plan":"Plan"
         ]
@@ -349,10 +399,6 @@ final class GraphStore: ObservableObject {
     func zoom(by amount: CGFloat) { canvasScale = min(1.8, max(0.5, canvasScale + amount)) }
     func setZoom(_ value: CGFloat) { canvasScale = min(1.8, max(0.5, value)) }
     func resetZoom() { canvasScale = 1 }
-
-    private func localizedSearchText(type: String, id: String) -> String {
-        snapshot.localizations.filter { $0.entityType == type && $0.entityId == id }.map(\.value).joined(separator: " ")
-    }
 
     func checkpoints(for value: GraphSelection) -> [CheckpointItem] {
         snapshot.checkpoints.filter { $0.targetType == value.type.rawValue && $0.targetId == value.id }
@@ -377,6 +423,30 @@ final class GraphStore: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([
             location.root.appending(path: "plugins/mdflow")
         ])
+    }
+
+    func installPlugin() {
+        guard pluginInstallStatus != .installing, let marketplaceRoot else { return }
+        pluginInstallStatus = .installing
+        Task {
+            do {
+                try await Task.detached { try PluginInstaller.install(marketplaceRoot: marketplaceRoot) }.value
+                pluginInstallStatus = .installed
+            } catch {
+                pluginInstallStatus = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private var marketplaceRoot: URL? {
+        let manager = FileManager.default
+        if let resources = Bundle.main.resourceURL {
+            let embedded = resources.appending(path: "MarketplaceRoot", directoryHint: .isDirectory)
+            if manager.fileExists(atPath: embedded.appending(path: ".agents/plugins/marketplace.json").path) { return embedded }
+        }
+        if let root = location?.root,
+           manager.fileExists(atPath: root.appending(path: ".agents/plugins/marketplace.json").path) { return root }
+        return nil
     }
 
     var databasePath: String { location?.database.path ?? "Unavailable" }

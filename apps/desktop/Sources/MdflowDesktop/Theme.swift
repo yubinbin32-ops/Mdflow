@@ -46,10 +46,20 @@ enum MdflowTheme {
 
     static let chainPalette: [Color] = [
         focus,
-        Color(red: 0.48, green: 0.30, blue: 0.86),
-        Color(red: 0.04, green: 0.55, blue: 0.62),
         Color(red: 0.92, green: 0.43, blue: 0.16),
-        Color(red: 0.74, green: 0.20, blue: 0.48),
         success,
+        Color(red: 0.48, green: 0.30, blue: 0.86),
+        failure,
+        Color(red: 0.04, green: 0.55, blue: 0.62),
+        Color(red: 0.74, green: 0.20, blue: 0.48),
+        Color(red: 0.48, green: 0.34, blue: 0.18),
+        Color(red: 0.24, green: 0.36, blue: 0.70),
+        Color(red: 0.44, green: 0.58, blue: 0.06),
+        Color(red: 0.00, green: 0.48, blue: 0.78),
+        Color(red: 0.86, green: 0.30, blue: 0.58),
     ]
+
+    static func chainColor(index: Int) -> Color {
+        chainPalette[index % chainPalette.count]
+    }
 }

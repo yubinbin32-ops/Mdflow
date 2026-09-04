@@ -138,7 +138,6 @@ struct ContentView: View {
                 .foregroundStyle(MdflowTheme.ink)
             }
             Spacer()
-            search
             Button { store.settingsPresented = true } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13, weight: .semibold))
@@ -151,46 +150,6 @@ struct ContentView: View {
         .padding(.horizontal, 16)
         .frame(height: 50)
         .background(MdflowTheme.surface.opacity(0.96))
-    }
-
-    private var search: some View {
-        TextField(store.text("search"), text: $store.searchText)
-            .textFieldStyle(.plain)
-            .font(.system(size: 11.5, weight: .regular, design: .rounded))
-            .padding(.horizontal, 11)
-            .frame(width: 180, height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(MdflowTheme.canvas)
-                    .stroke(MdflowTheme.hairline)
-            )
-            .overlay(alignment: .topTrailing) {
-                if !store.searchResults.isEmpty {
-                    VStack(spacing: 2) {
-                        ForEach(store.searchResults, id: \.self) { result in
-                            Button { store.selectSearchResult(result) } label: {
-                                Text(store.title(for: result))
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                    .foregroundStyle(MdflowTheme.ink)
-                                    .lineLimit(1)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(9)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(5)
-                    .frame(width: 230)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(MdflowTheme.surface)
-                            .shadow(color: .black.opacity(0.13), radius: 18, y: 8)
-                    )
-                    .offset(y: 36)
-                    .zIndex(20)
-                }
-            }
-            .zIndex(20)
     }
 
     private var zoomControl: some View {
@@ -269,7 +228,27 @@ private struct SettingsView: View {
                 label(store.text("plugin"))
                 Text(store.text("pluginHelp"))
                     .font(.system(size: 12, design: .rounded))
-                Button(store.text("revealPlugin")) { store.revealPlugin() }
+                HStack(spacing: 10) {
+                    Button(store.pluginInstallStatus == .installing ? store.text("installingPlugin") : store.text("installPlugin")) {
+                        store.installPlugin()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(store.pluginInstallStatus == .installing)
+                    Button(store.text("revealPlugin")) { store.revealPlugin() }
+                }
+                switch store.pluginInstallStatus {
+                case .installed:
+                    Label(store.text("pluginInstalled"), systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(MdflowTheme.success)
+                        .font(.system(size: 11, design: .rounded))
+                case .failed(let message):
+                    Text("\(store.text("pluginInstallFailed")): \(message)")
+                        .foregroundStyle(MdflowTheme.failure)
+                        .font(.system(size: 11, design: .rounded))
+                        .lineLimit(3)
+                default:
+                    EmptyView()
+                }
             }
             VStack(alignment: .leading, spacing: 8) {
                 label(store.text("liveData"))

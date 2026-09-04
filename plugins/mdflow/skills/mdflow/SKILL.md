@@ -27,6 +27,18 @@ Use `graph_mutate` whenever work creates or changes a durable responsibility, fl
 - Keep each mutation small, cohesive, and truthful. Record the reason the graph changed.
 - When implementation reveals that the architecture was wrong, update the architecture immediately; do not preserve a knowingly false plan until the end.
 
+### Mutation vocabulary
+
+Use the storage vocabulary directly so a mutation does not require a discovery retry:
+
+- Block `kind`: `principle`, `product`, `requirement`, `decision`, `flow`, `ui`, `service`, `function`, `integration`, `data`, `database`, `risk`, `test`, or `checkpoint`.
+- Link `kind`: `flows_to`, `calls`, `reads`, `writes`, `depends_on`, `implements`, `validates`, `constrains`, or `supersedes`.
+- Block/Chain `deliveryState`: `proposed`, `planned`, `implementing`, `verifying`, `complete`, or `deprecated`.
+- `healthState`: `unknown`, `healthy`, `warning`, `failing`, `unstable`, or `disputed`.
+- Plan `status`: `draft`, `ready`, `active`, `verifying`, `complete`, `blocked`, or `cancelled`.
+
+For `create_link`, set `sourceType`, `sourceId`, `targetType`, `targetId`, and `kind`. For `set_chain_path`, pass ordered `nodeIds` and the existing ordered `linkIds` that connect them. For `set_plan_chains`, pass ordered existing `chainIds`.
+
 ## Progress and evidence
 
 - Use delivery state for lifecycle progress and health state for correctness/risk. Do not encode both meanings in one status.

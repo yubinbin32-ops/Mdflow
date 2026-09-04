@@ -11,6 +11,7 @@ struct DetailView: View {
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(MdflowTheme.ink)
                 entityContent
+                revisionSection
                 checkpointSection
                 historySection
             }
@@ -27,18 +28,25 @@ struct DetailView: View {
                 section(store.text("summary").uppercased(), text: store.blockText(block, field: "summary"))
                 section(store.text("details").uppercased(), text: store.blockText(block, field: "body"))
                 section(store.text("contract").uppercased(), text: store.blockText(block, field: "contract"))
+                chainMembershipSection(block.id)
+                relationSection(store.text("upstream").uppercased(), links: store.incomingLinks(for: block.id), blockID: block.id)
+                relationSection(store.text("downstream").uppercased(), links: store.outgoingLinks(for: block.id), blockID: block.id)
+                relatedPlanSection(block.id)
                 sourceSection(block.id)
             }
         case .chain:
             if let chain = store.snapshot.chains.first(where: { $0.id == selection.id }) {
+                section(store.text("summary").uppercased(), text: store.chainText(chain, field: "intent"))
                 let contract = [
                     chain.inputContract.isEmpty ? nil : "\(store.text("input")) — \(store.chainText(chain, field: "inputContract"))",
                     chain.outputContract.isEmpty ? nil : "\(store.text("output")) — \(store.chainText(chain, field: "outputContract"))",
                 ].compactMap { $0 }.joined(separator: "\n\n")
                 section(store.text("contract").uppercased(), text: contract)
+                chainPathSection(chain.id)
             }
         case .link:
             if let link = store.snapshot.links.first(where: { $0.id == selection.id }) {
+                linkEndpointsSection(link)
                 section(store.text("contract").uppercased(), text: store.localized(type: "link", id: link.id, field: "contract", fallback: link.contract))
             }
         case .plan:
@@ -69,6 +77,167 @@ struct DetailView: View {
                 structuredList(store.text("proposedDelta").uppercased(), value: plan.proposedDelta)
                 structuredList(store.text("blockers").uppercased(), value: plan.blockers)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func chainMembershipSection(_ blockID: String) -> some View {
+        let chains = store.chains(containing: blockID)
+        if !chains.isEmpty {
+            VStack(alignment: .leading, spacing: 9) {
+                sectionLabel(store.text("memberships").uppercased())
+                ForEach(chains) { chain in
+                    let position = store.chainPosition(chain.id, blockID: blockID)
+                    Button { store.select(GraphSelection(type: .chain, id: chain.id)) } label: {
+                        HStack(spacing: 9) {
+                            Circle().fill(store.chainColor(chain.id)).frame(width: 8, height: 8)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(store.chainText(chain, field: "title"))
+                                Text("\((position?.index ?? 0) + 1) / \(position?.count ?? 0) · \(chain.deliveryState.uppercased())")
+                                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(MdflowTheme.muted)
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.right")
+                        }
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(MdflowTheme.ink)
+                        .padding(10)
+                        .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(store.chainText(chain, field: "title")), step \((position?.index ?? 0) + 1) of \(position?.count ?? 0)")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func relationSection(_ title: String, links: [LinkItem], blockID: String) -> some View {
+        if !links.isEmpty {
+            VStack(alignment: .leading, spacing: 9) {
+                sectionLabel(title)
+                ForEach(links) { link in
+                    let otherID = link.sourceId == blockID ? link.targetId : link.sourceId
+                    Button { store.select(GraphSelection(type: .link, id: link.id)) } label: {
+                        HStack(alignment: .top, spacing: 9) {
+                            Image(systemName: link.sourceId == blockID ? "arrow.right" : "arrow.left")
+                                .foregroundStyle(MdflowTheme.healthColor(link.healthState))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(store.block(otherID).map { store.blockText($0, field: "title") } ?? otherID)
+                                Text((link.label.isEmpty ? link.kind : link.label).uppercased())
+                                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(MdflowTheme.muted)
+                            }
+                            Spacer()
+                        }
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(MdflowTheme.ink)
+                        .padding(10)
+                        .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func relatedPlanSection(_ blockID: String) -> some View {
+        let plans = store.plans(containing: blockID)
+        if !plans.isEmpty {
+            VStack(alignment: .leading, spacing: 9) {
+                sectionLabel(store.text("relatedPlans").uppercased())
+                ForEach(plans) { plan in
+                    Button { store.select(GraphSelection(type: .plan, id: plan.id)) } label: {
+                        HStack {
+                            Circle().fill(MdflowTheme.planColor(plan.status)).frame(width: 7, height: 7)
+                            Text(store.planText(plan, field: "title")).lineLimit(2)
+                            Spacer()
+                            Text(plan.status.uppercased())
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundStyle(MdflowTheme.planColor(plan.status))
+                        }
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(MdflowTheme.ink)
+                        .padding(10)
+                        .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func chainPathSection(_ chainID: String) -> some View {
+        let nodeIDs = store.chainNodeIDs(chainID)
+        if !nodeIDs.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+                sectionLabel(store.text("path").uppercased())
+                ForEach(Array(nodeIDs.enumerated()), id: \.element) { index, id in
+                    Button { store.select(GraphSelection(type: .block, id: id)) } label: {
+                        HStack(spacing: 9) {
+                            Text("\(index + 1)")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(store.chainColor(chainID))
+                                .frame(width: 18, height: 18)
+                                .background(store.chainColor(chainID).opacity(0.1), in: Circle())
+                            Text(store.block(id).map { store.blockText($0, field: "title") } ?? id)
+                            Spacer()
+                            if index < nodeIDs.count - 1 { Image(systemName: "arrow.down") }
+                        }
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(MdflowTheme.ink)
+                        .padding(.vertical, 5)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func linkEndpointsSection(_ link: LinkItem) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            sectionLabel(store.text("link").uppercased())
+            HStack(spacing: 7) {
+                endpointButton(link.sourceId)
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(MdflowTheme.healthColor(link.healthState))
+                endpointButton(link.targetId)
+            }
+            Text((link.label.isEmpty ? link.kind : link.label).uppercased() + " · " + link.healthState.uppercased())
+                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                .foregroundStyle(MdflowTheme.muted)
+        }
+    }
+
+    private func endpointButton(_ blockID: String) -> some View {
+        Button {
+            store.select(GraphSelection(type: .block, id: blockID))
+        } label: {
+            Text(store.block(blockID).map { store.blockText($0, field: "title") } ?? blockID)
+                .lineLimit(2)
+                .padding(.horizontal, 8)
+                .frame(minHeight: 30)
+                .background(MdflowTheme.canvas, in: RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var revisionSection: some View {
+        let revision: Int = switch selection.type {
+        case .block: store.snapshot.blocks.first { $0.id == selection.id }?.revision ?? 0
+        case .chain: store.snapshot.chains.first { $0.id == selection.id }?.revision ?? 0
+        case .link: store.snapshot.links.first { $0.id == selection.id }?.revision ?? 0
+        case .plan: store.snapshot.plans.first { $0.id == selection.id }?.revision ?? 0
+        }
+        return HStack {
+            sectionLabel(store.text("revision").uppercased())
+            Spacer()
+            Text("r\(revision)")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(MdflowTheme.muted)
         }
     }
 

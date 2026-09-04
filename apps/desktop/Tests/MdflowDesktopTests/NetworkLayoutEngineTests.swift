@@ -28,25 +28,22 @@ import Testing
     #expect(y == y.sorted())
 }
 
-@Test func focusedLayoutMakesAChainReadableAndKeepsOtherNodesOutsideIt() {
+@Test func focusedLayoutKeepsTheGlobalNetworkStableAndTheChainOrdered() {
     let path = ["a", "b", "c", "d", "e", "f", "g", "h"]
     let ids = path + (0..<24).map { "other-\($0)" }
-    let layout = NetworkLayoutEngine.make(nodeIDs: ids, edges: [], focusPaths: [path], cardSize: CGSize(width: 196, height: 108), topInset: 190)
-    let firstRowX = path.prefix(4).compactMap { layout.positions[$0]?.x }
-    let secondRowX = path.suffix(4).compactMap { layout.positions[$0]?.x }
-    #expect(firstRowX == firstRowX.sorted())
-    #expect(secondRowX == secondRowX.sorted(by: >))
-    #expect(layout.positions["a"]?.y == layout.positions["d"]?.y)
-    #expect(layout.positions["e"]?.y == layout.positions["h"]?.y)
-    #expect((layout.positions["e"]?.y ?? 0) > (layout.positions["d"]?.y ?? 0))
-    #expect(overlaps(in: layout, cardSize: CGSize(width: 196, height: 108)).isEmpty)
-    let pathBounds = path.compactMap { layout.positions[$0] }.map {
-        CGRect(origin: $0, size: CGSize(width: 196, height: 108))
-    }.reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -80, dy: -80)
-    #expect(ids.filter { $0.hasPrefix("other") }.allSatisfy { id in
-        guard let point = layout.positions[id] else { return false }
-        return !pathBounds.intersects(CGRect(origin: point, size: CGSize(width: 196, height: 108)))
-    })
+    let pathEdges = zip(path, path.dropFirst()).enumerated().map {
+        LayoutEdge(id: "path-\($0.offset)", sourceID: $0.element.0, targetID: $0.element.1)
+    }
+    let otherEdges = (0..<24).map {
+        LayoutEdge(id: "other-edge-\($0)", sourceID: path[$0 % path.count], targetID: "other-\($0)")
+    }
+    let size = CGSize(width: 196, height: 108)
+    let overview = NetworkLayoutEngine.make(nodeIDs: ids, edges: pathEdges + otherEdges, focusPaths: [], cardSize: size, topInset: 190)
+    let focused = NetworkLayoutEngine.make(nodeIDs: ids, edges: pathEdges + otherEdges, focusPaths: [path], cardSize: size, topInset: 190)
+
+    #expect(path.compactMap { focused.positions[$0]?.x } == path.compactMap { focused.positions[$0]?.x }.sorted())
+    #expect(overview.positions == focused.positions)
+    #expect(overlaps(in: focused, cardSize: size).isEmpty)
 }
 
 @Test func linkRoutesReceiveStableSeparateLanes() {
@@ -89,12 +86,8 @@ import Testing
     let size = CGSize(width: 196, height: 108)
     let layout = NetworkLayoutEngine.make(nodeIDs: ids, edges: edges, focusPaths: [], districts: districts, cardSize: size, topInset: 190)
     for edge in edges {
-        let route = NetworkLayoutEngine.orthogonalRoute(
-            source: layout.positions[edge.sourceID]!,
-            target: layout.positions[edge.targetID]!,
-            cardSize: size,
-            lane: 0
-        )
+        let route = layout.routes[edge.id] ?? []
+        #expect(!route.isEmpty)
         for id in ids where id != edge.sourceID && id != edge.targetID {
             let building = CGRect(origin: layout.positions[id]!, size: size).insetBy(dx: -1, dy: -1)
             #expect(zip(route, route.dropFirst()).allSatisfy { !segment($0, $1, intersects: building) })
