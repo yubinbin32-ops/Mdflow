@@ -1,0 +1,23 @@
+{
+  "name": "mdflow",
+  "version": "0.1.0",
+  "description": "Keep project architecture, implementation progress, checkpoints, and code references synchronized through a task-scoped graph.",
+  "author": {
+    "name": "mdflow"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "mdflow",
+    "shortDescription": "Task-scoped project context and live architecture sync.",
+    "longDescription": "Read only the project context needed for the current task, then keep blocks, chains, links, code references, progress, and checkpoints synchronized as the implementation changes.",
+    "developerName": "mdflow",
+    "category": "Productivity",
+    "capabilities": [
+      "Project context retrieval",
+      "Architecture and progress synchronization",
+      "Checkpoint evidence"
+    ],
+    "defaultPrompt": "Use mdflow to understand this task, then keep the project graph synchronized as the implementation changes."
+  },
+  "mcpServers": "./.mcp.json"
+}

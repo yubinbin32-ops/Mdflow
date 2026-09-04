@@ -1,0 +1,309 @@
+import Combine
+import Foundation
+import SwiftUI
+
+@MainActor
+final class GraphStore: ObservableObject {
+    @Published private(set) var snapshot: GraphSnapshot
+    @Published var selection: GraphSelection?
+    @Published var highlightedChainIDs: Set<String> = []
+    @Published private(set) var focusTargetBlockID: String?
+    @Published private(set) var focusRequestID = UUID()
+    @Published var enabledLenses: Set<ViewLens> = [.all]
+    @Published var searchText = ""
+    @Published private(set) var recentlyChangedRefs: Set<String> = []
+    @Published private(set) var errorMessage: String?
+    @Published var settingsPresented = false
+    @Published var canvasScale: CGFloat = 1
+    @Published var language: AppLanguage {
+        didSet { UserDefaults.standard.set(language.rawValue, forKey: "mdflow.language") }
+    }
+
+    private var location: ProjectLocation?
+    private var database: ProjectDatabase?
+    private var clearChangeTask: Task<Void, Never>?
+
+    init() {
+        self.language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "mdflow.language") ?? "system") ?? .system
+        do {
+            let resolvedLocation = try ProjectLocation.resolve()
+            self.location = resolvedLocation
+            do {
+                let resolvedDatabase = try ProjectDatabase(location: resolvedLocation)
+                self.database = resolvedDatabase
+                self.snapshot = try resolvedDatabase.loadSnapshot()
+            } catch {
+                self.database = nil
+                self.snapshot = .empty(name: resolvedLocation.descriptor.name, root: resolvedLocation.root.path)
+                self.errorMessage = error.localizedDescription
+                Self.log(error, context: resolvedLocation.database.path)
+            }
+        } catch {
+            self.location = nil
+            self.database = nil
+            self.snapshot = .empty(root: FileManager.default.currentDirectoryPath)
+            self.errorMessage = error.localizedDescription
+            Self.log(error, context: "project resolution")
+        }
+    }
+
+    private static func log(_ error: Error, context: String) {
+        let message = "mdflow: \(context): \(error.localizedDescription)\n"
+        FileHandle.standardError.write(Data(message.utf8))
+    }
+
+    var plans: [PlanItem] {
+        snapshot.plans
+    }
+
+    var visibleBlocks: [BlockItem] {
+        guard !enabledLenses.contains(.all) else { return snapshot.blocks }
+        let regularLenses = enabledLenses.subtracting([.plan])
+        var ids = Set(snapshot.blocks.filter { block in regularLenses.contains { $0.includes(block: block) } }.map(\.id))
+        if enabledLenses.contains(.plan) {
+            let planIDs = selection?.type == .plan ? [selection!.id] : snapshot.plans.filter { ["active", "blocked", "verifying"].contains($0.status) }.map(\.id)
+            let chainIDs = Set(snapshot.planChainReferences.filter { planIDs.contains($0.planId) }.map(\.chainId))
+            ids.formUnion(snapshot.chainNodes.filter { chainIDs.contains($0.chainId) }.map(\.blockId))
+        }
+        return snapshot.blocks.filter { ids.contains($0.id) }
+    }
+
+    var searchResults: [GraphSelection] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return [] }
+        let chainResults = snapshot.chains
+            .filter { "\($0.title) \($0.intent) \(localizedSearchText(type: "chain", id: $0.id))".lowercased().contains(query) }
+            .map { GraphSelection(type: .chain, id: $0.id) }
+        let blockResults = snapshot.blocks
+            .filter { "\($0.title) \($0.summary) \($0.contract) \(localizedSearchText(type: "block", id: $0.id))".lowercased().contains(query) }
+            .map { GraphSelection(type: .block, id: $0.id) }
+        let planResults = snapshot.plans
+            .filter { "\($0.title) \($0.summary) \($0.goal) \($0.nextAction) \(localizedSearchText(type: "plan", id: $0.id))".lowercased().contains(query) }
+            .map { GraphSelection(type: .plan, id: $0.id) }
+        return Array((planResults + chainResults + blockResults).prefix(8))
+    }
+
+    func setLens(_ lens: ViewLens, enabled: Bool) {
+        if lens == .all {
+            enabledLenses = [.all]
+            return
+        }
+        enabledLenses.remove(.all)
+        if enabled {
+            enabledLenses.insert(lens)
+        } else {
+            enabledLenses.remove(lens)
+        }
+        if enabledLenses.isEmpty { enabledLenses = [.all] }
+    }
+
+    func showOverview() {
+        selection = nil
+        highlightedChainIDs.removeAll()
+        focusTargetBlockID = nil
+    }
+
+    func focusPlan(_ id: String) {
+        selection = GraphSelection(type: .plan, id: id)
+        highlightedChainIDs = Set(snapshot.planChainReferences.filter { $0.planId == id }.map(\.chainId))
+        focusFirstBlock(in: highlightedChainIDs)
+    }
+
+    func select(_ value: GraphSelection) {
+        selection = value
+        switch value.type {
+        case .block:
+            requestFocus(blockID: value.id)
+        case .chain:
+            highlightedChainIDs = [value.id]
+            focusFirstBlock(in: highlightedChainIDs)
+        case .plan:
+            highlightedChainIDs = Set(snapshot.planChainReferences.filter { $0.planId == value.id }.map(\.chainId))
+            focusFirstBlock(in: highlightedChainIDs)
+        case .link:
+            if let link = snapshot.links.first(where: { $0.id == value.id }) { requestFocus(blockID: link.targetId) }
+        }
+    }
+
+    func selectSearchResult(_ value: GraphSelection) {
+        selection = value
+        select(value)
+        searchText = ""
+    }
+
+    func clearSelection() {
+        selection = nil
+        highlightedChainIDs.removeAll()
+    }
+
+    func refreshIfChanged() {
+        guard let database else { return }
+        do {
+            let sequence = try database.changeSequence()
+            guard sequence != snapshot.changeSequence else { return }
+            let previousSequence = snapshot.changeSequence
+            let next = try database.loadSnapshot()
+            let changed = next.latestChanges
+                .filter { $0.sequence > previousSequence }
+                .map { "\($0.entityType):\($0.entityId)" }
+            withAnimation(.smooth(duration: 0.28)) {
+                snapshot = next
+                recentlyChangedRefs = Set(changed)
+                errorMessage = nil
+            }
+            clearChangeTask?.cancel()
+            clearChangeTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1.4))
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeOut(duration: 0.25)) {
+                    self?.recentlyChangedRefs.removeAll()
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func title(for value: GraphSelection) -> String {
+        switch value.type {
+        case .block:
+            let fallback = snapshot.blocks.first(where: { $0.id == value.id })?.title ?? value.id
+            return localized(type: "block", id: value.id, field: "title", fallback: fallback)
+        case .chain:
+            let fallback = snapshot.chains.first(where: { $0.id == value.id })?.title ?? value.id
+            return localized(type: "chain", id: value.id, field: "title", fallback: fallback)
+        case .link:
+            let fallback = snapshot.links.first(where: { $0.id == value.id })?.label.nonEmpty ?? text("link")
+            return localized(type: "link", id: value.id, field: "label", fallback: fallback)
+        case .plan:
+            let fallback = snapshot.plans.first(where: { $0.id == value.id })?.title ?? value.id
+            return localized(type: "plan", id: value.id, field: "title", fallback: fallback)
+        }
+    }
+
+    var activeLocale: String {
+        switch language {
+        case .english: "en"
+        case .zhHans: "zh-Hans"
+        case .system: Locale.preferredLanguages.first?.hasPrefix("zh") == true ? "zh-Hans" : "en"
+        }
+    }
+
+    func localized(type: String, id: String, field: String, fallback: String) -> String {
+        snapshot.localizations.first {
+            $0.entityType == type && $0.entityId == id && $0.locale == activeLocale && $0.field == field
+        }?.value ?? fallback
+    }
+
+    func blockText(_ block: BlockItem, field: String) -> String {
+        let fallback: String
+        switch field { case "title": fallback = block.title; case "summary": fallback = block.summary; case "body": fallback = block.body; default: fallback = block.contract }
+        return localized(type: "block", id: block.id, field: field, fallback: fallback)
+    }
+
+    func chainText(_ chain: ChainItem, field: String) -> String {
+        let fallback: String
+        switch field { case "title": fallback = chain.title; case "intent": fallback = chain.intent; case "inputContract": fallback = chain.inputContract; default: fallback = chain.outputContract }
+        return localized(type: "chain", id: chain.id, field: field, fallback: fallback)
+    }
+
+    func planText(_ plan: PlanItem, field: String) -> String {
+        let fallback: String
+        switch field { case "title": fallback = plan.title; case "summary": fallback = plan.summary; case "goal": fallback = plan.goal; default: fallback = plan.nextAction }
+        return localized(type: "plan", id: plan.id, field: field, fallback: fallback)
+    }
+
+    func targetChains(for planID: String) -> [ChainItem] {
+        let ids = snapshot.planChainReferences.filter { $0.planId == planID }.sorted { $0.position < $1.position }.map(\.chainId)
+        let byID = Dictionary(uniqueKeysWithValues: snapshot.chains.map { ($0.id, $0) })
+        return ids.compactMap { byID[$0] }
+    }
+
+    func chainNodeIDs(_ chainID: String) -> [String] {
+        snapshot.chainNodes.filter { $0.chainId == chainID }.sorted { $0.position < $1.position }.map(\.blockId)
+    }
+
+    func chainLinkIDs(_ chainID: String) -> Set<String> {
+        Set(snapshot.chainEdges.filter { $0.chainId == chainID }.map(\.linkId))
+    }
+
+    func chains(containing blockID: String) -> [ChainItem] {
+        let ids = Set(snapshot.chainNodes.filter { $0.blockId == blockID }.map(\.chainId))
+        return snapshot.chains.filter { ids.contains($0.id) }
+    }
+
+    func requestFocus(blockID: String) {
+        focusTargetBlockID = blockID
+        focusRequestID = UUID()
+    }
+
+    private func focusFirstBlock(in chainIDs: Set<String>) {
+        guard let target = snapshot.chainNodes.filter({ chainIDs.contains($0.chainId) }).sorted(by: { $0.position < $1.position }).first?.blockId else { return }
+        requestFocus(blockID: target)
+    }
+
+    func text(_ key: String) -> String {
+        let zh: [String: String] = [
+            "overview":"概览", "plans":"计划", "search":"搜索", "settings":"设置", "done":"完成",
+            "summary":"摘要", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
+            "plugin":"CODEX 插件", "pluginHelp":"开发插件包位于当前项目中。", "revealPlugin":"在访达中显示插件",
+            "liveData":"实时数据", "liveHelp":"变化会自动同步，无需刷新。", "language":"语言", "system":"跟随系统",
+            "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
+            "goal":"目标", "nextAction":"下一步", "targetChains":"目标 Chain", "proposedDelta":"计划中的图变更", "blockers":"阻塞",
+            "all":"全部", "ui":"界面", "runtime":"运行时", "api":"API", "data":"数据", "quality":"质量", "plan":"计划"
+        ]
+        let en: [String: String] = [
+            "overview":"Overview", "plans":"Plans", "search":"Search", "settings":"Settings", "done":"Done",
+            "summary":"Summary", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
+            "plugin":"CODEX PLUGIN", "pluginHelp":"The development plugin bundle is available in this project.", "revealPlugin":"Reveal Plugin",
+            "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "system":"System",
+            "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
+            "goal":"Goal", "nextAction":"Next Action", "targetChains":"Target Chains", "proposedDelta":"Proposed Graph Delta", "blockers":"Blockers",
+            "all":"All", "ui":"UI", "runtime":"Runtime", "api":"API", "data":"Data", "quality":"QA", "plan":"Plan"
+        ]
+        return (activeLocale == "zh-Hans" ? zh : en)[key] ?? key
+    }
+
+    func lensTitle(_ lens: ViewLens) -> String {
+        switch lens { case .all: text("all"); case .ui: text("ui"); case .runtime: text("runtime"); case .api: text("api"); case .data: text("data"); case .quality: text("quality"); case .plan: text("plan") }
+    }
+
+    func zoom(by amount: CGFloat) { canvasScale = min(1.8, max(0.5, canvasScale + amount)) }
+    func setZoom(_ value: CGFloat) { canvasScale = min(1.8, max(0.5, value)) }
+    func resetZoom() { canvasScale = 1 }
+
+    private func localizedSearchText(type: String, id: String) -> String {
+        snapshot.localizations.filter { $0.entityType == type && $0.entityId == id }.map(\.value).joined(separator: " ")
+    }
+
+    func checkpoints(for value: GraphSelection) -> [CheckpointItem] {
+        snapshot.checkpoints.filter { $0.targetType == value.type.rawValue && $0.targetId == value.id }
+    }
+
+    func history(for value: GraphSelection) -> [HistoryItem] {
+        snapshot.history.filter { $0.entityType == value.type.rawValue && $0.entityId == value.id }
+    }
+
+    func sourceReferences(for blockID: String) -> [SourceReference] {
+        snapshot.sourceReferences.filter { $0.blockId == blockID }
+    }
+
+    func revealSource(_ source: SourceReference) {
+        guard let location else { return }
+        let url = location.root.appending(path: source.path)
+        NSWorkspace.shared.open(url)
+    }
+
+    func revealPlugin() {
+        guard let location else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([
+            location.root.appending(path: "plugins/mdflow")
+        ])
+    }
+
+    var databasePath: String { location?.database.path ?? "Unavailable" }
+}
+
+private extension String {
+    var nonEmpty: String? { isEmpty ? nil : self }
+}
