@@ -6,6 +6,17 @@
 
 ## 1. 这份文件要解决什么
 
+### 执行记录（已完成的迁移步骤）
+
+- 2026-09-05：本文档建立并提交为 `3ef3dbd`；旧 `DESIGN_PROPOSAL.md` 标记为历史。
+- 2026-09-05：按本文档校准 `.mdflow` 至 graph revision 279：
+  - `project-registration` 正文修正为“主库随 Git 跟踪，WAL/SHM/journal 忽略”；
+  - 四条问题 Link 改写契约并置为 `healthy`；
+  - 五个早期 checkpoint 的证据更新为当前 18/18 Swift 回归；
+  - 主迁移 Plan 记录基线来源，并挂接 `docs/architecture.md` source ref。
+- 2026-09-05：App 的 Verification 列表增加“目标必须仍存在”过滤，已归档 Plan 的 checkpoint 不再出现在侧栏。
+- 未完成：真实 Git checkout/watcher、Todo/大型项目等价性、Canvas 人工验收、大图性能、多项目闭环与公开发布，见第 14 节。
+
 mdflow 的代码实现一直在推进，但以下地方没有同步，导致当前看起来“混乱”：
 
 1. `DESIGN_PROPOSAL.md` 停留在早期模型，其中很多说法已经被实现否决（例如“SQLite 放在用户目录”“Plan 是 purpose=plan 的 Chain”“七个固定 Lens”“Context Rule”）。

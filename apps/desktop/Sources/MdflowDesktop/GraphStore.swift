@@ -244,7 +244,20 @@ final class GraphStore: ObservableObject {
         let boundToPlan = Set(snapshot.checkpointBindings.filter {
             ["plan", "plan_change", "plan_chain_scope"].contains($0.subjectType)
         }.map(\.checkpointId))
-        return snapshot.checkpoints.filter { !planIDs.contains($0.id) && !boundToPlan.contains($0.id) }
+        let activeBlockIDs = Set(snapshot.blocks.map(\.id))
+        let activeChainIDs = Set(snapshot.chains.map(\.id))
+        let activePlanIDs = Set(snapshot.plans.map(\.id))
+        let activeLinkIDs = Set(snapshot.links.map(\.id))
+        return snapshot.checkpoints.filter { checkpoint in
+            guard !planIDs.contains(checkpoint.id) && !boundToPlan.contains(checkpoint.id) else { return false }
+            switch checkpoint.targetType {
+            case "block": return activeBlockIDs.contains(checkpoint.targetId)
+            case "chain": return activeChainIDs.contains(checkpoint.targetId)
+            case "plan": return activePlanIDs.contains(checkpoint.targetId)
+            case "link": return activeLinkIDs.contains(checkpoint.targetId)
+            default: return false
+            }
+        }
     }
 
     func checkpointOwner(_ checkpoint: CheckpointItem) -> String {
