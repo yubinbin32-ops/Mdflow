@@ -362,6 +362,37 @@ test("standalone checkpoints are discoverable without being forced into a Plan",
   }
 });
 
+test("checkpoint discovery hides archived entity targets while preserving their history", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create entities with historical checkpoints",
+      operations: [
+        { action: "create_plan", id: "old-plan", fields: { title: "Old plan" } },
+        { action: "create_chain", id: "old-chain", fields: { title: "Old chain" } },
+      ],
+    });
+    context.service.recordCheckpoint({
+      id: "old-plan-gate", targetType: "plan", targetId: "old-plan", title: "Old plan gate", status: "pending",
+    });
+    context.service.recordCheckpoint({
+      id: "old-chain-gate", targetType: "chain", targetId: "old-chain", title: "Old chain gate", status: "pending",
+    });
+    context.service.mutate({
+      reason: "Archive superseded entities",
+      operations: [
+        { action: "update_plan", id: "old-plan", expectedRevision: 1, fields: { archived: true, status: "cancelled" } },
+        { action: "update_chain", id: "old-chain", expectedRevision: 1, fields: { archived: true, deliveryState: "deprecated" } },
+      ],
+    });
+    const listed = context.service.checkpointList();
+    assert.equal(listed.items.some((item) => ["old-plan-gate", "old-chain-gate"].includes(item.id)), false);
+    assert.equal(context.service.snapshot().checkpoints.some((item) => item.id === "old-plan-gate"), true);
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("a completed Chain requires passed checkpoint evidence", () => {
   const context = fixture();
   try {

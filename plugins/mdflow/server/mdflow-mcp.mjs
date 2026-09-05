@@ -24985,7 +24985,15 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       (binding) => binding.subjectType === "plan" || binding.subjectType === "plan_change" || binding.subjectType === "plan_chain_scope"
     ).map((binding) => binding.checkpointId));
     const scopeCheckpointIDs = chainScopeId ? new Set(snapshot.checkpointBindings.filter((binding) => binding.subjectType === "plan_chain_scope" && binding.subjectId === chainScopeId).map((binding) => binding.checkpointId)) : null;
+    const activeTargetIDs = /* @__PURE__ */ new Map([
+      ["block", new Set(snapshot.blocks.map((item) => item.id))],
+      ["chain", new Set(snapshot.chains.map((item) => item.id))],
+      ["link", new Set(snapshot.links.map((item) => item.id))],
+      ["plan", new Set(snapshot.plans.map((item) => item.id))]
+    ]);
     const matching = snapshot.checkpoints.filter((checkpoint) => {
+      const activeIDs = activeTargetIDs.get(checkpoint.targetType);
+      if (activeIDs && !activeIDs.has(checkpoint.targetId)) return false;
       if (status && checkpoint.status !== status) return false;
       if (targetType && checkpoint.targetType !== targetType) return false;
       if (targetId && checkpoint.targetId !== targetId) return false;
