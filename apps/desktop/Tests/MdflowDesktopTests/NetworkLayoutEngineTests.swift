@@ -12,6 +12,24 @@ import Testing
     #expect(overlaps(in: first, cardSize: CGSize(width: 196, height: 108)).isEmpty)
 }
 
+@Test func threeHundredBlockSyntheticGraphKeepsStableNonOverlappingLayout() {
+    let ids = (0..<300).map { "large-\($0)" }
+    let edges = (1..<300).map { index in
+        LayoutEdge(id: "large-edge-\(index)", sourceID: "large-\(index - 1)", targetID: "large-\(index)")
+    } + (0..<270).map { index in
+        LayoutEdge(id: "cross-edge-\(index)", sourceID: "large-\(index)", targetID: "large-\(index + 30)")
+    }
+    let districts = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0 % 7) })
+    let paths = stride(from: 0, to: 300, by: 30).map { start in
+        (start..<min(start + 30, 300)).map { "large-\($0)" }
+    }
+    let first = NetworkLayoutEngine.make(nodeIDs: ids, edges: edges, focusPaths: paths, districts: districts, cardSize: CGSize(width: 196, height: 108), topInset: 190)
+    let second = NetworkLayoutEngine.make(nodeIDs: ids, edges: edges, focusPaths: paths, districts: districts, cardSize: CGSize(width: 196, height: 108), topInset: 190)
+    #expect(first.positions.count == 300)
+    #expect(first == second)
+    #expect(overlaps(in: first, cardSize: CGSize(width: 196, height: 108)).isEmpty)
+}
+
 @Test func orderedChainCreatesACompactTurningPrimaryRoad() {
     let ids = ["start", "ui", "service", "data", "test"]
     let edges = [

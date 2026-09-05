@@ -281,6 +281,15 @@ enum NetworkLayoutEngine {
             let right = priorities[$1.id] ?? Int.max
             return left == right ? $0.id < $1.id : left < right
         }
+        // The obstacle grid is intentionally reserved for the interactive,
+        // small-map case. Its state space grows with every building in the
+        // corridor and its overlap scoring grows with every earlier road. On a
+        // 300-Block overview that turns one layout refresh into an effectively
+        // unbounded search. Large maps still get deterministic orthogonal roads
+        // (and direct roads continue to avoid buildings), while avoiding a
+        // frame-blocking all-pairs search. Detailed routing remains available
+        // when the user focuses a smaller subgraph.
+        let useBoundedRouting = frames.count <= 120 && edges.count <= 180
 
         for edge in orderedEdges {
             guard let source = frames[edge.sourceID], let target = frames[edge.targetID] else { continue }
@@ -291,14 +300,27 @@ enum NetworkLayoutEngine {
             let targetOffset = portOffset(index: targetIndex, count: incoming[edge.targetID]?.count ?? 1, span: horizontal ? cardSize.height : cardSize.width)
             let excluded = [source.insetBy(dx: -20, dy: -20), target.insetBy(dx: -20, dy: -20)]
             let activeObstacles = obstacles.filter { obstacle in !excluded.contains(where: { nearlyEqual($0, obstacle) }) }
-            let path = directFirstRoute(
-                source: source, target: target, obstacles: activeObstacles, used: used,
-                lane: abs(sourceOffset - targetOffset) < 0.1 ? sourceOffset : 0
-            ) ?? gridRoute(
-                source: source, target: target, horizontal: horizontal,
-                sourceOffset: sourceOffset, targetOffset: targetOffset,
-                obstacles: activeObstacles, used: used
-            ) ?? fallbackRoute(source: source, target: target, horizontal: horizontal, sourceOffset: sourceOffset, targetOffset: targetOffset)
+            let lane = abs(sourceOffset - targetOffset) < 0.1 ? sourceOffset : 0
+            let path: [CGPoint]
+            if useBoundedRouting {
+                path = directFirstRoute(
+                    source: source, target: target, obstacles: activeObstacles, used: used, lane: lane
+                ) ?? gridRoute(
+                    source: source, target: target, horizontal: horizontal,
+                    sourceOffset: sourceOffset, targetOffset: targetOffset,
+                    obstacles: activeObstacles, used: used
+                ) ?? fallbackRoute(source: source, target: target, horizontal: horizontal, sourceOffset: sourceOffset, targetOffset: targetOffset)
+            } else {
+                // On an overview, do not feed every previously routed road into
+                // the scoring loop. This keeps route work linear in the number
+                // of buildings and makes repeated canvas updates predictable.
+                path = directFirstRoute(
+                    source: source, target: target, obstacles: activeObstacles, used: [], lane: lane
+                ) ?? fallbackRoute(
+                    source: source, target: target, horizontal: horizontal,
+                    sourceOffset: sourceOffset, targetOffset: targetOffset
+                )
+            }
             let clean = compact(path)
             result[edge.id] = clean
             used.append(clean)

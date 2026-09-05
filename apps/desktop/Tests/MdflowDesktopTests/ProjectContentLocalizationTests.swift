@@ -89,3 +89,41 @@ import Testing
 
     #expect(visible.map(\.id) == ["pending", "retest"])
 }
+
+@MainActor @Test func projectStateRestoresOnlyEntitiesThatStillExist() {
+    let empty = GraphSnapshot.empty(name: "project", root: "/tmp/project")
+    let snapshot = GraphSnapshot(
+        project: empty.project,
+        changeSequence: empty.changeSequence,
+        blocks: [BlockItem(
+            id: "present", kind: "ui", title: "Present", summary: "", body: "", contract: "",
+            scope: "canvas", architectureLayer: "client", localOrder: 0, deliveryState: "planned",
+            healthState: "healthy", priority: "normal", revision: 1
+        )],
+        chains: empty.chains,
+        plans: empty.plans,
+        links: empty.links,
+        chainNodes: empty.chainNodes,
+        chainEdges: empty.chainEdges,
+        planChainReferences: empty.planChainReferences,
+        planDependencies: empty.planDependencies,
+        planSteps: empty.planSteps,
+        planCheckpointReferences: empty.planCheckpointReferences,
+        planChainScopes: empty.planChainScopes,
+        planChanges: empty.planChanges,
+        planChainChangeReferences: empty.planChainChangeReferences,
+        backgroundScopes: empty.backgroundScopes,
+        sourceReferences: empty.sourceReferences,
+        checkpoints: empty.checkpoints,
+        checkpointBindings: empty.checkpointBindings,
+        checkpointDependencies: empty.checkpointDependencies,
+        localizations: empty.localizations,
+        history: empty.history,
+        latestChanges: empty.latestChanges
+    )
+    let valid = GraphSelection(type: .block, id: "present")
+    let missing = GraphSelection(type: .block, id: "removed")
+
+    #expect(GraphStore.selection(valid, existsIn: snapshot) == true)
+    #expect(GraphStore.selection(missing, existsIn: snapshot) == false)
+}

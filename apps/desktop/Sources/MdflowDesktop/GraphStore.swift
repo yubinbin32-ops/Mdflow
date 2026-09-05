@@ -137,12 +137,12 @@ final class GraphStore: ObservableObject {
             collapsedSidebarSections = loadSidebarState(for: projectID)
             return
         }
-        selection = state.selection
-        highlightedChainIDs = state.highlightedChainIDs
+        selection = state.selection.flatMap { Self.selection($0, existsIn: snapshot) ? $0 : nil }
+        highlightedChainIDs = state.highlightedChainIDs.intersection(snapshot.chains.map(\.id))
         enabledLenses = state.enabledLenses
         canvasScale = state.canvasScale
-        focusTarget = state.focusTarget
-        isolateFocused = state.isolateFocused
+        focusTarget = state.focusTarget.flatMap { Self.selection($0, existsIn: snapshot) ? $0 : nil }
+        isolateFocused = state.isolateFocused && focusTarget != nil
         collapsedSidebarSections = loadSidebarState(for: projectID)
     }
 
@@ -434,7 +434,7 @@ final class GraphStore: ObservableObject {
         }
     }
 
-    private static func selection(_ selection: GraphSelection, existsIn snapshot: GraphSnapshot) -> Bool {
+    static func selection(_ selection: GraphSelection, existsIn snapshot: GraphSnapshot) -> Bool {
         switch selection.type {
         case .block: snapshot.blocks.contains { $0.id == selection.id }
         case .chain: snapshot.chains.contains { $0.id == selection.id }
