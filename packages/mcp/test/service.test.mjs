@@ -908,6 +908,22 @@ test("hierarchical Plan context preserves one canonical change across multiple C
     assert.match(opened.markdown, /Current: Each caller writes independently/);
     assert.match(opened.markdown, /Proposed: Core owns one transaction/);
     assert.match(opened.markdown, /src\/core\.ts:20/);
+    assert.match(opened.markdown, /## Canonical scoped changes/);
+    assert.equal((opened.markdown.match(/Current: Each caller writes independently/g) ?? []).length, 1);
+    assert.equal((opened.markdown.match(/Proposed: Core owns one transaction/g) ?? []).length, 1);
+    assert.equal(opened.projection.canonicalChangeCount, 2);
+    assert.equal(opened.projection.scopeChangeReferenceCount, 3);
+    assert.equal(opened.projection.repeatedScopeReferenceCount, 1);
+    assert.equal(opened.projection.markdownChars, opened.markdown.length);
+    assert.equal(opened.projection.estimatedTokens, Math.ceil(opened.markdown.length / 4));
+    assert.ok(opened.projection.legacyScopeExpandedPayloadChars > opened.projection.canonicalScopedPayloadChars);
+    assert.ok(opened.projection.avoidedRepeatedPayloadChars > 0);
+    assert.equal(opened.projection.estimatedTokensAvoided, Math.ceil(opened.projection.avoidedRepeatedPayloadChars / 4));
+    const taskContext = context.service.contextForTask({ task: "refactor routing transaction", focusRefs: ["plan:refactor"], maxChars: 12000 });
+    assert.match(taskContext.markdown, /Task-relevant canonical changes/);
+    assert.equal((taskContext.markdown.match(/Each caller writes independently/g) ?? []).length, 1);
+    assert.equal((taskContext.markdown.match(/Core owns one transaction/g) ?? []).length, 1);
+    assert.match(taskContext.markdown, /additional canonical change\(s\): use plan_context/);
     assert.ok(opened.markdown.length <= 12000);
     assert.throws(() => context.service.mutate({ reason: "Reject an off-path segment", operations: [{
       action: "set_plan_chain_scopes", id: "refactor", expectedRevision: 8,

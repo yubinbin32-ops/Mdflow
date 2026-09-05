@@ -25211,6 +25211,28 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       })),
       checkpoints: (bindingsBySubject.get(`plan_chain_scope:${scope.id}`) ?? []).map(decorateBinding)
     }));
+    const scopedChangeIds = new Set(snapshot.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).map((ref) => ref.planChangeId));
+    const scopedChanges = changes.filter((change) => scopedChangeIds.has(change.id)).map((change) => ({
+      ...change,
+      checkpoints: (bindingsBySubject.get(`plan_change:${change.id}`) ?? []).map(decorateBinding)
+    }));
+    const projectedChangePayload = (change) => JSON.stringify({
+      id: change.id,
+      entityType: change.entityType,
+      entityId: change.entityId,
+      title: change.title,
+      summary: change.summary,
+      currentBehavior: change.currentBehavior,
+      proposedBehavior: change.proposedBehavior,
+      rationale: change.rationale,
+      prohibitions: change.prohibitions,
+      expectedEffects: change.expectedEffects,
+      sourceRefs: change.sourceRefs,
+      status: change.status
+    }).length;
+    const canonicalScopedPayloadChars = scopedChanges.reduce((total, change) => total + projectedChangePayload(change), 0);
+    const scopeExpandedPayloadChars = hierarchy.flatMap((scope) => scope.changes).reduce((total, change) => total + projectedChangePayload(change), 0);
+    const avoidedRepeatedPayloadChars = Math.max(0, scopeExpandedPayloadChars - canonicalScopedPayloadChars);
     const unattachedChanges = changes.filter((change) => !snapshot.planChainChangeRefs.some((ref) => ref.planChangeId === change.id));
     const directChanges = unattachedChanges.map((change) => ({
       ...change,
@@ -25234,6 +25256,20 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         lines.push(`${indent}- ${blocker.checkpoint.status}: ${blocker.checkpoint.title} [checkpoint:${blocker.checkpoint.id}]`);
       }
       if (binding.blockers.length > 12) lines.push(`${indent}- \u2026 ${binding.blockers.length - 12} more`);
+    };
+    const appendChangeDetails = (change) => {
+      lines.push("", `### ${change.title} [plan_change:${change.id}]`, `Target: ${change.entityType}:${change.entityId}`, change.summary || "\u2014");
+      if (change.currentBehavior) lines.push(`Current: ${change.currentBehavior}`);
+      if (change.proposedBehavior) lines.push(`Proposed: ${change.proposedBehavior}`);
+      if (change.rationale) lines.push(`Reason: ${change.rationale}`);
+      if (change.prohibitions.length) lines.push(`Must not: ${change.prohibitions.join("; ")}`);
+      if (change.expectedEffects.length) lines.push(`Expected: ${change.expectedEffects.join("; ")}`);
+      if (change.sourceRefs.length) lines.push(`Sources: ${change.sourceRefs.join(", ")}`);
+      for (const binding of change.checkpoints) {
+        const checkpoint = binding.checkpoint;
+        lines.push(`- Checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+        appendBlockers(binding, "  ");
+      }
     };
     const title = localizedValue(translations, "plan", id, locale, "title", plan.title);
     const summary = localizedValue(translations, "plan", id, locale, "summary", plan.summary);
@@ -25302,24 +25338,16 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       if (scope.rationale) lines.push(`Reason: ${scope.rationale}`);
       if (scope.nodeIds.length || scope.linkIds.length) lines.push(`Path: ${scope.nodeIds.map((nodeId) => `block:${nodeId}`).join(" \u2192 ")}${scope.linkIds.length ? ` \xB7 Links ${scope.linkIds.map((linkId) => `link:${linkId}`).join(", ")}` : ""}`);
       if (scope.prohibitions.length) lines.push("Prohibitions:", ...scope.prohibitions.map((item) => `- ${item}`));
-      for (const change of scope.changes) {
-        lines.push("", `### ${change.title} [${change.entityType}:${change.entityId}]`, change.summary || "\u2014");
-        if (change.currentBehavior) lines.push(`Current: ${change.currentBehavior}`);
-        if (change.proposedBehavior) lines.push(`Proposed: ${change.proposedBehavior}`);
-        if (change.rationale) lines.push(`Reason: ${change.rationale}`);
-        if (change.prohibitions.length) lines.push(`Must not: ${change.prohibitions.join("; ")}`);
-        if (change.expectedEffects.length) lines.push(`Expected: ${change.expectedEffects.join("; ")}`);
-        if (change.sourceRefs.length) lines.push(`Sources: ${change.sourceRefs.join(", ")}`);
-        for (const binding of change.checkpoints) {
-          const checkpoint = binding.checkpoint;
-          lines.push(`- Checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
-        }
-      }
+      if (scope.changes.length) lines.push(`Changes: ${scope.changes.map((change) => `[plan_change:${change.id}]`).join(", ")}`);
       for (const binding of scope.checkpoints) {
         const checkpoint = binding.checkpoint;
         lines.push(`- Chain gate ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
         appendBlockers(binding, "  ");
       }
+    }
+    if (scopedChanges.length) {
+      lines.push("", "## Canonical scoped changes");
+      for (const change of scopedChanges) appendChangeDetails(change);
     }
     const otherDirectChanges = directChanges.filter((change) => change.entityType !== "block");
     if (otherDirectChanges.length) {
@@ -25342,12 +25370,24 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       plan,
       steps: orderedSteps,
       hierarchy,
+      scopedChanges,
       unattachedChanges,
       directChanges,
       coverage,
       checkpoints: planCheckpoints.map((item) => item.checkpoint),
       checkpointGates: planCheckpoints,
       dependencies: snapshot.planDependencies.filter((item) => item.planId === id),
+      projection: {
+        canonicalChangeCount: changes.length,
+        scopeChangeReferenceCount: snapshot.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).length,
+        repeatedScopeReferenceCount: Math.max(0, snapshot.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).length - scopedChanges.length),
+        canonicalScopedPayloadChars,
+        legacyScopeExpandedPayloadChars: scopeExpandedPayloadChars,
+        avoidedRepeatedPayloadChars,
+        estimatedTokensAvoided: Math.ceil(avoidedRepeatedPayloadChars / 4),
+        markdownChars: markdown.length,
+        estimatedTokens: Math.ceil(markdown.length / 4)
+      },
       markdown
     };
   }
@@ -25522,10 +25562,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const selectedBlockIds = new Set(scoredBlocks.slice(0, 5).map((entry) => entry.block.id));
     const selectedChainIds = new Set(scoredChains.slice(0, 1).map((entry) => entry.chain.id));
     const selectedPlanIds = new Set(scoredPlans.slice(0, 1).map((entry) => entry.plan.id));
-    const detailedBlockIds = /* @__PURE__ */ new Set([
-      ...scoredBlocks.slice(0, 3).map((entry) => entry.block.id),
-      ...focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length))
-    ]);
+    const detailedBlockIds = new Set(
+      focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length))
+    );
+    if (selectedPlanIds.size === 0) {
+      for (const entry of scoredBlocks.slice(0, 3)) detailedBlockIds.add(entry.block.id);
+    }
     const relatedChains = /* @__PURE__ */ new Map();
     for (const node2 of snapshot.chainNodes) {
       if (selectedBlockIds.has(node2.blockId)) relatedChains.set(node2.chainId, (relatedChains.get(node2.chainId) ?? 0) + 1);
@@ -25602,31 +25644,41 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         lines.push(`- [plan:${plan.id}] ${title} \u2014 ${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus}`);
         const scopes = snapshot.planChainScopes.filter((scope) => scope.planId === plan.id).sort((a, b) => a.position - b.position);
         const changes = snapshot.planChanges.filter((change) => change.planId === plan.id).sort((a, b) => a.position - b.position);
+        const taskChanges = changes.filter(
+          (change) => selectedBlockIds.has(change.entityId) || selectedChainIds.has(change.entityId) || scoreText(`${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`) > 0
+        ).slice(0, 3);
         lines.push(`  Progress: ${plan.progress.completedSteps}/${plan.progress.totalSteps} ${scopes.length || changes.length ? "changes" : "steps"} \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} required gates`);
         lines.push(`  Typed: Block ${plan.typedProgress.directBlockChanges.completed}/${plan.typedProgress.directBlockChanges.total} \xB7 Chain ${plan.typedProgress.chainChanges.completed}/${plan.typedProgress.chainChanges.total} \xB7 Link ${plan.typedProgress.linkChanges.completed}/${plan.typedProgress.linkChanges.total} \xB7 Chain gates ${plan.typedProgress.chainIntegrationGates.passed}/${plan.typedProgress.chainIntegrationGates.total} \xB7 Plan gates ${plan.typedProgress.planAcceptanceGates.passed}/${plan.typedProgress.planAcceptanceGates.total}`);
         if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
         const dependencies = snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
         if (dependencies.length) lines.push(`  Prerequisites: ${dependencies.map((item) => `[plan:${item.dependsOnPlanId}]`).join(", ")}`);
         const steps = snapshot.planSteps.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
-        for (const step of steps) lines.push(`  ${step.position + 1}. ${step.status}: ${step.title}${step.targetRefs.length ? ` (${step.targetRefs.join(", ")})` : ""}`);
+        const openSteps = steps.filter((step) => !["complete", "skipped"].includes(step.status)).slice(0, 5);
+        for (const step of openSteps) lines.push(`  ${step.position + 1}. ${step.status}: ${step.title}${step.targetRefs.length ? ` (${step.targetRefs.join(", ")})` : ""}`);
+        if (steps.length > openSteps.length) lines.push(`  Steps: showing ${openSteps.length} open of ${steps.length} total; use plan_context for full ordering.`);
+        const taskChangeIds = new Set(taskChanges.map((change) => change.id));
         for (const scope of scopes) {
-          lines.push(`  ChainScope ${scope.position + 1}: ${scope.title} [chain:${scope.chainId}] \u2014 ${scope.summary || scope.rationale}`);
-          if (scope.prohibitions.length) lines.push(`    Prohibitions: ${scope.prohibitions.join("; ")}`);
           const changeIDs = snapshot.planChainChangeRefs.filter((ref) => ref.chainScopeId === scope.id).sort((a, b) => a.position - b.position).map((ref) => ref.planChangeId);
-          for (const changeID of changeIDs) {
-            const change = changes.find((item) => item.id === changeID);
-            if (!change) continue;
-            lines.push(`    - [${change.entityType}:${change.entityId}] ${change.title}: ${change.currentBehavior || "\u2014"} -> ${change.proposedBehavior || change.summary || "\u2014"}`);
-            if (change.prohibitions.length) lines.push(`      Must not: ${change.prohibitions.join("; ")}`);
-            if (change.sourceRefs.length) lines.push(`      Sources: ${change.sourceRefs.join(", ")}`);
+          const matchingIDs = changeIDs.filter((changeID) => taskChangeIds.has(changeID));
+          lines.push(`  ChainScope ${scope.position + 1}: ${scope.title} [chain:${scope.chainId}]${matchingIDs.length ? ` \xB7 relevant ${matchingIDs.map((changeID) => `[plan_change:${changeID}]`).join(", ")}` : ""}`);
+        }
+        if (taskChanges.length) {
+          lines.push("  Task-relevant canonical changes:");
+          for (const change of taskChanges) {
+            lines.push(`  - [plan_change:${change.id}] ${change.title} \xB7 target ${change.entityType}:${change.entityId}: ${change.currentBehavior || "\u2014"} -> ${change.proposedBehavior || change.summary || "\u2014"}`);
+            if (change.prohibitions.length) lines.push(`    Must not: ${change.prohibitions.join("; ")}`);
+            if (change.sourceRefs.length) lines.push(`    Sources: ${change.sourceRefs.join(", ")}`);
           }
         }
+        if (changes.length > taskChanges.length) lines.push(`  ${changes.length - taskChanges.length} additional canonical change(s): use plan_context to expand the Plan.`);
         if (summary) lines.push(`  ${summary}`);
         if (nextAction) lines.push(`  Next: ${nextAction}`);
       }
       lines.push("");
     }
-    if (relevantChains.length) {
+    const hasExplicitChainFocus = focusRefs.some((ref) => ref.startsWith("chain:"));
+    const hasSemanticChainMatch = scoredChains.some((entry) => selectedChainIds.has(entry.chain.id));
+    if (relevantChains.length && (selectedPlanIds.size === 0 || hasExplicitChainFocus || hasSemanticChainMatch)) {
       lines.push("## Target chains");
       for (const chain of relevantChains) {
         const title = localizedValue(translations, "chain", chain.id, locale, "title", chain.title);
@@ -25636,7 +25688,8 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       }
       lines.push("");
     }
-    const contentBlocks = relevantBlocks;
+    const explicitBlockFocusIds = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
+    const contentBlocks = selectedPlanIds.size ? relevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id)) : relevantBlocks;
     if (contentBlocks.length) {
       lines.push("## Relevant blocks");
       for (const block of contentBlocks) {
@@ -25647,7 +25700,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         lines.push(`- [block:${block.id}] ${title} \u2014 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
-        if (contract) lines.push(`  Contract: ${contract}`);
+        if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");
     }
@@ -25666,9 +25719,10 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const failing = relevantCheckpoints.filter((checkpoint) => checkpoint.status !== "passed");
     if (failing.length) {
       lines.push("## Open checkpoints");
-      for (const checkpoint of failing) {
+      for (const checkpoint of failing.slice(0, 6)) {
         lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.coverage}: ${checkpoint.title}`);
       }
+      if (failing.length > 6) lines.push(`- \u2026 ${failing.length - 6} more; use checkpoint_list for the complete filtered inbox.`);
       lines.push("");
     }
     if (standaloneOpenCheckpoints.length) {
