@@ -24028,6 +24028,11 @@ function parseJson(value, fallback) {
     return fallback;
   }
 }
+function changedHistoryFields(before = {}, after = {}, candidates = []) {
+  return [...new Set(candidates)].filter(
+    (field) => JSON.stringify(before?.[field] ?? null) !== JSON.stringify(after?.[field] ?? null)
+  );
+}
 function serializeTags(value) {
   if (!Array.isArray(value)) return "[]";
   return JSON.stringify([...new Set(value.map(String).filter(Boolean))]);
@@ -25194,7 +25199,25 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       markdown
     };
   }
-  mutate({ actor = "agent", reason, task = "", gitHead = null, operations }) {
+  resolveHistoryContext(planId = null, chainScopeId = null) {
+    let resolvedPlanId = planId || null;
+    if (resolvedPlanId && !entityExists(this.database, this.paths.descriptor.id, "plan", resolvedPlanId)) {
+      throw new Error(`plan:${resolvedPlanId} not found`);
+    }
+    if (chainScopeId) {
+      const scope = this.database.prepare(
+        `SELECT pcs.plan_id FROM plan_chain_scopes pcs JOIN plans p ON p.id = pcs.plan_id
+         WHERE p.project_id = ? AND pcs.id = ?`
+      ).get(this.paths.descriptor.id, chainScopeId);
+      if (!scope) throw new Error(`plan_chain_scope:${chainScopeId} not found`);
+      if (resolvedPlanId && scope.plan_id !== resolvedPlanId) {
+        throw new Error(`plan_chain_scope:${chainScopeId} does not belong to plan:${resolvedPlanId}`);
+      }
+      resolvedPlanId = scope.plan_id;
+    }
+    return { planId: resolvedPlanId, chainScopeId: chainScopeId || null };
+  }
+  mutate({ actor = "agent", reason, task = "", gitHead = null, planId = null, chainScopeId = null, operations }) {
     if (!reason?.trim()) throw new Error("reason is required");
     if (!Array.isArray(operations) || operations.length === 0) throw new Error("operations are required");
     if (operations.length > 20) throw new Error("graph_mutate accepts at most 20 operations");
@@ -25204,6 +25227,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const changeSetId = identifier("change");
     const timestamp = now();
     const receipts = [];
+    const historyContext = this.resolveHistoryContext(planId, chainScopeId);
     return transaction(database, () => {
       database.prepare(
         `INSERT INTO change_sets(id, project_id, actor, reason, task, git_head, created_at)
@@ -25217,14 +25241,17 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         receipt.uiLocation = this.uiLocationFor(receipt.entityType, receipt.id);
         receipt.readBack = { ref: receipt.ref, revision: receipt.revision };
         const after = this.historyState(receipt.entityType, receipt.id);
-        const changedFields = Object.keys(operation.fields ?? {});
-        const affectedRefs = affectedRefsForOperation(operation);
+        const candidateFields = ["source-linked", "source-removed"].includes(receipt.action) ? ["sourceRefs"] : Object.keys(operation.fields ?? {});
+        const changedFields = changedHistoryFields(before, after, candidateFields);
+        const affectedRefs = /* @__PURE__ */ new Set([receipt.ref, ...affectedRefsForOperation(operation)]);
+        if (historyContext.planId) affectedRefs.add(`plan:${historyContext.planId}`);
+        if (historyContext.chainScopeId) affectedRefs.add(`plan_chain_scope:${historyContext.chainScopeId}`);
         receipts.push(receipt);
         database.prepare(
           `INSERT INTO history(
-              change_set_id, entity_type, entity_id, action, revision, summary, plan_id,
-              before_json, after_json, changed_fields_json, affected_refs_json, created_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              change_set_id, entity_type, entity_id, action, revision, summary, plan_id, chain_scope_id,
+              before_json, after_json, changed_fields_json, affected_refs_json, evidence_refs_json, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
           changeSetId,
           receipt.entityType,
@@ -25232,11 +25259,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
           receipt.action,
           receipt.revision,
           receipt.summary,
-          receipt.entityType === "plan" ? receipt.id : null,
+          historyContext.planId ?? (receipt.entityType === "plan" ? receipt.id : null),
+          historyContext.chainScopeId,
           JSON.stringify(before ?? {}),
           JSON.stringify(after ?? {}),
           JSON.stringify(changedFields),
-          JSON.stringify(affectedRefs),
+          JSON.stringify([...affectedRefs]),
+          JSON.stringify([]),
           timestamp
         );
         database.prepare(
@@ -25286,11 +25315,16 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         targetType: row.target_type,
         targetId: row.target_id,
         title: row.title,
+        criteria: row.criteria,
         status: row.status,
         checkpointKind: row.checkpoint_kind,
+        aggregationPolicy: parseJson(row.aggregation_policy_json, {}),
+        eligibleAfterChildren: Boolean(row.eligible_after_children),
         evidenceLevel: row.evidence_level,
         requiredEvidenceLevel: row.required_evidence_level,
         coverage: row.coverage,
+        evidence: parseJson(row.evidence_json, []),
+        invalidatedAt: row.invalidated_at,
         bindings: this.database.prepare("SELECT subject_type, subject_id, role, required FROM checkpoint_bindings WHERE checkpoint_id = ? ORDER BY position").all(id),
         children: this.database.prepare("SELECT child_checkpoint_id, required FROM checkpoint_dependencies WHERE parent_checkpoint_id = ? ORDER BY position").all(id),
         currentRevision: row.current_revision
@@ -26033,7 +26067,10 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     coverage = "complete",
     evidence = [],
     invalidatedAt = null,
-    expectedRevision
+    expectedRevision,
+    planId = null,
+    chainScopeId = null,
+    gitHead = null
   }) {
     if (!["block", "chain", "link", "plan"].includes(targetType)) throw new Error(`Invalid targetType: ${targetType}`);
     if (!title?.trim()) throw new Error("title is required");
@@ -26056,11 +26093,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const checkpointId = id ?? identifier("checkpoint");
     const timestamp = now();
     const changeSetId = identifier("change");
+    const historyContext = this.resolveHistoryContext(planId, chainScopeId);
+    const before = this.historyState("checkpoint", checkpointId);
     return transaction(this.database, () => {
       this.database.prepare(
-        `INSERT INTO change_sets(id, project_id, actor, reason, task, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`
-      ).run(changeSetId, this.paths.descriptor.id, actor, `Checkpoint: ${title}`, title, timestamp);
+        `INSERT INTO change_sets(id, project_id, actor, reason, task, git_head, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(changeSetId, this.paths.descriptor.id, actor, `Checkpoint: ${title}`, title, gitHead, timestamp);
       const existing = this.database.prepare("SELECT * FROM checkpoints WHERE id = ?").get(checkpointId);
       let revision = 1;
       let action = "created";
@@ -26128,10 +26167,49 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       if (healthState && targetType !== "plan") {
         this.database.prepare(`UPDATE ${targetTable} SET health_state = ?, updated_at = ? WHERE id = ?`).run(healthState, timestamp, targetId);
       }
+      const after = this.historyState("checkpoint", checkpointId);
+      const changedFields = changedHistoryFields(before, after, [
+        "title",
+        "criteria",
+        "status",
+        "checkpointKind",
+        "aggregationPolicy",
+        "eligibleAfterChildren",
+        "evidenceLevel",
+        "requiredEvidenceLevel",
+        "coverage",
+        "evidence",
+        "invalidatedAt"
+      ]);
+      const evidenceRefs = [...new Set(evidence.flatMap(
+        (item) => [item.ref, item.path, item.command, item.url].filter((value) => typeof value === "string" && value.trim())
+      ))];
+      const affectedRefs = [
+        `checkpoint:${checkpointId}`,
+        `${targetType}:${targetId}`,
+        ...historyContext.planId ? [`plan:${historyContext.planId}`] : [],
+        ...historyContext.chainScopeId ? [`plan_chain_scope:${historyContext.chainScopeId}`] : []
+      ];
       this.database.prepare(
-        `INSERT INTO history(change_set_id, entity_type, entity_id, action, revision, summary, created_at)
-           VALUES (?, 'checkpoint', ?, ?, ?, ?, ?)`
-      ).run(changeSetId, checkpointId, action, revision, `${status}: ${title}`, timestamp);
+        `INSERT INTO history(
+             change_set_id, entity_type, entity_id, action, revision, summary, plan_id, chain_scope_id,
+             before_json, after_json, changed_fields_json, affected_refs_json, evidence_refs_json, created_at
+           ) VALUES (?, 'checkpoint', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        changeSetId,
+        checkpointId,
+        action,
+        revision,
+        `${status}: ${title}`,
+        historyContext.planId ?? (targetType === "plan" ? targetId : null),
+        historyContext.chainScopeId,
+        JSON.stringify(before ?? {}),
+        JSON.stringify(after ?? {}),
+        JSON.stringify(changedFields),
+        JSON.stringify(affectedRefs),
+        JSON.stringify(evidenceRefs),
+        timestamp
+      );
       this.database.prepare(
         `INSERT INTO change_feed(project_id, change_set_id, entity_type, entity_id, action, created_at)
            VALUES (?, ?, 'checkpoint', ?, ?, ?)`
@@ -26425,6 +26503,8 @@ server.registerTool(
       reason: string2().min(1),
       task: string2().optional(),
       gitHead: string2().nullable().optional(),
+      planId: string2().optional(),
+      chainScopeId: string2().optional(),
       operations: array(
         object2({
           action: _enum([
@@ -26485,7 +26565,10 @@ server.registerTool(
       coverage: _enum(["complete", "partial"]).optional(),
       evidence: array(record(string2(), unknown())).optional(),
       invalidatedAt: string2().nullable().optional(),
-      expectedRevision: number2().int().optional()
+      expectedRevision: number2().int().optional(),
+      planId: string2().optional(),
+      chainScopeId: string2().optional(),
+      gitHead: string2().nullable().optional()
     }
   },
   async (input) => result(withProject(input, (service, payload) => service.recordCheckpoint(payload)))

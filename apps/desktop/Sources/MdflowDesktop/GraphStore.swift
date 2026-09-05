@@ -225,11 +225,21 @@ final class GraphStore: ObservableObject {
             guard sequence != snapshot.changeSequence else { return }
             let previousSequence = snapshot.changeSequence
             let next = try database.loadSnapshot()
+            let retainedSelection = selection.flatMap { Self.selection($0, existsIn: next) ? $0 : nil }
+            let retainedFocus = focusTarget.flatMap { Self.selection($0, existsIn: next) ? $0 : nil }
+            let retainedChainIDs = highlightedChainIDs.intersection(next.chains.map(\.id))
             let changed = next.latestChanges
                 .filter { $0.sequence > previousSequence }
                 .map { "\($0.entityType):\($0.entityId)" }
             withAnimation(.smooth(duration: 0.28)) {
                 snapshot = next
+                // A data refresh must not behave like navigation. Re-publish the
+                // still-valid view state after the snapshot so SwiftUI keeps the
+                // inspector, Chain emphasis, and camera focus attached to the same
+                // semantic entity while its content changes underneath it.
+                selection = retainedSelection
+                focusTarget = retainedFocus
+                highlightedChainIDs = retainedChainIDs
                 recentlyChangedRefs = Set(changed)
                 errorMessage = nil
             }
@@ -243,6 +253,15 @@ final class GraphStore: ObservableObject {
             }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private static func selection(_ selection: GraphSelection, existsIn snapshot: GraphSnapshot) -> Bool {
+        switch selection.type {
+        case .block: snapshot.blocks.contains { $0.id == selection.id }
+        case .chain: snapshot.chains.contains { $0.id == selection.id }
+        case .plan: snapshot.plans.contains { $0.id == selection.id }
+        case .link: snapshot.links.contains { $0.id == selection.id }
         }
     }
 
@@ -260,11 +279,9 @@ final class GraphStore: ObservableObject {
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: descriptor,
             eventMask: [.write, .extend, .attrib, .rename],
-            queue: DispatchQueue.global(qos: .userInitiated)
+            queue: DispatchQueue.main
         )
-        source.setEventHandler { [weak self] in
-            Task { @MainActor [weak self] in self?.scheduleLiveRefresh() }
-        }
+        source.setEventHandler { [weak self] in self?.scheduleLiveRefresh() }
         source.setCancelHandler { close(descriptor) }
         fileWatcher = source
         source.resume()

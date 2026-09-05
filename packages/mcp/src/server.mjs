@@ -152,6 +152,8 @@ server.registerTool(
       reason: z.string().min(1),
       task: z.string().optional(),
       gitHead: z.string().nullable().optional(),
+      planId: z.string().optional(),
+      chainScopeId: z.string().optional(),
       operations: z
         .array(
           z.object({
@@ -218,6 +220,9 @@ server.registerTool(
       evidence: z.array(z.record(z.string(), z.unknown())).optional(),
       invalidatedAt: z.string().nullable().optional(),
       expectedRevision: z.number().int().optional(),
+      planId: z.string().optional(),
+      chainScopeId: z.string().optional(),
+      gitHead: z.string().nullable().optional(),
     },
   },
   async (input) => result(withProject(input, (service, payload) => service.recordCheckpoint(payload))),

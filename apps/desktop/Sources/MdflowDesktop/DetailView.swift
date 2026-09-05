@@ -6,6 +6,7 @@ struct DetailView: View {
     @State private var expandedScopeIDs: Set<String> = []
     @State private var expandedChangeIDs: Set<String> = []
     @State private var expandedCheckpointIDs: Set<String> = []
+    @State private var expandedHistoryIDs: Set<Int> = []
 
     var body: some View {
         ScrollView(.vertical) {
@@ -636,23 +637,66 @@ struct DetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 sectionLabel(store.text("history").uppercased())
                 ForEach(history.prefix(12)) { item in
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("r\(item.revision)")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundStyle(MdflowTheme.muted)
-                            .frame(width: 28, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.summary)
-                                .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                                .foregroundStyle(MdflowTheme.ink)
-                            Text(item.action.uppercased())
-                                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                                .tracking(1)
-                                .foregroundStyle(MdflowTheme.muted)
+                    let expanded = expandedHistoryIDs.contains(item.id)
+                    Button {
+                        toggle(item.id, in: &expandedHistoryIDs)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack(alignment: .top, spacing: 8) {
+                                disclosureChevron(expanded)
+                                Text("r\(item.revision)")
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(MdflowTheme.muted)
+                                    .frame(width: 28, alignment: .leading)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.summary)
+                                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                        .foregroundStyle(MdflowTheme.ink)
+                                    Text(item.action.uppercased())
+                                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                        .tracking(1)
+                                        .foregroundStyle(MdflowTheme.muted)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            if expanded {
+                                historyDiff(item)
+                                    .padding(.leading, 47)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
                     }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .animation(.easeOut(duration: 0.14), value: expandedHistoryIDs)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func historyDiff(_ item: HistoryItem) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if !item.changedFields.isEmpty { historyMetadata(store.activeLocale == "zh-Hans" ? "修改字段" : "CHANGED FIELDS", item.changedFields.joined(separator: ", ")) }
+            if !item.affectedRefs.isEmpty { historyMetadata(store.activeLocale == "zh-Hans" ? "影响引用" : "AFFECTED REFS", item.affectedRefs.joined(separator: " · ")) }
+            if let planID = item.planID, !planID.isEmpty { historyMetadata("PLAN", "plan:\(planID)") }
+            if let chainScopeID = item.chainScopeID, !chainScopeID.isEmpty { historyMetadata("CHAIN SCOPE", chainScopeID) }
+            if !item.evidenceRefs.isEmpty { historyMetadata(store.activeLocale == "zh-Hans" ? "证据引用" : "EVIDENCE REFS", item.evidenceRefs.joined(separator: " · ")) }
+            ForEach(item.fieldDiffs) { diff in
+                historyMetadata(
+                    diff.field.uppercased(),
+                    "\(store.activeLocale == "zh-Hans" ? "前" : "Before"): \(diff.before)\n\(store.activeLocale == "zh-Hans" ? "后" : "After"): \(diff.after)"
+                )
+            }
+        }
+        .font(.system(size: 9.5, design: .monospaced))
+        .foregroundStyle(MdflowTheme.muted)
+    }
+
+    private func historyMetadata(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(0.8)
+            Text(value).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -671,7 +715,7 @@ struct DetailView: View {
             .rotationEffect(.degrees(expanded ? 90 : 0))
     }
 
-    private func toggle(_ id: String, in values: inout Set<String>) {
+    private func toggle<Value: Hashable>(_ id: Value, in values: inout Set<Value>) {
         if values.contains(id) {
             values.remove(id)
         } else {

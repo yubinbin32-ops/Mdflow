@@ -677,18 +677,59 @@ test("checkpoint DAG derives aggregate state, keeps optional failures as warning
 test("changes_since returns compact incremental mutation receipts", () => {
   const context = fixture();
   try {
-    const first = context.service.mutate({ reason: "Create one Block", operations: [
+    const first = context.service.mutate({ reason: "Create one scoped Block", operations: [
       { action: "create_block", id: "one", fields: { kind: "service", title: "One" } },
+      { action: "create_chain", id: "one-chain", fields: { title: "One chain" } },
+      { action: "create_plan", id: "one-plan", fields: { title: "One plan" } },
+    ] });
+    context.service.mutate({ reason: "Define the scoped path", operations: [
+      { action: "set_chain_path", id: "one-chain", expectedRevision: 1, fields: { nodeIds: ["one"], linkIds: [] } },
+      { action: "set_plan_chain_scopes", id: "one-plan", expectedRevision: 1, fields: { scopes: [
+        { id: "one-scope", chainId: "one-chain", title: "Change one", nodeIds: ["one"], linkIds: [] },
+      ] } },
     ] });
     const baseline = context.service.snapshot().changeSequence;
-    context.service.mutate({ reason: "Update one Block", operations: [
+    context.service.mutate({ reason: "Update one Block", planId: "one-plan", chainScopeId: "one-scope", operations: [
       { action: "update_block", id: "one", expectedRevision: 1, fields: { summary: "Changed" } },
     ] });
     const changes = context.service.changesSince({ sequence: baseline });
     assert.equal(first.receipts[0].uiLocation, "Canvas > block:one");
     assert.equal(changes.changes.length, 1);
     assert.equal(changes.changes[0].ref, "block:one");
+    assert.equal(changes.changes[0].planId, "one-plan");
+    assert.equal(changes.changes[0].chainScopeId, "one-scope");
+    assert.equal(changes.changes[0].before.summary, "");
+    assert.equal(changes.changes[0].after.summary, "Changed");
+    assert.deepEqual(changes.changes[0].changedFields, ["summary"]);
+    assert.ok(changes.changes[0].affectedRefs.includes("block:one"));
+    assert.ok(changes.changes[0].affectedRefs.includes("plan:one-plan"));
     assert.equal(changes.nextSequence, baseline + 1);
+    assert.throws(() => context.service.mutate({
+      reason: "Reject a missing Plan history context", planId: "missing", operations: [
+        { action: "update_block", id: "one", expectedRevision: 2, fields: { summary: "Nope" } },
+      ],
+    }), /plan:missing not found/);
+
+    context.service.recordCheckpoint({
+      id: "one-checkpoint", targetType: "block", targetId: "one", title: "Verify one",
+      status: "pending", evidenceLevel: "none", requiredEvidenceLevel: "static",
+      planId: "one-plan", chainScopeId: "one-scope",
+    });
+    const checkpointBaseline = context.service.snapshot().changeSequence;
+    context.service.recordCheckpoint({
+      id: "one-checkpoint", targetType: "block", targetId: "one", title: "Verify one",
+      status: "passed", evidenceLevel: "integration", requiredEvidenceLevel: "static",
+      evidence: [{ kind: "test", path: "test/one.test.mjs", result: "passed" }],
+      expectedRevision: 1, planId: "one-plan", chainScopeId: "one-scope",
+    });
+    const checkpointChanges = context.service.changesSince({ sequence: checkpointBaseline });
+    assert.equal(checkpointChanges.changes.length, 1);
+    assert.equal(checkpointChanges.changes[0].planId, "one-plan");
+    assert.equal(checkpointChanges.changes[0].chainScopeId, "one-scope");
+    assert.deepEqual(checkpointChanges.changes[0].changedFields, ["status", "evidenceLevel", "evidence"]);
+    assert.deepEqual(checkpointChanges.changes[0].evidenceRefs, ["test/one.test.mjs"]);
+    assert.equal(checkpointChanges.changes[0].before.status, "pending");
+    assert.equal(checkpointChanges.changes[0].after.status, "passed");
   } finally {
     context.cleanup();
   }

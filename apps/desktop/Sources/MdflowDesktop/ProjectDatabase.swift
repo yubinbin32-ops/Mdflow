@@ -352,13 +352,24 @@ final class ProjectDatabase {
             """,
             bindings: [project.id]
         ).map { row in
-            HistoryItem(
+            let changedFields = Self.jsonStringArray(row.text("changed_fields_json"))
+            return HistoryItem(
                 id: row.int("id"),
                 entityType: row.text("entity_type"),
                 entityId: row.text("entity_id"),
                 action: row.text("action"),
                 revision: row.int("revision"),
                 summary: row.text("summary"),
+                planID: row.optionalText("plan_id"),
+                chainScopeID: row.optionalText("chain_scope_id"),
+                changedFields: changedFields,
+                fieldDiffs: Self.historyFieldDiffs(
+                    beforeJSON: row.text("before_json"),
+                    afterJSON: row.text("after_json"),
+                    fields: changedFields
+                ),
+                affectedRefs: Self.jsonStringArray(row.text("affected_refs_json")),
+                evidenceRefs: Self.jsonStringArray(row.text("evidence_refs_json")),
                 createdAt: row.text("created_at")
             )
         }
@@ -406,6 +417,34 @@ final class ProjectDatabase {
     private func scalarInt(_ sql: String, bindings: [String]) throws -> Int {
         let result = try rows(sql, bindings: bindings)
         return result.first?.values.values.first.flatMap(Int.init) ?? 0
+    }
+
+    private static func jsonStringArray(_ value: String) -> [String] {
+        guard let data = value.data(using: .utf8),
+              let decoded = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
+        return decoded.compactMap { $0 as? String }
+    }
+
+    static func historyFieldDiffs(beforeJSON: String, afterJSON: String, fields: [String]) -> [HistoryFieldDiff] {
+        func object(_ value: String) -> [String: Any] {
+            guard let data = value.data(using: .utf8),
+                  let decoded = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+            return decoded
+        }
+        func display(_ value: Any?) -> String {
+            guard let value, !(value is NSNull) else { return "—" }
+            if let value = value as? String { return value.isEmpty ? "∅" : value }
+            if let value = value as? NSNumber { return value.stringValue }
+            guard JSONSerialization.isValidJSONObject(value),
+                  let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
+                  let text = String(data: data, encoding: .utf8) else { return String(describing: value) }
+            return text.count > 240 ? String(text.prefix(237)) + "…" : text
+        }
+        let before = object(beforeJSON)
+        let after = object(afterJSON)
+        return fields.map { field in
+            HistoryFieldDiff(field: field, before: display(before[field]), after: display(after[field]))
+        }
     }
 
     private func optionalRows(_ sql: String, table: String, bindings: [String]) throws -> [SQLiteRow] {

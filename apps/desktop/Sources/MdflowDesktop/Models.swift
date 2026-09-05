@@ -239,7 +239,20 @@ struct HistoryItem: Identifiable, Equatable {
     let action: String
     let revision: Int
     let summary: String
+    let planID: String?
+    let chainScopeID: String?
+    let changedFields: [String]
+    let fieldDiffs: [HistoryFieldDiff]
+    let affectedRefs: [String]
+    let evidenceRefs: [String]
     let createdAt: String
+}
+
+struct HistoryFieldDiff: Identifiable, Equatable {
+    var id: String { field }
+    let field: String
+    let before: String
+    let after: String
 }
 
 struct ChangeItem: Equatable {

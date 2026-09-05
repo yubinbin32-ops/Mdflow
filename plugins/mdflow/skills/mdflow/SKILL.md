@@ -43,6 +43,7 @@ Plan phase/order should make a new project readable from foundation through deli
 ## Mutation fidelity
 
 - Keep every mutation small, cohesive, and truthful. Use current `expectedRevision`; on conflict, reopen and reconcile.
+- When implementing a Plan, pass its `planId` to `graph_mutate` and `checkpoint_record`. Once work is narrowed to a ChainScope, also pass `chainScopeId`; do not rely on prose summaries to reconstruct task ownership later. The service validates the relationship and records it in compact History metadata.
 - Store each project fact once, in the language used by the project or current author. Do not generate or maintain translated copies of Block, Link, Chain, Plan, Checkpoint, evidence, or history fields unless the user explicitly asks to translate project content.
 - Treat App interface localization as separate from graph content. A `locale` argument may select tool-generated headings or labels, but it must not cause entity fields to be translated or duplicated. Do not send `localizations` merely because the App supports English and Chinese.
 - After every meaningful write:
