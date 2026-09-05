@@ -283,7 +283,23 @@ test("Background Blocks enter scoped context without polluting the global topolo
     const result = context.service.contextForTask({ task: "adjust an unrelated renderer detail" });
     assert.ok(result.refs.includes("block:project-rule"));
     assert.match(result.markdown, /One canonical source/);
+    assert.match(result.markdown, /Applicable rule index/);
+    assert.match(result.markdown, /use entity_open only if the rule is needed/);
+    assert.doesNotMatch(result.markdown, /Store each fact once/);
     assert.doesNotMatch(result.markdown, /Billing queue/);
+
+    context.service.mutate({ reason: "Add a UI-only rule", operations: [
+      { action: "create_block", id: "ui-rule", fields: { kind: "principle", title: "Stable UI motion", summary: "Never jump the camera." } },
+    ] });
+    context.service.mutate({ reason: "Scope the UI rule", operations: [{
+      action: "set_background_scopes", id: "ui-rule", expectedRevision: 1,
+      fields: { scopes: [{ type: "lens", value: "ui" }] },
+    }] });
+    assert.doesNotMatch(context.service.contextForTask({ task: "change database retention" }).markdown, /Stable UI motion/);
+    const uiContext = context.service.contextForTask({ task: "adjust UI layout" });
+    assert.match(uiContext.markdown, /Stable UI motion/);
+    assert.doesNotMatch(uiContext.markdown, /Never jump the camera/);
+    assert.deepEqual(uiContext.applicableRules.find((item) => item.ref === "block:ui-rule").scopes, [{ type: "lens", value: "ui" }]);
   } finally {
     context.cleanup();
   }
@@ -1074,6 +1090,99 @@ test("change_set_revert reverses repeated updates in one ChangeSet in history or
     const reversed = context.service.revertChangeSet({ changeSetId: changed.changeSetId, reason: "Undo repeated updates" });
     assert.equal(reversed.receipts.length, 2);
     assert.equal(context.service.snapshot().blocks.find((item) => item.id === "repeated-probe").summary, "Initial");
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("Foundation Plan generation covers every unfinished Block with ordered work and verification gates", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({ reason: "Create an unfinished architecture", operations: [
+      { action: "create_block", id: "database", fields: { kind: "database", title: "Database", architectureLayer: "data", deliveryState: "planned", contract: "Persist records." } },
+      { action: "create_checkpoint", id: "database-proof", fields: { targetType: "block", targetId: "database", title: "Database proof", status: "pending", requiredEvidenceLevel: "integration" } },
+      { action: "create_block", id: "service", fields: { kind: "service", title: "Service", architectureLayer: "application", deliveryState: "planned", contract: "Serve records." } },
+      { action: "create_block", id: "ui", fields: { kind: "ui", title: "UI", architectureLayer: "client", deliveryState: "planned", contract: "Render records." } },
+      { action: "create_block", id: "standalone", fields: { kind: "service", title: "Standalone worker", architectureLayer: "infrastructure", deliveryState: "planned" } },
+      { action: "create_block", id: "retired", fields: { kind: "service", title: "Retired", deliveryState: "deprecated" } },
+      { action: "create_link", id: "service-database", fields: { sourceType: "block", sourceId: "service", targetType: "block", targetId: "database", kind: "depends_on" } },
+      { action: "create_link", id: "ui-service", fields: { sourceType: "block", sourceId: "ui", targetType: "block", targetId: "service", kind: "depends_on" } },
+      { action: "create_chain", id: "record-flow", fields: { title: "Record flow" } },
+    ] });
+    context.service.mutate({ reason: "Set the reusable record path", operations: [
+      { action: "set_chain_path", id: "record-flow", expectedRevision: 1, fields: { nodeIds: ["database", "service", "ui"], linkIds: ["service-database", "ui-service"] } },
+    ] });
+
+    const result = context.service.createFoundationPlan({ id: "foundation", title: "Foundation Plan" });
+    const snapshot = context.service.snapshot();
+    assert.deepEqual(result.generated.blockIds, ["database", "service", "ui", "standalone"]);
+    assert.deepEqual(result.generated.parallelGroups, [["database"], ["service"], ["ui"], ["standalone"]]);
+    assert.equal(result.graphRevision, 3);
+    assert.equal(snapshot.planChanges.filter((item) => item.planId === "foundation").length, 4);
+    assert.equal(snapshot.checkpoints.filter((item) => item.targetType === "block" && result.generated.blockIds.includes(item.targetId)).length, 4);
+    assert.equal(snapshot.checkpoints.some((item) => item.id === "foundation-gate-record-flow" && item.checkpointKind === "integration"), true);
+    assert.equal(snapshot.checkpoints.some((item) => item.id === "foundation-acceptance" && item.targetType === "plan"), true);
+
+    const map = context.service.projectMap().map;
+    const standalone = map.architecture.coverage.blockCoverage.find((item) => item.blockId === "standalone");
+    assert.equal(standalone.isCoveredByPlan, true);
+    assert.equal(standalone.isCoveredByChain, false);
+    assert.equal(standalone.isCoveredByAnyVerification, true);
+    assert.equal(standalone.checkpointUnbound, false);
+    assert.equal(map.architecture.coverage.chainGateMissingIds.length, 0);
+
+    const plan = snapshot.plans.find((item) => item.id === "foundation");
+    assert.deepEqual(plan.typedProgress, {
+      directBlockChanges: { completed: 0, total: 4 },
+      chainChanges: { completed: 0, total: 0 },
+      linkChanges: { completed: 0, total: 0 },
+      chainIntegrationGates: { passed: 0, total: 1 },
+      planAcceptanceGates: { passed: 0, total: 1 },
+    });
+    const planContext = context.service.planContext({ id: "foundation" });
+    assert.match(planContext.markdown, /## Typed progress/);
+    assert.match(planContext.markdown, /Path: block:database → block:service → block:ui/);
+    assert.match(planContext.markdown, /Blocked by required checks:/);
+    assert.equal(planContext.hierarchy[0].checkpoints[0].blockers.some((item) => item.checkpoint.id === "database-proof"), true);
+    assert.equal(planContext.checkpointGates[0].dependencies.length > 0, true);
+    assert.equal(planContext.checkpointGates[0].blockers.length > 0, true);
+    assert.match(context.service.projectMap().markdown, /Verification coverage:/);
+    assert.deepEqual(context.service.validate().errors, []);
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("Block coverage distinguishes checkpoints from exact Plan bindings and missing Chain gates", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({ reason: "Create an intentionally incomplete coverage fixture", operations: [
+      { action: "create_block", id: "worker", fields: { kind: "service", title: "Worker" } },
+      { action: "create_checkpoint", id: "worker-proof", fields: { targetType: "block", targetId: "worker", title: "Worker proof", status: "pending" } },
+      { action: "create_chain", id: "worker-path", fields: { title: "Worker path" } },
+      { action: "create_plan", id: "worker-plan", fields: { title: "Worker plan", status: "active" } },
+    ] });
+    context.service.mutate({ reason: "Plan the Block without binding its checkpoint", operations: [
+      { action: "set_chain_path", id: "worker-path", expectedRevision: 1, fields: { nodeIds: ["worker"], linkIds: [] } },
+      { action: "set_plan_changes", id: "worker-plan", expectedRevision: 1, fields: { changes: [{ id: "worker-change", entityType: "block", entityId: "worker", title: "Implement Worker" }] } },
+    ] });
+    let coverage = context.service.projectMap().map.architecture.coverage.blockCoverage.find((item) => item.blockId === "worker");
+    assert.equal(coverage.hasCheckpoint, true);
+    assert.equal(coverage.isCoveredByPlan, true);
+    assert.equal(coverage.isCoveredByChain, true);
+    assert.equal(coverage.isCoveredByAnyVerification, false);
+    assert.equal(coverage.checkpointUnbound, true);
+    assert.equal(coverage.chainGateMissing, true);
+    const planCoverage = context.service.planContext({ id: "worker-plan" }).coverage.blockCoverage.find((item) => item.blockId === "worker");
+    assert.equal(planCoverage.chainGateMissing, false);
+
+    context.service.mutate({ reason: "Bind the atomic checkpoint exactly", operations: [
+      { action: "set_checkpoint_bindings", id: "worker-proof", expectedRevision: 1, fields: { bindings: [{ subjectType: "plan_change", subjectId: "worker-change", role: "acceptance", required: true }] } },
+    ] });
+    coverage = context.service.projectMap().map.architecture.coverage.blockCoverage.find((item) => item.blockId === "worker");
+    assert.equal(coverage.isCoveredByAnyVerification, true);
+    assert.equal(coverage.checkpointUnbound, false);
+    assert.equal(coverage.chainGateMissing, true);
   } finally {
     context.cleanup();
   }

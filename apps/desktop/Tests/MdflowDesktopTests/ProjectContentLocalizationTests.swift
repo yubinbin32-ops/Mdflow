@@ -57,3 +57,35 @@ import Testing
 
     #expect(diffs == [HistoryFieldDiff(field: "summary", before: "old", after: "new")])
 }
+
+@MainActor @Test func verificationInboxHidesPassedCheckpoints() {
+    func checkpoint(id: String, status: String) -> CheckpointItem {
+        CheckpointItem(
+            id: id,
+            targetType: "block",
+            targetId: "canvas",
+            title: id,
+            criteria: "",
+            status: status,
+            kind: "atomic",
+            aggregationPolicy: "{}",
+            eligibleAfterChildren: false,
+            evidenceLevel: status == "passed" ? "integration" : "none",
+            requiredEvidenceLevel: "integration",
+            coverage: "complete",
+            evidence: "[]",
+            invalidatedAt: nil,
+            revision: 1,
+            updatedAt: "2026-09-05T00:00:00Z"
+        )
+    }
+
+    let visible = GraphStore.visibleVerificationCheckpoints([
+        checkpoint(id: "done", status: "passed"),
+        checkpoint(id: "normalized-done", status: " PASSED\n"),
+        checkpoint(id: "pending", status: "pending"),
+        checkpoint(id: "retest", status: "retest_required"),
+    ])
+
+    #expect(visible.map(\.id) == ["pending", "retest"])
+}

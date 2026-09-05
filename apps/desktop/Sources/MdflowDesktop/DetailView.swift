@@ -144,6 +144,14 @@ struct DetailView: View {
                 Text("\(store.text("noCheckpoint")): \(coverage.withoutCheckpointIDs.prefix(6).joined(separator: ", "))")
                     .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.failure)
             }
+            if !coverage.checkpointUnboundIDs.isEmpty {
+                Text("\(store.activeLocale == "zh-Hans" ? "Checkpoint 未绑定 PlanChange" : "Checkpoints not bound to PlanChanges"): \(coverage.checkpointUnboundIDs.prefix(6).joined(separator: ", "))")
+                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.pending)
+            }
+            if !coverage.chainGateMissingIDs.isEmpty {
+                Text("\(store.activeLocale == "zh-Hans" ? "缺少 Chain integration gate" : "Missing Chain integration gates"): \(coverage.chainGateMissingIDs.prefix(6).joined(separator: ", "))")
+                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.pending)
+            }
         }
         if !steps.isEmpty {
             VStack(alignment: .leading, spacing: 5) {
@@ -196,13 +204,13 @@ struct DetailView: View {
                         }
                         .padding(.top, 6)
                         .padding(.leading, 46)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity)
                     }
                     Divider().opacity(0.7)
                         .padding(.leading, 46)
                 }
             }
-            .animation(.easeOut(duration: 0.14), value: expandedStepIDs)
+            .animation(.smooth(duration: 0.24), value: expandedStepIDs)
         }
         if steps.isEmpty && scopes.isEmpty && directChanges.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
@@ -272,6 +280,14 @@ struct DetailView: View {
                         VStack(alignment: .leading, spacing: 9) {
                             if !scope.summary.isEmpty { detailParagraph(label: store.text("summary"), value: scope.summary) }
                             if !scope.rationale.isEmpty { detailParagraph(label: store.activeLocale == "zh-Hans" ? "原因" : "RATIONALE", value: scope.rationale) }
+                            let nodePath = store.planChainNodePath(scope)
+                            if !nodePath.isEmpty {
+                                detailParagraph(label: store.activeLocale == "zh-Hans" ? "路径" : "PATH", value: nodePath)
+                            }
+                            let pathLinks = store.planChainLinks(scope)
+                            if !pathLinks.isEmpty {
+                                detailParagraph(label: store.activeLocale == "zh-Hans" ? "连接" : "LINKS", value: pathLinks.joined(separator: " · "))
+                            }
                             structuredList(store.activeLocale == "zh-Hans" ? "禁止事项" : "PROHIBITIONS", value: scope.prohibitions)
                             let changes = store.planChanges(for: scope)
                             if changes.isEmpty {
@@ -291,13 +307,13 @@ struct DetailView: View {
                         }
                         .padding(.top, 7)
                         .padding(.leading, 46)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity)
                     }
                     Divider().opacity(0.7)
                         .padding(.leading, 46)
                 }
             }
-            .animation(.easeOut(duration: 0.14), value: expandedScopeIDs)
+            .animation(.smooth(duration: 0.24), value: expandedScopeIDs)
         }
     }
 
@@ -368,7 +384,7 @@ struct DetailView: View {
             .font(.system(size: 11.5, design: .rounded))
             .padding(.top, 7)
             .padding(.leading, 20)
-            .transition(.opacity.combined(with: .move(edge: .top)))
+            .transition(.opacity)
             }
         }
         .padding(.vertical, 5)
@@ -376,7 +392,7 @@ struct DetailView: View {
         .overlay(alignment: .leading) {
             Rectangle().fill(MdflowTheme.hairline).frame(width: 1)
         }
-        .animation(.easeOut(duration: 0.14), value: expandedChangeIDs)
+        .animation(.smooth(duration: 0.24), value: expandedChangeIDs)
     }
 
     @ViewBuilder
@@ -389,13 +405,41 @@ struct DetailView: View {
         }
     }
 
+    @ViewBuilder
     private func checkpointSummary(_ checkpoint: CheckpointItem) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: checkpointSymbol(checkpoint.status)).foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(checkpoint.title).font(.system(size: 11, weight: .medium, design: .rounded))
-                Text("\(checkpoint.status) · \(checkpoint.evidenceLevel)/\(checkpoint.requiredEvidenceLevel)")
-                    .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+        let blockers = store.checkpointBlockers(checkpoint.id)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: checkpointSymbol(checkpoint.status)).foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(checkpoint.title).font(.system(size: 11, weight: .medium, design: .rounded))
+                    Text("\(checkpoint.status) · \(checkpoint.evidenceLevel)/\(checkpoint.requiredEvidenceLevel)")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+                }
+            }
+            if !blockers.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(store.activeLocale == "zh-Hans" ? "被以下必需检查阻塞" : "BLOCKED BY REQUIRED CHECKS")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(MdflowTheme.pending)
+                    ForEach(blockers.prefix(6)) { blocker in
+                        HStack(spacing: 6) {
+                            Image(systemName: checkpointSymbol(blocker.status))
+                            Text(blocker.title).lineLimit(2)
+                            Spacer(minLength: 4)
+                            Text(blocker.status.uppercased())
+                                .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                        }
+                        .font(.system(size: 9.5, design: .rounded))
+                        .foregroundStyle(MdflowTheme.checkpointColor(blocker.status))
+                    }
+                    if blockers.count > 6 {
+                        Text("+ \(blockers.count - 6)")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundStyle(MdflowTheme.muted)
+                    }
+                }
+                .padding(.leading, 25)
             }
         }
     }
@@ -714,12 +758,12 @@ struct DetailView: View {
                         .foregroundStyle(MdflowTheme.muted)
                         .padding(.top, 7)
                         .padding(.leading, 34)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity)
                     }
                     Divider().opacity(0.65).padding(.leading, 34)
                 }
             }
-            .animation(.easeOut(duration: 0.14), value: expandedCheckpointIDs)
+            .animation(.smooth(duration: 0.24), value: expandedCheckpointIDs)
         }
     }
 
@@ -755,13 +799,13 @@ struct DetailView: View {
                             if expanded {
                                 historyDiff(item)
                                     .padding(.leading, 47)
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                    .transition(.opacity)
                             }
                         }
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())
-                    .animation(.easeOut(duration: 0.14), value: expandedHistoryIDs)
+                    .animation(.smooth(duration: 0.24), value: expandedHistoryIDs)
                 }
             }
         }
@@ -841,6 +885,12 @@ struct DetailView: View {
                 Text("\(plan.progress.completedSteps)/\(plan.progress.totalSteps) \(unit) · \(plan.progress.passedRequiredCheckpoints)/\(plan.progress.totalRequiredCheckpoints) gates")
             }
             .font(.system(size: 8.5, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+            Text("Block \(plan.progress.directBlockChanges.completed)/\(plan.progress.directBlockChanges.total) · Chain \(plan.progress.chainChanges.completed)/\(plan.progress.chainChanges.total) · Link \(plan.progress.linkChanges.completed)/\(plan.progress.linkChanges.total)")
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .foregroundStyle(MdflowTheme.muted)
+            Text("Chain gates \(plan.progress.chainIntegrationGates.passed)/\(plan.progress.chainIntegrationGates.total) · Plan gates \(plan.progress.planAcceptanceGates.passed)/\(plan.progress.planAcceptanceGates.total)")
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .foregroundStyle(MdflowTheme.muted)
             GeometryReader { geometry in
                 let total = max(1, plan.progress.totalSteps + plan.progress.totalRequiredCheckpoints)
                 let complete = plan.progress.completedSteps + plan.progress.passedRequiredCheckpoints

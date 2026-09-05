@@ -483,7 +483,22 @@ final class ProjectDatabase {
             completedSteps: completedWork,
             totalSteps: totalWork,
             passedRequiredCheckpoints: passed,
-            totalRequiredCheckpoints: gates.count
+            totalRequiredCheckpoints: gates.count,
+            directBlockChanges: workProgress(ownChanges.filter { $0.entityType == "block" }),
+            chainChanges: workProgress(ownChanges.filter { $0.entityType == "chain" }),
+            linkChanges: workProgress(ownChanges.filter { $0.entityType == "link" }),
+            chainIntegrationGates: gateProgress(
+                Set(bindings.filter { binding in
+                    binding.required && binding.subjectType == "plan_chain_scope" && ownScopes.contains { $0.id == binding.subjectId }
+                }.map(\.checkpointId)),
+                checkpoints: checkpoints
+            ),
+            planAcceptanceGates: gateProgress(
+                referencedIDs.union(directIDs).union(Set(bindings.filter {
+                    $0.required && $0.subjectType == "plan" && $0.subjectId == plan.id
+                }.map(\.checkpointId))),
+                checkpoints: checkpoints
+            )
         )
         var status = plan.status
         var reason = plan.statusReason
@@ -508,6 +523,24 @@ final class ProjectDatabase {
             proposedDelta: plan.proposedDelta, completionPolicy: plan.completionPolicy, nextAction: plan.nextAction,
             blockers: plan.blockers, startedAt: plan.startedAt, completedAt: plan.completedAt,
             invalidatedAt: plan.invalidatedAt, progress: progress, revision: plan.revision
+        )
+    }
+
+    private static func workProgress(_ changes: [PlanChangeItem]) -> WorkProgress {
+        WorkProgress(
+            completed: changes.filter { ["complete", "passed"].contains($0.status) }.count,
+            total: changes.count
+        )
+    }
+
+    private static func gateProgress(_ ids: Set<String>, checkpoints: [CheckpointItem]) -> GateProgress {
+        let gates = ids.compactMap { id in checkpoints.first { $0.id == id } }
+        return GateProgress(
+            passed: gates.filter { checkpoint in
+                checkpoint.status == "passed" && checkpoint.coverage == "complete" && checkpoint.invalidatedAt == nil &&
+                    evidenceRank(checkpoint.evidenceLevel) >= evidenceRank(checkpoint.requiredEvidenceLevel)
+            }.count,
+            total: gates.count
         )
     }
 

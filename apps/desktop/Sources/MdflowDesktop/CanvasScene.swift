@@ -21,8 +21,9 @@ struct CanvasScene: Equatable {
     )
 
     static func compile(snapshot: GraphSnapshot, lenses: Set<ViewLens>, topInset: CGFloat = 70) -> CanvasScene {
+        let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
         let visibleIDs = Set(snapshot.blocks.filter { block in
-            lenses.contains { $0.includes(block: block) }
+            !backgroundRuleIDs.contains(block.id) && lenses.contains { $0.includes(block: block) }
         }.map(\.id))
         let blocks = snapshot.blocks.filter { visibleIDs.contains($0.id) }
         let links = snapshot.links.filter {

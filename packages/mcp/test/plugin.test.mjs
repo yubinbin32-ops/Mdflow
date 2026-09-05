@@ -57,6 +57,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
         "checkpoint_record",
         "context_for_task",
         "entity_open",
+        "foundation_plan_create",
         "graph_mutate",
         "graph_search",
         "graph_validate",

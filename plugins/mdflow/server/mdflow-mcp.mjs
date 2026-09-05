@@ -23956,6 +23956,17 @@ var ARCHITECTURE_LAYERS = /* @__PURE__ */ new Set([
   "infrastructure",
   "unspecified"
 ]);
+var FOUNDATION_LAYER_ORDER = [
+  "data",
+  "domain",
+  "application",
+  "boundary",
+  "client",
+  "external",
+  "infrastructure",
+  "quality",
+  "unspecified"
+];
 var EDITABLE_BLOCK_FIELDS = /* @__PURE__ */ new Set([
   "kind",
   "title",
@@ -24279,6 +24290,65 @@ function architectureCoverage(snapshot, planId = null) {
   }
   const chainPlanBlockIds = new Set(snapshot.planChainScopes.filter((scope) => candidatePlanIds.has(scope.planId)).flatMap((scope) => scope.nodeIds).filter((blockId) => blockIds.has(blockId)));
   const plannedBlockIds = /* @__PURE__ */ new Set([...directPlanBlockIds, ...chainPlanBlockIds]);
+  const candidateChangeIdsByBlock = /* @__PURE__ */ new Map();
+  for (const change of snapshot.planChanges) {
+    if (!candidatePlanIds.has(change.planId) || change.entityType !== "block") continue;
+    const values = candidateChangeIdsByBlock.get(change.entityId) ?? [];
+    values.push(change.id);
+    candidateChangeIdsByBlock.set(change.entityId, values);
+  }
+  const bindingsByCheckpoint = /* @__PURE__ */ new Map();
+  for (const binding of snapshot.checkpointBindings) {
+    const values = bindingsByCheckpoint.get(binding.checkpointId) ?? [];
+    values.push(binding);
+    bindingsByCheckpoint.set(binding.checkpointId, values);
+  }
+  const scopesByBlock = new Map(blocks.map((block) => [block.id, []]));
+  for (const scope of snapshot.planChainScopes) {
+    if (!candidatePlanIds.has(scope.planId)) continue;
+    for (const blockId of scope.nodeIds) {
+      if (scopesByBlock.has(blockId)) scopesByBlock.get(blockId).push(scope);
+    }
+  }
+  const chainIdsByBlock = new Map(blocks.map((block) => [block.id, []]));
+  for (const node2 of snapshot.chainNodes) {
+    if (chainIdsByBlock.has(node2.blockId)) chainIdsByBlock.get(node2.blockId).push(node2.chainId);
+  }
+  const chainGateIds = new Set(planId ? [] : snapshot.checkpoints.filter(
+    (checkpoint) => checkpoint.targetType === "chain" && checkpoint.checkpointKind === "integration"
+  ).map((checkpoint) => checkpoint.targetId));
+  for (const binding of snapshot.checkpointBindings) {
+    if (!binding.required || binding.subjectType !== "plan_chain_scope") continue;
+    const scope = snapshot.planChainScopes.find((item) => item.id === binding.subjectId && candidatePlanIds.has(item.planId));
+    const checkpoint = snapshot.checkpoints.find((item) => item.id === binding.checkpointId);
+    if (scope && checkpoint?.checkpointKind === "integration") chainGateIds.add(scope.chainId);
+  }
+  const blockCoverage = blocks.map((block) => {
+    const blockCheckpoints = checkpointsByBlock.get(block.id) ?? [];
+    const changeIds = new Set(candidateChangeIdsByBlock.get(block.id) ?? []);
+    const checkpointBindings = blockCheckpoints.flatMap((checkpoint) => bindingsByCheckpoint.get(checkpoint.id) ?? []);
+    const hasCheckpoint = blockCheckpoints.length > 0;
+    const hasExactPlanBinding = checkpointBindings.some(
+      (binding) => binding.subjectType === "plan_change" && changeIds.has(binding.subjectId)
+    );
+    const isCoveredByAnyVerification = checkpointBindings.length > 0 || blockCheckpoints.some(checkpointSatisfiesGate);
+    const memberChainIds = [...new Set(chainIdsByBlock.get(block.id) ?? [])];
+    const relevantChainIds = planId ? [...new Set((scopesByBlock.get(block.id) ?? []).map((scope) => scope.chainId))] : memberChainIds;
+    return {
+      blockId: block.id,
+      hasCheckpoint,
+      isCoveredByPlan: plannedBlockIds.has(block.id),
+      isCoveredByChain: chainBlockIds.has(block.id),
+      isCoveredByAnyVerification,
+      checkpointUnbound: plannedBlockIds.has(block.id) && hasCheckpoint && !hasExactPlanBinding,
+      chainGateMissing: relevantChainIds.length > 0 && relevantChainIds.some((chainId) => !chainGateIds.has(chainId)),
+      checkpointIds: blockCheckpoints.map((checkpoint) => checkpoint.id),
+      planChangeIds: [...changeIds],
+      chainIds: memberChainIds,
+      relevantChainIds,
+      chainScopeIds: (scopesByBlock.get(block.id) ?? []).map((scope) => scope.id)
+    };
+  });
   const withCheckpointIds = blocks.filter((block) => (checkpointsByBlock.get(block.id) ?? []).length > 0).map((block) => block.id);
   const verifiedIds = blocks.filter((block) => (checkpointsByBlock.get(block.id) ?? []).some(checkpointSatisfiesGate)).map((block) => block.id);
   const withCheckpointIdSet = new Set(withCheckpointIds);
@@ -24298,7 +24368,11 @@ function architectureCoverage(snapshot, planId = null) {
     unverifiedIds: blocks.filter((block) => !verifiedIdSet.has(block.id)).map((block) => block.id),
     outsideChainIds: blocks.filter((block) => !chainBlockIds.has(block.id)).map((block) => block.id),
     unplannedIds: blocks.filter((block) => !plannedBlockIds.has(block.id)).map((block) => block.id),
-    failingIds
+    failingIds,
+    verificationCovered: blockCoverage.filter((item) => item.isCoveredByAnyVerification).length,
+    checkpointUnboundIds: blockCoverage.filter((item) => item.checkpointUnbound).map((item) => item.blockId),
+    chainGateMissingIds: blockCoverage.filter((item) => item.chainGateMissing).map((item) => item.blockId),
+    blockCoverage
   };
 }
 function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, checkpoints, chainScopes = [], changes = [], checkpointBindings = []) {
@@ -24326,6 +24400,34 @@ function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, ch
     totalSteps: totalWork,
     passedRequiredCheckpoints: completedGates,
     totalRequiredCheckpoints: requiredCheckpoints.length
+  };
+  const changeProgress = (entityType) => {
+    const items = ownChanges.filter((item) => item.entityType === entityType);
+    return {
+      completed: items.filter((item) => ["complete", "passed"].includes(item.status)).length,
+      total: items.length
+    };
+  };
+  const chainGateIds = new Set(checkpointBindings.filter(
+    (binding) => binding.required && binding.subjectType === "plan_chain_scope" && scopeIDs.has(binding.subjectId)
+  ).map((binding) => binding.checkpointId));
+  const planGateIds = /* @__PURE__ */ new Set([
+    ...requiredRefs.map((item) => item.checkpointId),
+    ...checkpoints.filter((item) => item.targetType === "plan" && item.targetId === plan.id).map((item) => item.id),
+    ...checkpointBindings.filter(
+      (binding) => binding.required && binding.subjectType === "plan" && binding.subjectId === plan.id
+    ).map((binding) => binding.checkpointId)
+  ]);
+  const gateProgress = (ids) => {
+    const items = [...ids].map((id) => checkpointById.get(id)).filter(Boolean);
+    return { passed: items.filter(checkpointSatisfiesGate).length, total: items.length };
+  };
+  const typedProgress = {
+    directBlockChanges: changeProgress("block"),
+    chainChanges: changeProgress("chain"),
+    linkChanges: changeProgress("link"),
+    chainIntegrationGates: gateProgress(chainGateIds),
+    planAcceptanceGates: gateProgress(planGateIds)
   };
   let derivedStatus = plan.status;
   let derivedReason = plan.statusReason;
@@ -24356,7 +24458,7 @@ function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, ch
       derivedReason ||= usesDetailedChanges ? "Declared changes are complete; checkpoint evidence remains." : "Implementation steps are complete; checkpoint evidence remains.";
     }
   }
-  return { ...plan, derivedStatus, derivedReason, progress };
+  return { ...plan, derivedStatus, derivedReason, progress, typedProgress };
 }
 function normalizeLocalizations(rows) {
   return rows.map((row) => ({
@@ -24451,6 +24553,37 @@ function taskTerms(task) {
     for (let index = 0; index < run.length - 1; index += 1) terms.push(run.slice(index, index + 2));
   }
   return [...new Set(terms)];
+}
+function foundationBlockGroups(snapshot, blocks) {
+  const remaining = new Map(blocks.map((block) => [block.id, block]));
+  const dependencyIds = new Map(blocks.map((block) => [block.id, /* @__PURE__ */ new Set()]));
+  for (const link of snapshot.links) {
+    if (link.kind !== "depends_on" || link.sourceType !== "block" || link.targetType !== "block") continue;
+    if (dependencyIds.has(link.sourceId) && dependencyIds.has(link.targetId)) {
+      dependencyIds.get(link.sourceId).add(link.targetId);
+    }
+  }
+  const layerRank = new Map(FOUNDATION_LAYER_ORDER.map((layer, index) => [layer, index]));
+  const compare = (left, right) => (layerRank.get(left.architectureLayer) ?? FOUNDATION_LAYER_ORDER.length) - (layerRank.get(right.architectureLayer) ?? FOUNDATION_LAYER_ORDER.length) || left.localOrder - right.localOrder || left.id.localeCompare(right.id);
+  const groups = [];
+  const completed = /* @__PURE__ */ new Set();
+  while (remaining.size > 0) {
+    let ready = [...remaining.values()].filter(
+      (block) => [...dependencyIds.get(block.id) ?? []].every((id) => completed.has(id) || !remaining.has(id))
+    );
+    if (ready.length === 0) ready = [...remaining.values()];
+    ready.sort(compare);
+    const rank = layerRank.get(ready[0].architectureLayer) ?? FOUNDATION_LAYER_ORDER.length;
+    const group = ready.filter(
+      (block) => (layerRank.get(block.architectureLayer) ?? FOUNDATION_LAYER_ORDER.length) === rank
+    );
+    groups.push(group);
+    for (const block of group) {
+      remaining.delete(block.id);
+      completed.add(block.id);
+    }
+  }
+  return groups;
 }
 var MdflowService = class {
   constructor(options = {}) {
@@ -24702,9 +24835,12 @@ var MdflowService = class {
     lines.push("", "## Project network");
     lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
     lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
+    lines.push(`- Verification coverage: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed \xB7 ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone`);
     if (coverage.outsideChainIds.length) lines.push(`- Outside Chains: ${coverage.outsideChainIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.outsideChainIds.length > 12 ? " \u2026" : ""}`);
     if (coverage.unplannedIds.length) lines.push(`- Unplanned Blocks: ${coverage.unplannedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 12 ? " \u2026" : ""}`);
     if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " \u2026" : ""}`);
+    if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound Block checkpoints: ${coverage.checkpointUnboundIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " \u2026" : ""}`);
+    if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " \u2026" : ""}`);
     lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" \xB7 ") || "None"}`);
     lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" \xB7 ") || "None"}`);
     for (const block of snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8)) {
@@ -24737,6 +24873,7 @@ var MdflowService = class {
           phase: plan.phase,
           order: plan.planOrder,
           progress: plan.progress,
+          typedProgress: plan.typedProgress,
           dependencyPlanIds: snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.dependsOnPlanId),
           targetChainIds: snapshot.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId)
         })),
@@ -25035,6 +25172,21 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const changes = snapshot.planChanges.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
     const orderedSteps = snapshot.planSteps.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
     const bindingsBySubject = /* @__PURE__ */ new Map();
+    const checkpointDependenciesByParent = /* @__PURE__ */ new Map();
+    for (const dependency of snapshot.checkpointDependencies) {
+      const values = checkpointDependenciesByParent.get(dependency.parentCheckpointId) ?? [];
+      const checkpoint = snapshot.checkpoints.find((item) => item.id === dependency.childCheckpointId);
+      if (checkpoint) values.push({ ...dependency, checkpoint });
+      checkpointDependenciesByParent.set(dependency.parentCheckpointId, values);
+    }
+    const decorateBinding = (binding) => {
+      const dependencies = (checkpointDependenciesByParent.get(binding.checkpoint.id) ?? []).sort((a, b) => a.position - b.position);
+      return {
+        ...binding,
+        dependencies,
+        blockers: dependencies.filter((item) => item.required && item.checkpoint.status !== "passed")
+      };
+    };
     for (const binding of snapshot.checkpointBindings) {
       const key = `${binding.subjectType}:${binding.subjectId}`;
       const values = bindingsBySubject.get(key) ?? [];
@@ -25055,15 +25207,15 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       changes: (scopeChangeRefs.get(scope.id) ?? []).sort((a, b) => a.position - b.position).map((item) => ({
         ...item.change,
         role: item.role,
-        checkpoints: bindingsBySubject.get(`plan_change:${item.change.id}`) ?? []
+        checkpoints: (bindingsBySubject.get(`plan_change:${item.change.id}`) ?? []).map(decorateBinding)
       })),
-      checkpoints: bindingsBySubject.get(`plan_chain_scope:${scope.id}`) ?? []
+      checkpoints: (bindingsBySubject.get(`plan_chain_scope:${scope.id}`) ?? []).map(decorateBinding)
     }));
     const unattachedChanges = changes.filter((change) => !snapshot.planChainChangeRefs.some((ref) => ref.planChangeId === change.id));
     const directChanges = unattachedChanges.map((change) => ({
       ...change,
       entity: change.entityType === "block" ? snapshot.blocks.find((item) => item.id === change.entityId) ?? null : change.entityType === "link" ? snapshot.links.find((item) => item.id === change.entityId) ?? null : snapshot.chains.find((item) => item.id === change.entityId) ?? null,
-      checkpoints: bindingsBySubject.get(`plan_change:${change.id}`) ?? [],
+      checkpoints: (bindingsBySubject.get(`plan_change:${change.id}`) ?? []).map(decorateBinding),
       targetCheckpoints: change.entityType === "block" ? snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === change.entityId) : []
     }));
     const coverage = architectureCoverage(snapshot, id);
@@ -25074,7 +25226,15 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         const checkpoint = snapshot.checkpoints.find((item) => item.id === ref.checkpointId);
         return checkpoint ? { ...ref, checkpoint } : null;
       }).filter(Boolean)
-    ].filter((item, index, values) => values.findIndex((candidate) => candidate.checkpoint.id === item.checkpoint.id) === index);
+    ].filter((item, index, values) => values.findIndex((candidate) => candidate.checkpoint.id === item.checkpoint.id) === index).map(decorateBinding);
+    const appendBlockers = (binding, indent = "  ") => {
+      if (!binding.blockers.length) return;
+      lines.push(`${indent}Blocked by required checks:`);
+      for (const blocker of binding.blockers.slice(0, 12)) {
+        lines.push(`${indent}- ${blocker.checkpoint.status}: ${blocker.checkpoint.title} [checkpoint:${blocker.checkpoint.id}]`);
+      }
+      if (binding.blockers.length > 12) lines.push(`${indent}- \u2026 ${binding.blockers.length - 12} more`);
+    };
     const title = localizedValue(translations, "plan", id, locale, "title", plan.title);
     const summary = localizedValue(translations, "plan", id, locale, "summary", plan.summary);
     const goal = localizedValue(translations, "plan", id, locale, "goal", plan.goal);
@@ -25094,8 +25254,18 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     lines.push("", "## Architecture coverage");
     lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
     lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct \xB7 ${coverage.chainPlanBlocks} through Chains)`);
+    lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} \xB7 ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone \xB7 ${coverage.failingIds.length} failing`);
     if (coverage.unplannedIds.length) lines.push(`- Outside this Plan: ${coverage.unplannedIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.unplannedIds.length > 12 ? " \u2026" : ""}`);
     if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " \u2026" : ""}`);
+    if (coverage.checkpointUnboundIds.length) lines.push(`- Block checkpoints not bound to an exact PlanChange: ${coverage.checkpointUnboundIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " \u2026" : ""}`);
+    if (coverage.chainGateMissingIds.length) lines.push(`- Blocks on Chains without integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " \u2026" : ""}`);
+    const typed = plan.typedProgress;
+    lines.push("", "## Typed progress");
+    lines.push(`- Direct Block Changes: ${typed.directBlockChanges.completed}/${typed.directBlockChanges.total}`);
+    lines.push(`- Chain Changes: ${typed.chainChanges.completed}/${typed.chainChanges.total}`);
+    lines.push(`- Link Changes: ${typed.linkChanges.completed}/${typed.linkChanges.total}`);
+    lines.push(`- Chain integration gates: ${typed.chainIntegrationGates.passed}/${typed.chainIntegrationGates.total}`);
+    lines.push(`- Plan acceptance gates: ${typed.planAcceptanceGates.passed}/${typed.planAcceptanceGates.total}`);
     if (orderedSteps.length) {
       lines.push("", "## Ordered steps");
       for (const step of orderedSteps) {
@@ -25114,11 +25284,11 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       lines.push("", "## Direct Block work");
       for (const change of directBlockChanges) {
         lines.push(`- ${change.status}: ${change.title} [block:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary || "\u2014"}`);
-        if (change.entity?.summary) lines.push(`  Block: ${change.entity.summary}`);
         if (change.checkpoints.length) {
           for (const binding of change.checkpoints) {
             const checkpoint = binding.checkpoint;
             lines.push(`  - Required checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+            appendBlockers(binding, "    ");
           }
         } else if (change.targetCheckpoints.length) {
           lines.push(`  - Warning: Block checkpoints exist but none is bound to this PlanChange: ${change.targetCheckpoints.map((checkpoint) => `checkpoint:${checkpoint.id}`).join(", ")}`);
@@ -25148,6 +25318,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       for (const binding of scope.checkpoints) {
         const checkpoint = binding.checkpoint;
         lines.push(`- Chain gate ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+        appendBlockers(binding, "  ");
       }
     }
     const otherDirectChanges = directChanges.filter((change) => change.entityType !== "block");
@@ -25160,6 +25331,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       for (const binding of planCheckpoints) {
         const checkpoint = binding.checkpoint;
         lines.push(`- ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+        appendBlockers(binding, "  ");
       }
     }
     let markdown = lines.join("\n");
@@ -25174,6 +25346,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       directChanges,
       coverage,
       checkpoints: planCheckpoints.map((item) => item.checkpoint),
+      checkpointGates: planCheckpoints,
       dependencies: snapshot.planDependencies.filter((item) => item.planId === id),
       markdown
     };
@@ -25324,10 +25497,11 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const terms = taskTerms(task);
+    const backgroundRuleIds = new Set(snapshot.backgroundScopes.map((scope) => scope.blockId));
     const planSignals = /* @__PURE__ */ new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "\u8BA1\u5212", "\u8FDB\u5EA6", "\u963B\u585E", "\u53D1\u5E03"]);
     const taskMentionsPlan = terms.some((term) => planSignals.has(term));
     const scoreText = (text) => terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
-    const scoredBlocks = snapshot.blocks.map((block) => {
+    const scoredBlocks = snapshot.blocks.filter((block) => !backgroundRuleIds.has(block.id)).map((block) => {
       const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.scope} ${block.architectureLayer} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
       return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
     }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
@@ -25377,11 +25551,10 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         }
       }
     }
-    for (const scope of snapshot.backgroundScopes) {
-      if (scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue)) {
-        selectedBlockIds.add(scope.blockId);
-      }
-    }
+    const applicableRuleScopes = snapshot.backgroundScopes.filter(
+      (scope) => scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue) || scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue)))
+    );
+    const applicableRuleIds = [...new Set(applicableRuleScopes.map((scope) => scope.blockId))];
     const relevantBlocks = snapshot.blocks.filter((block) => selectedBlockIds.has(block.id));
     const relevantChains = snapshot.chains.filter((chain) => selectedChainIds.has(chain.id));
     const relevantPlans = snapshot.plans.filter((plan) => selectedPlanIds.has(plan.id));
@@ -25403,18 +25576,20 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
     lines.push("## Architecture coverage");
     lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
+    lines.push(`- ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone \xB7 ${coverage.verificationCovered}/${coverage.totalBlocks} covered by bound or passed verification \xB7 ${coverage.failingIds.length} failing`);
     if (coverage.unplannedIds.length) lines.push(`- Unplanned: ${coverage.unplannedIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 10 ? " \u2026" : ""}`);
     if (coverage.withoutCheckpointIds.length) lines.push(`- Missing checkpoints: ${coverage.withoutCheckpointIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 10 ? " \u2026" : ""}`);
+    if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound checkpoints: ${coverage.checkpointUnboundIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 10 ? " \u2026" : ""}`);
+    if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain gates: ${coverage.chainGateMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 10 ? " \u2026" : ""}`);
     lines.push("");
-    const constraints = relevantBlocks.filter((block) => ["principle", "decision"].includes(block.kind));
-    if (constraints.length) {
-      lines.push("## Must-follow constraints");
-      for (const block of constraints) {
+    if (applicableRuleIds.length) {
+      lines.push("## Applicable rule index");
+      for (const blockId of applicableRuleIds) {
+        const block = snapshot.blocks.find((item) => item.id === blockId);
+        if (!block) continue;
         const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
-        const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
-        lines.push(`- [block:${block.id}] ${title}: ${summary}`);
-        const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
-        if (contract) lines.push(`  Contract: ${contract}`);
+        const scopes = applicableRuleScopes.filter((scope) => scope.blockId === block.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+        lines.push(`- [block:${block.id}] ${title} \xB7 scopes ${scopes.join(", ")} \xB7 use entity_open only if the rule is needed`);
       }
       lines.push("");
     }
@@ -25428,6 +25603,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         const scopes = snapshot.planChainScopes.filter((scope) => scope.planId === plan.id).sort((a, b) => a.position - b.position);
         const changes = snapshot.planChanges.filter((change) => change.planId === plan.id).sort((a, b) => a.position - b.position);
         lines.push(`  Progress: ${plan.progress.completedSteps}/${plan.progress.totalSteps} ${scopes.length || changes.length ? "changes" : "steps"} \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} required gates`);
+        lines.push(`  Typed: Block ${plan.typedProgress.directBlockChanges.completed}/${plan.typedProgress.directBlockChanges.total} \xB7 Chain ${plan.typedProgress.chainChanges.completed}/${plan.typedProgress.chainChanges.total} \xB7 Link ${plan.typedProgress.linkChanges.completed}/${plan.typedProgress.linkChanges.total} \xB7 Chain gates ${plan.typedProgress.chainIntegrationGates.passed}/${plan.typedProgress.chainIntegrationGates.total} \xB7 Plan gates ${plan.typedProgress.planAcceptanceGates.passed}/${plan.typedProgress.planAcceptanceGates.total}`);
         if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
         const dependencies = snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
         if (dependencies.length) lines.push(`  Prerequisites: ${dependencies.map((item) => `[plan:${item.dependsOnPlanId}]`).join(", ")}`);
@@ -25460,7 +25636,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       }
       lines.push("");
     }
-    const contentBlocks = relevantBlocks.filter((block) => !["principle", "decision"].includes(block.kind));
+    const contentBlocks = relevantBlocks;
     if (contentBlocks.length) {
       lines.push("## Relevant blocks");
       for (const block of contentBlocks) {
@@ -25510,8 +25686,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       refs: [
         ...relevantPlans.map((plan) => `plan:${plan.id}`),
         ...relevantChains.map((chain) => `chain:${chain.id}`),
-        ...relevantBlocks.map((block) => `block:${block.id}`)
+        ...relevantBlocks.map((block) => `block:${block.id}`),
+        ...applicableRuleIds.map((blockId) => `block:${blockId}`)
       ],
+      applicableRules: applicableRuleIds.map((blockId) => ({
+        ref: `block:${blockId}`,
+        scopes: applicableRuleScopes.filter((scope) => scope.blockId === blockId).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
+      })),
       markdown
     };
   }
@@ -25533,11 +25714,245 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }
     return { planId: resolvedPlanId, chainScopeId: chainScopeId || null };
   }
-  mutate({ actor = "agent", reason, task = "", gitHead = null, planId = null, chainScopeId = null, operations }) {
+  createFoundationPlan({
+    id = "foundation-plan",
+    title = "Foundation Plan",
+    goal = "Implement the complete declared architecture in dependency order.",
+    requiredEvidenceLevel = "integration",
+    actor = "agent",
+    reason = "Generate the initial implementation plan from the architecture graph",
+    gitHead = null
+  } = {}) {
+    if (!id?.trim() || !title?.trim()) throw new Error("Foundation Plan requires id and title");
+    assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
+    const snapshot = this.snapshot();
+    if (snapshot.plans.some((plan) => plan.id === id)) throw new Error(`plan:${id} already exists`);
+    const blocks = snapshot.blocks.filter(
+      (block) => !block.archived && !["complete", "deprecated"].includes(block.deliveryState)
+    );
+    if (blocks.length === 0) throw new Error("No unimplemented Blocks are available for a Foundation Plan");
+    const groups = foundationBlockGroups(snapshot, blocks);
+    const orderedBlocks = groups.flat();
+    const checkpointIds = new Set(snapshot.checkpoints.map((checkpoint) => checkpoint.id));
+    const checkpointByBlock = /* @__PURE__ */ new Map();
+    const operations = [{
+      action: "create_plan",
+      id,
+      fields: {
+        title: title.trim(),
+        summary: "Automatically generated from every non-deprecated unimplemented Block, including standalone Blocks.",
+        goal,
+        status: "ready",
+        priority: "critical",
+        phase: "foundation",
+        planOrder: 1,
+        nextAction: groups[0]?.length ? `Implement parallel group 1: ${groups[0].map((block) => `block:${block.id}`).join(", ")}` : "Review generated coverage."
+      }
+    }];
+    for (const block of orderedBlocks) {
+      const existing = snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpoint.checkpointKind === "atomic").sort((left, right) => left.id.localeCompare(right.id))[0];
+      const checkpointId = existing?.id ?? `${id}-proof-${block.id}`;
+      checkpointByBlock.set(block.id, { id: checkpointId, revision: existing?.currentRevision ?? 1, existing: Boolean(existing) });
+      if (!existing) {
+        if (checkpointIds.has(checkpointId)) throw new Error(`checkpoint:${checkpointId} already exists`);
+        checkpointIds.add(checkpointId);
+        operations.push({
+          action: "create_checkpoint",
+          id: checkpointId,
+          fields: {
+            targetType: "block",
+            targetId: block.id,
+            title: `Verify ${block.title}`,
+            criteria: block.contract || `Verify block:${block.id} satisfies its declared responsibility.`,
+            status: "pending",
+            checkpointKind: "atomic",
+            coverage: "complete",
+            requiredEvidenceLevel
+          }
+        });
+      }
+    }
+    const changes = orderedBlocks.map((block, position) => ({
+      id: `${id}-change-${block.id}`,
+      entityType: "block",
+      entityId: block.id,
+      position,
+      title: `Implement ${block.title}`,
+      summary: block.summary,
+      currentBehavior: `Delivery state: ${block.deliveryState}.`,
+      proposedBehavior: block.contract || `Implement the responsibility declared by block:${block.id}.`,
+      rationale: "The Foundation Plan covers every unimplemented Block directly; Chain membership is not required.",
+      expectedEffects: [`block:${block.id} reaches its atomic checkpoint`],
+      status: ["implementing", "verifying"].includes(block.deliveryState) ? "active" : "pending"
+    }));
+    operations.push({ action: "set_plan_changes", id, expectedRevision: 1, fields: { changes } });
+    const selectedIds = new Set(orderedBlocks.map((block) => block.id));
+    const chains = snapshot.chains.filter(
+      (chain) => snapshot.chainNodes.some((node2) => node2.chainId === chain.id && selectedIds.has(node2.blockId))
+    ).sort((left, right) => left.id.localeCompare(right.id));
+    const scopes = chains.map((chain, position) => {
+      const nodeIds = snapshot.chainNodes.filter((node2) => node2.chainId === chain.id).sort((a, b) => a.position - b.position).map((node2) => node2.blockId);
+      const linkIds = snapshot.chainEdges.filter((edge) => edge.chainId === chain.id).sort((a, b) => a.position - b.position).map((edge) => edge.linkId);
+      return {
+        id: `${id}-scope-${chain.id}`,
+        chainId: chain.id,
+        position,
+        title: `Integrate ${chain.title}`,
+        summary: "Verify the reusable Chain after its required Block work is complete.",
+        rationale: "Chains integrate paths; they do not own their Blocks.",
+        nodeIds,
+        linkIds,
+        status: "pending"
+      };
+    });
+    operations.push({ action: "set_plan_chain_scopes", id, expectedRevision: 2, fields: { scopes } });
+    operations.push({
+      action: "set_plan_steps",
+      id,
+      expectedRevision: 3,
+      fields: { steps: groups.map((group, index) => ({
+        id: `${id}-step-${index + 1}`,
+        title: `Parallel implementation group ${index + 1}`,
+        action: `Implement ${group.map((block) => `block:${block.id}`).join(", ")}`,
+        status: "pending",
+        targetRefs: group.map((block) => `block:${block.id}`)
+      })).concat(chains.length ? [{
+        id: `${id}-step-integration`,
+        title: "Integrate Chain paths",
+        action: "Run every required Chain integration gate.",
+        status: "pending",
+        targetRefs: chains.map((chain) => `chain:${chain.id}`)
+      }] : [], [{
+        id: `${id}-step-acceptance`,
+        title: "Accept the Foundation Plan",
+        action: "Run the final Plan acceptance gate after all required children pass.",
+        status: "pending",
+        targetRefs: [`plan:${id}`]
+      }]) }
+    });
+    for (const block of orderedBlocks) {
+      const checkpoint = checkpointByBlock.get(block.id);
+      const existingBindings = checkpoint.existing ? snapshot.checkpointBindings.filter((binding) => binding.checkpointId === checkpoint.id).map((binding) => ({
+        subjectType: binding.subjectType,
+        subjectId: binding.subjectId,
+        role: binding.role,
+        required: binding.required
+      })) : [];
+      operations.push({
+        action: "set_checkpoint_bindings",
+        id: checkpoint.id,
+        expectedRevision: checkpoint.revision,
+        fields: { bindings: existingBindings.concat({
+          subjectType: "plan_change",
+          subjectId: `${id}-change-${block.id}`,
+          role: "acceptance",
+          required: true
+        }) }
+      });
+    }
+    const chainGateIds = [];
+    for (const [index, chain] of chains.entries()) {
+      const gateId = `${id}-gate-${chain.id}`;
+      if (checkpointIds.has(gateId)) throw new Error(`checkpoint:${gateId} already exists`);
+      checkpointIds.add(gateId);
+      chainGateIds.push(gateId);
+      operations.push({
+        action: "create_checkpoint",
+        id: gateId,
+        fields: {
+          targetType: "chain",
+          targetId: chain.id,
+          title: `Integrate ${chain.title}`,
+          criteria: `Verify chain:${chain.id} works as one ordered path after its required Block and Link checks pass.`,
+          status: "pending",
+          checkpointKind: "integration",
+          eligibleAfterChildren: true,
+          coverage: "complete",
+          requiredEvidenceLevel
+        }
+      });
+      operations.push({
+        action: "set_checkpoint_bindings",
+        id: gateId,
+        expectedRevision: 1,
+        fields: { bindings: [{
+          subjectType: "plan_chain_scope",
+          subjectId: scopes[index].id,
+          role: "integration",
+          required: true
+        }] }
+      });
+      const childIds = /* @__PURE__ */ new Set();
+      for (const blockId of scopes[index].nodeIds) {
+        const selected = checkpointByBlock.get(blockId);
+        const existing = snapshot.checkpoints.find(
+          (item) => item.targetType === "block" && item.targetId === blockId && item.checkpointKind === "atomic"
+        );
+        if (selected?.id || existing?.id) childIds.add(selected?.id ?? existing.id);
+      }
+      for (const linkId of scopes[index].linkIds) {
+        for (const checkpoint of snapshot.checkpoints.filter((item) => item.targetType === "link" && item.targetId === linkId)) childIds.add(checkpoint.id);
+      }
+      operations.push({
+        action: "set_checkpoint_dependencies",
+        id: gateId,
+        expectedRevision: 2,
+        fields: { children: [...childIds].map((checkpointId) => ({ checkpointId, required: true })) }
+      });
+    }
+    const acceptanceId = `${id}-acceptance`;
+    if (checkpointIds.has(acceptanceId)) throw new Error(`checkpoint:${acceptanceId} already exists`);
+    operations.push({
+      action: "create_checkpoint",
+      id: acceptanceId,
+      fields: {
+        targetType: "plan",
+        targetId: id,
+        title: `${title.trim()} acceptance`,
+        criteria: "Accept the whole Foundation Plan only after every direct Block check and Chain integration gate passes.",
+        status: "pending",
+        checkpointKind: "integration",
+        eligibleAfterChildren: true,
+        coverage: "complete",
+        requiredEvidenceLevel
+      }
+    });
+    operations.push({
+      action: "set_checkpoint_bindings",
+      id: acceptanceId,
+      expectedRevision: 1,
+      fields: { bindings: [{ subjectType: "plan", subjectId: id, role: "acceptance", required: true }] }
+    });
+    operations.push({
+      action: "set_checkpoint_dependencies",
+      id: acceptanceId,
+      expectedRevision: 2,
+      fields: { children: [...orderedBlocks.map((block) => checkpointByBlock.get(block.id).id), ...chainGateIds].map((checkpointId) => ({ checkpointId, required: true })) }
+    });
+    const mutation = this.mutate(
+      { actor, reason, task: "foundation-plan-bootstrap", gitHead, operations },
+      { maxOperations: Number.MAX_SAFE_INTEGER, maxInputBytes: Number.MAX_SAFE_INTEGER }
+    );
+    const context = this.planContext({ id, maxChars: 24e3 });
+    return {
+      ...mutation,
+      plan: context.plan,
+      generated: {
+        blockIds: orderedBlocks.map((block) => block.id),
+        parallelGroups: groups.map((group) => group.map((block) => block.id)),
+        chainIds: chains.map((chain) => chain.id),
+        blockCheckpointIds: orderedBlocks.map((block) => checkpointByBlock.get(block.id).id),
+        chainGateIds,
+        planAcceptanceCheckpointId: acceptanceId
+      },
+      markdown: context.markdown
+    };
+  }
+  mutate({ actor = "agent", reason, task = "", gitHead = null, planId = null, chainScopeId = null, operations }, { maxOperations = 20, maxInputBytes = 65536 } = {}) {
     if (!reason?.trim()) throw new Error("reason is required");
     if (!Array.isArray(operations) || operations.length === 0) throw new Error("operations are required");
-    if (operations.length > 20) throw new Error("graph_mutate accepts at most 20 operations");
-    if (JSON.stringify(operations).length > 65536) throw new Error("graph_mutate input exceeds 64 KB");
+    if (operations.length > maxOperations) throw new Error(`graph_mutate accepts at most ${maxOperations} operations`);
+    if (JSON.stringify(operations).length > maxInputBytes) throw new Error("graph_mutate input exceeds 64 KB");
     const database = this.database;
     const projectId = this.paths.descriptor.id;
     const changeSetId = identifier("change");
@@ -26848,6 +27263,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     if (coverage.unplannedIds.length) {
       warnings.push(`${coverage.unplannedIds.length} Block(s) are not covered by any Plan: ${coverage.unplannedIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 20 ? " \u2026" : ""}`);
     }
+    if (coverage.checkpointUnboundIds.length) {
+      warnings.push(`${coverage.checkpointUnboundIds.length} planned Block checkpoint(s) are not bound to an exact PlanChange: ${coverage.checkpointUnboundIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 20 ? " \u2026" : ""}`);
+    }
+    if (coverage.chainGateMissingIds.length) {
+      warnings.push(`${coverage.chainGateMissingIds.length} Block(s) belong to Chains without an integration gate: ${coverage.chainGateMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 20 ? " \u2026" : ""}`);
+    }
     for (const chain of snapshot.chains) {
       if (chain.deliveryState === "complete") {
         const passed = snapshot.checkpoints.some(
@@ -26967,6 +27388,26 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.projectMap(payload));
     return result({ map: data.map }, data.markdown);
+  }
+);
+server.registerTool(
+  "foundation_plan_create",
+  {
+    description: "Generate one Foundation Plan from every non-deprecated unimplemented Block. The operation creates missing atomic Block checkpoints, direct Block PlanChanges, dependency-ordered parallel steps, Chain integration gates, and a final Plan acceptance gate in one transaction.",
+    inputSchema: {
+      ...projectRootInput,
+      id: string2().min(1).default("foundation-plan"),
+      title: string2().min(1).default("Foundation Plan"),
+      goal: string2().min(1).optional(),
+      requiredEvidenceLevel: _enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).default("integration"),
+      actor: string2().optional(),
+      reason: string2().min(1).optional(),
+      gitHead: string2().nullable().optional()
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.createFoundationPlan(payload));
+    return result(data, data.markdown);
   }
 );
 server.registerTool(

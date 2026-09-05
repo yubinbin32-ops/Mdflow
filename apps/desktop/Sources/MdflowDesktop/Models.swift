@@ -101,8 +101,41 @@ struct PlanProgress: Equatable {
     let totalSteps: Int
     let passedRequiredCheckpoints: Int
     let totalRequiredCheckpoints: Int
+    let directBlockChanges: WorkProgress
+    let chainChanges: WorkProgress
+    let linkChanges: WorkProgress
+    let chainIntegrationGates: GateProgress
+    let planAcceptanceGates: GateProgress
 
-    static let empty = PlanProgress(completedSteps: 0, totalSteps: 0, passedRequiredCheckpoints: 0, totalRequiredCheckpoints: 0)
+    static let empty = PlanProgress(
+        completedSteps: 0, totalSteps: 0, passedRequiredCheckpoints: 0, totalRequiredCheckpoints: 0,
+        directBlockChanges: .empty, chainChanges: .empty, linkChanges: .empty,
+        chainIntegrationGates: .empty, planAcceptanceGates: .empty
+    )
+}
+
+struct WorkProgress: Equatable {
+    let completed: Int
+    let total: Int
+
+    static let empty = WorkProgress(completed: 0, total: 0)
+}
+
+struct GateProgress: Equatable {
+    let passed: Int
+    let total: Int
+
+    static let empty = GateProgress(passed: 0, total: 0)
+}
+
+struct BlockCoverage: Equatable {
+    let blockID: String
+    let hasCheckpoint: Bool
+    let isCoveredByPlan: Bool
+    let isCoveredByChain: Bool
+    let isCoveredByAnyVerification: Bool
+    let checkpointUnbound: Bool
+    let chainGateMissing: Bool
 }
 
 struct ArchitectureCoverage: Equatable {
@@ -114,6 +147,10 @@ struct ArchitectureCoverage: Equatable {
     let unplannedIDs: [String]
     let withoutCheckpointIDs: [String]
     let failingIDs: [String]
+    let verificationCoveredBlocks: Int
+    let checkpointUnboundIDs: [String]
+    let chainGateMissingIDs: [String]
+    let blocks: [BlockCoverage]
 }
 
 struct PlanChainReference: Equatable {

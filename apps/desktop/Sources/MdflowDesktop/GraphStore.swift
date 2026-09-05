@@ -192,6 +192,42 @@ final class GraphStore: ObservableObject {
             .filter { blockIDs.contains($0) })
         let planned = directlyPlanned.union(chainPlanned)
         let checkpointGroups = Dictionary(grouping: snapshot.checkpoints.filter { $0.targetType == "block" }, by: \.targetId)
+        let bindingsByCheckpoint = Dictionary(grouping: snapshot.checkpointBindings, by: \.checkpointId)
+        let changesByBlock = Dictionary(grouping: snapshot.planChanges.filter {
+            candidatePlanIDs.contains($0.planId) && $0.entityType == "block"
+        }, by: \.entityId)
+        let candidateScopes = snapshot.planChainScopes.filter { candidatePlanIDs.contains($0.planId) }
+        var chainGateIDs = planID == nil
+            ? Set(snapshot.checkpoints.filter { $0.targetType == "chain" && $0.kind == "integration" }.map(\.targetId))
+            : Set<String>()
+        for binding in snapshot.checkpointBindings where binding.required && binding.subjectType == "plan_chain_scope" {
+            guard let scope = candidateScopes.first(where: { $0.id == binding.subjectId }),
+                  let checkpoint = snapshot.checkpoints.first(where: { $0.id == binding.checkpointId }),
+                  checkpoint.kind == "integration" else { continue }
+            chainGateIDs.insert(scope.chainId)
+        }
+        let chainIDsByBlock = Dictionary(grouping: snapshot.chainNodes, by: \.blockId)
+        let blockCoverage = blocks.map { block in
+            let checkpoints = checkpointGroups[block.id, default: []]
+            let changeIDs = Set(changesByBlock[block.id, default: []].map(\.id))
+            let checkpointBindings = checkpoints.flatMap { bindingsByCheckpoint[$0.id, default: []] }
+            let exactBinding = checkpointBindings.contains {
+                $0.subjectType == "plan_change" && changeIDs.contains($0.subjectId)
+            }
+            let memberChainIDs = Set(chainIDsByBlock[block.id, default: []].map(\.chainId))
+            let relevantChainIDs = planID == nil
+                ? memberChainIDs
+                : Set(candidateScopes.filter { structuredStringList($0.nodeIds).contains(block.id) }.map(\.chainId))
+            return BlockCoverage(
+                blockID: block.id,
+                hasCheckpoint: !checkpoints.isEmpty,
+                isCoveredByPlan: planned.contains(block.id),
+                isCoveredByChain: chainMemberIDs.contains(block.id),
+                isCoveredByAnyVerification: !checkpointBindings.isEmpty || checkpoints.contains(where: checkpointPasses),
+                checkpointUnbound: planned.contains(block.id) && !checkpoints.isEmpty && !exactBinding,
+                chainGateMissing: !relevantChainIDs.isEmpty && relevantChainIDs.contains { !chainGateIDs.contains($0) }
+            )
+        }
         let verified = Set(blocks.filter { block in
             checkpointGroups[block.id, default: []].contains { checkpointPasses($0) }
         }.map(\.id))
@@ -207,7 +243,11 @@ final class GraphStore: ObservableObject {
             outsideChainIDs: blocks.filter { !chainMemberIDs.contains($0.id) }.map(\.id),
             unplannedIDs: blocks.filter { !planned.contains($0.id) }.map(\.id),
             withoutCheckpointIDs: blocks.filter { !withCheckpoints.contains($0.id) }.map(\.id),
-            failingIDs: failing
+            failingIDs: failing,
+            verificationCoveredBlocks: blockCoverage.filter(\.isCoveredByAnyVerification).count,
+            checkpointUnboundIDs: blockCoverage.filter(\.checkpointUnbound).map(\.blockID),
+            chainGateMissingIDs: blockCoverage.filter(\.chainGateMissing).map(\.blockID),
+            blocks: blockCoverage
         )
     }
 
@@ -235,7 +275,8 @@ final class GraphStore: ObservableObject {
     /// Only kinds present in this project are offered by the Canvas filter.
     /// This keeps the toolbar semantic and avoids empty or overlapping lenses.
     var availableLenses: [ViewLens] {
-        let kinds = Set(snapshot.blocks.map { $0.kind.lowercased() })
+        let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
+        let kinds = Set(snapshot.blocks.filter { !backgroundRuleIDs.contains($0.id) }.map { $0.kind.lowercased() })
         return ViewLens.allCases.filter { kinds.contains($0.rawValue.lowercased()) }
     }
 
@@ -248,7 +289,7 @@ final class GraphStore: ObservableObject {
         let activeChainIDs = Set(snapshot.chains.map(\.id))
         let activePlanIDs = Set(snapshot.plans.map(\.id))
         let activeLinkIDs = Set(snapshot.links.map(\.id))
-        return snapshot.checkpoints.filter { checkpoint in
+        let unassigned = snapshot.checkpoints.filter { checkpoint in
             guard !planIDs.contains(checkpoint.id) && !boundToPlan.contains(checkpoint.id) else { return false }
             switch checkpoint.targetType {
             case "block": return activeBlockIDs.contains(checkpoint.targetId)
@@ -257,6 +298,15 @@ final class GraphStore: ObservableObject {
             case "link": return activeLinkIDs.contains(checkpoint.targetId)
             default: return false
             }
+        }
+        return Self.visibleVerificationCheckpoints(unassigned)
+    }
+
+    /// The sidebar is an inbox for work that still needs attention. Passed
+    /// checkpoints remain available from their owning entity and History.
+    static func visibleVerificationCheckpoints(_ checkpoints: [CheckpointItem]) -> [CheckpointItem] {
+        checkpoints.filter {
+            $0.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "passed"
         }
     }
 
@@ -270,7 +320,15 @@ final class GraphStore: ObservableObject {
 
     var visibleBlocks: [BlockItem] {
         guard !enabledLenses.isEmpty else { return [] }
+        let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
         return snapshot.blocks.filter { block in enabledLenses.contains { $0.includes(block: block) } }
+            .filter { !backgroundRuleIDs.contains($0.id) }
+    }
+
+    func ruleScopeLabel(_ blockID: String) -> String {
+        snapshot.backgroundScopes.filter { $0.blockId == blockID }
+            .map { "\($0.scopeType):\($0.scopeValue)" }
+            .joined(separator: " · ")
     }
 
     func setLens(_ lens: ViewLens, enabled: Bool) {
@@ -654,6 +712,27 @@ final class GraphStore: ObservableObject {
         snapshot.planChainScopes.filter { $0.planId == planID }.sorted { $0.position < $1.position }
     }
 
+    func planChainNodePath(_ scope: PlanChainScopeItem) -> String {
+        let requestedIDs = structuredStringList(scope.nodeIds)
+        let nodeIDs = requestedIDs.isEmpty
+            ? snapshot.chainNodes.filter { $0.chainId == scope.chainId }.sorted { $0.position < $1.position }.map(\.blockId)
+            : requestedIDs
+        return nodeIDs.map { blockID in
+            snapshot.blocks.first { $0.id == blockID }.map { blockText($0, field: "title") } ?? "block:\(blockID)"
+        }.joined(separator: " → ")
+    }
+
+    func planChainLinks(_ scope: PlanChainScopeItem) -> [String] {
+        let requestedIDs = structuredStringList(scope.linkIds)
+        let linkIDs = requestedIDs.isEmpty
+            ? snapshot.chainEdges.filter { $0.chainId == scope.chainId }.sorted { $0.position < $1.position }.map(\.linkId)
+            : requestedIDs
+        return linkIDs.map { linkID in
+            guard let link = snapshot.links.first(where: { $0.id == linkID }) else { return "link:\(linkID)" }
+            return link.label.nonEmpty ?? link.kind
+        }
+    }
+
     func planChanges(for planID: String) -> [PlanChangeItem] {
         snapshot.planChanges.filter { $0.planId == planID }.sorted { $0.position < $1.position }
     }
@@ -681,6 +760,12 @@ final class GraphStore: ObservableObject {
             .compactMap { dependency in
                 snapshot.checkpoints.first { $0.id == dependency.childCheckpointId }.map { ($0, dependency.required) }
             }
+    }
+
+    func checkpointBlockers(_ checkpointID: String) -> [CheckpointItem] {
+        checkpointChildren(checkpointID)
+            .filter { $0.required && $0.checkpoint.status != "passed" }
+            .map(\.checkpoint)
     }
 
     func locatePlanChange(_ change: PlanChangeItem) {

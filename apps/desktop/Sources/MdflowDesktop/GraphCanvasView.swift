@@ -84,8 +84,19 @@ struct GraphCanvasView: View {
         return "\(store.snapshot.project.id):\(store.snapshot.project.graphRevision):\(lenses)"
     }
 
+    private var sceneProjectionKey: String {
+        scene.blocks.map(\.id).sorted().joined(separator: ":")
+    }
+
     private func rebuildScene(viewport: CGSize, fit: Bool) {
-        scene = CanvasScene.compile(snapshot: store.snapshot, lenses: store.enabledLenses)
+        let nextScene = CanvasScene.compile(snapshot: store.snapshot, lenses: store.enabledLenses)
+        if reduceMotion {
+            scene = nextScene
+        } else {
+            withAnimation(.smooth(duration: 0.28)) {
+                scene = nextScene
+            }
+        }
         if fit || didFitProjectID != store.snapshot.project.id {
             didFitProjectID = store.snapshot.project.id
             fitAll(viewport: viewport)
@@ -144,6 +155,8 @@ struct GraphCanvasView: View {
                 )
             }
         }
+        .id("chain-envelopes:\(sceneProjectionKey)")
+        .transition(.opacity)
         .allowsHitTesting(false)
     }
 
@@ -279,6 +292,8 @@ struct GraphCanvasView: View {
                 drawArrow(context: &context, points: points, color: color.opacity(opacity))
             }
         }
+        .id("links:\(sceneProjectionKey)")
+        .transition(.opacity)
         .allowsHitTesting(false)
     }
 
@@ -316,6 +331,7 @@ struct GraphCanvasView: View {
                 blockCard(block)
                     .opacity(relatedBlockIDs == nil || relatedBlockIDs!.contains(block.id) ? 1 : 0.13)
                     .position(x: point.x + scene.cardSize.width / 2, y: point.y + scene.cardSize.height / 2)
+                    .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
     }

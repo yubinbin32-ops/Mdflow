@@ -57,6 +57,28 @@ server.registerTool(
 );
 
 server.registerTool(
+  "foundation_plan_create",
+  {
+    description:
+      "Generate one Foundation Plan from every non-deprecated unimplemented Block. The operation creates missing atomic Block checkpoints, direct Block PlanChanges, dependency-ordered parallel steps, Chain integration gates, and a final Plan acceptance gate in one transaction.",
+    inputSchema: {
+      ...projectRootInput,
+      id: z.string().min(1).default("foundation-plan"),
+      title: z.string().min(1).default("Foundation Plan"),
+      goal: z.string().min(1).optional(),
+      requiredEvidenceLevel: z.enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).default("integration"),
+      actor: z.string().optional(),
+      reason: z.string().min(1).optional(),
+      gitHead: z.string().nullable().optional(),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.createFoundationPlan(payload));
+    return result(data, data.markdown);
+  },
+);
+
+server.registerTool(
   "context_for_task",
   {
     description:

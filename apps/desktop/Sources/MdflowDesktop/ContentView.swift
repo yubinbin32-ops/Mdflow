@@ -50,7 +50,7 @@ struct ContentView: View {
                         ForEach(projectRuleBlocks) { block in
                             sidebarButton(
                                 title: store.blockText(block, field: "title"),
-                                subtitle: "\(block.kind.uppercased()) · \(block.deliveryState.uppercased())",
+                                subtitle: "\(store.ruleScopeLabel(block.id).uppercased()) · \(block.deliveryState.uppercased())",
                                 color: MdflowTheme.blockKindColor(block.kind),
                                 selected: store.selection == GraphSelection(type: .block, id: block.id)
                             ) { store.select(GraphSelection(type: .block, id: block.id)) }
@@ -85,7 +85,9 @@ struct ContentView: View {
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
                                 .foregroundStyle(MdflowTheme.muted)
                                 .padding(.horizontal, 18).padding(.top, 4).padding(.bottom, 4)
-                            ForEach(store.unassignedCheckpoints) { checkpoint in
+                            ForEach(store.unassignedCheckpoints.filter {
+                                $0.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "passed"
+                            }) { checkpoint in
                                 if let type = GraphSelection.EntityType(rawValue: checkpoint.targetType) {
                                     sidebarButton(
                                         title: checkpoint.title,
@@ -110,7 +112,9 @@ struct ContentView: View {
     private func sidebarSection<Content: View>(_ section: SidebarSection, title: String, @ViewBuilder content: () -> Content) -> some View {
         let collapsed = store.isSidebarSectionCollapsed(section)
         Button {
-            store.setSidebarSection(section, collapsed: !collapsed)
+            withAnimation(.smooth(duration: 0.24)) {
+                store.setSidebarSection(section, collapsed: !collapsed)
+            }
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: collapsed ? "chevron.right" : "chevron.down")
@@ -124,7 +128,10 @@ struct ContentView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        if !collapsed { content() }
+        if !collapsed {
+            content()
+                .transition(.opacity)
+        }
     }
 
     private var projectHeader: some View {
@@ -137,9 +144,9 @@ struct ContentView: View {
                     .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(0.8)
                     .foregroundStyle(MdflowTheme.muted)
                 let coverage = store.architectureCoverage
-                Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified").uppercased()) · \(coverage.unplannedIDs.count) \(store.text("unplanned").uppercased()) · \(coverage.withoutCheckpointIDs.count) \(store.text("noCheckpoint").uppercased())")
+                Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified").uppercased()) · \(coverage.unplannedIDs.count) \(store.text("unplanned").uppercased()) · \(coverage.withoutCheckpointIDs.count) \(store.text("noCheckpoint").uppercased()) · \(coverage.checkpointUnboundIDs.count) UNBOUND · \(coverage.chainGateMissingIDs.count) NO GATE")
                     .font(.system(size: 7.5, weight: .bold, design: .monospaced)).tracking(0.45)
-                    .foregroundStyle(coverage.unplannedIDs.isEmpty && coverage.withoutCheckpointIDs.isEmpty ? MdflowTheme.success : MdflowTheme.pending)
+                    .foregroundStyle(coverage.unplannedIDs.isEmpty && coverage.withoutCheckpointIDs.isEmpty && coverage.checkpointUnboundIDs.isEmpty && coverage.chainGateMissingIDs.isEmpty ? MdflowTheme.success : MdflowTheme.pending)
             }
             Spacer()
             Menu {
@@ -239,7 +246,7 @@ struct ContentView: View {
     }
 
     private var projectRuleBlocks: [BlockItem] {
-        let ids = Set(store.snapshot.backgroundScopes.filter { $0.scopeType == "project" }.map(\.blockId))
+        let ids = Set(store.snapshot.backgroundScopes.map(\.blockId))
         return store.snapshot.blocks.filter { ids.contains($0.id) }
     }
 
