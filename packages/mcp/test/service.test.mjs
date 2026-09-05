@@ -534,6 +534,13 @@ test("a project-owned graph replaces broad prose with bounded golden task contex
     assert.ok(focused.markdown.length <= 12000);
     const fullGraphSize = JSON.stringify(snapshot).length;
     assert.ok(focused.markdown.length < fullGraphSize, `focused context ${focused.markdown.length} should be smaller than graph ${fullGraphSize}`);
+    const bounded = context.service.contextForTask({
+      task: "change the isolated project database routing",
+      focusRefs: ["plan:verify-project-loop"],
+      maxChars: 1000,
+    });
+    assert.ok(bounded.markdown.length <= 1000);
+    assert.match(bounded.markdown, /\[truncated; use plan_context, entity_open, checkpoint_list, or changes_since/);
     assert.equal(context.service.validate().valid, true);
   } finally {
     context.cleanup();

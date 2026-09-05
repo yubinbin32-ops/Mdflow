@@ -25784,7 +25784,10 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       lines.push("");
     }
     lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, or Link when more detail is needed.");
-    const markdown = lines.join("\n").slice(0, maxChars);
+    const fullMarkdown = lines.join("\n");
+    const markdown = fullMarkdown.length <= maxChars ? fullMarkdown : `${fullMarkdown.slice(0, Math.max(0, maxChars - 112))}
+
+[truncated; use plan_context, entity_open, checkpoint_list, or changes_since for the referenced detail]`;
     return {
       graphRevision: snapshot.project.graphRevision,
       refs: [
