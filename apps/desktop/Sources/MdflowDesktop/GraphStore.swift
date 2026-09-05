@@ -31,6 +31,7 @@ final class GraphStore: ObservableObject {
 
     private var location: ProjectLocation?
     private var database: ProjectDatabase?
+    private var databaseIdentity: DatabaseFileIdentity?
     private var clearChangeTask: Task<Void, Never>?
     private var focusTask: Task<Void, Never>?
     private var refreshDebounceTask: Task<Void, Never>?
@@ -59,9 +60,11 @@ final class GraphStore: ObservableObject {
             do {
                 let resolvedDatabase = try ProjectDatabase(location: resolvedLocation)
                 self.database = resolvedDatabase
+                self.databaseIdentity = resolvedDatabase.fileIdentity
                 self.snapshot = try resolvedDatabase.loadSnapshot()
             } catch {
                 self.database = nil
+                self.databaseIdentity = nil
                 self.snapshot = .empty(name: resolvedLocation.descriptor.name, root: resolvedLocation.root.path)
                 self.errorMessage = error.localizedDescription
                 Self.log(error, context: resolvedLocation.database.path)
@@ -69,6 +72,7 @@ final class GraphStore: ObservableObject {
         } catch {
             self.location = nil
             self.database = nil
+            self.databaseIdentity = nil
             self.snapshot = .empty(root: FileManager.default.currentDirectoryPath)
             self.errorMessage = error.localizedDescription
             Self.log(error, context: "project resolution")
@@ -103,6 +107,7 @@ final class GraphStore: ObservableObject {
             database?.close()
             location = resolvedLocation
             database = resolvedDatabase
+            databaseIdentity = resolvedDatabase.fileIdentity
             recentProjects = ProjectLocation.recentProjects()
             withAnimation(.smooth(duration: 0.24)) {
                 snapshot = next
@@ -448,17 +453,42 @@ final class GraphStore: ObservableObject {
     }
 
     func refreshIfChanged() {
-        guard let database else { return }
         do {
+            guard let location else { return }
+            var databaseWasReplaced = false
+            var replacementSnapshot: GraphSnapshot?
+            if let currentIdentity = ProjectDatabase.fileIdentity(at: location.database),
+               currentIdentity != databaseIdentity {
+                // Git checkout commonly replaces the SQLite file by rename.
+                // Reopening before reading the sequence prevents the old
+                // connection from serving a stale branch snapshot, including
+                // the case where both branches happen to share a sequence.
+                let replacement = try ProjectDatabase(location: location)
+                // Validate the new file before closing the known-good reader.
+                // A checkout can briefly expose a file before its sidecars are
+                // ready; the next polling tick should retry that replacement.
+                replacementSnapshot = try replacement.loadSnapshot()
+                let nextIdentity = replacement.fileIdentity
+                database?.close()
+                database = replacement
+                databaseIdentity = nextIdentity
+                databaseWasReplaced = true
+            }
+            guard let database else { return }
             let sequence = try database.changeSequence()
-            guard sequence != snapshot.changeSequence else { return }
+            guard databaseWasReplaced || sequence != snapshot.changeSequence else { return }
             let previousSequence = snapshot.changeSequence
-            let next = try database.loadSnapshot()
+            let next: GraphSnapshot
+            if let replacementSnapshot {
+                next = replacementSnapshot
+            } else {
+                next = try database.loadSnapshot()
+            }
             let retainedSelection = selection.flatMap { Self.selection($0, existsIn: next) ? $0 : nil }
             let retainedFocus = focusTarget.flatMap { Self.selection($0, existsIn: next) ? $0 : nil }
             let retainedChainIDs = highlightedChainIDs.intersection(next.chains.map(\.id))
             let changed = next.latestChanges
-                .filter { $0.sequence > previousSequence }
+                .filter { databaseWasReplaced || $0.sequence > previousSequence }
                 .map { "\($0.entityType):\($0.entityId)" }
             withAnimation(.smooth(duration: 0.28)) {
                 snapshot = next

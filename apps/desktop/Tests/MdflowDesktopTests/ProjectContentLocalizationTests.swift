@@ -1,5 +1,27 @@
+import Foundation
 import Testing
 @testable import MdflowDesktop
+
+@Test func databaseFileIdentityChangesWhenCheckoutReplacesSQLiteFile() throws {
+    let fileManager = FileManager.default
+    let directory = fileManager.temporaryDirectory.appending(path: "mdflow-db-\(UUID().uuidString)", directoryHint: .isDirectory)
+    try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: directory) }
+
+    let database = directory.appending(path: "mdflow.sqlite")
+    let replacement = directory.appending(path: "mdflow.sqlite.checkout")
+    try Data("first checkout".utf8).write(to: database)
+    let before = ProjectDatabase.fileIdentity(at: database)
+
+    try Data("second checkout".utf8).write(to: replacement)
+    try fileManager.removeItem(at: database)
+    try fileManager.moveItem(at: replacement, to: database)
+    let after = ProjectDatabase.fileIdentity(at: database)
+
+    #expect(before != nil)
+    #expect(after != nil)
+    #expect(before != after)
+}
 
 @Test func appLanguageNeverReplacesCanonicalProjectContent() {
     let legacyTranslation = LocalizedTextItem(

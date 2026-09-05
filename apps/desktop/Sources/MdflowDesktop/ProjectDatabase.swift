@@ -3,6 +3,14 @@ import Foundation
 
 private let transientDestructor = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
+/// The SQLite file can be atomically replaced by a Git checkout while the App
+/// is running.  A path-only comparison cannot detect that replacement because
+/// the URL remains unchanged; the system file number is the stable identity we
+/// need to decide when an existing read connection must be reopened.
+struct DatabaseFileIdentity: Equatable {
+    let systemFileNumber: UInt64
+}
+
 final class ProjectDatabase {
     enum DatabaseError: LocalizedError {
         case open(String)
@@ -18,6 +26,16 @@ final class ProjectDatabase {
 
     private var handle: OpaquePointer?
     let location: ProjectLocation
+
+    var fileIdentity: DatabaseFileIdentity? {
+        Self.fileIdentity(at: location.database)
+    }
+
+    static func fileIdentity(at url: URL) -> DatabaseFileIdentity? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let value = attributes[.systemFileNumber] as? NSNumber else { return nil }
+        return DatabaseFileIdentity(systemFileNumber: value.uint64Value)
+    }
 
     init(location: ProjectLocation) throws {
         self.location = location
