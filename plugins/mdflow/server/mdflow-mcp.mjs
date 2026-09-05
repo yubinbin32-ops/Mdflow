@@ -23781,9 +23781,9 @@ function backfillChainPaths(database) {
 }
 function openDatabase(databasePath) {
   const database = new DatabaseSync(databasePath);
+  database.exec("PRAGMA busy_timeout = 3000;");
   database.exec("PRAGMA journal_mode = DELETE;");
   database.exec("PRAGMA foreign_keys = ON;");
-  database.exec("PRAGMA busy_timeout = 3000;");
   database.exec(SCHEMA);
   migratePlanCapableTables(database);
   migrateBlockArchitecture(database);

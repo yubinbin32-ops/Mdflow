@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -30,6 +30,57 @@ function fixture() {
   };
 }
 
+function runConcurrentMutationWorker(root, index) {
+  const serviceURL = new URL("../src/service.mjs", import.meta.url).href;
+  const script = `
+    import { createService } from ${JSON.stringify(serviceURL)};
+    const service = createService({ projectRoot: process.env.MDFLOW_PROJECT_ROOT });
+    try {
+      const result = service.mutate({
+        actor: "concurrent-worker",
+        reason: "Serialize concurrent graph writer ${index}",
+        operations: [{
+          action: "create_block",
+          id: process.env.MDFLOW_BLOCK_ID,
+          fields: { kind: "service", title: process.env.MDFLOW_BLOCK_ID, summary: "Concurrent writer regression" },
+        }],
+      });
+      process.stdout.write(JSON.stringify({ graphRevision: result.graphRevision, receipt: result.receipts[0] }));
+    } catch (error) {
+      process.stderr.write(error?.stack ?? String(error));
+      process.exitCode = 1;
+    } finally {
+      service.close();
+    }
+  `;
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["--input-type=module", "-e", script], {
+      env: {
+        ...process.env,
+        MDFLOW_PROJECT_ROOT: root,
+        MDFLOW_BLOCK_ID: `concurrent-worker-${index}`,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`concurrent worker ${index} exited ${code}: ${stderr}`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout));
+      } catch (error) {
+        reject(new Error(`concurrent worker ${index} returned invalid JSON: ${stdout}; ${error.message}`));
+      }
+    });
+  });
+}
+
 test("opening an already migrated versioned graph is byte-stable", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-versioned-open-"));
   fs.mkdirSync(path.join(root, ".mdflow"));
@@ -48,6 +99,36 @@ test("opening an already migrated versioned graph is byte-stable", () => {
     second.close();
 
     assert.equal(fileDigest(databasePath), before);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("concurrent graph writers serialize without losing revisions", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-concurrent-writers-"));
+  fs.mkdirSync(path.join(root, ".mdflow"));
+  fs.writeFileSync(
+    path.join(root, ".mdflow", "project.json"),
+    JSON.stringify({ id: "concurrent-writers", name: "Concurrent Writers", schemaVersion: 1 }),
+  );
+  try {
+    const outcomes = await Promise.all(
+      Array.from({ length: 8 }, (_, index) => runConcurrentMutationWorker(root, index)),
+    );
+    const service = createService({ projectRoot: root });
+    try {
+      const snapshot = service.snapshot();
+      assert.equal(snapshot.blocks.length, 8);
+      assert.equal(snapshot.project.graphRevision, 8);
+      assert.equal(snapshot.changeSequence, 8);
+      assert.deepEqual(
+        new Set(outcomes.map((item) => item.receipt.id)),
+        new Set(snapshot.blocks.map((block) => block.id)),
+      );
+      assert.deepEqual(service.validate().errors, []);
+    } finally {
+      service.close();
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
