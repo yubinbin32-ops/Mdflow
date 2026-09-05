@@ -187,7 +187,7 @@ server.registerTool(
   "graph_mutate",
   {
     description:
-      "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, Background scopes, and source refs. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
+      "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, and source refs. Use create_checkpoint in the same ChangeSet as create_block when verification intent is already known. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
     inputSchema: {
       ...projectRootInput,
       actor: z.string().optional(),
@@ -201,6 +201,7 @@ server.registerTool(
           z.object({
             action: z.enum([
               "create_block",
+              "create_checkpoint",
               "update_block",
               "add_source_ref",
               "remove_source_ref",

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -669,6 +670,60 @@ test("architecture coverage reports Blocks that have no checkpoint or Plan cover
   }
 });
 
+test("graph_mutate creates a Block, its checkpoint, and a direct Plan gate in one ChangeSet", () => {
+  const context = fixture();
+  try {
+    const result = context.service.mutate({
+      reason: "Initialize a foundation Block with its own verification in one atomic request",
+      operations: [
+        {
+          action: "create_block", id: "search-engine", fields: {
+            kind: "service", title: "Search engine", summary: "Find relevant architecture blocks",
+            contract: "Returns stable refs from one canonical graph.",
+          },
+        },
+        { action: "create_plan", id: "foundation", fields: { title: "Foundation", status: "active", phase: "foundation" } },
+        {
+          action: "create_checkpoint", id: "search-engine-check", fields: {
+            targetType: "block", targetId: "search-engine", title: "Search engine is usable",
+            criteria: "Search returns only canonical entities with stable refs.",
+            status: "pending", checkpointKind: "atomic", requiredEvidenceLevel: "integration",
+          },
+        },
+        {
+          action: "set_plan_changes", id: "foundation", expectedRevision: 1, fields: {
+            changes: [{
+              id: "foundation-search", entityType: "block", entityId: "search-engine",
+              title: "Implement the search engine", status: "active",
+              currentBehavior: "Not implemented", proposedBehavior: "Search works from the canonical graph",
+            }],
+          },
+        },
+        {
+          action: "set_checkpoint_bindings", id: "search-engine-check", expectedRevision: 1, fields: {
+            bindings: [{ subjectType: "plan_change", subjectId: "foundation-search", role: "acceptance", required: true }],
+          },
+        },
+      ],
+    });
+    assert.equal(result.receipts.some((receipt) => receipt.entityType === "checkpoint" && receipt.id === "search-engine-check"), true);
+    const snapshot = context.service.snapshot();
+    assert.equal(snapshot.blocks.some((block) => block.id === "search-engine"), true);
+    const checkpoint = snapshot.checkpoints.find((item) => item.id === "search-engine-check");
+    assert.equal(checkpoint.status, "pending");
+    assert.equal(snapshot.checkpointBindings.some((binding) =>
+      binding.checkpointId === "search-engine-check" && binding.subjectId === "foundation-search"),
+    true);
+    const plan = context.service.planContext({ id: "foundation" });
+    assert.equal(plan.directChanges.length, 1);
+    assert.equal(plan.directChanges[0].entityId, "search-engine");
+    assert.equal(plan.directChanges[0].checkpoints.length, 1);
+    assert.equal(context.service.validate().errors.length, 0);
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("architecture coverage requires exact Block work instead of broad target Chain references", () => {
   const context = fixture();
   try {
@@ -1017,5 +1072,67 @@ test("change_set_revert reverses repeated updates in one ChangeSet in history or
     assert.equal(context.service.snapshot().blocks.find((item) => item.id === "repeated-probe").summary, "Initial");
   } finally {
     context.cleanup();
+  }
+});
+
+test("tracked canonical graph follows Git checkout and reopens at the matching revision", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-git-roundtrip-"));
+  const git = (args, cwd = root) => execFileSync("git", ["-c", "user.name=mdflow-test", "-c", "user.email=mdflow-test@example.com", ...args], { cwd, encoding: "utf8" });
+  try {
+    fs.mkdirSync(path.join(root, ".mdflow"));
+    fs.writeFileSync(
+      path.join(root, ".mdflow", "project.json"),
+      JSON.stringify({ id: "git-roundtrip", name: "Git Round Trip", schemaVersion: 1 }),
+    );
+    const first = createService({ projectRoot: root });
+    first.mutate({
+      reason: "Create the first tracked architecture state",
+      operations: [
+        { action: "create_block", id: "router", fields: { kind: "service", title: "Router", summary: "Version one router" } },
+        { action: "create_chain", id: "path", fields: { title: "Round-trip path" } },
+        { action: "create_plan", id: "round-trip", fields: { title: "Round trip", status: "active" } },
+      ],
+    });
+    first.mutate({
+      reason: "Define the reusable path and Plan target",
+      operations: [
+        { action: "set_chain_path", id: "path", expectedRevision: 1, fields: { nodeIds: ["router"], linkIds: [] } },
+        { action: "set_plan_chains", id: "round-trip", expectedRevision: 1, fields: { chainIds: ["path"] } },
+      ],
+    });
+    first.close();
+
+    git(["init", "-b", "main"]);
+    git(["add", ".mdflow"]);
+    const firstCommit = git(["commit", "-m", "First graph state"]).match(/\[main [0-9a-f]+\]/)?.[0] ?? "first";
+    const gitStatus = execFileSync("git", ["status", "--short"], { cwd: root, encoding: "utf8" });
+    assert.equal(gitStatus, "");
+
+    const second = createService({ projectRoot: root });
+    second.mutate({
+      reason: "Advance the tracked graph on the next commit",
+      operations: [{
+        action: "update_block", id: "router", expectedRevision: 1,
+        fields: { summary: "Version two router" },
+      }],
+    });
+    second.close();
+    git(["add", ".mdflow/mdflow.sqlite"]);
+    const secondCommit = git(["commit", "-m", "Second graph state"]).match(/\[main [0-9a-f]+\]/)?.[0] ?? "second";
+    assert.notEqual(secondCommit, firstCommit);
+
+    git(["checkout", "--quiet", "HEAD~1"]);
+    const afterFirst = createService({ projectRoot: root });
+    const firstSnapshot = afterFirst.snapshot();
+    assert.equal(firstSnapshot.blocks.find((block) => block.id === "router").summary, "Version one router");
+    afterFirst.close();
+
+    git(["checkout", "--quiet", "main"]);
+    const afterSecond = createService({ projectRoot: root });
+    const secondSnapshot = afterSecond.snapshot();
+    assert.equal(secondSnapshot.blocks.find((block) => block.id === "router").summary, "Version two router");
+    afterSecond.close();
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });

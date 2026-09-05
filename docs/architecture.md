@@ -15,7 +15,9 @@
   - 五个早期 checkpoint 的证据更新为当前 18/18 Swift 回归；
   - 主迁移 Plan 记录基线来源，并挂接 `docs/architecture.md` source ref。
 - 2026-09-05：App 的 Verification 列表增加“目标必须仍存在”过滤，已归档 Plan 的 checkpoint 不再出现在侧栏。
-- 未完成：真实 Git checkout/watcher、Todo/大型项目等价性、Canvas 人工验收、大图性能、多项目闭环与公开发布，见第 14 节。
+- 2026-09-05：新增 Git checkout 烟雾测试（tracked graph 随 commit/checkout 切换并在对应 revision 重开）；`graph_mutate` 新增 `create_checkpoint`，可在同一 ChangeSet 中创建 Block、原子 checkpoint 与 Direct PlanChange 绑定。
+- 2026-09-05：最终回归 MCP 32/32、Swift 18/18；插件 `0.1.0+codex.20260905100606` 已安装启用且与仓库哈希一致。
+- 未完成：真实 Git watcher 重开、Todo/大型项目等价性、Canvas 人工验收、大图性能、多项目闭环、Foundation Plan 批量初始化和 `.mdflow` 人类可读 diff，见第 14 节。
 
 mdflow 的代码实现一直在推进，但以下地方没有同步，导致当前看起来“混乱”：
 
@@ -219,11 +221,11 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 ## 6. 当前验证基线
 
-- MCP 回归：30/30 通过。
+- MCP 回归：32/32 通过。
 - Swift/Desktop 回归：18/18 通过。
 - Skill validation：通过。
 - Plugin validation：通过。
-- 当前插件版本：`0.1.0+codex.20260905090459`，已安装启用；bundle/Skill 与安装缓存哈希一致。
+- 当前插件版本：`0.1.0+codex.20260905100606`，已安装启用；bundle/Skill 与安装缓存哈希一致。
 - 自动回归不等于 real_target/human_review；发布、大图、真实 UI 最终验收仍开放。
 
 ## 7. Block 清单（25）
@@ -261,7 +263,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ### 7.1 需要在重建时修正的 Block 内容
 
 1. `project-registration`：正文必须改为“主数据库随 Git 版本化，WAL/SHM/journal 忽略”，删除“mdflow.sqlite 保持忽略”的旧句。
-2. `verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的正文/证据必须统一为当前 30/30 MCP、18/18 Swift、插件 `0.1.0+codex.20260905090459`；旧“25/25”“15 tests”“22 tests”等数字不得继续作为当前证据。
+2. `verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的正文/证据必须统一为当前 32/32 MCP、18/18 Swift、插件 `0.1.0+codex.20260905100606`；旧“25/25”“15 tests”“22 tests”等数字不得继续作为当前证据。
 3. 所有 Block 的 `healthState` 应由当前 checkpoint 状态推导呈现，不再保留与 evidence 冲突的手工“healthy”表达。
 4. 不创建“全部/All/QA/Plan”伪 Block kind。
 
@@ -478,10 +480,10 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 ### 14.1 开发功能缺口（尚未实现）
 
-1. 新建 Block 时缺少便捷的自动 checkpoint 初始化 mutation；当前要靠 Agent 每一步手动 `checkpoint_record`。
-2. 从零项目缺少“自动生成 Foundation Plan + 批量 Direct PlanChange + 绑定 Block checkpoint”的初始化工具。
+1. ~~新建 Block 时缺少便捷的自动 checkpoint 初始化 mutation~~：已实现 `graph_mutate` 操作 `create_checkpoint`，可在同一 ChangeSet 与 `create_block`/`set_plan_changes`/`set_checkpoint_bindings` 组合完成初始化。
+2. 从零项目缺少“自动生成 Foundation Plan + 批量 Direct PlanChange + 绑定 Block checkpoint”的批量初始化工具；目前每个 Block 仍要显式列出操作。
 3. `.mdflow` 的人类可读 Git diff 尚未实现；二进制 SQLite 不适合逐行 review。
-4. App 的 Verification inbox 需要过滤归档 target（本文件第 12 节缺陷 2）。
+4. ~~App 的 Verification inbox 需要过滤归档 target~~：已修复，见第 1 节执行记录。
 5. 新建/校准 Block 与 Link 时，healthState 与 checkpoint 应尽量派生，避免手工不一致。
 
 ### 14.2 真实验收门禁（不能由自动测试替代）

@@ -79,6 +79,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
           { action: "create_chain", id: "live-path", fields: { title: "Live path", purpose: "architecture", intent: "Carry changes to the Canvas" } },
           { action: "create_plan", id: "verify-live-path", fields: { title: "Verify live path", goal: "Prove the packaged MCP workflow", status: "active", nextAction: "Record the end-to-end checkpoint" } },
           { action: "create_link", id: "source-canvas", fields: { sourceType: "block", sourceId: "source", targetType: "block", targetId: "canvas", kind: "writes", contract: "Only committed revisions are rendered" } },
+          { action: "create_checkpoint", id: "source-proof", fields: { targetType: "block", targetId: "source", title: "Source is usable", status: "pending", checkpointKind: "atomic", requiredEvidenceLevel: "static" } },
         ],
       },
     });
@@ -92,6 +93,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
         operations: [
           { action: "set_chain_path", id: "live-path", expectedRevision: 1, fields: { nodeIds: ["source", "canvas"], linkIds: ["source-canvas"] } },
           { action: "set_plan_chains", id: "verify-live-path", expectedRevision: 1, fields: { chainIds: ["live-path"] } },
+          { action: "set_checkpoint_bindings", id: "source-proof", expectedRevision: 1, fields: { bindings: [{ subjectType: "plan", subjectId: "verify-live-path", role: "acceptance", required: true }] } },
         ],
       },
     });

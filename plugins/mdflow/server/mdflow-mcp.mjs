@@ -24414,6 +24414,7 @@ function affectedRefsForOperation(operation) {
   for (const binding of fields.bindings ?? []) add(binding.subjectType, binding.subjectId);
   for (const child of fields.children ?? []) add("checkpoint", child.checkpointId);
   for (const checkpoint of fields.checkpoints ?? []) add("checkpoint", checkpoint.checkpointId);
+  if (fields.targetType && fields.targetId) add(fields.targetType, fields.targetId);
   return [...refs];
 }
 function taskTerms(task) {
@@ -25662,6 +25663,8 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     switch (operation.action) {
       case "create_block":
         return this.createBlock(operation, context);
+      case "create_checkpoint":
+        return this.createCheckpoint(operation, context);
       case "update_block":
         return this.updateEntity("block", operation, context);
       case "add_source_ref":
@@ -26408,6 +26411,69 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     this.applyLocalizations("link", id, fields.localizations, timestamp);
     return { entityType: "link", id, action: "created", revision: 1, summary: fields.label || fields.kind };
   }
+  createCheckpoint(operation, { timestamp }) {
+    const fields = operation.fields ?? {};
+    if (!["block", "chain", "link", "plan"].includes(fields.targetType)) throw new Error(`Invalid targetType: ${fields.targetType}`);
+    if (!fields.title?.trim()) throw new Error("create_checkpoint requires fields.title");
+    const status = fields.status ?? "pending";
+    const checkpointKind = fields.checkpointKind ?? "atomic";
+    const requiredEvidenceLevel = fields.requiredEvidenceLevel ?? "static";
+    const evidenceLevel = fields.evidenceLevel ?? (status === "passed" ? "static" : "none");
+    assertAllowed(status, CHECKPOINT_STATUSES, "checkpoint status");
+    assertAllowed(checkpointKind, CHECKPOINT_KINDS, "checkpoint kind");
+    assertAllowed(evidenceLevel, EVIDENCE_LEVELS, "evidence level");
+    assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
+    if (!["complete", "partial"].includes(fields.coverage ?? "complete")) throw new Error(`Invalid checkpoint coverage: ${fields.coverage}`);
+    if (status === "passed" && (fields.coverage ?? "complete") !== "complete") {
+      throw new Error("Passed checkpoint requires complete coverage");
+    }
+    if (checkpointKind === "aggregate" && status === "passed") {
+      throw new Error("Aggregate checkpoint status is derived from child checkpoints and cannot be recorded as passed");
+    }
+    if (status === "passed" && (EVIDENCE_LEVEL_RANK.get(evidenceLevel) ?? 0) < (EVIDENCE_LEVEL_RANK.get(requiredEvidenceLevel) ?? 0)) {
+      throw new Error(`Passed checkpoint requires ${requiredEvidenceLevel} evidence, received ${evidenceLevel}`);
+    }
+    if (!entityExists(this.database, this.paths.descriptor.id, fields.targetType, fields.targetId)) {
+      throw new Error(`${fields.targetType}:${fields.targetId} not found`);
+    }
+    const id = operation.id ?? identifier("checkpoint");
+    const existing = this.database.prepare("SELECT 1 FROM checkpoints WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+    if (existing) throw new Error(`checkpoint:${id} already exists; use checkpoint_record to update it`);
+    const coverage = fields.coverage ?? "complete";
+    const criteria = fields.criteria ?? "";
+    const invalidatedAt = fields.invalidatedAt ?? null;
+    this.database.prepare(
+      `INSERT INTO checkpoints(
+          id, project_id, target_type, target_id, title, criteria, status, checkpoint_kind,
+          aggregation_policy_json, eligible_after_children, evidence_level,
+          required_evidence_level, coverage, evidence_json, invalidated_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      this.paths.descriptor.id,
+      fields.targetType,
+      fields.targetId,
+      fields.title.trim(),
+      criteria,
+      status,
+      checkpointKind,
+      JSON.stringify(fields.aggregationPolicy ?? {}),
+      Number(Boolean(fields.eligibleAfterChildren)),
+      evidenceLevel,
+      requiredEvidenceLevel,
+      coverage,
+      JSON.stringify(fields.evidence ?? []),
+      invalidatedAt,
+      timestamp,
+      timestamp
+    );
+    const healthState = status === "passed" ? "healthy" : status === "failed" ? "failing" : ["blocked", "partial_pass", "retest_required"].includes(status) ? "warning" : null;
+    if (healthState && fields.targetType !== "plan") {
+      const targetTable = fields.targetType === "block" ? "blocks" : fields.targetType === "chain" ? "chains" : "links";
+      this.database.prepare(`UPDATE ${targetTable} SET health_state = ?, updated_at = ? WHERE id = ?`).run(healthState, timestamp, fields.targetId);
+    }
+    return { entityType: "checkpoint", id, action: "created", revision: 1, summary: fields.title.trim() };
+  }
   updateEntity(type, operation, { timestamp }) {
     const config2 = {
       block: { table: "blocks", allowed: EDITABLE_BLOCK_FIELDS, normalizer: normalizeBlock },
@@ -27009,7 +27075,7 @@ server.registerTool(
 server.registerTool(
   "graph_mutate",
   {
-    description: "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, Background scopes, and source refs. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
+    description: "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, and source refs. Use create_checkpoint in the same ChangeSet as create_block when verification intent is already known. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
     inputSchema: {
       ...projectRootInput,
       actor: string2().optional(),
@@ -27022,6 +27088,7 @@ server.registerTool(
         object2({
           action: _enum([
             "create_block",
+            "create_checkpoint",
             "update_block",
             "add_source_ref",
             "remove_source_ref",

@@ -30,7 +30,7 @@ The context must cover the facts needed for the task: positive requirements, pro
 
 ## Build and maintain the graph in semantic order
 
-1. Create stable global Blocks for durable responsibilities. A Block is not a file, Todo, Plan, or arbitrary note. Every non-deprecated Block must have at least one checkpoint that verifies that Block itself at an appropriate evidence level.
+1. Create stable global Blocks for durable responsibilities. A Block is not a file, Todo, Plan, or arbitrary note. Every non-deprecated Block must have at least one checkpoint that verifies that Block itself at an appropriate evidence level. When the verification intent is already known, create the Block and its atomic checkpoint in the same `graph_mutate` ChangeSet with `create_block` plus `create_checkpoint`; do not leave the graph in a state where a Block exists without its own check.
 2. Create typed global Links for real relationships. Link style and meaning come from `kind`, never Chain membership.
 3. Define ordered Chains as reusable paths over existing Block and Link IDs. A Block may be in multiple Chains; Chains never own or duplicate Blocks.
 4. Create ordered Plans that cover all intended work. A Plan may directly change a Block or Link even when it belongs to no Chain; do not require a Chain merely to make work visible. Add `plan_chain_scopes` only for exact reusable paths that the Plan changes or integrates.
@@ -45,9 +45,9 @@ Plan phase/order should make a new project readable from foundation through deli
 When requirements describe a system that has not been implemented yet:
 
 1. Build the complete Block/Link architecture first. Mark unimplemented Blocks `proposed` or `planned`; do not omit Blocks simply because no Chain exists yet.
-2. Give every Block an atomic checkpoint with explicit criteria for that Block's own responsibility. A reusable Test Block verifies the test capability itself; whole-system acceptance is a Plan integration checkpoint, not a Test Block.
+2. Give every Block an atomic checkpoint with explicit criteria for that Block's own responsibility. Create it with `graph_mutate` operation `create_checkpoint` in the same ChangeSet that creates the Block, or with `checkpoint_record` immediately afterward. A reusable Test Block verifies the test capability itself; whole-system acceptance is a Plan integration checkpoint, not a Test Block.
 3. Define Chains only for meaningful reusable paths through the existing network. A Block may remain outside every Chain and must still be planned and verified.
-4. Create a foundation Plan with direct Block PlanChanges for all Blocks that need implementation, including Blocks outside Chains. Bind each required Block checkpoint to its PlanChange.
+4. Create a foundation Plan with direct Block PlanChanges for all Blocks that need implementation, including Blocks outside Chains. A single `graph_mutate` may create the Plan, set its `plan_changes`, create the required Block checkpoints, and bind each checkpoint to its PlanChange; use the returned receipts as the compact handoff instead of repeating full objects.
 5. Add Chain integration checkpoints after the necessary Block checkpoints exist. Make Chain gates depend on their required Block/Link checks, then make the final Plan gate depend on the required direct and Chain evidence.
 6. Inspect architecture coverage before implementation: total Blocks, Blocks with checkpoints, verified Blocks, Blocks covered by Plans, Blocks outside Chains, and unplanned Blocks. Missing checkpoint or Plan coverage is an incomplete graph, not an irrelevant Block.
 
@@ -56,6 +56,7 @@ Do not claim initialization is complete while a non-deprecated Block lacks its o
 ## Mutation fidelity
 
 - Keep every mutation small, cohesive, and truthful. Use current `expectedRevision`; on conflict, reopen and reconcile.
+- Prefer `graph_mutate` actions that compose initialization in one ChangeSet: `create_block` + `create_checkpoint`, then `set_plan_changes` and `set_checkpoint_bindings` when a Plan directly owns the work.
 - When implementing a Plan, pass its `planId` to `graph_mutate` and `checkpoint_record`. Once work is narrowed to a ChainScope, also pass `chainScopeId`; do not rely on prose summaries to reconstruct task ownership later. The service validates the relationship and records it in compact History metadata.
 - Use `change_set_revert` only for a fully reversible update-only ChangeSet. It creates a new reverse ChangeSet and preserves the original audit trail. If the target is stale, contains creates/deletes/relation replacement, or cannot be reversed completely, accept the rejection and reconcile explicitly; never simulate success with a partial revert.
 - Store each project fact once, in the language used by the project or current author. Do not generate or maintain translated copies of Block, Link, Chain, Plan, Checkpoint, evidence, or history fields unless the user explicitly asks to translate project content.
