@@ -117,6 +117,16 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     const checkpointIndexStructured = await client.callTool({ name: "checkpoint_list", arguments: { unassignedOnly: true, includeStructured: true } });
     assert.equal(checkpointIndexStructured.structuredContent.count, 0);
 
+    const foundation = await client.callTool({
+      name: "foundation_plan_create",
+      arguments: { id: "foundation-receipt", title: "Foundation receipt" },
+    });
+    assert.equal(foundation.isError, undefined);
+    assert.match(foundation.content[0].text, /Generated plan:foundation-receipt/);
+    assert.equal(foundation.structuredContent.plan.id, "foundation-receipt");
+    assert.equal(foundation.structuredContent.plan.body, undefined);
+    assert.equal(Array.isArray(foundation.structuredContent.generated.blockIds), true);
+
     const contextPack = await client.callTool({
       name: "context_for_task",
       arguments: { task: "verify the live canvas path", focusRefs: ["plan:verify-live-path"] },

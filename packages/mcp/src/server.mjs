@@ -82,11 +82,19 @@ server.registerTool(
       actor: z.string().optional(),
       reason: z.string().min(1).optional(),
       gitHead: z.string().nullable().optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.createFoundationPlan(payload));
-    return result(data, data.markdown);
+    const receipt = {
+      changeSetId: data.changeSetId,
+      graphRevision: data.graphRevision,
+      plan: data.plan ? { id: data.plan.id, currentRevision: data.plan.currentRevision, status: data.plan.derivedStatus ?? data.plan.status } : null,
+      generated: data.generated,
+    };
+    const text = `Generated plan:${data.plan?.id ?? input.id} with ${data.generated?.blockIds?.length ?? 0} direct Block(s), ${data.generated?.chainIds?.length ?? 0} Chain gate(s), and acceptance checkpoint ${data.generated?.planAcceptanceCheckpointId ?? "—"}.`;
+    return response(input.includeStructured ? data : receipt, input.includeStructured ? data.markdown : text, input.includeStructured ? data : receipt);
   },
 );
 

@@ -27511,12 +27511,20 @@ server.registerTool(
       requiredEvidenceLevel: _enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).default("integration"),
       actor: string2().optional(),
       reason: string2().min(1).optional(),
-      gitHead: string2().nullable().optional()
+      gitHead: string2().nullable().optional(),
+      includeStructured: boolean2().default(false)
     }
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.createFoundationPlan(payload));
-    return result(data, data.markdown);
+    const receipt = {
+      changeSetId: data.changeSetId,
+      graphRevision: data.graphRevision,
+      plan: data.plan ? { id: data.plan.id, currentRevision: data.plan.currentRevision, status: data.plan.derivedStatus ?? data.plan.status } : null,
+      generated: data.generated
+    };
+    const text = `Generated plan:${data.plan?.id ?? input.id} with ${data.generated?.blockIds?.length ?? 0} direct Block(s), ${data.generated?.chainIds?.length ?? 0} Chain gate(s), and acceptance checkpoint ${data.generated?.planAcceptanceCheckpointId ?? "\u2014"}.`;
+    return response(input.includeStructured ? data : receipt, input.includeStructured ? data.markdown : text, input.includeStructured ? data : receipt);
   }
 );
 server.registerTool(
