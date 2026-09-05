@@ -1280,6 +1280,7 @@ export class MdflowService {
 
     const inverse = [];
     const expectedRevisions = new Map();
+    const simulatedStates = new Map();
     const stateForHistory = (item) => {
       if (item.action === "plan-change-updated") {
         const planIdForChange = item.plan_id ?? [...parseJson(item.affected_refs_json, [])]
@@ -1310,7 +1311,8 @@ export class MdflowService {
         if (!fields.length || fields.some((field) => !allowed.has(field))) {
           throw new Error(`change_set:${changeSetId} contains a non-reversible ${item.entity_type} update`);
         }
-        const current = this.historyState(item.entity_type, item.entity_id);
+        const stateKey = `${item.entity_type}:${item.entity_id}`;
+        const current = simulatedStates.get(stateKey) ?? this.historyState(item.entity_type, item.entity_id);
         for (const field of fields) {
           if (JSON.stringify(current?.[field] ?? null) !== JSON.stringify(after?.[field] ?? null)) {
             throw new Error(`change_set:${changeSetId} is stale for ${item.entity_type}:${item.entity_id}; refusing to overwrite newer work`);
@@ -1323,6 +1325,7 @@ export class MdflowService {
         if (!Number.isInteger(revision)) throw new Error(`${item.entity_type}:${item.entity_id} not found`);
         inverse.push({ action: `update_${item.entity_type}`, id: item.entity_id, expectedRevision: revision, fields: Object.fromEntries(fields.map((field) => [field, before[field]])) });
         expectedRevisions.set(key, revision + 1);
+        simulatedStates.set(stateKey, before);
         continue;
       }
       if (item.action === "plan-change-updated" || item.action === "chain-scope-updated") {
@@ -1334,7 +1337,10 @@ export class MdflowService {
         if (!fields.length || fields.some((field) => !allowed.has(field))) {
           throw new Error(`change_set:${changeSetId} contains a non-reversible ${item.action}`);
         }
-        const current = this.historyStateForOperation(target.operation, "plan", target.planId);
+        const stateKey = item.action === "plan-change-updated"
+          ? `plan_change:${target.operation.fields.changeId}`
+          : `plan_chain_scope:${target.operation.fields.scopeId}`;
+        const current = simulatedStates.get(stateKey) ?? this.historyStateForOperation(target.operation, "plan", target.planId);
         for (const field of fields) {
           if (JSON.stringify(current?.[field] ?? null) !== JSON.stringify(after?.[field] ?? null)) {
             throw new Error(`change_set:${changeSetId} is stale for ${item.action}; refusing to overwrite newer work`);
@@ -1353,6 +1359,7 @@ export class MdflowService {
             : { scopeId: target.operation.fields.scopeId, patch: Object.fromEntries(fields.map((field) => [field, before[field]])) },
         });
         expectedRevisions.set(key, revision + 1);
+        simulatedStates.set(stateKey, before);
         continue;
       }
       throw new Error(`change_set:${changeSetId} contains unsupported action ${item.action}; refusing partial revert`);

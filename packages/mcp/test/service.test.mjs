@@ -836,3 +836,21 @@ test("change_set_revert creates a reverse audit trail and refuses stale work", (
     context.cleanup();
   }
 });
+
+test("change_set_revert reverses repeated updates in one ChangeSet in history order", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({ reason: "Create repeated-update probe", operations: [
+      { action: "create_block", id: "repeated-probe", fields: { kind: "service", title: "Repeated probe", summary: "Initial" } },
+    ] });
+    const changed = context.service.mutate({ reason: "Apply two dependent updates atomically", operations: [
+      { action: "update_block", id: "repeated-probe", expectedRevision: 1, fields: { summary: "First" } },
+      { action: "update_block", id: "repeated-probe", expectedRevision: 2, fields: { summary: "Second" } },
+    ] });
+    const reversed = context.service.revertChangeSet({ changeSetId: changed.changeSetId, reason: "Undo repeated updates" });
+    assert.equal(reversed.receipts.length, 2);
+    assert.equal(context.service.snapshot().blocks.find((item) => item.id === "repeated-probe").summary, "Initial");
+  } finally {
+    context.cleanup();
+  }
+});

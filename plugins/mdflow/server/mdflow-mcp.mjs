@@ -25084,6 +25084,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     if (history.length === 0) throw new Error(`change_set:${changeSetId} has no reversible history`);
     const inverse = [];
     const expectedRevisions = /* @__PURE__ */ new Map();
+    const simulatedStates = /* @__PURE__ */ new Map();
     const stateForHistory = (item) => {
       if (item.action === "plan-change-updated") {
         const planIdForChange = item.plan_id ?? [...parseJson(item.affected_refs_json, [])].find((ref) => ref.startsWith("plan:"))?.slice("plan:".length);
@@ -25108,7 +25109,8 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         if (!fields.length || fields.some((field) => !allowed.has(field))) {
           throw new Error(`change_set:${changeSetId} contains a non-reversible ${item.entity_type} update`);
         }
-        const current = this.historyState(item.entity_type, item.entity_id);
+        const stateKey = `${item.entity_type}:${item.entity_id}`;
+        const current = simulatedStates.get(stateKey) ?? this.historyState(item.entity_type, item.entity_id);
         for (const field of fields) {
           if (JSON.stringify(current?.[field] ?? null) !== JSON.stringify(after?.[field] ?? null)) {
             throw new Error(`change_set:${changeSetId} is stale for ${item.entity_type}:${item.entity_id}; refusing to overwrite newer work`);
@@ -25121,6 +25123,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         if (!Number.isInteger(revision)) throw new Error(`${item.entity_type}:${item.entity_id} not found`);
         inverse.push({ action: `update_${item.entity_type}`, id: item.entity_id, expectedRevision: revision, fields: Object.fromEntries(fields.map((field) => [field, before[field]])) });
         expectedRevisions.set(key, revision + 1);
+        simulatedStates.set(stateKey, before);
         continue;
       }
       if (item.action === "plan-change-updated" || item.action === "chain-scope-updated") {
@@ -25132,7 +25135,8 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         if (!fields.length || fields.some((field) => !allowed.has(field))) {
           throw new Error(`change_set:${changeSetId} contains a non-reversible ${item.action}`);
         }
-        const current = this.historyStateForOperation(target.operation, "plan", target.planId);
+        const stateKey = item.action === "plan-change-updated" ? `plan_change:${target.operation.fields.changeId}` : `plan_chain_scope:${target.operation.fields.scopeId}`;
+        const current = simulatedStates.get(stateKey) ?? this.historyStateForOperation(target.operation, "plan", target.planId);
         for (const field of fields) {
           if (JSON.stringify(current?.[field] ?? null) !== JSON.stringify(after?.[field] ?? null)) {
             throw new Error(`change_set:${changeSetId} is stale for ${item.action}; refusing to overwrite newer work`);
@@ -25148,6 +25152,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
           fields: item.action === "plan-change-updated" ? { changeId: target.operation.fields.changeId, patch: Object.fromEntries(fields.map((field) => [field, before[field]])) } : { scopeId: target.operation.fields.scopeId, patch: Object.fromEntries(fields.map((field) => [field, before[field]])) }
         });
         expectedRevisions.set(key, revision + 1);
+        simulatedStates.set(stateKey, before);
         continue;
       }
       throw new Error(`change_set:${changeSetId} contains unsupported action ${item.action}; refusing partial revert`);
