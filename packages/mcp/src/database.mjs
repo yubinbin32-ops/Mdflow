@@ -540,13 +540,18 @@ function migratePlanWorkflow(database) {
 }
 
 function backfillChainPaths(database) {
-  database.exec(`
-    INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
-    SELECT chain_id, member_id, position, 'path'
-    FROM chain_members WHERE member_type = 'block';
+  const legacyMemberCount = database.prepare("SELECT COUNT(*) AS count FROM chain_members").get().count;
+  if (legacyMemberCount > 0) {
+    database.exec(`
+      INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
+      SELECT chain_id, member_id, position, 'path'
+      FROM chain_members WHERE member_type = 'block';
+      DELETE FROM chain_members;
+    `);
+  }
 
-    INSERT OR IGNORE INTO chain_edges(chain_id, link_id, position)
-    SELECT source.chain_id, links.id, source.position
+  const missingEdgeCount = database.prepare(`
+    SELECT COUNT(*) AS count
     FROM chain_nodes source
     JOIN chain_nodes target
       ON target.chain_id = source.chain_id AND target.position = source.position + 1
@@ -554,10 +559,22 @@ function backfillChainPaths(database) {
       ON links.source_type = 'block' AND links.source_id = source.block_id
      AND links.target_type = 'block' AND links.target_id = target.block_id
     WHERE links.archived = 0
-      AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id);
-
-    DELETE FROM chain_members;
-  `);
+      AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id)
+  `).get().count;
+  if (missingEdgeCount > 0) {
+    database.exec(`
+      INSERT OR IGNORE INTO chain_edges(chain_id, link_id, position)
+      SELECT source.chain_id, links.id, source.position
+      FROM chain_nodes source
+      JOIN chain_nodes target
+        ON target.chain_id = source.chain_id AND target.position = source.position + 1
+      JOIN links
+        ON links.source_type = 'block' AND links.source_id = source.block_id
+       AND links.target_type = 'block' AND links.target_id = target.block_id
+      WHERE links.archived = 0
+        AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id);
+    `);
+  }
 }
 
 export function openDatabase(databasePath) {

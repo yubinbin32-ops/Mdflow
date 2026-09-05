@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createService } from "../src/service.mjs";
+
+function fileDigest(filePath) {
+  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-project-"));
@@ -23,6 +28,29 @@ function fixture() {
     },
   };
 }
+
+test("opening an already migrated versioned graph is byte-stable", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-versioned-open-"));
+  fs.mkdirSync(path.join(root, ".mdflow"));
+  fs.writeFileSync(
+    path.join(root, ".mdflow", "project.json"),
+    JSON.stringify({ id: "versioned-open", name: "Versioned Open", schemaVersion: 1 }),
+  );
+  const databasePath = path.join(root, ".mdflow", "mdflow.sqlite");
+  try {
+    const first = createService({ projectRoot: root });
+    first.close();
+    const before = fileDigest(databasePath);
+
+    const second = createService({ projectRoot: root });
+    second.projectMap();
+    second.close();
+
+    assert.equal(fileDigest(databasePath), before);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("Plans stay independent while Chains reference paths through one global network", () => {
   const context = fixture();

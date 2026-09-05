@@ -509,17 +509,25 @@ export class MdflowService {
 
   ensureProject() {
     const timestamp = now();
+    // The checkout path is runtime state, not canonical project truth. Store a
+    // stable repository-relative marker so clones and Git worktrees do not
+    // dirty the versioned graph merely by opening it. Snapshot readers expose
+    // the resolved absolute root from `this.paths.projectRoot` instead.
+    const storedRepoRoot = ".";
     this.database
       .prepare(
         `INSERT INTO projects(id, name, repo_root, schema_version, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET name = excluded.name, repo_root = excluded.repo_root,
-           schema_version = excluded.schema_version, updated_at = excluded.updated_at`,
+           schema_version = excluded.schema_version, updated_at = excluded.updated_at
+         WHERE projects.name IS NOT excluded.name
+            OR projects.repo_root IS NOT excluded.repo_root
+            OR projects.schema_version IS NOT excluded.schema_version`,
       )
       .run(
         this.paths.descriptor.id,
         this.paths.descriptor.name,
-        this.paths.projectRoot,
+        storedRepoRoot,
         this.paths.descriptor.schemaVersion ?? 1,
         timestamp,
         timestamp,

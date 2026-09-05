@@ -23744,13 +23744,17 @@ function migratePlanWorkflow(database) {
   `);
 }
 function backfillChainPaths(database) {
-  database.exec(`
-    INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
-    SELECT chain_id, member_id, position, 'path'
-    FROM chain_members WHERE member_type = 'block';
-
-    INSERT OR IGNORE INTO chain_edges(chain_id, link_id, position)
-    SELECT source.chain_id, links.id, source.position
+  const legacyMemberCount = database.prepare("SELECT COUNT(*) AS count FROM chain_members").get().count;
+  if (legacyMemberCount > 0) {
+    database.exec(`
+      INSERT OR IGNORE INTO chain_nodes(chain_id, block_id, position, role)
+      SELECT chain_id, member_id, position, 'path'
+      FROM chain_members WHERE member_type = 'block';
+      DELETE FROM chain_members;
+    `);
+  }
+  const missingEdgeCount = database.prepare(`
+    SELECT COUNT(*) AS count
     FROM chain_nodes source
     JOIN chain_nodes target
       ON target.chain_id = source.chain_id AND target.position = source.position + 1
@@ -23758,10 +23762,22 @@ function backfillChainPaths(database) {
       ON links.source_type = 'block' AND links.source_id = source.block_id
      AND links.target_type = 'block' AND links.target_id = target.block_id
     WHERE links.archived = 0
-      AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id);
-
-    DELETE FROM chain_members;
-  `);
+      AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id)
+  `).get().count;
+  if (missingEdgeCount > 0) {
+    database.exec(`
+      INSERT OR IGNORE INTO chain_edges(chain_id, link_id, position)
+      SELECT source.chain_id, links.id, source.position
+      FROM chain_nodes source
+      JOIN chain_nodes target
+        ON target.chain_id = source.chain_id AND target.position = source.position + 1
+      JOIN links
+        ON links.source_type = 'block' AND links.source_id = source.block_id
+       AND links.target_type = 'block' AND links.target_id = target.block_id
+      WHERE links.archived = 0
+        AND NOT EXISTS (SELECT 1 FROM chain_edges existing WHERE existing.chain_id = source.chain_id);
+    `);
+  }
 }
 function openDatabase(databasePath) {
   const database = new DatabaseSync(databasePath);
@@ -24363,15 +24379,19 @@ var MdflowService = class {
   }
   ensureProject() {
     const timestamp = now();
+    const storedRepoRoot = ".";
     this.database.prepare(
       `INSERT INTO projects(id, name, repo_root, schema_version, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET name = excluded.name, repo_root = excluded.repo_root,
-           schema_version = excluded.schema_version, updated_at = excluded.updated_at`
+           schema_version = excluded.schema_version, updated_at = excluded.updated_at
+         WHERE projects.name IS NOT excluded.name
+            OR projects.repo_root IS NOT excluded.repo_root
+            OR projects.schema_version IS NOT excluded.schema_version`
     ).run(
       this.paths.descriptor.id,
       this.paths.descriptor.name,
-      this.paths.projectRoot,
+      storedRepoRoot,
       this.paths.descriptor.schemaVersion ?? 1,
       timestamp,
       timestamp

@@ -68,7 +68,10 @@ final class ProjectDatabase {
         let project = ProjectInfo(
             id: projectRow.text("id"),
             name: projectRow.text("name"),
-            root: projectRow.text("repo_root"),
+            // repo_root is a stable repository-relative marker in the
+            // versioned database. The active checkout is runtime state owned
+            // by ProjectLocation and may differ across clones or worktrees.
+            root: location.root.path,
             graphRevision: projectRow.int("graph_revision")
         )
         let blocks = try rows(
