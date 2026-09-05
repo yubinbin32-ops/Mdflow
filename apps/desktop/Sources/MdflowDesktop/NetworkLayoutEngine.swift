@@ -271,6 +271,21 @@ enum NetworkLayoutEngine {
     ) -> [String: [CGPoint]] {
         let outgoing = Dictionary(grouping: edges, by: \.sourceID).mapValues { $0.sorted { $0.id < $1.id } }
         let incoming = Dictionary(grouping: edges, by: \.targetID).mapValues { $0.sorted { $0.id < $1.id } }
+        // A reciprocal Link pair is still two semantic relationships. Give all
+        // Links between the same unordered Block pair deterministic parallel
+        // lanes so opposite arrows can never collapse into a misleading
+        // single double-headed street.
+        let parallelLaneOffsets = Dictionary(
+            uniqueKeysWithValues: Dictionary(grouping: edges, by: { UndirectedPair($0.sourceID, $0.targetID) })
+                .values
+                .flatMap { group -> [(String, CGFloat)] in
+                    let ordered = group.sorted { $0.id < $1.id }
+                    let center = CGFloat(ordered.count - 1) / 2
+                    return ordered.enumerated().map { index, edge in
+                        (edge.id, (CGFloat(index) - center) * 14)
+                    }
+                }
+        )
         // Reserve enough space for both the Link road and the Chain enclosure
         // drawn around it, so neither can cover an unrelated Block.
         let obstacles = frames.values.map { $0.insetBy(dx: -20, dy: -20) }
@@ -298,18 +313,21 @@ enum NetworkLayoutEngine {
             let targetIndex = incoming[edge.targetID]?.firstIndex(of: edge) ?? 0
             let sourceOffset = portOffset(index: sourceIndex, count: outgoing[edge.sourceID]?.count ?? 1, span: horizontal ? cardSize.height : cardSize.width)
             let targetOffset = portOffset(index: targetIndex, count: incoming[edge.targetID]?.count ?? 1, span: horizontal ? cardSize.height : cardSize.width)
+            let parallelOffset = parallelLaneOffsets[edge.id, default: 0]
+            let separatedSourceOffset = sourceOffset + parallelOffset
+            let separatedTargetOffset = targetOffset + parallelOffset
             let excluded = [source.insetBy(dx: -20, dy: -20), target.insetBy(dx: -20, dy: -20)]
             let activeObstacles = obstacles.filter { obstacle in !excluded.contains(where: { nearlyEqual($0, obstacle) }) }
-            let lane = abs(sourceOffset - targetOffset) < 0.1 ? sourceOffset : 0
+            let lane = abs(separatedSourceOffset - separatedTargetOffset) < 0.1 ? separatedSourceOffset : 0
             let path: [CGPoint]
             if useBoundedRouting {
                 path = directFirstRoute(
                     source: source, target: target, obstacles: activeObstacles, used: used, lane: lane
                 ) ?? gridRoute(
                     source: source, target: target, horizontal: horizontal,
-                    sourceOffset: sourceOffset, targetOffset: targetOffset,
+                    sourceOffset: separatedSourceOffset, targetOffset: separatedTargetOffset,
                     obstacles: activeObstacles, used: used
-                ) ?? fallbackRoute(source: source, target: target, horizontal: horizontal, sourceOffset: sourceOffset, targetOffset: targetOffset)
+                ) ?? fallbackRoute(source: source, target: target, horizontal: horizontal, sourceOffset: separatedSourceOffset, targetOffset: separatedTargetOffset)
             } else {
                 // On an overview, do not feed every previously routed road into
                 // the scoring loop. This keeps route work linear in the number
@@ -322,11 +340,11 @@ enum NetworkLayoutEngine {
                     source: source, target: target, obstacles: activeObstacles, used: [], lane: lane
                 ) ?? gridRoute(
                     source: source, target: target, horizontal: horizontal,
-                    sourceOffset: sourceOffset, targetOffset: targetOffset,
+                    sourceOffset: separatedSourceOffset, targetOffset: separatedTargetOffset,
                     obstacles: activeObstacles, used: []
                 ) ?? fallbackRoute(
                     source: source, target: target, horizontal: horizontal,
-                    sourceOffset: sourceOffset, targetOffset: targetOffset, obstacles: activeObstacles
+                    sourceOffset: separatedSourceOffset, targetOffset: separatedTargetOffset, obstacles: activeObstacles
                 )
             }
             let clean = compact(path)
@@ -658,6 +676,21 @@ enum NetworkLayoutEngine {
         let first: String
         let second: String
         init(_ first: String, _ second: String) { self.first = first; self.second = second }
+    }
+
+    private struct UndirectedPair: Hashable {
+        let first: String
+        let second: String
+
+        init(_ left: String, _ right: String) {
+            if left <= right {
+                first = left
+                second = right
+            } else {
+                first = right
+                second = left
+            }
+        }
     }
 
     private struct Segment: Hashable {

@@ -200,6 +200,23 @@ import Testing
     #expect(lanes == lanes.sorted())
 }
 
+@Test func oppositeDirectionLinksReceiveDistinctParallelLanes() {
+    let size = CGSize(width: 196, height: 108)
+    let edges = [
+        LayoutEdge(id: "forward", sourceID: "a", targetID: "b"),
+        LayoutEdge(id: "reverse", sourceID: "b", targetID: "a"),
+    ]
+    let layout = NetworkLayoutEngine.make(
+        nodeIDs: ["a", "b"], edges: edges, focusPaths: [["a", "b"], ["b", "a"]],
+        cardSize: size, topInset: 190
+    )
+    let forward = Set(zip(layout.routes["forward"] ?? [], (layout.routes["forward"] ?? []).dropFirst()).map(Segment.init))
+    let reverse = Set(zip(layout.routes["reverse"] ?? [], (layout.routes["reverse"] ?? []).dropFirst()).map(Segment.init))
+    #expect(!forward.isEmpty)
+    #expect(!reverse.isEmpty)
+    #expect(forward.isDisjoint(with: reverse))
+}
+
 @Test func streetRoutesUseOnlyRightAngleSegments() {
     let points = NetworkLayoutEngine.orthogonalRoute(
         source: CGPoint(x: 96, y: 190),
