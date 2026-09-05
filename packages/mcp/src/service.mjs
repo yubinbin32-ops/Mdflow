@@ -1251,6 +1251,7 @@ export class MdflowService {
     const translations = localizationMap(snapshot);
     const scopes = snapshot.planChainScopes.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
     const changes = snapshot.planChanges.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
+    const orderedSteps = snapshot.planSteps.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
     const bindingsBySubject = new Map();
     for (const binding of snapshot.checkpointBindings) {
       const key = `${binding.subjectType}:${binding.subjectId}`;
@@ -1319,8 +1320,20 @@ export class MdflowService {
     lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct · ${coverage.chainPlanBlocks} through Chains)`);
     if (coverage.unplannedIds.length) lines.push(`- Outside this Plan: ${coverage.unplannedIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
     if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
-    if (hierarchy.length === 0 && directChanges.length === 0) {
-      lines.push("", "## Chain scopes", "待迁移：此 Plan 尚未声明 ChainScope 和逐实体变更，不能按 0/0 视为完成。");
+    if (orderedSteps.length) {
+      lines.push("", "## Ordered steps");
+      for (const step of orderedSteps) {
+        lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` — ${step.action}` : ""}`);
+      }
+    }
+    if (hierarchy.length === 0 && directChanges.length === 0 && orderedSteps.length === 0) {
+      lines.push(
+        "",
+        "## Change structure",
+        locale === "zh-Hans"
+          ? "此 Plan 没有有序步骤、ChainScope 或逐实体修改，不能用 0/0 表示完成。"
+          : "This Plan has no ordered steps, ChainScopes, or per-entity work; 0/0 is not completion.",
+      );
     }
     const directBlockChanges = directChanges.filter((change) => change.entityType === "block");
     if (directBlockChanges.length) {
@@ -1378,7 +1391,8 @@ export class MdflowService {
     let markdown = lines.join("\n");
     if (markdown.length > maxChars) markdown = `${markdown.slice(0, Math.max(0, maxChars - 64))}\n\n[truncated; open a referenced entity for detail]`;
     return {
-      plan, hierarchy, unattachedChanges, directChanges, coverage, checkpoints: planCheckpoints.map((item) => item.checkpoint),
+      plan, steps: orderedSteps, hierarchy, unattachedChanges, directChanges, coverage,
+      checkpoints: planCheckpoints.map((item) => item.checkpoint),
       dependencies: snapshot.planDependencies.filter((item) => item.planId === id),
       markdown,
     };

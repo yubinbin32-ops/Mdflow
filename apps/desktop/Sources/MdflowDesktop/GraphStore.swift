@@ -632,6 +632,24 @@ final class GraphStore: ObservableObject {
         snapshot.planSteps.filter { $0.planId == planID }.sorted { $0.position < $1.position }
     }
 
+    func planStepTargets(_ step: PlanStep) -> String {
+        let blockIDs = Dictionary(uniqueKeysWithValues: snapshot.blocks.map { ($0.id, $0) })
+        let chainIDs = Dictionary(uniqueKeysWithValues: snapshot.chains.map { ($0.id, $0) })
+        let linkIDs = Dictionary(uniqueKeysWithValues: snapshot.links.map { ($0.id, $0) })
+        let planIDs = Dictionary(uniqueKeysWithValues: snapshot.plans.map { ($0.id, $0) })
+        return structuredStringList(step.targetReferences).map { ref in
+            let parts = ref.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { return ref }
+            switch parts[0] {
+            case "block": return blockIDs[parts[1]]?.title ?? ref
+            case "chain": return chainIDs[parts[1]]?.title ?? ref
+            case "link": return linkIDs[parts[1]]?.label.nonEmpty ?? ref
+            case "plan": return planIDs[parts[1]]?.title ?? ref
+            default: return ref
+            }
+        }.joined(separator: " · ")
+    }
+
     func planChainScopes(for planID: String) -> [PlanChainScopeItem] {
         snapshot.planChainScopes.filter { $0.planId == planID }.sorted { $0.position < $1.position }
     }

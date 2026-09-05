@@ -582,6 +582,10 @@ test("ordered Plan workflow derives progress from dependencies, steps, and evide
     plan = context.service.snapshot().plans.find((item) => item.id === "ship");
     assert.equal(plan.derivedStatus, "complete");
     assert.deepEqual(plan.progress, { completedSteps: 2, totalSteps: 2, passedRequiredCheckpoints: 1, totalRequiredCheckpoints: 1 });
+    const packed = context.service.planContext({ id: "ship" });
+    assert.deepEqual(packed.steps.map((item) => item.id), ["ship-api", "ship-ui"]);
+    assert.match(packed.markdown, /## Ordered steps/);
+    assert.doesNotMatch(packed.markdown, /待迁移/);
     const opened = context.service.entityOpen({ type: "plan", id: "ship" });
     assert.deepEqual(opened.dependencies, [{ planId: "foundation", position: 0 }]);
     assert.deepEqual(opened.steps.map((item) => item.id), ["ship-api", "ship-ui"]);

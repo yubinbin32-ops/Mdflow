@@ -5,6 +5,7 @@ struct DetailView: View {
     let selection: GraphSelection
     @State private var expandedScopeIDs: Set<String> = []
     @State private var expandedChangeIDs: Set<String> = []
+    @State private var expandedStepIDs: Set<String> = []
     @State private var expandedCheckpointIDs: Set<String> = []
     @State private var expandedHistoryIDs: Set<Int> = []
 
@@ -132,6 +133,7 @@ struct DetailView: View {
     private func planDocument(_ plan: PlanItem) -> some View {
         let scopes = store.planChainScopes(for: plan.id)
         let directChanges = store.directPlanChanges(for: plan.id)
+        let steps = store.planSteps(for: plan.id)
         let coverage = store.architectureCoverage(for: plan.id)
         VStack(alignment: .leading, spacing: 5) {
             sectionLabel(store.activeLocale == "zh-Hans" ? "架构覆盖" : "ARCHITECTURE COVERAGE")
@@ -143,11 +145,70 @@ struct DetailView: View {
                     .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.failure)
             }
         }
-        if scopes.isEmpty && directChanges.isEmpty {
+        if !steps.isEmpty {
+            VStack(alignment: .leading, spacing: 5) {
+                sectionLabel(store.activeLocale == "zh-Hans" ? "有序步骤" : "ORDERED STEPS")
+                ForEach(steps) { step in
+                    Button {
+                        toggle(step.id, in: &expandedStepIDs)
+                    } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            disclosureChevron(expandedStepIDs.contains(step.id))
+                                .padding(.top, 3)
+                            Text(String(format: "%02d", step.position + 1))
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(MdflowTheme.planColor(step.status))
+                                .frame(width: 22, alignment: .leading)
+                                .padding(.top, 3)
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Text(step.title)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(MdflowTheme.ink)
+                                        .lineLimit(2)
+                                    Spacer(minLength: 8)
+                                    Text(step.status.uppercased())
+                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(MdflowTheme.planColor(step.status))
+                                }
+                                if !step.action.isEmpty {
+                                    Text(step.action)
+                                        .font(.system(size: 10, design: .rounded))
+                                        .foregroundStyle(MdflowTheme.muted)
+                                        .lineLimit(expandedStepIDs.contains(step.id) ? nil : 2)
+                                }
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if expandedStepIDs.contains(step.id) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !step.action.isEmpty {
+                                detailParagraph(label: store.activeLocale == "zh-Hans" ? "执行内容" : "ACTION", value: step.action)
+                            }
+                            let targets = store.planStepTargets(step)
+                            if !targets.isEmpty {
+                                detailParagraph(label: store.activeLocale == "zh-Hans" ? "目标" : "TARGETS", value: targets)
+                            }
+                            structuredList(store.activeLocale == "zh-Hans" ? "期望变化" : "PROPOSED DELTA", value: step.proposedDelta)
+                        }
+                        .padding(.top, 6)
+                        .padding(.leading, 46)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                    Divider().opacity(0.7)
+                        .padding(.leading, 46)
+                }
+            }
+            .animation(.easeOut(duration: 0.14), value: expandedStepIDs)
+        }
+        if steps.isEmpty && scopes.isEmpty && directChanges.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 sectionLabel(store.activeLocale == "zh-Hans" ? "变更结构" : "CHANGE STRUCTURE")
                 Label(
-                    store.activeLocale == "zh-Hans" ? "此计划还没有直接 Block 修改、ChainScope 或逐实体修改，不能用 0/0 表示完成。" : "This Plan has no direct Block changes, ChainScopes, or per-entity work; 0/0 is not completion.",
+                    store.activeLocale == "zh-Hans" ? "此计划没有有序步骤、ChainScope 或逐实体修改，不能用 0/0 表示完成。" : "This Plan has no ordered steps, ChainScopes, or per-entity work; 0/0 is not completion.",
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .font(.system(size: 11.5, weight: .medium, design: .rounded))

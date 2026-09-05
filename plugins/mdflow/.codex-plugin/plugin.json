@@ -1,6 +1,6 @@
 {
   "name": "mdflow",
-  "version": "0.1.0+codex.20260905100606",
+  "version": "0.1.0+codex.20260905101443",
   "description": "Keep project architecture, implementation progress, checkpoints, and code references synchronized through a task-scoped graph.",
   "author": {
     "name": "mdflow"

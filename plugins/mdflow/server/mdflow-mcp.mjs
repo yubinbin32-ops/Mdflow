@@ -25033,6 +25033,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const translations = localizationMap(snapshot);
     const scopes = snapshot.planChainScopes.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
     const changes = snapshot.planChanges.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
+    const orderedSteps = snapshot.planSteps.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
     const bindingsBySubject = /* @__PURE__ */ new Map();
     for (const binding of snapshot.checkpointBindings) {
       const key = `${binding.subjectType}:${binding.subjectId}`;
@@ -25095,8 +25096,18 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct \xB7 ${coverage.chainPlanBlocks} through Chains)`);
     if (coverage.unplannedIds.length) lines.push(`- Outside this Plan: ${coverage.unplannedIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.unplannedIds.length > 12 ? " \u2026" : ""}`);
     if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " \u2026" : ""}`);
-    if (hierarchy.length === 0 && directChanges.length === 0) {
-      lines.push("", "## Chain scopes", "\u5F85\u8FC1\u79FB\uFF1A\u6B64 Plan \u5C1A\u672A\u58F0\u660E ChainScope \u548C\u9010\u5B9E\u4F53\u53D8\u66F4\uFF0C\u4E0D\u80FD\u6309 0/0 \u89C6\u4E3A\u5B8C\u6210\u3002");
+    if (orderedSteps.length) {
+      lines.push("", "## Ordered steps");
+      for (const step of orderedSteps) {
+        lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` \u2014 ${step.action}` : ""}`);
+      }
+    }
+    if (hierarchy.length === 0 && directChanges.length === 0 && orderedSteps.length === 0) {
+      lines.push(
+        "",
+        "## Change structure",
+        locale === "zh-Hans" ? "\u6B64 Plan \u6CA1\u6709\u6709\u5E8F\u6B65\u9AA4\u3001ChainScope \u6216\u9010\u5B9E\u4F53\u4FEE\u6539\uFF0C\u4E0D\u80FD\u7528 0/0 \u8868\u793A\u5B8C\u6210\u3002" : "This Plan has no ordered steps, ChainScopes, or per-entity work; 0/0 is not completion."
+      );
     }
     const directBlockChanges = directChanges.filter((change) => change.entityType === "block");
     if (directBlockChanges.length) {
@@ -25157,6 +25168,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
 [truncated; open a referenced entity for detail]`;
     return {
       plan,
+      steps: orderedSteps,
       hierarchy,
       unattachedChanges,
       directChanges,
