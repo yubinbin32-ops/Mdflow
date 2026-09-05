@@ -21,9 +21,114 @@ function withProject(input, callback) {
 }
 
 function result(data, markdown) {
+  return response(data, markdown, data);
+}
+
+// Read projections are intentionally dual-format, but the structured side must
+// not repeat every entity body that is already present in the bounded Markdown
+// text. Full machine payloads remain available through includeStructured=true.
+function response(data, markdown, structuredContent = data) {
   return {
     content: [{ type: "text", text: markdown ?? JSON.stringify(data) }],
-    structuredContent: data,
+    structuredContent,
+  };
+}
+
+function compactCheckpoint(checkpoint) {
+  if (!checkpoint || typeof checkpoint !== "object") return checkpoint;
+  const {
+    id, targetType, targetId, title, status, checkpointKind,
+    eligibleAfterChildren, evidenceLevel, requiredEvidenceLevel,
+    coverage, invalidatedAt, currentRevision, updatedAt,
+  } = checkpoint;
+  return {
+    id, targetType, targetId, title, status, checkpointKind,
+    eligibleAfterChildren, evidenceLevel, requiredEvidenceLevel,
+    coverage, invalidatedAt, currentRevision, updatedAt,
+  };
+}
+
+function compactPlanChange(change) {
+  if (!change || typeof change !== "object") return change;
+  const {
+    id, planId, entityType, entityId, position, title, summary,
+    status, currentRevision, updatedAt,
+  } = change;
+  return { id, planId, entityType, entityId, position, title, summary, status, currentRevision, updatedAt };
+}
+
+function compactPlanScope(scope) {
+  if (!scope || typeof scope !== "object") return scope;
+  const {
+    changes, checkpoints, chain, ...metadata
+  } = scope;
+  return {
+    ...metadata,
+    chain: chain && typeof chain === "object"
+      ? {
+          id: chain.id,
+          title: chain.title,
+          purpose: chain.purpose,
+          deliveryState: chain.deliveryState,
+          healthState: chain.healthState,
+          revision: chain.revision,
+        }
+      : chain,
+    changes: Array.isArray(changes) ? changes.map(compactPlanChange) : [],
+    checkpoints: Array.isArray(checkpoints) ? checkpoints.map(compactCheckpoint) : [],
+  };
+}
+
+function compactContextStructured(data) {
+  return {
+    graphRevision: data.graphRevision,
+    refs: data.refs ?? [],
+  };
+}
+
+function compactPlanContextStructured(data) {
+  return {
+    plan: data.plan,
+    steps: data.steps ?? [],
+    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : [],
+    unattachedChanges: Array.isArray(data.unattachedChanges) ? data.unattachedChanges.map(compactPlanChange) : [],
+    directChanges: Array.isArray(data.directChanges)
+      ? data.directChanges.map((change) => ({
+          ...compactPlanChange(change),
+          checkpoints: Array.isArray(change.checkpoints) ? change.checkpoints.map(compactCheckpoint) : [],
+          targetCheckpoints: Array.isArray(change.targetCheckpoints) ? change.targetCheckpoints.map(compactCheckpoint) : [],
+        }))
+      : [],
+    coverage: data.coverage,
+    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
+    dependencies: data.dependencies ?? [],
+  };
+}
+
+function compactEntityStructured(data) {
+  const entity = data.entity && typeof data.entity === "object"
+    ? Object.fromEntries(Object.entries(data.entity).filter(([key]) => key !== "body"))
+    : data.entity;
+  const sourceRefs = Array.isArray(data.sourceRefs)
+    ? data.sourceRefs.map(({ id, path, startLine, endLine, symbol, role, gitCommit }) => ({ id, path, startLine, endLine, symbol, role, gitCommit }))
+    : [];
+  const history = Array.isArray(data.history)
+    ? data.history.map(({ id, entityType, entityId, action, revision, summary, planId, chainScopeId, changedFields, affectedRefs, evidenceRefs, createdAt }) => ({
+        id, entityType, entityId, action, revision, summary, planId, chainScopeId, changedFields, affectedRefs, evidenceRefs, createdAt,
+      }))
+    : [];
+  return {
+    entity,
+    sourceRefs,
+    pathNodes: data.pathNodes ?? [],
+    pathEdges: data.pathEdges ?? [],
+    targetChains: data.targetChains ?? [],
+    dependencies: data.dependencies ?? [],
+    steps: data.steps ?? [],
+    checkpointRefs: data.checkpointRefs ?? [],
+    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
+    history,
+    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : [],
   };
 }
 
@@ -89,11 +194,12 @@ server.registerTool(
       focusRefs: z.array(z.string()).max(20).optional(),
       maxChars: z.number().int().min(1000).max(24000).default(6000),
       locale: z.enum(["en", "zh-Hans"]).optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.contextForTask(payload));
-    return result(data, data.markdown);
+    return response(data, data.markdown, input.includeStructured ? data : compactContextStructured(data));
   },
 );
 
@@ -107,11 +213,12 @@ server.registerTool(
       id: z.string().min(1),
       maxChars: z.number().int().min(1000).max(24000).default(12000),
       locale: z.enum(["en", "zh-Hans"]).optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.planContext(payload));
-    return result(data, data.markdown);
+    return response(data, data.markdown, input.includeStructured ? data : compactPlanContextStructured(data));
   },
 );
 
@@ -158,11 +265,12 @@ server.registerTool(
       id: z.string().min(1),
       historyLimit: z.number().int().min(0).max(30).optional(),
       locale: z.enum(["en", "zh-Hans"]).optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.entityOpen(payload));
-    return result(data, data.markdown);
+    return response(data, data.markdown, input.includeStructured ? data : compactEntityStructured(data));
   },
 );
 

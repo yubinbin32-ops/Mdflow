@@ -20884,7 +20884,7 @@ var Protocol = class {
       if (abortController.signal.aborted) {
         return;
       }
-      const response = {
+      const response2 = {
         result: result2,
         jsonrpc: "2.0",
         id: request.id
@@ -20892,11 +20892,11 @@ var Protocol = class {
       if (relatedTaskId && this._taskMessageQueue) {
         await this._enqueueTaskMessage(relatedTaskId, {
           type: "response",
-          message: response,
+          message: response2,
           timestamp: Date.now()
         }, capturedTransport?.sessionId);
       } else {
-        await capturedTransport?.send(response);
+        await capturedTransport?.send(response2);
       }
     }, async (error2) => {
       if (abortController.signal.aborted) {
@@ -20949,29 +20949,29 @@ var Protocol = class {
     }
     handler(params);
   }
-  _onresponse(response) {
-    const messageId = Number(response.id);
+  _onresponse(response2) {
+    const messageId = Number(response2.id);
     const resolver = this._requestResolvers.get(messageId);
     if (resolver) {
       this._requestResolvers.delete(messageId);
-      if (isJSONRPCResultResponse(response)) {
-        resolver(response);
+      if (isJSONRPCResultResponse(response2)) {
+        resolver(response2);
       } else {
-        const error2 = new McpError(response.error.code, response.error.message, response.error.data);
+        const error2 = new McpError(response2.error.code, response2.error.message, response2.error.data);
         resolver(error2);
       }
       return;
     }
     const handler = this._responseHandlers.get(messageId);
     if (handler === void 0) {
-      this._onerror(new Error(`Received a response for an unknown message ID: ${JSON.stringify(response)}`));
+      this._onerror(new Error(`Received a response for an unknown message ID: ${JSON.stringify(response2)}`));
       return;
     }
     this._responseHandlers.delete(messageId);
     this._cleanupTimeout(messageId);
     let isTaskResponse = false;
-    if (isJSONRPCResultResponse(response) && response.result && typeof response.result === "object") {
-      const result2 = response.result;
+    if (isJSONRPCResultResponse(response2) && response2.result && typeof response2.result === "object") {
+      const result2 = response2.result;
       if (result2.task && typeof result2.task === "object") {
         const task = result2.task;
         if (typeof task.taskId === "string") {
@@ -20983,10 +20983,10 @@ var Protocol = class {
     if (!isTaskResponse) {
       this._progressHandlers.delete(messageId);
     }
-    if (isJSONRPCResultResponse(response)) {
-      handler(response);
+    if (isJSONRPCResultResponse(response2)) {
+      handler(response2);
     } else {
-      const error2 = McpError.fromError(response.error.code, response.error.message, response.error.data);
+      const error2 = McpError.fromError(response2.error.code, response2.error.message, response2.error.data);
       handler(error2);
     }
   }
@@ -21158,15 +21158,15 @@ var Protocol = class {
         const error2 = reason instanceof McpError ? reason : new McpError(ErrorCode.RequestTimeout, String(reason));
         reject(error2);
       };
-      this._responseHandlers.set(messageId, (response) => {
+      this._responseHandlers.set(messageId, (response2) => {
         if (options?.signal?.aborted) {
           return;
         }
-        if (response instanceof Error) {
-          return reject(response);
+        if (response2 instanceof Error) {
+          return reject(response2);
         }
         try {
-          const parseResult = safeParse2(resultSchema, response.result);
+          const parseResult = safeParse2(resultSchema, response2.result);
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
@@ -21184,10 +21184,10 @@ var Protocol = class {
       this._setupTimeout(messageId, timeout, options?.maxTotalTimeout, timeoutHandler, options?.resetTimeoutOnProgress ?? false);
       const relatedTaskId = relatedTask?.taskId;
       if (relatedTaskId) {
-        const responseResolver = (response) => {
+        const responseResolver = (response2) => {
           const handler = this._responseHandlers.get(messageId);
           if (handler) {
-            handler(response);
+            handler(response2);
           } else {
             this._onerror(new Error(`Response handler missing for side-channeled request ${messageId}`));
           }
@@ -27418,6 +27418,136 @@ function result(data, markdown) {
     structuredContent: data
   };
 }
+function response(data, markdown, structuredContent = data) {
+  return {
+    content: [{ type: "text", text: markdown ?? JSON.stringify(data) }],
+    structuredContent
+  };
+}
+function compactCheckpoint(checkpoint) {
+  if (!checkpoint || typeof checkpoint !== "object") return checkpoint;
+  const {
+    id,
+    targetType,
+    targetId,
+    title,
+    status,
+    checkpointKind,
+    eligibleAfterChildren,
+    evidenceLevel,
+    requiredEvidenceLevel,
+    coverage,
+    invalidatedAt,
+    currentRevision,
+    updatedAt
+  } = checkpoint;
+  return {
+    id,
+    targetType,
+    targetId,
+    title,
+    status,
+    checkpointKind,
+    eligibleAfterChildren,
+    evidenceLevel,
+    requiredEvidenceLevel,
+    coverage,
+    invalidatedAt,
+    currentRevision,
+    updatedAt
+  };
+}
+function compactPlanChange(change) {
+  if (!change || typeof change !== "object") return change;
+  const {
+    id,
+    planId,
+    entityType,
+    entityId,
+    position,
+    title,
+    summary,
+    status,
+    currentRevision,
+    updatedAt
+  } = change;
+  return { id, planId, entityType, entityId, position, title, summary, status, currentRevision, updatedAt };
+}
+function compactPlanScope(scope) {
+  if (!scope || typeof scope !== "object") return scope;
+  const {
+    changes,
+    checkpoints,
+    chain,
+    ...metadata
+  } = scope;
+  return {
+    ...metadata,
+    chain: chain && typeof chain === "object" ? {
+      id: chain.id,
+      title: chain.title,
+      purpose: chain.purpose,
+      deliveryState: chain.deliveryState,
+      healthState: chain.healthState,
+      revision: chain.revision
+    } : chain,
+    changes: Array.isArray(changes) ? changes.map(compactPlanChange) : [],
+    checkpoints: Array.isArray(checkpoints) ? checkpoints.map(compactCheckpoint) : []
+  };
+}
+function compactContextStructured(data) {
+  return {
+    graphRevision: data.graphRevision,
+    refs: data.refs ?? []
+  };
+}
+function compactPlanContextStructured(data) {
+  return {
+    plan: data.plan,
+    steps: data.steps ?? [],
+    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : [],
+    unattachedChanges: Array.isArray(data.unattachedChanges) ? data.unattachedChanges.map(compactPlanChange) : [],
+    directChanges: Array.isArray(data.directChanges) ? data.directChanges.map((change) => ({
+      ...compactPlanChange(change),
+      checkpoints: Array.isArray(change.checkpoints) ? change.checkpoints.map(compactCheckpoint) : [],
+      targetCheckpoints: Array.isArray(change.targetCheckpoints) ? change.targetCheckpoints.map(compactCheckpoint) : []
+    })) : [],
+    coverage: data.coverage,
+    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
+    dependencies: data.dependencies ?? []
+  };
+}
+function compactEntityStructured(data) {
+  const entity = data.entity && typeof data.entity === "object" ? Object.fromEntries(Object.entries(data.entity).filter(([key]) => key !== "body")) : data.entity;
+  const sourceRefs = Array.isArray(data.sourceRefs) ? data.sourceRefs.map(({ id, path: path3, startLine, endLine, symbol, role, gitCommit }) => ({ id, path: path3, startLine, endLine, symbol, role, gitCommit })) : [];
+  const history = Array.isArray(data.history) ? data.history.map(({ id, entityType, entityId, action, revision, summary, planId, chainScopeId, changedFields, affectedRefs, evidenceRefs, createdAt }) => ({
+    id,
+    entityType,
+    entityId,
+    action,
+    revision,
+    summary,
+    planId,
+    chainScopeId,
+    changedFields,
+    affectedRefs,
+    evidenceRefs,
+    createdAt
+  })) : [];
+  return {
+    entity,
+    sourceRefs,
+    pathNodes: data.pathNodes ?? [],
+    pathEdges: data.pathEdges ?? [],
+    targetChains: data.targetChains ?? [],
+    dependencies: data.dependencies ?? [],
+    steps: data.steps ?? [],
+    checkpointRefs: data.checkpointRefs ?? [],
+    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
+    history,
+    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : []
+  };
+}
 server.registerTool(
   "project_register",
   {
@@ -27473,12 +27603,13 @@ server.registerTool(
       task: string2().min(1),
       focusRefs: array(string2()).max(20).optional(),
       maxChars: number2().int().min(1e3).max(24e3).default(6e3),
-      locale: _enum(["en", "zh-Hans"]).optional()
+      locale: _enum(["en", "zh-Hans"]).optional(),
+      includeStructured: boolean2().default(false)
     }
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.contextForTask(payload));
-    return result(data, data.markdown);
+    return response(data, data.markdown, input.includeStructured ? data : compactContextStructured(data));
   }
 );
 server.registerTool(
@@ -27489,12 +27620,13 @@ server.registerTool(
       ...projectRootInput,
       id: string2().min(1),
       maxChars: number2().int().min(1e3).max(24e3).default(12e3),
-      locale: _enum(["en", "zh-Hans"]).optional()
+      locale: _enum(["en", "zh-Hans"]).optional(),
+      includeStructured: boolean2().default(false)
     }
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.planContext(payload));
-    return result(data, data.markdown);
+    return response(data, data.markdown, input.includeStructured ? data : compactPlanContextStructured(data));
   }
 );
 server.registerTool(
@@ -27535,12 +27667,13 @@ server.registerTool(
       type: _enum(["block", "chain", "link", "plan"]),
       id: string2().min(1),
       historyLimit: number2().int().min(0).max(30).optional(),
-      locale: _enum(["en", "zh-Hans"]).optional()
+      locale: _enum(["en", "zh-Hans"]).optional(),
+      includeStructured: boolean2().default(false)
     }
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.entityOpen(payload));
-    return result(data, data.markdown);
+    return response(data, data.markdown, input.includeStructured ? data : compactEntityStructured(data));
   }
 );
 server.registerTool(

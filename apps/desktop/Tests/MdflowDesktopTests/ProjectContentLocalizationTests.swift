@@ -2,6 +2,24 @@ import Foundation
 import Testing
 @testable import MdflowDesktop
 
+private struct ConcurrentReaderResult: Sendable {
+    let snapshotMatches: Bool
+    let sequenceMatches: Bool
+    let error: String?
+}
+
+private final class ConcurrentReaderResults: @unchecked Sendable {
+    var values: [ConcurrentReaderResult]
+    let lock = NSLock()
+
+    init(count: Int) {
+        values = Array(
+            repeating: ConcurrentReaderResult(snapshotMatches: false, sequenceMatches: false, error: nil),
+            count: count
+        )
+    }
+}
+
 @Test func databaseFileIdentityChangesWhenCheckoutReplacesSQLiteFile() throws {
     let fileManager = FileManager.default
     let directory = fileManager.temporaryDirectory.appending(path: "mdflow-db-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -21,6 +39,88 @@ import Testing
     #expect(before != nil)
     #expect(after != nil)
     #expect(before != after)
+}
+
+@Test func concurrentProjectDatabaseReadersRemainConsistent() throws {
+    let fileManager = FileManager.default
+    let sourceFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot = sourceFile
+        .deletingLastPathComponent() // MdflowDesktopTests
+        .deletingLastPathComponent() // Tests
+        .deletingLastPathComponent() // desktop
+        .deletingLastPathComponent() // apps
+        .deletingLastPathComponent() // repository
+    let sourceDescriptorURL = repositoryRoot.appending(path: ".mdflow/project.json")
+    let sourceDatabaseURL = repositoryRoot.appending(path: ".mdflow/mdflow.sqlite")
+    guard fileManager.fileExists(atPath: sourceDescriptorURL.path),
+          fileManager.fileExists(atPath: sourceDatabaseURL.path) else {
+        Issue.record("The checked-in mdflow fixture is required for the concurrent reader test")
+        return
+    }
+
+    let root = fileManager.temporaryDirectory.appending(path: "mdflow-concurrent-readers-\(UUID().uuidString)", directoryHint: .isDirectory)
+    let dataDirectory = root.appending(path: ".mdflow", directoryHint: .isDirectory)
+    try fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: root) }
+    try fileManager.copyItem(at: sourceDescriptorURL, to: dataDirectory.appending(path: "project.json"))
+    try fileManager.copyItem(at: sourceDatabaseURL, to: dataDirectory.appending(path: "mdflow.sqlite"))
+
+    let descriptorData = try Data(contentsOf: dataDirectory.appending(path: "project.json"))
+    let descriptor = try JSONDecoder().decode(ProjectDescriptor.self, from: descriptorData)
+    let location = ProjectLocation(root: root, descriptor: descriptor, database: dataDirectory.appending(path: "mdflow.sqlite"))
+    let baselineReader = try ProjectDatabase(location: location)
+    defer { baselineReader.close() }
+    let baselineSnapshot = try baselineReader.loadSnapshot()
+    let baselineSequence = try baselineReader.changeSequence()
+    let rootPath = root.path
+    let dataPath = dataDirectory.path
+    let expectedSnapshot = baselineSnapshot
+
+    let results = ConcurrentReaderResults(count: 8)
+    DispatchQueue.concurrentPerform(iterations: results.values.count) { index in
+        do {
+            let workerRoot = URL(fileURLWithPath: rootPath, isDirectory: true)
+            let workerData = URL(fileURLWithPath: dataPath, isDirectory: true)
+            let workerDescriptor = try JSONDecoder().decode(
+                ProjectDescriptor.self,
+                from: Data(contentsOf: workerData.appending(path: "project.json"))
+            )
+            let workerLocation = ProjectLocation(
+                root: workerRoot,
+                descriptor: workerDescriptor,
+                database: workerData.appending(path: "mdflow.sqlite")
+            )
+            let reader = try ProjectDatabase(location: workerLocation)
+            defer { reader.close() }
+            var snapshotMatches = true
+            var sequenceMatches = true
+            for _ in 0..<4 {
+                let snapshot = try reader.loadSnapshot()
+                let sequence = try reader.changeSequence()
+                snapshotMatches = snapshotMatches && (snapshot == expectedSnapshot)
+                sequenceMatches = sequenceMatches && (sequence == baselineSequence)
+            }
+            results.lock.lock()
+            results.values[index] = ConcurrentReaderResult(
+                snapshotMatches: snapshotMatches,
+                sequenceMatches: sequenceMatches,
+                error: nil
+            )
+            results.lock.unlock()
+        } catch {
+            results.lock.lock()
+            results.values[index] = ConcurrentReaderResult(snapshotMatches: false, sequenceMatches: false, error: error.localizedDescription)
+            results.lock.unlock()
+        }
+    }
+
+    results.lock.lock()
+    let values = results.values
+    results.lock.unlock()
+    #expect(values.count == 8)
+    #expect(values.allSatisfy { $0.error == nil })
+    #expect(values.allSatisfy { $0.snapshotMatches })
+    #expect(values.allSatisfy { $0.sequenceMatches })
 }
 
 @Test func appLanguageNeverReplacesCanonicalProjectContent() {

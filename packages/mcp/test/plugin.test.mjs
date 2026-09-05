@@ -121,6 +121,24 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.equal(contextPack.isError, undefined);
     assert.match(contextPack.content[0].text, /Verify live path/);
     assert.match(contextPack.content[0].text, /Live path/);
+    assert.equal(contextPack.structuredContent.markdown, undefined);
+    assert.equal(typeof contextPack.structuredContent.graphRevision, "number");
+
+    const planPack = await client.callTool({
+      name: "plan_context",
+      arguments: { id: "verify-live-path" },
+    });
+    assert.equal(planPack.isError, undefined);
+    assert.match(planPack.content[0].text, /Verify live path/);
+    assert.equal(planPack.structuredContent.markdown, undefined);
+    assert.equal(Array.isArray(planPack.structuredContent.directChanges), true);
+    assert.equal(JSON.stringify(planPack.structuredContent).includes('"body"'), false);
+
+    const fullPlanPack = await client.callTool({
+      name: "plan_context",
+      arguments: { id: "verify-live-path", includeStructured: true },
+    });
+    assert.equal(typeof fullPlanPack.structuredContent.markdown, "string");
 
     const opened = await client.callTool({
       name: "entity_open",
@@ -129,6 +147,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.equal(opened.isError, undefined);
     assert.match(opened.content[0].text, /Record the end-to-end checkpoint/);
     assert.match(opened.content[0].text, /Packaged MCP round trip/);
+    assert.equal(opened.structuredContent.markdown, undefined);
 
     const changed = await client.callTool({
       name: "graph_mutate",

@@ -26,6 +26,12 @@ For a trusted graph, call `context_for_task` before broad file discovery, openin
 6. `graph_search` only when the returned references are insufficient.
 7. Open source references returned by mdflow and the smallest immediately related code neighborhood.
 
+Read-tool response budget:
+
+- `context_for_task`, `plan_context`, and `entity_open` return bounded Markdown as the default human/agent projection plus a compact structured index (refs, status, coverage, and checkpoint metadata).
+- Do not request or repeat full structured payloads during ordinary reasoning. Pass `includeStructured: true` only when a client must programmatically inspect full entity bodies; otherwise follow the Markdown links and use `entity_open` for one exact entity.
+- Keep the Markdown `maxChars` budget modest. The structured index must not duplicate complete Block, Chain, Plan, evidence, or History bodies already present in the Markdown projection.
+
 The context must cover the facts needed for the task: positive requirements, prohibitions, state transitions, architecture, interfaces/contracts, current progress, decisions, risks, code locations, ordered steps, checkpoint gates, and relevant history. If a required fact is missing, record the gap, investigate narrowly, and repair it before relying on mdflow later.
 
 ## Build and maintain the graph in semantic order
