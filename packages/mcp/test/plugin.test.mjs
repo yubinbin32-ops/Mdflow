@@ -123,6 +123,23 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.match(opened.content[0].text, /Record the end-to-end checkpoint/);
     assert.match(opened.content[0].text, /Packaged MCP round trip/);
 
+    const changed = await client.callTool({
+      name: "graph_mutate",
+      arguments: {
+        reason: "Exercise packaged rollback",
+        operations: [{ action: "update_block", id: "source", expectedRevision: 1, fields: { summary: "Temporarily changed" } }],
+      },
+    });
+    assert.equal(changed.isError, undefined);
+    const reverted = await client.callTool({
+      name: "change_set_revert",
+      arguments: { changeSetId: changed.structuredContent.changeSetId, reason: "Undo packaged rollback probe" },
+    });
+    assert.equal(reverted.isError, undefined);
+    const afterRevert = await client.callTool({ name: "entity_open", arguments: { type: "block", id: "source" } });
+    assert.equal(afterRevert.isError, undefined);
+    assert.match(afterRevert.content[0].text, /Produces committed changes/);
+
     const validation = await client.callTool({ name: "graph_validate", arguments: {} });
     assert.equal(validation.isError, undefined);
     assert.equal(validation.structuredContent.valid, true);
