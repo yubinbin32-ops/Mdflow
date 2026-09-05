@@ -26683,7 +26683,7 @@ var router = new ProjectServiceRouter();
 var server = new McpServer(
   { name: "mdflow", version: "0.2.0" },
   {
-    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
+    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }
 );
 var projectRootInput = { projectRoot: string2().min(1).optional() };
