@@ -28,9 +28,11 @@ For a trusted graph, call `context_for_task` before broad file discovery, openin
 
 Read-tool response budget:
 
-- `context_for_task`, `plan_context`, and `entity_open` return bounded Markdown as the default human/agent projection plus a compact structured index (refs, status, coverage, and checkpoint metadata).
-- Do not request or repeat full structured payloads during ordinary reasoning. Pass `includeStructured: true` only when a client must programmatically inspect full entity bodies; otherwise follow the Markdown links and use `entity_open` for one exact entity.
-- Keep the Markdown `maxChars` budget modest. The structured index must not duplicate complete Block, Chain, Plan, evidence, or History bodies already present in the Markdown projection.
+- Read tools return only bounded Markdown by default. MCP clients may place both `content` and `structuredContent` in model context, so a duplicate JSON projection wastes context and can create conflicting facts.
+- Pass `includeStructured: true` only when the caller must programmatically inspect exact fields, IDs, evidence, or before/after values. That opt-in returns the full structured payload; it is not part of ordinary reasoning.
+- `graph_mutate`, `checkpoint_record`, `change_set_revert`, `foundation_plan_create`, and `graph_validate` may return small machine receipts because follow-up writes require changeSet IDs, revisions, and validation errors.
+- Markdown projections are deterministic: coverage summary → execution order → direct Block work → Chain paths and gates → Plan acceptance → uncovered or failing items. Stable `block:`, `chain:`, `plan:`, `checkpoint:`, and `plan_change:` refs are required; Markdown is a structured projection, not free-form pasted prose.
+- Keep the Markdown `maxChars` budget modest. Do not copy full entity bodies into Plans, Chain paths, or History; use `entity_open` with an exact ref when more detail is needed.
 
 The context must cover the facts needed for the task: positive requirements, prohibitions, state transitions, architecture, interfaces/contracts, current progress, decisions, risks, code locations, ordered steps, checkpoint gates, and relevant history. If a required fact is missing, record the gap, investigate narrowly, and repair it before relying on mdflow later.
 

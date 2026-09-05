@@ -69,6 +69,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     const response = await client.callTool({ name: "project_map", arguments: {} });
     assert.equal(response.isError, undefined);
     assert.match(response.content[0].text, /Plugin Test/);
+    assert.equal(response.structuredContent, undefined);
 
     const create = await client.callTool({
       name: "graph_mutate",
@@ -112,7 +113,9 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.equal(checkpoint.isError, undefined);
     const checkpointIndex = await client.callTool({ name: "checkpoint_list", arguments: { unassignedOnly: true } });
     assert.equal(checkpointIndex.isError, undefined);
-    assert.equal(checkpointIndex.structuredContent.count, 0);
+    assert.equal(checkpointIndex.structuredContent, undefined);
+    const checkpointIndexStructured = await client.callTool({ name: "checkpoint_list", arguments: { unassignedOnly: true, includeStructured: true } });
+    assert.equal(checkpointIndexStructured.structuredContent.count, 0);
 
     const contextPack = await client.callTool({
       name: "context_for_task",
@@ -121,8 +124,12 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.equal(contextPack.isError, undefined);
     assert.match(contextPack.content[0].text, /Verify live path/);
     assert.match(contextPack.content[0].text, /Live path/);
-    assert.equal(contextPack.structuredContent.markdown, undefined);
-    assert.equal(typeof contextPack.structuredContent.graphRevision, "number");
+    assert.equal(contextPack.structuredContent, undefined);
+    const contextPackStructured = await client.callTool({
+      name: "context_for_task",
+      arguments: { task: "verify the live canvas path", focusRefs: ["plan:verify-live-path"], includeStructured: true },
+    });
+    assert.equal(typeof contextPackStructured.structuredContent.graphRevision, "number");
 
     const planPack = await client.callTool({
       name: "plan_context",
@@ -130,9 +137,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     });
     assert.equal(planPack.isError, undefined);
     assert.match(planPack.content[0].text, /Verify live path/);
-    assert.equal(planPack.structuredContent.markdown, undefined);
-    assert.equal(Array.isArray(planPack.structuredContent.directChanges), true);
-    assert.equal(JSON.stringify(planPack.structuredContent).includes('"body"'), false);
+    assert.equal(planPack.structuredContent, undefined);
 
     const fullPlanPack = await client.callTool({
       name: "plan_context",
@@ -147,7 +152,12 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.equal(opened.isError, undefined);
     assert.match(opened.content[0].text, /Record the end-to-end checkpoint/);
     assert.match(opened.content[0].text, /Packaged MCP round trip/);
-    assert.equal(opened.structuredContent.markdown, undefined);
+    assert.equal(opened.structuredContent, undefined);
+    const openedStructured = await client.callTool({
+      name: "entity_open",
+      arguments: { type: "plan", id: "verify-live-path", includeStructured: true },
+    });
+    assert.equal(typeof openedStructured.structuredContent.markdown, "string");
 
     const changed = await client.callTool({
       name: "graph_mutate",
@@ -170,6 +180,20 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     assert.equal(validation.isError, undefined);
     assert.equal(validation.structuredContent.valid, true);
     assert.deepEqual(validation.structuredContent.errors, []);
+
+    const changes = await client.callTool({ name: "changes_since", arguments: { sequence: 0 } });
+    assert.equal(changes.isError, undefined);
+    assert.equal(changes.structuredContent, undefined);
+    assert.match(changes.content[0].text, /Changes since sequence 0/);
+    const changesStructured = await client.callTool({ name: "changes_since", arguments: { sequence: 0, includeStructured: true } });
+    assert.equal(Array.isArray(changesStructured.structuredContent.changes), true);
+
+    const search = await client.callTool({ name: "graph_search", arguments: { query: "Canvas" } });
+    assert.equal(search.isError, undefined);
+    assert.equal(search.structuredContent, undefined);
+    assert.match(search.content[0].text, /Search: Canvas/);
+    const searchStructured = await client.callTool({ name: "graph_search", arguments: { query: "Canvas", includeStructured: true } });
+    assert.equal(Array.isArray(searchStructured.structuredContent.results), true);
   } finally {
     await client.close();
     fs.rmSync(root, { recursive: true, force: true });
@@ -219,12 +243,18 @@ test("bundled plugin registers and isolates multiple projects in one Codex conne
 
     const firstMap = await client.callTool({ name: "project_map", arguments: { projectRoot: firstRoot } });
     const secondMap = await client.callTool({ name: "project_map", arguments: { projectRoot: secondRoot } });
-    assert.equal(firstMap.structuredContent.map.project.id, "first-project");
-    assert.equal(secondMap.structuredContent.map.project.id, "second-project");
-    assert.equal(firstMap.structuredContent.map.counts.blocks, 1);
-    assert.equal(secondMap.structuredContent.map.counts.blocks, 1);
-    assert.equal(firstMap.structuredContent.map.criticalBlocks.length, 0);
-    assert.equal(secondMap.structuredContent.map.criticalBlocks.length, 0);
+    assert.equal(firstMap.structuredContent, undefined);
+    assert.equal(secondMap.structuredContent, undefined);
+    assert.match(firstMap.content[0].text, /First Project/);
+    assert.match(secondMap.content[0].text, /Second Project/);
+    const firstMapStructured = await client.callTool({ name: "project_map", arguments: { projectRoot: firstRoot, includeStructured: true } });
+    const secondMapStructured = await client.callTool({ name: "project_map", arguments: { projectRoot: secondRoot, includeStructured: true } });
+    assert.equal(firstMapStructured.structuredContent.map.project.id, "first-project");
+    assert.equal(secondMapStructured.structuredContent.map.project.id, "second-project");
+    assert.equal(firstMapStructured.structuredContent.map.counts.blocks, 1);
+    assert.equal(secondMapStructured.structuredContent.map.counts.blocks, 1);
+    assert.equal(firstMapStructured.structuredContent.map.criticalBlocks.length, 0);
+    assert.equal(secondMapStructured.structuredContent.map.criticalBlocks.length, 0);
 
     const inherited = await client.callTool({ name: "entity_open", arguments: { type: "block", id: "architecture" } });
     assert.equal(inherited.isError, undefined);

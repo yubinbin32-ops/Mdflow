@@ -1034,6 +1034,9 @@ export class MdflowService {
     lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
     lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
     lines.push(`- Verification coverage: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed · ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone`);
+    lines.push(`- Architecture coverage: ${coverage.directPlanBlocks} direct Plan Blocks · ${coverage.chainPlanBlocks} through Chains · ${coverage.unverifiedIds.length} unverified · ${coverage.failingIds.length} failing`);
+    if (coverage.unverifiedIds.length) lines.push(`- Unverified Blocks: ${coverage.unverifiedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unverifiedIds.length > 12 ? " …" : ""}`);
+    if (coverage.failingIds.length) lines.push(`- Failed verification: ${coverage.failingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.failingIds.length > 12 ? " …" : ""}`);
     if (coverage.outsideChainIds.length) lines.push(`- Outside Chains: ${coverage.outsideChainIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.outsideChainIds.length > 12 ? " …" : ""}`);
     if (coverage.unplannedIds.length) lines.push(`- Unplanned Blocks: ${coverage.unplannedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
     if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
@@ -1126,6 +1129,12 @@ export class MdflowService {
          WHERE b.project_id = ? AND (sr.path LIKE ? OR COALESCE(sr.symbol, '') LIKE ?) LIMIT ?`,
       )
       .all(this.paths.descriptor.id, term, term, limit);
+    const searchItems = [
+      ...blocks.map((block) => `- [block:${block.id}] ${localizedValue(translations, "block", block.id, locale, "title", block.title)} · ${block.deliveryState}`),
+      ...chains.map((chain) => `- [chain:${chain.id}] ${localizedValue(translations, "chain", chain.id, locale, "title", chain.title)} · ${chain.deliveryState}`),
+      ...plans.map((plan) => `- [plan:${plan.id}] ${localizedValue(translations, "plan", plan.id, locale, "title", plan.title)} · ${plan.status}`),
+      ...sourceRows.map((row) => `- [source:${row.id}] ${localizedValue(translations, "block", row.block_id, locale, "title", row.title)} · ${row.path}${row.start_line ? `:${row.start_line}` : ""}`),
+    ].slice(0, limit);
     return {
       query,
       results: [
@@ -1139,6 +1148,12 @@ export class MdflowService {
           blockId: row.block_id,
         })),
       ].slice(0, limit),
+      markdown: [
+        `# Search: ${query}`,
+        `Count: ${searchItems.length}`,
+        "",
+        ...searchItems,
+      ].join("\n"),
     };
   }
 
@@ -1529,11 +1544,14 @@ export class MdflowService {
     lines.push(`- Link Changes: ${typed.linkChanges.completed}/${typed.linkChanges.total}`);
     lines.push(`- Chain integration gates: ${typed.chainIntegrationGates.passed}/${typed.chainIntegrationGates.total}`);
     lines.push(`- Plan acceptance gates: ${typed.planAcceptanceGates.passed}/${typed.planAcceptanceGates.total}`);
+    lines.push("", "## Execution order");
     if (orderedSteps.length) {
-      lines.push("", "## Ordered steps");
+      lines.push("### Ordered steps");
       for (const step of orderedSteps) {
         lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` — ${step.action}` : ""}`);
       }
+    } else {
+      lines.push("- No ordered steps declared.");
     }
     if (hierarchy.length === 0 && directChanges.length === 0 && orderedSteps.length === 0) {
       lines.push(
@@ -1545,10 +1563,13 @@ export class MdflowService {
       );
     }
     const directBlockChanges = directChanges.filter((change) => change.entityType === "block");
+    lines.push("", "## Direct Block work");
     if (directBlockChanges.length) {
-      lines.push("", "## Direct Block work");
       for (const change of directBlockChanges) {
         lines.push(`- ${change.status}: ${change.title} [block:${change.entityId}] — ${change.proposedBehavior || change.summary || "—"}`);
+        if (change.currentBehavior) lines.push(`  - Current: ${change.currentBehavior}`);
+        if (change.proposedBehavior) lines.push(`  - Change: ${change.proposedBehavior}`);
+        if (change.rationale) lines.push(`  - Why: ${change.rationale}`);
         if (change.checkpoints.length) {
           for (const binding of change.checkpoints) {
             const checkpoint = binding.checkpoint;
@@ -1561,9 +1582,13 @@ export class MdflowService {
           lines.push("  - Warning: this Block has no checkpoint.");
         }
       }
+    } else {
+      lines.push("- None declared.");
     }
+    lines.push("", "## Chain integration");
+    if (hierarchy.length === 0) lines.push("- None declared.");
     for (const scope of hierarchy) {
-      lines.push("", `## ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "—");
+      lines.push("", `### ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "—");
       if (scope.rationale) lines.push(`Reason: ${scope.rationale}`);
       if (scope.nodeIds.length || scope.linkIds.length) lines.push(`Path: ${scope.nodeIds.map((nodeId) => `block:${nodeId}`).join(" → ")}${scope.linkIds.length ? ` · Links ${scope.linkIds.map((linkId) => `link:${linkId}`).join(", ")}` : ""}`);
       if (scope.prohibitions.length) lines.push("Prohibitions:", ...scope.prohibitions.map((item) => `- ${item}`));
@@ -1583,13 +1608,15 @@ export class MdflowService {
       lines.push("", "## Cross-Chain changes");
       for (const change of otherDirectChanges) lines.push(`- ${change.title} [${change.entityType}:${change.entityId}] — ${change.proposedBehavior || change.summary}`);
     }
+    lines.push("", "## Plan acceptance");
     if (planCheckpoints.length) {
-      lines.push("", "## Plan acceptance");
       for (const binding of planCheckpoints) {
         const checkpoint = binding.checkpoint;
         lines.push(`- ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
         appendBlockers(binding, "  ");
       }
+    } else {
+      lines.push("- No acceptance checkpoint declared.");
     }
     let markdown = lines.join("\n");
     if (markdown.length > maxChars) markdown = `${markdown.slice(0, Math.max(0, maxChars - 64))}\n\n[truncated; open a referenced entity for detail]`;
@@ -1639,6 +1666,18 @@ export class MdflowService {
     }));
     const hasMore = rows.length > boundedLimit;
     if (hasMore) rows.pop();
+    const markdown = [
+      `# Changes since sequence ${sequence}`,
+      `Range: ${sequence} → ${rows.at(-1)?.sequence ?? sequence} · latest ${latestSequence} · earliest ${earliestSequence || "—"}`,
+      `Returned: ${rows.length}${hasMore ? ` · more available after ${rows.at(-1)?.sequence ?? sequence}` : ""}`,
+      "",
+      ...rows.map((change) => {
+        const fields = change.changedFields?.length ? ` · fields ${change.changedFields.join(", ")}` : "";
+        const refs = change.affectedRefs?.length ? ` · refs ${change.affectedRefs.join(", ")}` : "";
+        return `- #${change.sequence} ${change.action} ${change.ref} · r${change.revision ?? "?"}${fields}${refs}${change.summary ? ` — ${change.summary}` : ""}`;
+      }),
+      ...(rows.length ? ["", "Use includeStructured=true when exact before/after JSON is required."] : []),
+    ].join("\n");
     return {
       fromSequence: sequence,
       nextSequence: rows.at(-1)?.sequence ?? sequence,
@@ -1646,6 +1685,7 @@ export class MdflowService {
       earliestSequence,
       hasMore,
       changes: rows,
+      markdown,
     };
   }
 
@@ -1955,21 +1995,35 @@ export class MdflowService {
       lines.push("");
     }
     const explicitBlockFocusIds = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
+    const chainOrder = new Map();
+    for (const chainId of selectedChainIds) {
+      snapshot.chainNodes
+        .filter((node) => node.chainId === chainId)
+        .sort((left, right) => left.position - right.position)
+        .forEach((node, index) => {
+          const current = chainOrder.get(node.blockId);
+          if (current === undefined || index < current) chainOrder.set(node.blockId, index);
+        });
+    }
+    const orderedRelevantBlocks = [...relevantBlocks].sort((left, right) =>
+      (chainOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (chainOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) ||
+      left.localOrder - right.localOrder || left.id.localeCompare(right.id),
+    );
     const contentBlocks = selectedPlanIds.size
-      ? relevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id))
-      : relevantBlocks;
+      ? orderedRelevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id))
+      : orderedRelevantBlocks;
     if (contentBlocks.length) {
-      lines.push("## Relevant blocks");
-      for (const block of contentBlocks) {
+      lines.push("## Architecture order / relevant Blocks");
+      contentBlocks.forEach((block, index) => {
         const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
         const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
-        lines.push(`- [block:${block.id}] ${title} — ${block.architectureLayer}/${block.scope} · ${block.deliveryState}/${block.healthState}`);
+        lines.push(`${index + 1}. [block:${block.id}] ${title} — ${block.architectureLayer}/${block.scope} · ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
-      }
+      });
       lines.push("");
     }
     if (relevantLinks.length) {

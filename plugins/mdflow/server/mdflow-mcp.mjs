@@ -24836,6 +24836,9 @@ var MdflowService = class {
     lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
     lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
     lines.push(`- Verification coverage: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed \xB7 ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone`);
+    lines.push(`- Architecture coverage: ${coverage.directPlanBlocks} direct Plan Blocks \xB7 ${coverage.chainPlanBlocks} through Chains \xB7 ${coverage.unverifiedIds.length} unverified \xB7 ${coverage.failingIds.length} failing`);
+    if (coverage.unverifiedIds.length) lines.push(`- Unverified Blocks: ${coverage.unverifiedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unverifiedIds.length > 12 ? " \u2026" : ""}`);
+    if (coverage.failingIds.length) lines.push(`- Failed verification: ${coverage.failingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.failingIds.length > 12 ? " \u2026" : ""}`);
     if (coverage.outsideChainIds.length) lines.push(`- Outside Chains: ${coverage.outsideChainIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.outsideChainIds.length > 12 ? " \u2026" : ""}`);
     if (coverage.unplannedIds.length) lines.push(`- Unplanned Blocks: ${coverage.unplannedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 12 ? " \u2026" : ""}`);
     if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " \u2026" : ""}`);
@@ -24933,6 +24936,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       `SELECT sr.*, b.title FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
          WHERE b.project_id = ? AND (sr.path LIKE ? OR COALESCE(sr.symbol, '') LIKE ?) LIMIT ?`
     ).all(this.paths.descriptor.id, term, term, limit);
+    const searchItems = [
+      ...blocks.map((block) => `- [block:${block.id}] ${localizedValue(translations, "block", block.id, locale, "title", block.title)} \xB7 ${block.deliveryState}`),
+      ...chains.map((chain) => `- [chain:${chain.id}] ${localizedValue(translations, "chain", chain.id, locale, "title", chain.title)} \xB7 ${chain.deliveryState}`),
+      ...plans.map((plan) => `- [plan:${plan.id}] ${localizedValue(translations, "plan", plan.id, locale, "title", plan.title)} \xB7 ${plan.status}`),
+      ...sourceRows.map((row) => `- [source:${row.id}] ${localizedValue(translations, "block", row.block_id, locale, "title", row.title)} \xB7 ${row.path}${row.start_line ? `:${row.start_line}` : ""}`)
+    ].slice(0, limit);
     return {
       query,
       results: [
@@ -24945,7 +24954,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
           title: `${localizedValue(translations, "block", row.block_id, locale, "title", row.title)}: ${row.path}${row.start_line ? `:${row.start_line}` : ""}`,
           blockId: row.block_id
         }))
-      ].slice(0, limit)
+      ].slice(0, limit),
+      markdown: [
+        `# Search: ${query}`,
+        `Count: ${searchItems.length}`,
+        "",
+        ...searchItems
+      ].join("\n")
     };
   }
   entityOpen({ type, id, historyLimit = 8, locale = "en" }) {
@@ -25302,11 +25317,14 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     lines.push(`- Link Changes: ${typed.linkChanges.completed}/${typed.linkChanges.total}`);
     lines.push(`- Chain integration gates: ${typed.chainIntegrationGates.passed}/${typed.chainIntegrationGates.total}`);
     lines.push(`- Plan acceptance gates: ${typed.planAcceptanceGates.passed}/${typed.planAcceptanceGates.total}`);
+    lines.push("", "## Execution order");
     if (orderedSteps.length) {
-      lines.push("", "## Ordered steps");
+      lines.push("### Ordered steps");
       for (const step of orderedSteps) {
         lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` \u2014 ${step.action}` : ""}`);
       }
+    } else {
+      lines.push("- No ordered steps declared.");
     }
     if (hierarchy.length === 0 && directChanges.length === 0 && orderedSteps.length === 0) {
       lines.push(
@@ -25316,10 +25334,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       );
     }
     const directBlockChanges = directChanges.filter((change) => change.entityType === "block");
+    lines.push("", "## Direct Block work");
     if (directBlockChanges.length) {
-      lines.push("", "## Direct Block work");
       for (const change of directBlockChanges) {
         lines.push(`- ${change.status}: ${change.title} [block:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary || "\u2014"}`);
+        if (change.currentBehavior) lines.push(`  - Current: ${change.currentBehavior}`);
+        if (change.proposedBehavior) lines.push(`  - Change: ${change.proposedBehavior}`);
+        if (change.rationale) lines.push(`  - Why: ${change.rationale}`);
         if (change.checkpoints.length) {
           for (const binding of change.checkpoints) {
             const checkpoint = binding.checkpoint;
@@ -25332,9 +25353,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
           lines.push("  - Warning: this Block has no checkpoint.");
         }
       }
+    } else {
+      lines.push("- None declared.");
     }
+    lines.push("", "## Chain integration");
+    if (hierarchy.length === 0) lines.push("- None declared.");
     for (const scope of hierarchy) {
-      lines.push("", `## ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "\u2014");
+      lines.push("", `### ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "\u2014");
       if (scope.rationale) lines.push(`Reason: ${scope.rationale}`);
       if (scope.nodeIds.length || scope.linkIds.length) lines.push(`Path: ${scope.nodeIds.map((nodeId) => `block:${nodeId}`).join(" \u2192 ")}${scope.linkIds.length ? ` \xB7 Links ${scope.linkIds.map((linkId) => `link:${linkId}`).join(", ")}` : ""}`);
       if (scope.prohibitions.length) lines.push("Prohibitions:", ...scope.prohibitions.map((item) => `- ${item}`));
@@ -25354,13 +25379,15 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       lines.push("", "## Cross-Chain changes");
       for (const change of otherDirectChanges) lines.push(`- ${change.title} [${change.entityType}:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary}`);
     }
+    lines.push("", "## Plan acceptance");
     if (planCheckpoints.length) {
-      lines.push("", "## Plan acceptance");
       for (const binding of planCheckpoints) {
         const checkpoint = binding.checkpoint;
         lines.push(`- ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
         appendBlockers(binding, "  ");
       }
+    } else {
+      lines.push("- No acceptance checkpoint declared.");
     }
     let markdown = lines.join("\n");
     if (markdown.length > maxChars) markdown = `${markdown.slice(0, Math.max(0, maxChars - 64))}
@@ -25426,13 +25453,26 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }));
     const hasMore = rows.length > boundedLimit;
     if (hasMore) rows.pop();
+    const markdown = [
+      `# Changes since sequence ${sequence}`,
+      `Range: ${sequence} \u2192 ${rows.at(-1)?.sequence ?? sequence} \xB7 latest ${latestSequence} \xB7 earliest ${earliestSequence || "\u2014"}`,
+      `Returned: ${rows.length}${hasMore ? ` \xB7 more available after ${rows.at(-1)?.sequence ?? sequence}` : ""}`,
+      "",
+      ...rows.map((change) => {
+        const fields = change.changedFields?.length ? ` \xB7 fields ${change.changedFields.join(", ")}` : "";
+        const refs = change.affectedRefs?.length ? ` \xB7 refs ${change.affectedRefs.join(", ")}` : "";
+        return `- #${change.sequence} ${change.action} ${change.ref} \xB7 r${change.revision ?? "?"}${fields}${refs}${change.summary ? ` \u2014 ${change.summary}` : ""}`;
+      }),
+      ...rows.length ? ["", "Use includeStructured=true when exact before/after JSON is required."] : []
+    ].join("\n");
     return {
       fromSequence: sequence,
       nextSequence: rows.at(-1)?.sequence ?? sequence,
       latestSequence,
       earliestSequence,
       hasMore,
-      changes: rows
+      changes: rows,
+      markdown
     };
   }
   revertChangeSet({ changeSetId, actor = "agent", reason, task = "", gitHead = null, planId = null, chainScopeId = null }) {
@@ -25689,19 +25729,29 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       lines.push("");
     }
     const explicitBlockFocusIds = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
-    const contentBlocks = selectedPlanIds.size ? relevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id)) : relevantBlocks;
+    const chainOrder = /* @__PURE__ */ new Map();
+    for (const chainId of selectedChainIds) {
+      snapshot.chainNodes.filter((node2) => node2.chainId === chainId).sort((left, right) => left.position - right.position).forEach((node2, index) => {
+        const current = chainOrder.get(node2.blockId);
+        if (current === void 0 || index < current) chainOrder.set(node2.blockId, index);
+      });
+    }
+    const orderedRelevantBlocks = [...relevantBlocks].sort(
+      (left, right) => (chainOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (chainOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.localOrder - right.localOrder || left.id.localeCompare(right.id)
+    );
+    const contentBlocks = selectedPlanIds.size ? orderedRelevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id)) : orderedRelevantBlocks;
     if (contentBlocks.length) {
-      lines.push("## Relevant blocks");
-      for (const block of contentBlocks) {
+      lines.push("## Architecture order / relevant Blocks");
+      contentBlocks.forEach((block, index) => {
         const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
         const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
-        lines.push(`- [block:${block.id}] ${title} \u2014 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
+        lines.push(`${index + 1}. [block:${block.id}] ${title} \u2014 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
         if (summary) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
-      }
+      });
       lines.push("");
     }
     if (relevantLinks.length) {
@@ -27413,140 +27463,15 @@ function withProject(input, callback) {
   return callback(service, payload);
 }
 function result(data, markdown) {
-  return {
-    content: [{ type: "text", text: markdown ?? JSON.stringify(data) }],
-    structuredContent: data
-  };
+  return response(data, markdown, data);
 }
-function response(data, markdown, structuredContent = data) {
-  return {
-    content: [{ type: "text", text: markdown ?? JSON.stringify(data) }],
-    structuredContent
-  };
+function readResult(data, markdown, includeStructured = false) {
+  return response(data, markdown, includeStructured ? data : void 0);
 }
-function compactCheckpoint(checkpoint) {
-  if (!checkpoint || typeof checkpoint !== "object") return checkpoint;
-  const {
-    id,
-    targetType,
-    targetId,
-    title,
-    status,
-    checkpointKind,
-    eligibleAfterChildren,
-    evidenceLevel,
-    requiredEvidenceLevel,
-    coverage,
-    invalidatedAt,
-    currentRevision,
-    updatedAt
-  } = checkpoint;
-  return {
-    id,
-    targetType,
-    targetId,
-    title,
-    status,
-    checkpointKind,
-    eligibleAfterChildren,
-    evidenceLevel,
-    requiredEvidenceLevel,
-    coverage,
-    invalidatedAt,
-    currentRevision,
-    updatedAt
-  };
-}
-function compactPlanChange(change) {
-  if (!change || typeof change !== "object") return change;
-  const {
-    id,
-    planId,
-    entityType,
-    entityId,
-    position,
-    title,
-    summary,
-    status,
-    currentRevision,
-    updatedAt
-  } = change;
-  return { id, planId, entityType, entityId, position, title, summary, status, currentRevision, updatedAt };
-}
-function compactPlanScope(scope) {
-  if (!scope || typeof scope !== "object") return scope;
-  const {
-    changes,
-    checkpoints,
-    chain,
-    ...metadata
-  } = scope;
-  return {
-    ...metadata,
-    chain: chain && typeof chain === "object" ? {
-      id: chain.id,
-      title: chain.title,
-      purpose: chain.purpose,
-      deliveryState: chain.deliveryState,
-      healthState: chain.healthState,
-      revision: chain.revision
-    } : chain,
-    changes: Array.isArray(changes) ? changes.map(compactPlanChange) : [],
-    checkpoints: Array.isArray(checkpoints) ? checkpoints.map(compactCheckpoint) : []
-  };
-}
-function compactContextStructured(data) {
-  return {
-    graphRevision: data.graphRevision,
-    refs: data.refs ?? []
-  };
-}
-function compactPlanContextStructured(data) {
-  return {
-    plan: data.plan,
-    steps: data.steps ?? [],
-    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : [],
-    unattachedChanges: Array.isArray(data.unattachedChanges) ? data.unattachedChanges.map(compactPlanChange) : [],
-    directChanges: Array.isArray(data.directChanges) ? data.directChanges.map((change) => ({
-      ...compactPlanChange(change),
-      checkpoints: Array.isArray(change.checkpoints) ? change.checkpoints.map(compactCheckpoint) : [],
-      targetCheckpoints: Array.isArray(change.targetCheckpoints) ? change.targetCheckpoints.map(compactCheckpoint) : []
-    })) : [],
-    coverage: data.coverage,
-    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
-    dependencies: data.dependencies ?? []
-  };
-}
-function compactEntityStructured(data) {
-  const entity = data.entity && typeof data.entity === "object" ? Object.fromEntries(Object.entries(data.entity).filter(([key]) => key !== "body")) : data.entity;
-  const sourceRefs = Array.isArray(data.sourceRefs) ? data.sourceRefs.map(({ id, path: path3, startLine, endLine, symbol, role, gitCommit }) => ({ id, path: path3, startLine, endLine, symbol, role, gitCommit })) : [];
-  const history = Array.isArray(data.history) ? data.history.map(({ id, entityType, entityId, action, revision, summary, planId, chainScopeId, changedFields, affectedRefs, evidenceRefs, createdAt }) => ({
-    id,
-    entityType,
-    entityId,
-    action,
-    revision,
-    summary,
-    planId,
-    chainScopeId,
-    changedFields,
-    affectedRefs,
-    evidenceRefs,
-    createdAt
-  })) : [];
-  return {
-    entity,
-    sourceRefs,
-    pathNodes: data.pathNodes ?? [],
-    pathEdges: data.pathEdges ?? [],
-    targetChains: data.targetChains ?? [],
-    dependencies: data.dependencies ?? [],
-    steps: data.steps ?? [],
-    checkpointRefs: data.checkpointRefs ?? [],
-    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
-    history,
-    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : []
-  };
+function response(data, markdown, structuredContent) {
+  const output = { content: [{ type: "text", text: markdown ?? JSON.stringify(data) }] };
+  if (structuredContent !== void 0) output.structuredContent = structuredContent;
+  return output;
 }
 server.registerTool(
   "project_register",
@@ -27567,11 +27492,11 @@ server.registerTool(
   "project_map",
   {
     description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, unplanned Blocks, and missing Block checkpoints without loading entity bodies.",
-    inputSchema: { ...projectRootInput, locale: _enum(["en", "zh-Hans"]).optional() }
+    inputSchema: { ...projectRootInput, locale: _enum(["en", "zh-Hans"]).optional(), includeStructured: boolean2().default(false) }
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.projectMap(payload));
-    return result({ map: data.map }, data.markdown);
+    return readResult(data, data.markdown, input.includeStructured);
   }
 );
 server.registerTool(
@@ -27609,7 +27534,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.contextForTask(payload));
-    return response(data, data.markdown, input.includeStructured ? data : compactContextStructured(data));
+    return readResult(data, data.markdown, input.includeStructured);
   }
 );
 server.registerTool(
@@ -27626,7 +27551,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.planContext(payload));
-    return response(data, data.markdown, input.includeStructured ? data : compactPlanContextStructured(data));
+    return readResult(data, data.markdown, input.includeStructured);
   }
 );
 server.registerTool(
@@ -27636,10 +27561,14 @@ server.registerTool(
     inputSchema: {
       ...projectRootInput,
       sequence: number2().int().min(0).default(0),
-      limit: number2().int().min(1).max(500).default(100)
+      limit: number2().int().min(1).max(500).default(100),
+      includeStructured: boolean2().default(false)
     }
   },
-  async (input) => result(withProject(input, (service, payload) => service.changesSince(payload)))
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.changesSince(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  }
 );
 server.registerTool(
   "change_set_revert",
@@ -27673,7 +27602,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.entityOpen(payload));
-    return response(data, data.markdown, input.includeStructured ? data : compactEntityStructured(data));
+    return readResult(data, data.markdown, input.includeStructured);
   }
 );
 server.registerTool(
@@ -27689,12 +27618,13 @@ server.registerTool(
       chainScopeId: string2().min(1).optional(),
       unassignedOnly: boolean2().default(false),
       limit: number2().int().min(1).max(500).default(100),
-      locale: _enum(["en", "zh-Hans"]).optional()
+      locale: _enum(["en", "zh-Hans"]).optional(),
+      includeStructured: boolean2().default(false)
     }
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.checkpointList(payload));
-    return result(data, data.markdown);
+    return readResult(data, data.markdown, input.includeStructured);
   }
 );
 server.registerTool(
@@ -27707,10 +27637,14 @@ server.registerTool(
       kinds: array(string2()).optional(),
       states: array(string2()).optional(),
       limit: number2().int().min(1).max(50).optional(),
-      locale: _enum(["en", "zh-Hans"]).optional()
+      locale: _enum(["en", "zh-Hans"]).optional(),
+      includeStructured: boolean2().default(false)
     }
   },
-  async (input) => result(withProject(input, (service, payload) => service.search(payload)))
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.search(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  }
 );
 server.registerTool(
   "graph_mutate",

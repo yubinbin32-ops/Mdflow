@@ -24,112 +24,19 @@ function result(data, markdown) {
   return response(data, markdown, data);
 }
 
-// Read projections are intentionally dual-format, but the structured side must
-// not repeat every entity body that is already present in the bounded Markdown
-// text. Full machine payloads remain available through includeStructured=true.
-function response(data, markdown, structuredContent = data) {
-  return {
-    content: [{ type: "text", text: markdown ?? JSON.stringify(data) }],
-    structuredContent,
-  };
+function readResult(data, markdown, includeStructured = false) {
+  return response(data, markdown, includeStructured ? data : undefined);
 }
 
-function compactCheckpoint(checkpoint) {
-  if (!checkpoint || typeof checkpoint !== "object") return checkpoint;
-  const {
-    id, targetType, targetId, title, status, checkpointKind,
-    eligibleAfterChildren, evidenceLevel, requiredEvidenceLevel,
-    coverage, invalidatedAt, currentRevision, updatedAt,
-  } = checkpoint;
-  return {
-    id, targetType, targetId, title, status, checkpointKind,
-    eligibleAfterChildren, evidenceLevel, requiredEvidenceLevel,
-    coverage, invalidatedAt, currentRevision, updatedAt,
-  };
-}
-
-function compactPlanChange(change) {
-  if (!change || typeof change !== "object") return change;
-  const {
-    id, planId, entityType, entityId, position, title, summary,
-    status, currentRevision, updatedAt,
-  } = change;
-  return { id, planId, entityType, entityId, position, title, summary, status, currentRevision, updatedAt };
-}
-
-function compactPlanScope(scope) {
-  if (!scope || typeof scope !== "object") return scope;
-  const {
-    changes, checkpoints, chain, ...metadata
-  } = scope;
-  return {
-    ...metadata,
-    chain: chain && typeof chain === "object"
-      ? {
-          id: chain.id,
-          title: chain.title,
-          purpose: chain.purpose,
-          deliveryState: chain.deliveryState,
-          healthState: chain.healthState,
-          revision: chain.revision,
-        }
-      : chain,
-    changes: Array.isArray(changes) ? changes.map(compactPlanChange) : [],
-    checkpoints: Array.isArray(checkpoints) ? checkpoints.map(compactCheckpoint) : [],
-  };
-}
-
-function compactContextStructured(data) {
-  return {
-    graphRevision: data.graphRevision,
-    refs: data.refs ?? [],
-  };
-}
-
-function compactPlanContextStructured(data) {
-  return {
-    plan: data.plan,
-    steps: data.steps ?? [],
-    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : [],
-    unattachedChanges: Array.isArray(data.unattachedChanges) ? data.unattachedChanges.map(compactPlanChange) : [],
-    directChanges: Array.isArray(data.directChanges)
-      ? data.directChanges.map((change) => ({
-          ...compactPlanChange(change),
-          checkpoints: Array.isArray(change.checkpoints) ? change.checkpoints.map(compactCheckpoint) : [],
-          targetCheckpoints: Array.isArray(change.targetCheckpoints) ? change.targetCheckpoints.map(compactCheckpoint) : [],
-        }))
-      : [],
-    coverage: data.coverage,
-    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
-    dependencies: data.dependencies ?? [],
-  };
-}
-
-function compactEntityStructured(data) {
-  const entity = data.entity && typeof data.entity === "object"
-    ? Object.fromEntries(Object.entries(data.entity).filter(([key]) => key !== "body"))
-    : data.entity;
-  const sourceRefs = Array.isArray(data.sourceRefs)
-    ? data.sourceRefs.map(({ id, path, startLine, endLine, symbol, role, gitCommit }) => ({ id, path, startLine, endLine, symbol, role, gitCommit }))
-    : [];
-  const history = Array.isArray(data.history)
-    ? data.history.map(({ id, entityType, entityId, action, revision, summary, planId, chainScopeId, changedFields, affectedRefs, evidenceRefs, createdAt }) => ({
-        id, entityType, entityId, action, revision, summary, planId, chainScopeId, changedFields, affectedRefs, evidenceRefs, createdAt,
-      }))
-    : [];
-  return {
-    entity,
-    sourceRefs,
-    pathNodes: data.pathNodes ?? [],
-    pathEdges: data.pathEdges ?? [],
-    targetChains: data.targetChains ?? [],
-    dependencies: data.dependencies ?? [],
-    steps: data.steps ?? [],
-    checkpointRefs: data.checkpointRefs ?? [],
-    checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints.map(compactCheckpoint) : [],
-    history,
-    hierarchy: Array.isArray(data.hierarchy) ? data.hierarchy.map(compactPlanScope) : [],
-  };
+// Read tools are Markdown-first. MCP clients may place both content and
+// structuredContent in the model context, so duplicating a projection in both
+// fields wastes tokens and can make the model choose stale values. Mutations
+// and validation keep their small machine receipt; read tools pass undefined
+// here unless the caller explicitly asks for includeStructured=true.
+function response(data, markdown, structuredContent) {
+  const output = { content: [{ type: "text", text: markdown ?? JSON.stringify(data) }] };
+  if (structuredContent !== undefined) output.structuredContent = structuredContent;
+  return output;
 }
 
 server.registerTool(
@@ -153,11 +60,11 @@ server.registerTool(
   "project_map",
   {
     description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, unplanned Blocks, and missing Block checkpoints without loading entity bodies.",
-    inputSchema: { ...projectRootInput, locale: z.enum(["en", "zh-Hans"]).optional() },
+    inputSchema: { ...projectRootInput, locale: z.enum(["en", "zh-Hans"]).optional(), includeStructured: z.boolean().default(false) },
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.projectMap(payload));
-    return result({ map: data.map }, data.markdown);
+    return readResult(data, data.markdown, input.includeStructured);
   },
 );
 
@@ -199,7 +106,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.contextForTask(payload));
-    return response(data, data.markdown, input.includeStructured ? data : compactContextStructured(data));
+    return readResult(data, data.markdown, input.includeStructured);
   },
 );
 
@@ -218,7 +125,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.planContext(payload));
-    return response(data, data.markdown, input.includeStructured ? data : compactPlanContextStructured(data));
+    return readResult(data, data.markdown, input.includeStructured);
   },
 );
 
@@ -231,9 +138,13 @@ server.registerTool(
       ...projectRootInput,
       sequence: z.number().int().min(0).default(0),
       limit: z.number().int().min(1).max(500).default(100),
+      includeStructured: z.boolean().default(false),
     },
   },
-  async (input) => result(withProject(input, (service, payload) => service.changesSince(payload))),
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.changesSince(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  },
 );
 
 server.registerTool(
@@ -270,7 +181,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.entityOpen(payload));
-    return response(data, data.markdown, input.includeStructured ? data : compactEntityStructured(data));
+    return readResult(data, data.markdown, input.includeStructured);
   },
 );
 
@@ -289,11 +200,12 @@ server.registerTool(
       unassignedOnly: z.boolean().default(false),
       limit: z.number().int().min(1).max(500).default(100),
       locale: z.enum(["en", "zh-Hans"]).optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.checkpointList(payload));
-    return result(data, data.markdown);
+    return readResult(data, data.markdown, input.includeStructured);
   },
 );
 
@@ -308,9 +220,13 @@ server.registerTool(
       states: z.array(z.string()).optional(),
       limit: z.number().int().min(1).max(50).optional(),
       locale: z.enum(["en", "zh-Hans"]).optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
-  async (input) => result(withProject(input, (service, payload) => service.search(payload))),
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.search(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  },
 );
 
 server.registerTool(
