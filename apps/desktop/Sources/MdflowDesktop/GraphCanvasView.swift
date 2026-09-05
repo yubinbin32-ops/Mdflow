@@ -4,6 +4,7 @@ import SwiftUI
 struct GraphCanvasView: View {
     @ObservedObject var store: GraphStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var scene: CanvasScene = .empty
     @State private var camera = CanvasCamera()
     @State private var dragStartOffset: CGSize?
@@ -293,10 +294,10 @@ struct GraphCanvasView: View {
                 let isRelated = related == nil || (related!.contains(link.sourceId) && related!.contains(link.targetId))
                 let opacity: Double = isRelated ? 0.86 : 0.10
                 let color = MdflowTheme.linkKindColor(link.kind)
-                let dashed = ["depends_on", "validates", "constrains", "supersedes"].contains(link.kind)
+                let dash = differentiateWithoutColor ? differentiatedLinkDash(link.kind) : semanticLinkDash(link.kind)
                 context.stroke(
                     streetPath(points), with: .color(color.opacity(opacity)),
-                    style: StrokeStyle(lineWidth: isRelated ? 1.7 : 1.2, lineCap: .square, lineJoin: .miter, dash: dashed ? [6, 4] : [])
+                    style: StrokeStyle(lineWidth: isRelated ? 1.7 : 1.2, lineCap: .square, lineJoin: .miter, dash: dash)
                 )
                 drawArrow(context: &context, points: points, color: color.opacity(opacity))
             }
@@ -304,6 +305,25 @@ struct GraphCanvasView: View {
         .id("links:\(sceneProjectionKey)")
         .transition(.opacity)
         .allowsHitTesting(false)
+    }
+
+    private func semanticLinkDash(_ kind: String) -> [CGFloat] {
+        ["depends_on", "validates", "constrains", "supersedes"].contains(kind) ? [6, 4] : []
+    }
+
+    private func differentiatedLinkDash(_ kind: String) -> [CGFloat] {
+        switch kind {
+        case "flows_to": []
+        case "calls": [9, 3]
+        case "reads": [2, 3]
+        case "writes": [12, 3, 2, 3]
+        case "depends_on": [6, 4]
+        case "implements": [10, 3, 2, 3]
+        case "validates": [4, 4]
+        case "constrains": [2, 4, 2, 4]
+        case "supersedes": [14, 3]
+        default: [5, 3]
+        }
     }
 
     private var linkHitLayer: some View {

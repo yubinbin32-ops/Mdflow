@@ -1,16 +1,19 @@
+import AppKit
 import SwiftUI
 
 enum MdflowTheme {
-    static let canvas = Color(red: 0.965, green: 0.969, blue: 0.976)
-    static let surface = Color.white
-    static let ink = Color(red: 0.067, green: 0.075, blue: 0.094)
-    static let muted = Color(red: 0.451, green: 0.475, blue: 0.510)
-    static let hairline = Color(red: 0.867, green: 0.882, blue: 0.906)
-    static let focus = Color(red: 0.184, green: 0.420, blue: 1.0)
-    static let success = Color(red: 0.098, green: 0.529, blue: 0.329)
-    static let pending = Color(red: 0.769, green: 0.478, blue: 0.0)
-    static let failure = Color(red: 0.820, green: 0.247, blue: 0.247)
-    static let unstable = Color(red: 0.545, green: 0.290, blue: 0.796)
+    // AppKit semantic colors resolve against the window's light/dark
+    // appearance, so the Canvas keeps one canonical project projection.
+    static let canvas = Color(nsColor: NSColor.controlBackgroundColor)
+    static let surface = Color(nsColor: NSColor.windowBackgroundColor)
+    static let ink = Color(nsColor: NSColor.labelColor)
+    static let muted = Color(nsColor: NSColor.secondaryLabelColor)
+    static let hairline = Color(nsColor: NSColor.separatorColor)
+    static let focus = Color(nsColor: NSColor.controlAccentColor)
+    static let success = Color(nsColor: NSColor.systemGreen)
+    static let pending = Color(nsColor: NSColor.systemOrange)
+    static let failure = Color(nsColor: NSColor.systemRed)
+    static let unstable = Color(nsColor: NSColor.systemPurple)
 
     static func healthColor(_ state: String) -> Color {
         switch state {
@@ -28,7 +31,7 @@ enum MdflowTheme {
         case "implementing": focus
         case "verifying": pending
         case "deprecated": muted.opacity(0.35)
-        case "planned": Color(red: 0.38, green: 0.42, blue: 0.55)
+        case "planned": Color(nsColor: NSColor.systemIndigo)
         default: muted.opacity(0.6)
         }
     }
@@ -39,7 +42,7 @@ enum MdflowTheme {
         case "active": focus
         case "verifying", "ready": pending
         case "blocked", "failed": failure
-        case "retest_required": Color(red: 0.92, green: 0.43, blue: 0.16)
+        case "retest_required": Color(nsColor: NSColor.systemOrange)
         case "cancelled": muted.opacity(0.35)
         default: muted.opacity(0.65)
         }
@@ -47,15 +50,15 @@ enum MdflowTheme {
 
     static func linkKindColor(_ kind: String) -> Color {
         switch kind {
-        case "flows_to": Color(red: 0.25, green: 0.31, blue: 0.42)
-        case "calls": Color(red: 0.10, green: 0.46, blue: 0.80)
-        case "reads": Color(red: 0.10, green: 0.58, blue: 0.55)
-        case "writes": Color(red: 0.77, green: 0.39, blue: 0.08)
-        case "depends_on": Color(red: 0.48, green: 0.34, blue: 0.70)
-        case "implements": Color(red: 0.10, green: 0.55, blue: 0.34)
-        case "validates": Color(red: 0.15, green: 0.45, blue: 0.80)
-        case "constrains": Color(red: 0.58, green: 0.32, blue: 0.16)
-        case "supersedes": Color(red: 0.74, green: 0.24, blue: 0.32)
+        case "flows_to": Color(nsColor: NSColor.systemGray)
+        case "calls": Color(nsColor: NSColor.systemBlue)
+        case "reads": Color(nsColor: NSColor.systemTeal)
+        case "writes": Color(nsColor: NSColor.systemOrange)
+        case "depends_on": Color(nsColor: NSColor.systemPurple)
+        case "implements": Color(nsColor: NSColor.systemGreen)
+        case "validates": Color(nsColor: NSColor.systemIndigo)
+        case "constrains": Color(nsColor: NSColor.systemBrown)
+        case "supersedes": Color(nsColor: NSColor.systemRed)
         default: muted
         }
     }
@@ -67,24 +70,24 @@ enum MdflowTheme {
         case "running": focus
         case "failed": failure
         case "blocked": unstable
-        case "retest_required": Color(red: 0.92, green: 0.43, blue: 0.16)
+        case "retest_required": Color(nsColor: NSColor.systemOrange)
         default: muted
         }
     }
 
     static let chainPalette: [Color] = [
         focus,
-        Color(red: 0.92, green: 0.43, blue: 0.16),
+        Color(nsColor: NSColor.systemOrange),
         success,
-        Color(red: 0.48, green: 0.30, blue: 0.86),
+        Color(nsColor: NSColor.systemPurple),
         failure,
-        Color(red: 0.04, green: 0.55, blue: 0.62),
-        Color(red: 0.74, green: 0.20, blue: 0.48),
-        Color(red: 0.48, green: 0.34, blue: 0.18),
-        Color(red: 0.24, green: 0.36, blue: 0.70),
-        Color(red: 0.44, green: 0.58, blue: 0.06),
-        Color(red: 0.00, green: 0.48, blue: 0.78),
-        Color(red: 0.86, green: 0.30, blue: 0.58),
+        Color(nsColor: NSColor.systemTeal),
+        Color(nsColor: NSColor.systemPink),
+        Color(nsColor: NSColor.systemBrown),
+        Color(nsColor: NSColor.systemIndigo),
+        Color(nsColor: NSColor.systemYellow),
+        Color(nsColor: NSColor.systemBlue),
+        Color(nsColor: NSColor.systemMint),
     ]
 
     static func chainColor(index: Int) -> Color {
@@ -93,15 +96,15 @@ enum MdflowTheme {
 
     static func blockKindColor(_ kind: String) -> Color {
         switch kind {
-        case "ui", "flow": Color(red: 0.19, green: 0.43, blue: 0.92)
-        case "service": Color(red: 0.08, green: 0.55, blue: 0.36)
-        case "function": Color(red: 0.06, green: 0.48, blue: 0.62)
-        case "integration": Color(red: 0.43, green: 0.32, blue: 0.78)
-        case "data": Color(red: 0.88, green: 0.42, blue: 0.14)
-        case "database": Color(red: 0.69, green: 0.28, blue: 0.66)
-        case "test", "checkpoint": Color(red: 0.18, green: 0.46, blue: 0.82)
+        case "ui", "flow": Color(nsColor: NSColor.systemBlue)
+        case "service": Color(nsColor: NSColor.systemGreen)
+        case "function": Color(nsColor: NSColor.systemTeal)
+        case "integration": Color(nsColor: NSColor.systemPurple)
+        case "data": Color(nsColor: NSColor.systemOrange)
+        case "database": Color(nsColor: NSColor.systemPink)
+        case "test", "checkpoint": Color(nsColor: NSColor.systemIndigo)
         case "risk": failure
-        case "principle", "decision", "requirement", "product": Color(red: 0.45, green: 0.34, blue: 0.17)
+        case "principle", "decision", "requirement", "product": Color(nsColor: NSColor.systemBrown)
         default: muted
         }
     }

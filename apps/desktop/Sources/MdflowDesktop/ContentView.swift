@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var store = GraphStore()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @AppStorage("mdflow.appearance") private var appearance = AppearancePreference.system.rawValue
 
     var body: some View {
         GeometryReader { proxy in
@@ -29,6 +31,7 @@ struct ContentView: View {
         }
         .frame(minWidth: 1_080, minHeight: 680)
         .background(MdflowTheme.canvas)
+        .preferredColorScheme(preferredColorScheme)
         .sheet(isPresented: $store.settingsPresented) { SettingsView(store: store) }
     }
 
@@ -237,6 +240,12 @@ struct ContentView: View {
             }
             Text(store.activeLocale == "zh-Hans" ? "左侧色条＝Block 类型 · 图标＝交付状态 · 线色/虚线＝关系类型 · 外框＝Chain" : "Left rail = Block type · icon = delivery · line = Link kind · enclosure = Chain")
                 .font(.system(size: 9.5, design: .rounded)).foregroundStyle(MdflowTheme.muted).fixedSize(horizontal: false, vertical: true)
+            if differentiateWithoutColor {
+                Text(store.activeLocale == "zh-Hans" ? "已启用无色彩区分：状态同时使用文字、图标和虚线。" : "Differentiation without color is on: status also uses text, icons, and dashes.")
+                    .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(MdflowTheme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(14)
     }
@@ -266,6 +275,7 @@ struct ContentView: View {
 private struct SettingsView: View {
     @ObservedObject var store: GraphStore
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("mdflow.appearance") private var appearance = AppearancePreference.system.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -275,6 +285,16 @@ private struct SettingsView: View {
                 Picker(store.text("language"), selection: $store.language) {
                     Text(store.text("system")).tag(AppLanguage.system); Text(store.text("chinese")).tag(AppLanguage.zhHans); Text(store.text("english")).tag(AppLanguage.english)
                 }.pickerStyle(.segmented)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                label(store.text("appearance"))
+                Picker(store.text("appearance"), selection: $appearance) {
+                    Text(store.text("system")).tag(AppearancePreference.system.rawValue)
+                    Text(store.text("light")).tag(AppearancePreference.light.rawValue)
+                    Text(store.text("dark")).tag(AppearancePreference.dark.rawValue)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel(store.text("appearance"))
             }
             VStack(alignment: .leading, spacing: 8) {
                 label(store.text("plugin")); Text(store.text("pluginHelp")).font(.system(size: 12, design: .rounded))
@@ -297,5 +317,15 @@ private struct SettingsView: View {
 
     private func label(_ value: String) -> some View {
         Text(value.uppercased()).font(.system(size: 9, weight: .bold, design: .monospaced)).tracking(1.4).foregroundStyle(MdflowTheme.muted)
+    }
+}
+
+private extension ContentView {
+    var preferredColorScheme: ColorScheme? {
+        switch AppearancePreference(rawValue: appearance) ?? .system {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
     }
 }
