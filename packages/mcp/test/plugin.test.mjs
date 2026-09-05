@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { registerProject, resolveProjectPaths } from "../src/paths.mjs";
 
-test("registered projects keep private runtime data inside ignored .mdflow", () => {
+test("registered projects version the canonical graph but ignore SQLite sidecars", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-local-data-"));
   try {
     const first = registerProject({ projectRoot: root, id: "local-data", name: "Local Data" });
@@ -17,7 +17,10 @@ test("registered projects keep private runtime data inside ignored .mdflow", () 
     assert.equal(first.created, true);
     assert.equal(second.created, false);
     assert.equal(paths.databasePath, path.join(root, ".mdflow", "mdflow.sqlite"));
-    assert.equal(fs.readFileSync(path.join(root, ".mdflow", ".gitignore"), "utf8"), "*\n!.gitignore\n!project.json\n");
+    assert.equal(
+      fs.readFileSync(path.join(root, ".mdflow", ".gitignore"), "utf8"),
+      "*\n!.gitignore\n!project.json\n!mdflow.sqlite\nmdflow.sqlite-wal\nmdflow.sqlite-shm\nmdflow.sqlite-journal\n",
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

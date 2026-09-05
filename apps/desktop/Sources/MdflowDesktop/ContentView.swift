@@ -5,27 +5,23 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack(alignment: .trailing) {
-                HStack(spacing: 0) {
-                    sidebar.frame(width: 248)
+            let drawerWidth = detailDrawerWidth(totalWidth: proxy.size.width)
+            HStack(spacing: 0) {
+                sidebar.frame(width: 248)
+                Divider()
+                VStack(spacing: 0) {
+                    canvasToolbar
                     Divider()
-                    VStack(spacing: 0) {
-                        canvasToolbar
-                        Divider()
-                        GraphCanvasView(store: store)
-                            .overlay(alignment: .topLeading) { errorBanner }
-                    }
+                    GraphCanvasView(store: store)
+                        .overlay(alignment: .topLeading) { errorBanner }
                 }
                 if let selection = store.selection {
-                    let preferredWidth = selection.type == .plan ? proxy.size.width * 0.33 : proxy.size.width * 0.25
-                    let drawerWidth = min(selection.type == .plan ? 500 : 380, max(selection.type == .plan ? 410 : 320, preferredWidth))
                     DetailView(store: store, selection: selection)
                         .frame(width: drawerWidth)
                         .background(MdflowTheme.surface)
                         .overlay(alignment: .leading) { Rectangle().fill(MdflowTheme.hairline).frame(width: 1) }
                         .shadow(color: .black.opacity(0.075), radius: 12, x: -4, y: 0)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
-                        .zIndex(20)
                 }
             }
             .animation(.easeOut(duration: 0.18), value: store.selection)
@@ -33,6 +29,15 @@ struct ContentView: View {
         .frame(minWidth: 1_080, minHeight: 680)
         .background(MdflowTheme.canvas)
         .sheet(isPresented: $store.settingsPresented) { SettingsView(store: store) }
+    }
+
+    private func detailDrawerWidth(totalWidth: CGFloat) -> CGFloat {
+        guard let selection = store.selection else { return 0 }
+        let preferredWidth = selection.type == .plan ? totalWidth * 0.33 : totalWidth * 0.25
+        return min(
+            selection.type == .plan ? 500 : 380,
+            max(selection.type == .plan ? 410 : 320, preferredWidth)
+        )
     }
 
     private var sidebar: some View {

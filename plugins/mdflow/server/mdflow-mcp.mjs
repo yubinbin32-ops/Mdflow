@@ -23765,7 +23765,7 @@ function backfillChainPaths(database) {
 }
 function openDatabase(databasePath) {
   const database = new DatabaseSync(databasePath);
-  database.exec("PRAGMA journal_mode = WAL;");
+  database.exec("PRAGMA journal_mode = DELETE;");
   database.exec("PRAGMA foreign_keys = ON;");
   database.exec("PRAGMA busy_timeout = 3000;");
   database.exec(SCHEMA);
@@ -23791,7 +23791,16 @@ function transaction(database, callback) {
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-var localDataIgnore = "*\n!.gitignore\n!project.json\n";
+var localDataIgnore = [
+  "*",
+  "!.gitignore",
+  "!project.json",
+  "!mdflow.sqlite",
+  "mdflow.sqlite-wal",
+  "mdflow.sqlite-shm",
+  "mdflow.sqlite-journal",
+  ""
+].join("\n");
 function ensureLocalDataIgnore(descriptorDirectory) {
   const ignorePath = path.join(descriptorDirectory, ".gitignore");
   if (!fs.existsSync(ignorePath)) fs.writeFileSync(ignorePath, localDataIgnore, { flag: "wx" });

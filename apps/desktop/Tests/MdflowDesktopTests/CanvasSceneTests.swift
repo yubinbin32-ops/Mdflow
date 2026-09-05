@@ -30,6 +30,41 @@ import Testing
     #expect(first.graphRevision == snapshot.project.graphRevision)
 }
 
+@Test func sharedBlocksAlwaysReceiveDistinctStableChainEnvelopeLanes() {
+    let memberships = [
+        "alpha": ["shared-a", "alpha-only"],
+        "beta": ["shared-a", "shared-b"],
+        "gamma": ["shared-b", "gamma-only"],
+        "unrelated": ["other"],
+    ]
+    let first = ChainEnvelopeLaneAllocator.make(chainNodes: memberships)
+    let second = ChainEnvelopeLaneAllocator.make(chainNodes: memberships)
+
+    #expect(first == second)
+    #expect(first["alpha"] != first["beta"])
+    #expect(first["beta"] != first["gamma"])
+}
+
+@Test func chainEnvelopeLaneSpacingIsEqualAroundBlocksAndRoads() {
+    let size = CGSize(width: 100, height: 60)
+    let layout = NetworkLayoutSnapshot(
+        positions: ["a": CGPoint(x: 0, y: 0), "b": CGPoint(x: 200, y: 0)],
+        routes: ["ab": [CGPoint(x: 100, y: 30), CGPoint(x: 200, y: 30)]],
+        layerBands: [], scopeBands: [], size: CGSize(width: 320, height: 180)
+    )
+    let inner = ChainEnvelopeEngine.make(
+        nodeIDs: ["a", "b"], linkIDs: ["ab"], layout: layout,
+        cardSize: size, expansion: ChainEnvelopeEngine.baseExpansion
+    )
+    let outer = ChainEnvelopeEngine.make(
+        nodeIDs: ["a", "b"], linkIDs: ["ab"], layout: layout,
+        cardSize: size, expansion: ChainEnvelopeEngine.baseExpansion + ChainEnvelopeEngine.laneSpacing
+    )
+
+    #expect(outer.nodeFrames[0].minX == inner.nodeFrames[0].minX - ChainEnvelopeEngine.laneSpacing)
+    #expect(outer.corridorFrames[0].minY == inner.corridorFrames[0].minY - ChainEnvelopeEngine.laneSpacing)
+}
+
 @Test func lShapedChainProducesOneSnakeContourWithoutBoundingBoxFill() {
     let size = CGSize(width: 100, height: 60)
     let layout = NetworkLayoutSnapshot(

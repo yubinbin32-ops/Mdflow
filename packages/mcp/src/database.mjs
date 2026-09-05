@@ -562,7 +562,10 @@ function backfillChainPaths(database) {
 
 export function openDatabase(databasePath) {
   const database = new DatabaseSync(databasePath);
-  database.exec("PRAGMA journal_mode = WAL;");
+  // The canonical project graph is versioned with the repository. DELETE mode
+  // keeps every committed mutation in the tracked database file instead of a
+  // private WAL that Git cannot restore with the rest of the checkout.
+  database.exec("PRAGMA journal_mode = DELETE;");
   database.exec("PRAGMA foreign_keys = ON;");
   database.exec("PRAGMA busy_timeout = 3000;");
   database.exec(SCHEMA);

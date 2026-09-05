@@ -5,3 +5,4 @@ dist/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+!.mdflow/mdflow.sqlite

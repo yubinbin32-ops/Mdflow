@@ -54,11 +54,10 @@ struct CanvasScene: Equatable {
             cardSize: cardSize,
             topInset: topInset
         )
+        let chainLaneIndices = ChainEnvelopeLaneAllocator.make(chainNodes: chainNodes)
         let chainEnvelopes = Dictionary(uniqueKeysWithValues: snapshot.chains.map { chain in
-            let memberships = Set((chainNodes[chain.id] ?? []).flatMap { id in
-                snapshot.chainNodes.filter { $0.blockId == id }.map(\.chainId)
-            }).sorted()
-            let expansion = CGFloat(8 + (memberships.firstIndex(of: chain.id) ?? 0) * 4)
+            let expansion = ChainEnvelopeEngine.baseExpansion
+                + CGFloat(chainLaneIndices[chain.id, default: 0]) * ChainEnvelopeEngine.laneSpacing
             return (chain.id, ChainEnvelopeEngine.make(
                 nodeIDs: chainNodes[chain.id] ?? [], linkIDs: chainLinks[chain.id] ?? [],
                 layout: layout, cardSize: cardSize, expansion: expansion
@@ -147,6 +146,9 @@ struct ChainEnvelopeGeometry: Equatable {
 }
 
 enum ChainEnvelopeEngine {
+    static let baseExpansion: CGFloat = 10
+    static let laneSpacing: CGFloat = 9
+
     private struct Edge: Hashable {
         let start: CGPoint
         let end: CGPoint
@@ -158,7 +160,10 @@ enum ChainEnvelopeEngine {
     ) -> ChainEnvelopeGeometry {
         let nodeFrames = nodeIDs.compactMap { layout.positions[$0].map { CGRect(origin: $0, size: cardSize).insetBy(dx: -expansion, dy: -expansion) } }
         let routes = linkIDs.compactMap { layout.routes[$0] }.filter { $0.count > 1 }
-        let halfWidth = (30 + expansion) / 2
+        // Expansion is the distance from the underlying route on each side,
+        // matching the node-frame expansion. Every lane therefore keeps the
+        // same visible gap around Blocks and along the streets between them.
+        let halfWidth = 15 + expansion
         let corridors = routes.flatMap { route in
             zip(route, route.dropFirst()).map { start, end in
                 if start.x == end.x {
@@ -241,5 +246,32 @@ enum ChainEnvelopeEngine {
         return abs(zip(points, closed).reduce(CGFloat.zero) { result, pair in
             result + pair.0.x * pair.1.y - pair.1.x * pair.0.y
         }) / 2
+    }
+}
+
+enum ChainEnvelopeLaneAllocator {
+    /// Deterministic greedy coloring of the Chain-overlap graph. Chains that
+    /// share any Block can never receive the same enclosure lane, while
+    /// unrelated Chains may reuse a lane to keep the Canvas compact.
+    static func make(chainNodes: [String: [String]]) -> [String: Int] {
+        let nodeSets = chainNodes.mapValues(Set.init)
+        let chainIDs = nodeSets.keys.sorted()
+        let neighbors = Dictionary(uniqueKeysWithValues: chainIDs.map { chainID in
+            let overlapping = chainIDs.filter {
+                $0 != chainID && !nodeSets[chainID, default: []].isDisjoint(with: nodeSets[$0, default: []])
+            }
+            return (chainID, Set(overlapping))
+        })
+        let order = chainIDs.sorted {
+            let leftDegree = neighbors[$0, default: []].count
+            let rightDegree = neighbors[$1, default: []].count
+            return leftDegree == rightDegree ? $0 < $1 : leftDegree > rightDegree
+        }
+        var result: [String: Int] = [:]
+        for chainID in order {
+            let unavailable = Set(neighbors[chainID, default: []].compactMap { result[$0] })
+            result[chainID] = (0...).first { !unavailable.contains($0) } ?? 0
+        }
+        return result
     }
 }

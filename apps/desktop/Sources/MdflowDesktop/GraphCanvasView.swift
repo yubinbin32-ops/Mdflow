@@ -3,6 +3,7 @@ import SwiftUI
 
 struct GraphCanvasView: View {
     @ObservedObject var store: GraphStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scene: CanvasScene = .empty
     @State private var camera = CanvasCamera()
     @State private var dragStartOffset: CGSize?
@@ -17,10 +18,10 @@ struct GraphCanvasView: View {
                     grid
                     chainEnvelopeLayer
                     linkLayer
+                    chainMotionLayer
                     linkHitLayer
                     chainHitLayer
                     blockLayer
-                    chainLabels
                 }
                 .frame(width: scene.layout.size.width, height: scene.layout.size.height, alignment: .topLeading)
                 .scaleEffect(camera.scale, anchor: .topLeading)
@@ -58,7 +59,6 @@ struct GraphCanvasView: View {
             )
             .background {
                 CameraEventBridge(
-                    trailingExclusion: detailExclusionWidth(viewportWidth: viewport.size.width),
                     onScroll: { delta, point, zooming in
                         if zooming {
                             zoom(by: min(0.12, max(-0.12, delta.height * 0.012)), around: point)
@@ -82,11 +82,6 @@ struct GraphCanvasView: View {
     private var sceneKey: String {
         let lenses = store.enabledLenses.map(\.rawValue).sorted().joined(separator: ",")
         return "\(store.snapshot.project.id):\(store.snapshot.project.graphRevision):\(lenses)"
-    }
-
-    private func detailExclusionWidth(viewportWidth: CGFloat) -> CGFloat {
-        guard let selection = store.selection else { return 0 }
-        return selection.type == .plan ? min(500, max(410, viewportWidth * 0.40)) : min(380, max(320, viewportWidth * 0.32))
     }
 
     private func rebuildScene(viewport: CGSize, fit: Bool) {
@@ -134,17 +129,138 @@ struct GraphCanvasView: View {
                 let color = store.chainColor(chain.id)
                 let selected = store.highlightedChainIDs.contains(chain.id)
                 let subdued = !store.highlightedChainIDs.isEmpty && !selected
-                let fillOpacity = subdued ? 0.035 : selected ? 0.16 : 0.075
-                let strokeOpacity = subdued ? 0.10 : selected ? 0.86 : 0.42
+                let fillOpacity = subdued ? 0.012 : selected ? 0.085 : 0.025
+                let outerOpacity = subdued ? 0.05 : selected ? 0.18 : 0.09
+                let strokeOpacity = subdued ? 0.12 : selected ? 0.96 : 0.62
                 let path = chainEnvelopePath(envelope)
                 context.fill(path, with: .color(color.opacity(fillOpacity)), style: FillStyle(eoFill: true))
                 context.stroke(
+                    path, with: .color(color.opacity(outerOpacity)),
+                    style: StrokeStyle(lineWidth: selected ? 6.0 : 4.0, lineCap: .round, lineJoin: .round)
+                )
+                context.stroke(
                     path, with: .color(color.opacity(strokeOpacity)),
-                    style: StrokeStyle(lineWidth: selected ? 2.4 : 1.3, lineCap: .round, lineJoin: .round)
+                    style: StrokeStyle(lineWidth: selected ? 2.8 : 1.8, lineCap: .round, lineJoin: .round)
                 )
             }
         }
         .allowsHitTesting(false)
+    }
+
+    private var chainMotionLayer: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+            Canvas { context, _ in
+                let chains = store.snapshot.chains.sorted { $0.id < $1.id }
+                let seconds = timeline.date.timeIntervalSinceReferenceDate
+                for (index, chain) in chains.enumerated() {
+                    let selected = store.highlightedChainIDs.contains(chain.id)
+                    let active = ["implementing", "verifying"].contains(chain.deliveryState)
+                    let unhealthy = ["warning", "failing", "unstable", "disputed"].contains(chain.healthState)
+                    guard selected || active || unhealthy else { continue }
+                    guard let envelope = scene.chainEnvelopes[chain.id] else { continue }
+
+                    let color = store.chainColor(chain.id)
+                    let signature = index % 3
+                    let speed = chain.deliveryState == "verifying" ? 0.075 : 0.12 + Double(signature) * 0.018
+                    let phaseOffset = Double(index) * 0.173
+                    let progress = reduceMotion ? 0.82 : positiveRemainder(seconds * speed + phaseOffset, modulus: 1)
+                    let dashPhase = reduceMotion ? 0 : CGFloat(-seconds * (18 + Double(signature) * 5))
+                    let dash: [CGFloat] = switch signature {
+                    case 0: [9, 14]
+                    case 1: [4, 8, 13, 8]
+                    default: [2, 7, 2, 15]
+                    }
+                    let path = chainEnvelopePath(envelope)
+                    context.stroke(
+                        path,
+                        with: .color(color.opacity(selected ? 0.72 : 0.34)),
+                        style: StrokeStyle(
+                            lineWidth: selected ? 2.0 : 1.2,
+                            lineCap: .round,
+                            lineJoin: .round,
+                            dash: dash,
+                            dashPhase: dashPhase
+                        )
+                    )
+
+                    guard let sample = chainMotionSample(chain.id, progress: progress) else { continue }
+                    let pulse = unhealthy && !reduceMotion ? 0.68 + 0.32 * sin(seconds * 3.2) : 1
+                    drawChainMarker(
+                        context: &context,
+                        point: sample.point,
+                        horizontal: sample.horizontal,
+                        signature: signature,
+                        color: color.opacity((selected ? 0.96 : 0.72) * pulse),
+                        selected: selected
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func chainMotionSample(_ chainID: String, progress: Double) -> (point: CGPoint, horizontal: Bool)? {
+        let segments = (scene.chainLinks[chainID] ?? []).flatMap { linkID -> [(CGPoint, CGPoint)] in
+            guard let points = scene.layout.routes[linkID] else { return [] }
+            return zip(points, points.dropFirst()).filter { length($0.0, $0.1) > 0 }
+        }
+        let total = segments.reduce(CGFloat.zero) { $0 + length($1.0, $1.1) }
+        guard total > 0 else { return nil }
+        var remaining = CGFloat(min(1, max(0, progress))) * total
+        for (start, end) in segments {
+            let segmentLength = length(start, end)
+            if remaining <= segmentLength {
+                let ratio = segmentLength == 0 ? 0 : remaining / segmentLength
+                return (
+                    CGPoint(x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio),
+                    abs(end.x - start.x) >= abs(end.y - start.y)
+                )
+            }
+            remaining -= segmentLength
+        }
+        guard let last = segments.last else { return nil }
+        return (last.1, abs(last.1.x - last.0.x) >= abs(last.1.y - last.0.y))
+    }
+
+    private func drawChainMarker(
+        context: inout GraphicsContext,
+        point: CGPoint,
+        horizontal: Bool,
+        signature: Int,
+        color: Color,
+        selected: Bool
+    ) {
+        if selected {
+            context.fill(
+                Path(ellipseIn: CGRect(x: point.x - 7, y: point.y - 7, width: 14, height: 14)),
+                with: .color(color.opacity(0.16))
+            )
+        }
+        switch signature {
+        case 0:
+            context.fill(Path(ellipseIn: CGRect(x: point.x - 3.5, y: point.y - 3.5, width: 7, height: 7)), with: .color(color))
+        case 1:
+            let rect = horizontal
+                ? CGRect(x: point.x - 6, y: point.y - 2.5, width: 12, height: 5)
+                : CGRect(x: point.x - 2.5, y: point.y - 6, width: 5, height: 12)
+            context.fill(Path(roundedRect: rect, cornerRadius: 2.5), with: .color(color))
+        default:
+            context.stroke(
+                Path(ellipseIn: CGRect(x: point.x - 4.5, y: point.y - 4.5, width: 9, height: 9)),
+                with: .color(color), lineWidth: 2
+            )
+            context.fill(Path(ellipseIn: CGRect(x: point.x - 1.5, y: point.y - 1.5, width: 3, height: 3)), with: .color(color))
+        }
+    }
+
+    private func positiveRemainder(_ value: Double, modulus: Double) -> Double {
+        let result = value.truncatingRemainder(dividingBy: modulus)
+        return result >= 0 ? result : result + modulus
+    }
+
+    private func length(_ start: CGPoint, _ end: CGPoint) -> CGFloat {
+        abs(end.x - start.x) + abs(end.y - start.y)
     }
 
     private var linkLayer: some View {
@@ -242,47 +358,6 @@ struct GraphCanvasView: View {
         }
         .buttonStyle(.plain)
         .help("\(store.blockText(block, field: "title"))\n\(store.blockText(block, field: "summary"))")
-    }
-
-    private var chainLabels: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(store.snapshot.chains) { chain in
-                if let point = labelAnchor(chain.id) {
-                    Button { store.select(GraphSelection(type: .chain, id: chain.id)) } label: {
-                        HStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 2).fill(store.chainColor(chain.id)).frame(width: 18, height: 4)
-                            Text(store.chainText(chain, field: "title")).lineLimit(1)
-                            Image(systemName: "arrow.right").font(.system(size: 8, weight: .bold))
-                        }
-                        .font(.system(size: 9, weight: .semibold, design: .rounded)).foregroundStyle(MdflowTheme.ink.opacity(0.88))
-                        .padding(.horizontal, 7).padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .overlay(Capsule().stroke(store.chainColor(chain.id).opacity(0.45)))
-                    }
-                    .buttonStyle(.plain)
-                    .position(point)
-                }
-            }
-        }
-    }
-
-    private func labelAnchor(_ chainID: String) -> CGPoint? {
-        let segments = (scene.chainLinks[chainID] ?? []).flatMap { linkID -> [(CGPoint, CGPoint)] in
-            guard let points = scene.layout.routes[linkID] else { return [] }
-            return Array(zip(points, points.dropFirst()))
-        }
-        guard let longest = segments.max(by: { length($0) < length($1) }) else {
-            guard let id = scene.chainNodes[chainID]?.first, let origin = scene.layout.positions[id] else { return nil }
-            return CGPoint(x: origin.x + scene.cardSize.width / 2, y: origin.y - 18)
-        }
-        if longest.0.y == longest.1.y {
-            return CGPoint(x: (longest.0.x + longest.1.x) / 2, y: longest.0.y - 15)
-        }
-        return CGPoint(x: longest.0.x + 16, y: (longest.0.y + longest.1.y) / 2)
-    }
-
-    private func length(_ segment: (CGPoint, CGPoint)) -> CGFloat {
-        abs(segment.1.x - segment.0.x) + abs(segment.1.y - segment.0.y)
     }
 
     private func fitAll(viewport: CGSize) {
@@ -447,13 +522,11 @@ private struct CanvasCamera {
 }
 
 private struct CameraEventBridge: NSViewRepresentable {
-    let trailingExclusion: CGFloat
     let onScroll: (CGSize, CGPoint, Bool) -> Void
     let onDoubleClick: (CGPoint, Bool) -> Void
 
     final class Coordinator {
         var monitor: Any?
-        var trailingExclusion: CGFloat = 0
         var onScroll: ((CGSize, CGPoint, Bool) -> Void)?
         var onDoubleClick: ((CGPoint, Bool) -> Void)?
     }
@@ -463,16 +536,18 @@ private struct CameraEventBridge: NSViewRepresentable {
 
     func updateNSView(_ view: NSView, context: Context) {
         let coordinator = context.coordinator
-        coordinator.trailingExclusion = trailingExclusion
         coordinator.onScroll = onScroll
         coordinator.onDoubleClick = onDoubleClick
         if coordinator.monitor == nil {
             coordinator.monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .leftMouseUp]) { [weak view, weak coordinator] event in
                 guard let view, let coordinator, event.window === view.window else { return event }
+                if event.type == .scrollWheel,
+                   let hitView = event.window?.contentView?.hitTest(event.locationInWindow),
+                   hitView.ancestorOrSelf(where: { $0 is NSScrollView }) != nil {
+                    return event
+                }
                 let point = view.convert(event.locationInWindow, from: nil)
                 guard view.bounds.contains(point) else { return event }
-                if coordinator.trailingExclusion > 0,
-                   point.x >= view.bounds.maxX - coordinator.trailingExclusion { return event }
                 if event.type == .scrollWheel {
                     coordinator.onScroll?(
                         CGSize(width: event.scrollingDeltaX, height: event.scrollingDeltaY),
@@ -492,5 +567,16 @@ private struct CameraEventBridge: NSViewRepresentable {
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
         if let monitor = coordinator.monitor { NSEvent.removeMonitor(monitor) }
+    }
+}
+
+private extension NSView {
+    func ancestorOrSelf(where predicate: (NSView) -> Bool) -> NSView? {
+        var candidate: NSView? = self
+        while let current = candidate {
+            if predicate(current) { return current }
+            candidate = current.superview
+        }
+        return nil
     }
 }

@@ -2,7 +2,16 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const localDataIgnore = "*\n!.gitignore\n!project.json\n";
+const localDataIgnore = [
+  "*",
+  "!.gitignore",
+  "!project.json",
+  "!mdflow.sqlite",
+  "mdflow.sqlite-wal",
+  "mdflow.sqlite-shm",
+  "mdflow.sqlite-journal",
+  "",
+].join("\n");
 
 function ensureLocalDataIgnore(descriptorDirectory) {
   const ignorePath = path.join(descriptorDirectory, ".gitignore");
