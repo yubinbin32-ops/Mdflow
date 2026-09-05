@@ -9,7 +9,7 @@ const server = new McpServer(
   { name: "mdflow", version: "0.2.0" },
   {
     instructions:
-      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
+      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block does not need to belong to a Chain, but every non-deprecated Block needs its own checkpoint and intended Plan coverage. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
   },
 );
 const projectRootInput = { projectRoot: z.string().min(1).optional() };
@@ -47,7 +47,7 @@ server.registerTool(
 server.registerTool(
   "project_map",
   {
-    description: "Read a compact map of the current mdflow project and its plan chains without loading entity bodies.",
+    description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, unplanned Blocks, and missing Block checkpoints without loading entity bodies.",
     inputSchema: { ...projectRootInput, locale: z.enum(["en", "zh-Hans"]).optional() },
   },
   async (input) => {

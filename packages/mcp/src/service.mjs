@@ -383,6 +383,58 @@ function checkpointSatisfiesGate(checkpoint) {
       (EVIDENCE_LEVEL_RANK.get(checkpoint.requiredEvidenceLevel) ?? 0) && !checkpoint.invalidatedAt;
 }
 
+function architectureCoverage(snapshot, planId = null) {
+  const blocks = snapshot.blocks.filter((block) => block.deliveryState !== "deprecated");
+  const blockIds = new Set(blocks.map((block) => block.id));
+  const chainBlockIds = new Set(snapshot.chainNodes.filter((node) => blockIds.has(node.blockId)).map((node) => node.blockId));
+  const checkpointsByBlock = new Map(blocks.map((block) => [block.id, []]));
+  for (const checkpoint of snapshot.checkpoints) {
+    if (checkpoint.targetType === "block" && checkpointsByBlock.has(checkpoint.targetId)) {
+      checkpointsByBlock.get(checkpoint.targetId).push(checkpoint);
+    }
+  }
+
+  const candidatePlans = planId ? snapshot.plans.filter((plan) => plan.id === planId) : snapshot.plans;
+  const candidatePlanIds = new Set(candidatePlans.map((plan) => plan.id));
+  const directPlanBlockIds = new Set();
+  for (const change of snapshot.planChanges) {
+    if (candidatePlanIds.has(change.planId) && change.entityType === "block" && blockIds.has(change.entityId)) directPlanBlockIds.add(change.entityId);
+  }
+  for (const step of snapshot.planSteps) {
+    if (!candidatePlanIds.has(step.planId)) continue;
+    for (const ref of step.targetRefs) {
+      const [type, id] = String(ref).split(":", 2);
+      if (type === "block" && blockIds.has(id)) directPlanBlockIds.add(id);
+    }
+  }
+  const chainPlanBlockIds = new Set(snapshot.planChainScopes
+    .filter((scope) => candidatePlanIds.has(scope.planId))
+    .flatMap((scope) => scope.nodeIds)
+    .filter((blockId) => blockIds.has(blockId)));
+  const plannedBlockIds = new Set([...directPlanBlockIds, ...chainPlanBlockIds]);
+  const withCheckpointIds = blocks.filter((block) => (checkpointsByBlock.get(block.id) ?? []).length > 0).map((block) => block.id);
+  const verifiedIds = blocks.filter((block) => (checkpointsByBlock.get(block.id) ?? []).some(checkpointSatisfiesGate)).map((block) => block.id);
+  const withCheckpointIdSet = new Set(withCheckpointIds);
+  const verifiedIdSet = new Set(verifiedIds);
+  const failingIds = blocks.filter((block) => (checkpointsByBlock.get(block.id) ?? []).some((checkpoint) =>
+    ["failed", "blocked", "retest_required"].includes(checkpoint.status),
+  )).map((block) => block.id);
+  return {
+    totalBlocks: blocks.length,
+    withCheckpoint: withCheckpointIds.length,
+    verified: verifiedIds.length,
+    inChains: chainBlockIds.size,
+    planned: plannedBlockIds.size,
+    directPlanBlocks: directPlanBlockIds.size,
+    chainPlanBlocks: chainPlanBlockIds.size,
+    withoutCheckpointIds: blocks.filter((block) => !withCheckpointIdSet.has(block.id)).map((block) => block.id),
+    unverifiedIds: blocks.filter((block) => !verifiedIdSet.has(block.id)).map((block) => block.id),
+    outsideChainIds: blocks.filter((block) => !chainBlockIds.has(block.id)).map((block) => block.id),
+    unplannedIds: blocks.filter((block) => !plannedBlockIds.has(block.id)).map((block) => block.id),
+    failingIds,
+  };
+}
+
 function derivePlanState(
   plan, allPlans, dependencies, steps, checkpointRefs, checkpoints,
   chainScopes = [], changes = [], checkpointBindings = [],
@@ -395,12 +447,14 @@ function derivePlanState(
   const requiredRefs = ownCheckpointRefs.filter((item) => item.required);
   const checkpointById = new Map(checkpoints.map((item) => [item.id, item]));
   const scopeIDs = new Set(ownScopes.map((item) => item.id));
+  const changeIDs = new Set(ownChanges.map((item) => item.id));
   const requiredCheckpointIDs = new Set([
     ...requiredRefs.map((item) => item.checkpointId),
     ...checkpoints.filter((item) => item.targetType === "plan" && item.targetId === plan.id).map((item) => item.id),
     ...checkpointBindings.filter((binding) => binding.required && (
       (binding.subjectType === "plan" && binding.subjectId === plan.id) ||
-      (binding.subjectType === "plan_chain_scope" && scopeIDs.has(binding.subjectId))
+      (binding.subjectType === "plan_chain_scope" && scopeIDs.has(binding.subjectId)) ||
+      (binding.subjectType === "plan_change" && changeIDs.has(binding.subjectId))
     )).map((binding) => binding.checkpointId),
   ]);
   const requiredCheckpoints = [...requiredCheckpointIDs].map((id) => checkpointById.get(id)).filter(Boolean);
@@ -790,6 +844,7 @@ export class MdflowService {
 
   projectMap({ locale = "en" } = {}) {
     const snapshot = this.snapshot();
+    const coverage = architectureCoverage(snapshot);
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const layerCounts = Object.fromEntries(
@@ -836,6 +891,10 @@ export class MdflowService {
     }
     lines.push("", "## Project network");
     lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
+    lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
+    if (coverage.outsideChainIds.length) lines.push(`- Outside Chains: ${coverage.outsideChainIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.outsideChainIds.length > 12 ? " …" : ""}`);
+    if (coverage.unplannedIds.length) lines.push(`- Unplanned Blocks: ${coverage.unplannedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
+    if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
     lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" · ") || "None"}`);
     lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" · ") || "None"}`);
     for (const block of snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8)) {
@@ -856,6 +915,7 @@ export class MdflowService {
           layerCounts,
           scopeCounts,
           groups: architectureGroups,
+          coverage,
         },
         plans: plans.map((plan) => ({
           id: plan.id,
@@ -1145,7 +1205,13 @@ export class MdflowService {
       if (planId) {
         const direct = checkpoint.targetType === "plan" && checkpoint.targetId === planId;
         const referenced = snapshot.planCheckpointRefs.some((item) => item.planId === planId && item.checkpointId === checkpoint.id);
-        const bound = snapshot.checkpointBindings.some((item) => item.subjectType === "plan" && item.subjectId === planId && item.checkpointId === checkpoint.id);
+        const planChangeIds = new Set(snapshot.planChanges.filter((item) => item.planId === planId).map((item) => item.id));
+        const chainScopeIds = new Set(snapshot.planChainScopes.filter((item) => item.planId === planId).map((item) => item.id));
+        const bound = snapshot.checkpointBindings.some((item) => item.checkpointId === checkpoint.id && (
+          (item.subjectType === "plan" && item.subjectId === planId) ||
+          (item.subjectType === "plan_change" && planChangeIds.has(item.subjectId)) ||
+          (item.subjectType === "plan_chain_scope" && chainScopeIds.has(item.subjectId))
+        ));
         if (!direct && !referenced && !bound) return false;
       }
       if (scopeCheckpointIDs && !scopeCheckpointIDs.has(checkpoint.id)) return false;
@@ -1203,6 +1269,17 @@ export class MdflowService {
     }));
     const unattachedChanges = changes.filter((change) =>
       !snapshot.planChainChangeRefs.some((ref) => ref.planChangeId === change.id));
+    const directChanges = unattachedChanges.map((change) => ({
+      ...change,
+      entity: change.entityType === "block" ? snapshot.blocks.find((item) => item.id === change.entityId) ?? null
+        : change.entityType === "link" ? snapshot.links.find((item) => item.id === change.entityId) ?? null
+          : snapshot.chains.find((item) => item.id === change.entityId) ?? null,
+      checkpoints: bindingsBySubject.get(`plan_change:${change.id}`) ?? [],
+      targetCheckpoints: change.entityType === "block"
+        ? snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === change.entityId)
+        : [],
+    }));
+    const coverage = architectureCoverage(snapshot, id);
     const planCheckpoints = [
       ...(bindingsBySubject.get(`plan:${id}`) ?? []),
       ...snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === id)
@@ -1228,8 +1305,31 @@ export class MdflowService {
     if (nextAction) lines.push("", "## Next action", nextAction);
     if (plan.proposedDelta.length) lines.push("", "## Overall change", ...plan.proposedDelta.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
     if (plan.blockers.length) lines.push("", "## Blockers / prohibitions", ...plan.blockers.map((item) => `- ${item}`));
-    if (hierarchy.length === 0) {
+    lines.push("", "## Architecture coverage");
+    lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
+    lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct · ${coverage.chainPlanBlocks} through Chains)`);
+    if (coverage.unplannedIds.length) lines.push(`- Outside this Plan: ${coverage.unplannedIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
+    if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
+    if (hierarchy.length === 0 && directChanges.length === 0) {
       lines.push("", "## Chain scopes", "待迁移：此 Plan 尚未声明 ChainScope 和逐实体变更，不能按 0/0 视为完成。");
+    }
+    const directBlockChanges = directChanges.filter((change) => change.entityType === "block");
+    if (directBlockChanges.length) {
+      lines.push("", "## Direct Block work");
+      for (const change of directBlockChanges) {
+        lines.push(`- ${change.status}: ${change.title} [block:${change.entityId}] — ${change.proposedBehavior || change.summary || "—"}`);
+        if (change.entity?.summary) lines.push(`  Block: ${change.entity.summary}`);
+        if (change.checkpoints.length) {
+          for (const binding of change.checkpoints) {
+            const checkpoint = binding.checkpoint;
+            lines.push(`  - Required checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+          }
+        } else if (change.targetCheckpoints.length) {
+          lines.push(`  - Warning: Block checkpoints exist but none is bound to this PlanChange: ${change.targetCheckpoints.map((checkpoint) => `checkpoint:${checkpoint.id}`).join(", ")}`);
+        } else {
+          lines.push("  - Warning: this Block has no checkpoint.");
+        }
+      }
     }
     for (const scope of hierarchy) {
       lines.push("", `## ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "—");
@@ -1254,9 +1354,10 @@ export class MdflowService {
         lines.push(`- Chain gate ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
       }
     }
-    if (unattachedChanges.length) {
+    const otherDirectChanges = directChanges.filter((change) => change.entityType !== "block");
+    if (otherDirectChanges.length) {
       lines.push("", "## Cross-Chain changes");
-      for (const change of unattachedChanges) lines.push(`- ${change.title} [${change.entityType}:${change.entityId}] — ${change.proposedBehavior || change.summary}`);
+      for (const change of otherDirectChanges) lines.push(`- ${change.title} [${change.entityType}:${change.entityId}] — ${change.proposedBehavior || change.summary}`);
     }
     if (planCheckpoints.length) {
       lines.push("", "## Plan acceptance");
@@ -1268,7 +1369,7 @@ export class MdflowService {
     let markdown = lines.join("\n");
     if (markdown.length > maxChars) markdown = `${markdown.slice(0, Math.max(0, maxChars - 64))}\n\n[truncated; open a referenced entity for detail]`;
     return {
-      plan, hierarchy, unattachedChanges, checkpoints: planCheckpoints.map((item) => item.checkpoint),
+      plan, hierarchy, unattachedChanges, directChanges, coverage, checkpoints: planCheckpoints.map((item) => item.checkpoint),
       dependencies: snapshot.planDependencies.filter((item) => item.planId === id),
       markdown,
     };
@@ -1421,6 +1522,7 @@ export class MdflowService {
 
   contextForTask({ task, focusRefs = [], maxChars = 6000, locale = "en" }) {
     const snapshot = this.snapshot();
+    const coverage = architectureCoverage(snapshot);
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const terms = taskTerms(task);
@@ -1537,6 +1639,11 @@ export class MdflowService {
     );
 
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
+    lines.push("## Architecture coverage");
+    lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
+    if (coverage.unplannedIds.length) lines.push(`- Unplanned: ${coverage.unplannedIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 10 ? " …" : ""}`);
+    if (coverage.withoutCheckpointIds.length) lines.push(`- Missing checkpoints: ${coverage.withoutCheckpointIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 10 ? " …" : ""}`);
+    lines.push("");
     const constraints = relevantBlocks.filter((block) => ["principle", "decision"].includes(block.kind));
     if (constraints.length) {
       lines.push("## Must-follow constraints");
@@ -2815,6 +2922,7 @@ export class MdflowService {
 
   validate() {
     const snapshot = this.snapshot();
+    const coverage = architectureCoverage(snapshot);
     const errors = [];
     const warnings = [];
     const refs = new Set([
@@ -2879,6 +2987,12 @@ export class MdflowService {
     if (unspecifiedBlocks.length > 0) {
       warnings.push(`${unspecifiedBlocks.length} block(s) have no architecture layer`);
     }
+    if (coverage.withoutCheckpointIds.length) {
+      warnings.push(`${coverage.withoutCheckpointIds.length} Block(s) have no checkpoint: ${coverage.withoutCheckpointIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 20 ? " …" : ""}`);
+    }
+    if (coverage.unplannedIds.length) {
+      warnings.push(`${coverage.unplannedIds.length} Block(s) are not covered by any Plan: ${coverage.unplannedIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 20 ? " …" : ""}`);
+    }
     for (const chain of snapshot.chains) {
       if (chain.deliveryState === "complete") {
         const passed = snapshot.checkpoints.some(
@@ -2900,7 +3014,10 @@ export class MdflowService {
           warnings.push(`Complete plan has unfinished steps: plan:${plan.id}`);
         }
       }
-      if (snapshot.planChainRefs.every((item) => item.planId !== plan.id)) warnings.push(`Plan has no target Chain: plan:${plan.id}`);
+      const hasChain = snapshot.planChainRefs.some((item) => item.planId === plan.id);
+      const hasChange = snapshot.planChanges.some((item) => item.planId === plan.id);
+      const hasStep = snapshot.planSteps.some((item) => item.planId === plan.id);
+      if (!hasChain && !hasChange && !hasStep) warnings.push(`Plan has no declared work target: plan:${plan.id}`);
     }
     return { valid: errors.length === 0, errors, warnings, graphRevision: snapshot.project.graphRevision };
   }

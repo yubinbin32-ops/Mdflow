@@ -460,10 +460,12 @@ final class ProjectDatabase {
         let ownSteps = steps.filter { $0.planId == plan.id }
         let ownScopes = chainScopes.filter { $0.planId == plan.id }
         let ownChanges = changes.filter { $0.planId == plan.id }
+        let changeIDs = Set(ownChanges.map(\.id))
         let referencedIDs = Set(checkpointReferences.filter { $0.planId == plan.id && $0.required }.map(\.checkpointId))
         let scopedIDs = Set(bindings.filter { binding in
             (binding.subjectType == "plan" && binding.subjectId == plan.id) ||
-                (binding.subjectType == "plan_chain_scope" && ownScopes.contains { $0.id == binding.subjectId })
+                (binding.subjectType == "plan_chain_scope" && ownScopes.contains { $0.id == binding.subjectId }) ||
+                (binding.subjectType == "plan_change" && changeIDs.contains(binding.subjectId))
         }.filter(\.required).map(\.checkpointId))
         let directIDs = Set(checkpoints.filter { $0.targetType == "plan" && $0.targetId == plan.id }.map(\.id))
         let gateIDs = referencedIDs.union(scopedIDs).union(directIDs)

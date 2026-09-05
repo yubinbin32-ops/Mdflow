@@ -131,11 +131,23 @@ struct DetailView: View {
     @ViewBuilder
     private func planDocument(_ plan: PlanItem) -> some View {
         let scopes = store.planChainScopes(for: plan.id)
-        if scopes.isEmpty {
+        let directChanges = store.directPlanChanges(for: plan.id)
+        let coverage = store.architectureCoverage(for: plan.id)
+        VStack(alignment: .leading, spacing: 5) {
+            sectionLabel(store.activeLocale == "zh-Hans" ? "架构覆盖" : "ARCHITECTURE COVERAGE")
+            Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified")) · \(coverage.plannedBlocks)/\(coverage.totalBlocks) \(store.activeLocale == "zh-Hans" ? "由此 Plan 覆盖" : "covered by this Plan")")
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(MdflowTheme.ink.opacity(0.82))
+            if !coverage.withoutCheckpointIDs.isEmpty {
+                Text("\(store.text("noCheckpoint")): \(coverage.withoutCheckpointIDs.prefix(6).joined(separator: ", "))")
+                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.failure)
+            }
+        }
+        if scopes.isEmpty && directChanges.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 sectionLabel(store.activeLocale == "zh-Hans" ? "变更结构" : "CHANGE STRUCTURE")
                 Label(
-                    store.activeLocale == "zh-Hans" ? "待迁移：此计划还没有 ChainScope 与逐实体修改，不能用 0/0 表示完成。" : "Migration required: this Plan has no ChainScopes or per-entity changes; 0/0 is not completion.",
+                    store.activeLocale == "zh-Hans" ? "此计划还没有直接 Block 修改、ChainScope 或逐实体修改，不能用 0/0 表示完成。" : "This Plan has no direct Block changes, ChainScopes, or per-entity work; 0/0 is not completion.",
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .font(.system(size: 11.5, weight: .medium, design: .rounded))
@@ -144,7 +156,17 @@ struct DetailView: View {
                 .padding(.leading, 10)
                 .overlay(alignment: .leading) { Rectangle().fill(MdflowTheme.pending).frame(width: 1) }
             }
-        } else {
+        }
+        if !directChanges.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+                sectionLabel(store.text("directBlockWork").uppercased())
+                ForEach(directChanges) { change in
+                    planChangeCard(change)
+                    Divider().opacity(0.7).padding(.leading, 20)
+                }
+            }
+        }
+        if !scopes.isEmpty {
             VStack(alignment: .leading, spacing: 7) {
                 sectionLabel(store.activeLocale == "zh-Hans" ? "按链路展开的修改" : "CHANGES BY CHAIN")
                 ForEach(scopes) { scope in
@@ -262,6 +284,16 @@ struct DetailView: View {
                 let checks = store.checkpoints(subjectType: "plan_change", subjectID: change.id)
                 if !checks.isEmpty {
                     ForEach(checks) { checkpoint in checkpointSummary(checkpoint) }
+                } else {
+                    let targetChecks = store.targetCheckpoints(for: change)
+                    if targetChecks.isEmpty {
+                        Label(store.activeLocale == "zh-Hans" ? "此对象尚无 Checkpoint" : "No checkpoint exists for this entity", systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.failure)
+                    } else {
+                        Label(store.activeLocale == "zh-Hans" ? "已有 Checkpoint，但尚未绑定到此 Plan 工作项" : "Checkpoints exist but are not bound to this Plan work item", systemImage: "link.badge.plus")
+                            .font(.system(size: 10, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.pending)
+                        ForEach(targetChecks) { checkpoint in checkpointSummary(checkpoint) }
+                    }
                 }
                 Button {
                     store.locatePlanChange(change)

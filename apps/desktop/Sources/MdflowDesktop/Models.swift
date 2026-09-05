@@ -105,6 +105,17 @@ struct PlanProgress: Equatable {
     static let empty = PlanProgress(completedSteps: 0, totalSteps: 0, passedRequiredCheckpoints: 0, totalRequiredCheckpoints: 0)
 }
 
+struct ArchitectureCoverage: Equatable {
+    let totalBlocks: Int
+    let verifiedBlocks: Int
+    let plannedBlocks: Int
+    let blocksWithCheckpoints: Int
+    let outsideChainIDs: [String]
+    let unplannedIDs: [String]
+    let withoutCheckpointIDs: [String]
+    let failingIDs: [String]
+}
+
 struct PlanChainReference: Equatable {
     let planId: String
     let chainId: String

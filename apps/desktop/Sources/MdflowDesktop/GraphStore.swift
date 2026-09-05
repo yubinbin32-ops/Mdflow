@@ -169,6 +169,69 @@ final class GraphStore: ObservableObject {
         snapshot.plans
     }
 
+    var architectureCoverage: ArchitectureCoverage {
+        architectureCoverage(for: nil)
+    }
+
+    func architectureCoverage(for planID: String?) -> ArchitectureCoverage {
+        let blocks = snapshot.blocks.filter { $0.deliveryState != "deprecated" }
+        let blockIDs = Set(blocks.map(\.id))
+        let chainMemberIDs = Set(snapshot.chainNodes.filter { blockIDs.contains($0.blockId) }.map(\.blockId))
+        let candidatePlanIDs = Set(snapshot.plans.filter { planID == nil || $0.id == planID }.map(\.id))
+        var directlyPlanned = Set(snapshot.planChanges.filter {
+            candidatePlanIDs.contains($0.planId) && $0.entityType == "block" && blockIDs.contains($0.entityId)
+        }.map(\.entityId))
+        for step in snapshot.planSteps where candidatePlanIDs.contains(step.planId) {
+            for ref in structuredStringList(step.targetReferences) where ref.hasPrefix("block:") {
+                directlyPlanned.insert(String(ref.dropFirst("block:".count)))
+            }
+        }
+        let chainPlanned = Set(snapshot.planChainScopes
+            .filter { candidatePlanIDs.contains($0.planId) }
+            .flatMap { structuredStringList($0.nodeIds) }
+            .filter { blockIDs.contains($0) })
+        let planned = directlyPlanned.union(chainPlanned)
+        let checkpointGroups = Dictionary(grouping: snapshot.checkpoints.filter { $0.targetType == "block" }, by: \.targetId)
+        let verified = Set(blocks.filter { block in
+            checkpointGroups[block.id, default: []].contains { checkpointPasses($0) }
+        }.map(\.id))
+        let failing = blocks.filter { block in
+            checkpointGroups[block.id, default: []].contains { ["failed", "blocked", "retest_required"].contains($0.status) }
+        }.map(\.id)
+        let withCheckpoints = Set(checkpointGroups.keys)
+        return ArchitectureCoverage(
+            totalBlocks: blocks.count,
+            verifiedBlocks: verified.count,
+            plannedBlocks: planned.count,
+            blocksWithCheckpoints: blocks.filter { withCheckpoints.contains($0.id) }.count,
+            outsideChainIDs: blocks.filter { !chainMemberIDs.contains($0.id) }.map(\.id),
+            unplannedIDs: blocks.filter { !planned.contains($0.id) }.map(\.id),
+            withoutCheckpointIDs: blocks.filter { !withCheckpoints.contains($0.id) }.map(\.id),
+            failingIDs: failing
+        )
+    }
+
+    func directPlanChanges(for planID: String) -> [PlanChangeItem] {
+        let scopedIDs = Set(snapshot.planChainChangeReferences.map(\.planChangeId))
+        return planChanges(for: planID).filter { !scopedIDs.contains($0.id) }
+    }
+
+    func targetCheckpoints(for change: PlanChangeItem) -> [CheckpointItem] {
+        snapshot.checkpoints.filter { $0.targetType == change.entityType && $0.targetId == change.entityId }
+    }
+
+    private func checkpointPasses(_ checkpoint: CheckpointItem) -> Bool {
+        let levels = ["none", "static", "simulated", "integration", "real_target", "human_review"]
+        let actual = levels.firstIndex(of: checkpoint.evidenceLevel) ?? 0
+        let required = levels.firstIndex(of: checkpoint.requiredEvidenceLevel) ?? 0
+        return checkpoint.status == "passed" && checkpoint.coverage == "complete" && checkpoint.invalidatedAt == nil && actual >= required
+    }
+
+    private func structuredStringList(_ value: String) -> [String] {
+        guard let data = value.data(using: .utf8), let values = try? JSONDecoder().decode([String].self, from: data) else { return [] }
+        return values
+    }
+
     /// Only kinds present in this project are offered by the Canvas filter.
     /// This keeps the toolbar semantic and avoids empty or overlapping lenses.
     var availableLenses: [ViewLens] {
@@ -506,7 +569,7 @@ final class GraphStore: ObservableObject {
             "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
             "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则",
             "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
-            "all":"全部", "verification":"验证", "unassigned":"独立验证", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
+            "all":"全部", "verification":"验证", "unassigned":"独立验证", "verified":"已验证", "unplanned":"未规划", "noCheckpoint":"无检查点", "directBlockWork":"直接 Block 工作", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
         ]
         let en: [String: String] = [
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
@@ -519,7 +582,7 @@ final class GraphStore: ObservableObject {
             "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
             "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules",
             "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
-            "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
+            "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "verified":"Verified", "unplanned":"Unplanned", "noCheckpoint":"No checkpoint", "directBlockWork":"Direct Block work", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
         ]
         return (activeLocale == "zh-Hans" ? zh : en)[key] ?? key
     }

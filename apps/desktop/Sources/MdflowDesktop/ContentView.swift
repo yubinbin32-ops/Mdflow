@@ -136,6 +136,10 @@ struct ContentView: View {
                 Text("\(store.snapshot.blocks.count) BLOCKS · \(store.snapshot.chains.count) CHAINS")
                     .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(0.8)
                     .foregroundStyle(MdflowTheme.muted)
+                let coverage = store.architectureCoverage
+                Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified").uppercased()) · \(coverage.unplannedIDs.count) \(store.text("unplanned").uppercased()) · \(coverage.withoutCheckpointIDs.count) \(store.text("noCheckpoint").uppercased())")
+                    .font(.system(size: 7.5, weight: .bold, design: .monospaced)).tracking(0.45)
+                    .foregroundStyle(coverage.unplannedIDs.isEmpty && coverage.withoutCheckpointIDs.isEmpty ? MdflowTheme.success : MdflowTheme.pending)
             }
             Spacer()
             Menu {

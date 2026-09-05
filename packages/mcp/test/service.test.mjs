@@ -565,6 +565,118 @@ test("ordered Plan workflow derives progress from dependencies, steps, and evide
   }
 });
 
+test("Plan gates aggregate Block checkpoints even when the Block is outside every Chain", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create a plan and an unchained Block change",
+      operations: [
+        { action: "create_block", id: "standalone-api", fields: { kind: "service", title: "Standalone API" } },
+        { action: "create_plan", id: "implement", fields: { title: "Implement architecture", status: "active" } },
+      ],
+    });
+    context.service.recordCheckpoint({
+      id: "standalone-api-check", targetType: "block", targetId: "standalone-api",
+      title: "Standalone API is usable", status: "pending", requiredEvidenceLevel: "integration",
+    });
+    context.service.mutate({
+      reason: "Associate the unchained Block with the Plan through a canonical change",
+      operations: [{ action: "set_plan_changes", id: "implement", expectedRevision: 1, fields: { changes: [{
+        id: "implement-standalone-api", entityType: "block", entityId: "standalone-api", position: 0,
+        title: "Implement Standalone API", status: "complete",
+      }] } }],
+    });
+    context.service.mutate({
+      reason: "Bind the Block acceptance checkpoint to the Plan change",
+      operations: [{ action: "set_checkpoint_bindings", id: "standalone-api-check", expectedRevision: 1, fields: { bindings: [{
+        subjectType: "plan_change", subjectId: "implement-standalone-api", role: "acceptance", required: true,
+      }] } }],
+    });
+    let plan = context.service.snapshot().plans.find((item) => item.id === "implement");
+    assert.deepEqual(plan.progress, { completedSteps: 1, totalSteps: 1, passedRequiredCheckpoints: 0, totalRequiredCheckpoints: 1 });
+    const planContext = context.service.planContext({ id: "implement" });
+    assert.equal(planContext.directChanges.length, 1);
+    assert.equal(planContext.directChanges[0].entityId, "standalone-api");
+    assert.equal(planContext.directChanges[0].checkpoints[0].checkpoint.id, "standalone-api-check");
+    assert.match(planContext.markdown, /Direct Block work/);
+    assert.match(planContext.markdown, /Required checkpoint pending/);
+    const coverage = context.service.projectMap().map.architecture.coverage;
+    assert.equal(coverage.outsideChainIds.includes("standalone-api"), true);
+    assert.equal(coverage.unplannedIds.includes("standalone-api"), false);
+    assert.equal(context.service.validate().warnings.some((warning) => warning.includes("Plan has no target Chain")), false);
+    context.service.recordCheckpoint({
+      id: "standalone-api-check", expectedRevision: 2, targetType: "block", targetId: "standalone-api",
+      title: "Standalone API is usable", status: "passed", evidenceLevel: "integration", requiredEvidenceLevel: "integration",
+      evidence: [{ kind: "integration-test", result: "endpoint responded" }],
+    });
+    plan = context.service.snapshot().plans.find((item) => item.id === "implement");
+    assert.deepEqual(plan.progress, { completedSteps: 1, totalSteps: 1, passedRequiredCheckpoints: 1, totalRequiredCheckpoints: 1 });
+    assert.equal(plan.derivedStatus, "complete");
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("architecture coverage reports Blocks that have no checkpoint or Plan coverage", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Declare an unimplemented architecture Block",
+      operations: [{ action: "create_block", id: "orphan-ui", fields: { kind: "ui", title: "Orphan UI", deliveryState: "proposed" } }],
+    });
+    const coverage = context.service.projectMap().map.architecture.coverage;
+    assert.deepEqual(coverage.withoutCheckpointIds, ["orphan-ui"]);
+    assert.deepEqual(coverage.unplannedIds, ["orphan-ui"]);
+    const contextPack = context.service.contextForTask({ task: "implement the architecture" });
+    assert.match(contextPack.markdown, /Missing checkpoints: block:orphan-ui/);
+    assert.match(contextPack.markdown, /Unplanned: block:orphan-ui/);
+    const warnings = context.service.validate().warnings;
+    assert.ok(warnings.some((warning) => warning.includes("Block(s) have no checkpoint") && warning.includes("block:orphan-ui")));
+    assert.ok(warnings.some((warning) => warning.includes("Block(s) are not covered by any Plan") && warning.includes("block:orphan-ui")));
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("architecture coverage requires exact Block work instead of broad target Chain references", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create a reusable path and a Plan that only points at it",
+      operations: [
+        { action: "create_block", id: "api", fields: { kind: "service", title: "API" } },
+        { action: "create_block", id: "database", fields: { kind: "database", title: "Database" } },
+        { action: "create_chain", id: "request-path", fields: { title: "Request path" } },
+        { action: "create_link", id: "api-database", fields: { sourceType: "block", sourceId: "api", targetType: "block", targetId: "database", kind: "writes" } },
+        { action: "create_plan", id: "implement-api", fields: { title: "Implement API" } },
+      ],
+    });
+    context.service.mutate({
+      reason: "Define the reusable path and broad Plan reference",
+      operations: [
+        { action: "set_chain_path", id: "request-path", expectedRevision: 1, fields: { nodeIds: ["api", "database"], linkIds: ["api-database"] } },
+        { action: "set_plan_chains", id: "implement-api", expectedRevision: 1, fields: { chainIds: ["request-path"] } },
+      ],
+    });
+
+    let coverage = context.service.projectMap().map.architecture.coverage;
+    assert.deepEqual(coverage.unplannedIds.sort(), ["api", "database"]);
+
+    context.service.mutate({
+      reason: "Declare the exact Chain segment changed by the Plan",
+      operations: [{
+        action: "set_plan_chain_scopes", id: "implement-api", expectedRevision: 2,
+        fields: { scopes: [{ id: "api-scope", chainId: "request-path", title: "Implement request persistence", nodeIds: ["api", "database"], linkIds: ["api-database"] }] },
+      }],
+    });
+    coverage = context.service.projectMap().map.architecture.coverage;
+    assert.deepEqual(coverage.unplannedIds, []);
+    assert.equal(coverage.chainPlanBlocks, 2);
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("Plan dependency cycles and invalidated checkpoint evidence are rejected or reopened", () => {
   const context = fixture();
   try {
