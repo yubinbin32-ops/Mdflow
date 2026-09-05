@@ -189,6 +189,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     const validation = await client.callTool({ name: "graph_validate", arguments: {} });
     assert.equal(validation.isError, undefined);
     assert.equal(validation.structuredContent, undefined);
+    assert.match(validation.content[0].text, /# Graph validation/);
     const validationStructured = await client.callTool({ name: "graph_validate", arguments: { includeStructured: true } });
     assert.equal(validationStructured.structuredContent.valid, true);
     assert.deepEqual(validationStructured.structuredContent.errors, []);
