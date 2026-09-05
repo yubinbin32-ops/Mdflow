@@ -24008,6 +24008,34 @@ var EDITABLE_PLAN_FIELDS = /* @__PURE__ */ new Set([
   "invalidatedAt",
   "archived"
 ]);
+var EDITABLE_PLAN_CHAIN_SCOPE_FIELDS = /* @__PURE__ */ new Set([
+  "chainId",
+  "position",
+  "title",
+  "summary",
+  "rationale",
+  "startBlockId",
+  "endBlockId",
+  "nodeIds",
+  "linkIds",
+  "expectedDelta",
+  "prohibitions",
+  "localizations",
+  "status"
+]);
+var EDITABLE_PLAN_CHANGE_FIELDS = /* @__PURE__ */ new Set([
+  "position",
+  "title",
+  "summary",
+  "currentBehavior",
+  "proposedBehavior",
+  "rationale",
+  "prohibitions",
+  "expectedEffects",
+  "sourceRefs",
+  "localizations",
+  "status"
+]);
 var LOCALIZED_FIELDS = {
   block: /* @__PURE__ */ new Set(["title", "summary", "body", "contract"]),
   chain: /* @__PURE__ */ new Set(["title", "intent", "inputContract", "outputContract"]),
@@ -24324,6 +24352,13 @@ function affectedRefsForOperation(operation) {
     for (const id of scope.linkIds ?? []) add("link", id);
   }
   for (const change of fields.changes ?? []) add(change.entityType, change.entityId);
+  if (fields.scopeId) {
+    add("plan_chain_scope", fields.scopeId);
+    add("chain", fields.patch?.chainId);
+    for (const id of fields.patch?.nodeIds ?? []) add("block", id);
+    for (const id of fields.patch?.linkIds ?? []) add("link", id);
+  }
+  if (fields.changeId) add("plan_change", fields.changeId);
   for (const ref of fields.refs ?? []) {
     add("plan_chain_scope", ref.chainScopeId);
     add("plan_change", ref.planChangeId);
@@ -25235,13 +25270,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       ).run(changeSetId, projectId, actor, reason.trim(), task, gitHead, timestamp);
       for (const operation of operations) {
         const predictedType = operationEntityType(operation.action);
-        const before = predictedType && operation.id ? this.historyState(predictedType, operation.id) : {};
+        const before = predictedType && operation.id ? this.historyStateForOperation(operation, predictedType, operation.id) : {};
         const receipt = this.applyOperation(operation, { changeSetId, timestamp });
         receipt.ref = `${receipt.entityType}:${receipt.id}`;
         receipt.uiLocation = this.uiLocationFor(receipt.entityType, receipt.id);
         receipt.readBack = { ref: receipt.ref, revision: receipt.revision };
-        const after = this.historyState(receipt.entityType, receipt.id);
-        const candidateFields = ["source-linked", "source-removed"].includes(receipt.action) ? ["sourceRefs"] : Object.keys(operation.fields ?? {});
+        const after = this.historyStateForOperation(operation, receipt.entityType, receipt.id);
+        const candidateFields = ["source-linked", "source-removed"].includes(receipt.action) ? ["sourceRefs"] : operation.action === "update_plan_change" || operation.action === "update_plan_chain_scope" ? Object.keys(operation.fields?.patch ?? {}) : Object.keys(operation.fields ?? {});
         const changedFields = changedHistoryFields(before, after, candidateFields);
         const affectedRefs = /* @__PURE__ */ new Set([receipt.ref, ...affectedRefsForOperation(operation)]);
         if (historyContext.planId) affectedRefs.add(`plan:${historyContext.planId}`);
@@ -25279,6 +25314,21 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       const graphRevision = database.prepare("SELECT graph_revision FROM projects WHERE id = ?").get(projectId).graph_revision;
       return { changeSetId, graphRevision, receipts };
     });
+  }
+  historyStateForOperation(operation, entityType, id) {
+    if (operation.action === "update_plan_change") {
+      const row = this.database.prepare(
+        "SELECT pc.* FROM plan_changes pc JOIN plans p ON p.id = pc.plan_id WHERE p.project_id = ? AND pc.plan_id = ? AND pc.id = ?"
+      ).get(this.paths.descriptor.id, id, operation.fields?.changeId);
+      return row ? normalizePlanChange(row) : {};
+    }
+    if (operation.action === "update_plan_chain_scope") {
+      const row = this.database.prepare(
+        "SELECT pcs.* FROM plan_chain_scopes pcs JOIN plans p ON p.id = pcs.plan_id WHERE p.project_id = ? AND pcs.plan_id = ? AND pcs.id = ?"
+      ).get(this.paths.descriptor.id, id, operation.fields?.scopeId);
+      return row ? normalizePlanChainScope(row) : {};
+    }
+    return this.historyState(entityType, id);
   }
   historyState(entityType, id) {
     if (entityType === "block") {
@@ -25372,8 +25422,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         return this.setPlanCheckpoints(operation, context);
       case "set_plan_chain_scopes":
         return this.setPlanChainScopes(operation, context);
+      case "update_plan_chain_scope":
+        return this.updatePlanChainScope(operation, context);
       case "set_plan_changes":
         return this.setPlanChanges(operation, context);
+      case "update_plan_change":
+        return this.updatePlanChange(operation, context);
       case "set_plan_chain_change_refs":
         return this.setPlanChainChangeRefs(operation, context);
       case "set_checkpoint_bindings":
@@ -25497,6 +25551,57 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     this.database.prepare("UPDATE plans SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
     return { entityType: "plan", id: operation.id, action, revision, summary };
   }
+  validatedPlanChainScope(scope, index = 0) {
+    if (!scope.chainId || !entityExists(this.database, this.paths.descriptor.id, "chain", scope.chainId)) {
+      throw new Error(`chain:${scope.chainId ?? ""} not found`);
+    }
+    if (!scope.title?.trim()) throw new Error(`Plan ChainScope ${index + 1} requires title`);
+    if (!Number.isInteger(scope.position) || scope.position < 0) throw new Error("Plan ChainScope position must be a non-negative integer");
+    assertAllowed(scope.status ?? "pending", PLAN_STEP_STATUSES, "Plan ChainScope status");
+    const chainNodeIds = this.database.prepare("SELECT block_id FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.block_id);
+    const chainLinkIds = this.database.prepare("SELECT link_id FROM chain_edges WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.link_id);
+    const nodeIds = scope.nodeIds ?? chainNodeIds;
+    const linkIds = scope.linkIds ?? chainLinkIds;
+    if (!Array.isArray(nodeIds) || !Array.isArray(linkIds)) throw new Error("Plan ChainScope nodeIds and linkIds must be arrays");
+    let lastPosition = -1;
+    for (const blockId of nodeIds) {
+      const position = chainNodeIds.indexOf(blockId);
+      if (position < 0) throw new Error(`Plan ChainScope references block:${blockId} outside chain:${scope.chainId}`);
+      if (position <= lastPosition) throw new Error(`Plan ChainScope nodes must follow chain:${scope.chainId} order`);
+      lastPosition = position;
+    }
+    for (const linkId of linkIds) {
+      if (!chainLinkIds.includes(linkId)) throw new Error(`Plan ChainScope references link:${linkId} outside chain:${scope.chainId}`);
+    }
+    if (scope.startBlockId && nodeIds[0] !== scope.startBlockId) throw new Error("startBlockId must be the first scoped node");
+    if (scope.endBlockId && nodeIds.at(-1) !== scope.endBlockId) throw new Error("endBlockId must be the last scoped node");
+    return {
+      ...scope,
+      title: scope.title.trim(),
+      startBlockId: scope.startBlockId ?? nodeIds[0] ?? null,
+      endBlockId: scope.endBlockId ?? nodeIds.at(-1) ?? null,
+      nodeIds,
+      linkIds,
+      status: scope.status ?? "pending"
+    };
+  }
+  validatedPlanChange(change, index = 0) {
+    if (!change.title?.trim()) throw new Error(`Plan change ${index + 1} requires title`);
+    if (!Number.isInteger(change.position) || change.position < 0) throw new Error("Plan change position must be a non-negative integer");
+    if (!["block", "link", "chain"].includes(change.entityType) || !entityExists(this.database, this.paths.descriptor.id, change.entityType, change.entityId)) {
+      throw new Error(`${change.entityType}:${change.entityId} not found`);
+    }
+    assertAllowed(change.status ?? "pending", PLAN_STEP_STATUSES, "Plan change status");
+    return { ...change, title: change.title.trim(), status: change.status ?? "pending" };
+  }
+  refreshPlanChainRefs(planId) {
+    this.database.prepare("DELETE FROM plan_chain_refs WHERE plan_id = ?").run(planId);
+    const chainIds = this.database.prepare(
+      "SELECT chain_id FROM plan_chain_scopes WHERE plan_id = ? GROUP BY chain_id ORDER BY MIN(position), chain_id"
+    ).all(planId).map((row) => row.chain_id);
+    const insert = this.database.prepare("INSERT INTO plan_chain_refs(plan_id, chain_id, position) VALUES (?, ?, ?)");
+    chainIds.forEach((chainId, index) => insert.run(planId, chainId, index));
+  }
   setPlanDependencies(operation) {
     const plan = this.planForMutation(operation, "set_plan_dependencies");
     const planIds = operation.fields?.planIds ?? [];
@@ -25587,29 +25692,19 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     if (!Array.isArray(scopes)) throw new Error("scopes must be an array");
     const ids = scopes.map((scope, index) => scope.id ?? `${operation.id}-chain-scope-${index + 1}`);
     if (new Set(ids).size !== ids.length) throw new Error("Plan ChainScope IDs must be unique");
-    for (const [index, scope] of scopes.entries()) {
-      if (!scope.chainId || !entityExists(this.database, this.paths.descriptor.id, "chain", scope.chainId)) {
-        throw new Error(`chain:${scope.chainId ?? ""} not found`);
-      }
-      if (!scope.title?.trim()) throw new Error(`Plan ChainScope ${index + 1} requires title`);
-      const chainNodeIds = this.database.prepare("SELECT block_id FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.block_id);
-      const chainLinkIds = this.database.prepare("SELECT link_id FROM chain_edges WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.link_id);
-      const nodeIds = scope.nodeIds ?? chainNodeIds;
-      const linkIds = scope.linkIds ?? chainLinkIds;
-      let lastPosition = -1;
-      for (const blockId of nodeIds) {
-        const position = chainNodeIds.indexOf(blockId);
-        if (position < 0) throw new Error(`Plan ChainScope references block:${blockId} outside chain:${scope.chainId}`);
-        if (position <= lastPosition) throw new Error(`Plan ChainScope nodes must follow chain:${scope.chainId} order`);
-        lastPosition = position;
-      }
-      for (const linkId of linkIds) {
-        if (!chainLinkIds.includes(linkId)) throw new Error(`Plan ChainScope references link:${linkId} outside chain:${scope.chainId}`);
-      }
-      if (scope.startBlockId && nodeIds[0] !== scope.startBlockId) throw new Error("startBlockId must be the first scoped node");
-      if (scope.endBlockId && nodeIds.at(-1) !== scope.endBlockId) throw new Error("endBlockId must be the last scoped node");
+    const normalizedScopes = scopes.map((scope, index) => this.validatedPlanChainScope({ ...scope, id: ids[index], position: index }, index));
+    const existingRows = this.database.prepare("SELECT * FROM plan_chain_scopes WHERE plan_id = ?").all(operation.id);
+    const existingById = new Map(existingRows.map((row) => [row.id, row]));
+    for (const scope of normalizedScopes) {
+      const owner = this.database.prepare("SELECT plan_id FROM plan_chain_scopes WHERE id = ?").get(scope.id);
+      if (owner && owner.plan_id !== operation.id) throw new Error(`plan_chain_scope:${scope.id} belongs to another Plan`);
     }
-    this.database.prepare("DELETE FROM plan_chain_scopes WHERE plan_id = ?").run(operation.id);
+    const desiredIds = new Set(ids);
+    const removedIds = existingRows.filter((row) => !desiredIds.has(row.id)).map((row) => row.id);
+    for (const id of removedIds) {
+      this.database.prepare("DELETE FROM checkpoint_bindings WHERE subject_type = 'plan_chain_scope' AND subject_id = ?").run(id);
+      this.database.prepare("DELETE FROM plan_chain_scopes WHERE plan_id = ? AND id = ?").run(operation.id, id);
+    }
     const insert = this.database.prepare(
       `INSERT INTO plan_chain_scopes(
         id, plan_id, chain_id, position, title, summary, rationale, start_block_id, end_block_id,
@@ -25617,33 +25712,75 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         status, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    scopes.forEach((scope, index) => {
-      const chainNodeIds = this.database.prepare("SELECT block_id FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.block_id);
-      const chainLinkIds = this.database.prepare("SELECT link_id FROM chain_edges WHERE chain_id = ? ORDER BY position").all(scope.chainId).map((row) => row.link_id);
-      insert.run(
-        ids[index],
-        operation.id,
+    const update = this.database.prepare(
+      `UPDATE plan_chain_scopes SET
+        chain_id = ?, position = ?, title = ?, summary = ?, rationale = ?, start_block_id = ?, end_block_id = ?,
+        node_ids_json = ?, link_ids_json = ?, expected_delta_json = ?, prohibitions_json = ?, localizations_json = ?,
+        status = ?, current_revision = current_revision + 1, updated_at = ?
+       WHERE plan_id = ? AND id = ?`
+    );
+    normalizedScopes.forEach((scope) => {
+      const values = [
         scope.chainId,
-        index,
-        scope.title.trim(),
+        scope.position,
+        scope.title,
         scope.summary ?? "",
         scope.rationale ?? "",
-        scope.startBlockId ?? (scope.nodeIds ?? chainNodeIds)[0] ?? null,
-        scope.endBlockId ?? (scope.nodeIds ?? chainNodeIds).at(-1) ?? null,
-        JSON.stringify(scope.nodeIds ?? chainNodeIds),
-        JSON.stringify(scope.linkIds ?? chainLinkIds),
+        scope.startBlockId,
+        scope.endBlockId,
+        JSON.stringify(scope.nodeIds),
+        JSON.stringify(scope.linkIds),
         JSON.stringify(scope.expectedDelta ?? []),
         JSON.stringify(scope.prohibitions ?? []),
         JSON.stringify(scope.localizations ?? {}),
-        scope.status ?? "pending",
-        timestamp,
-        timestamp
-      );
+        scope.status
+      ];
+      if (existingById.has(scope.id)) update.run(...values, timestamp, operation.id, scope.id);
+      else insert.run(scope.id, operation.id, ...values, timestamp, timestamp);
     });
-    this.database.prepare("DELETE FROM plan_chain_refs WHERE plan_id = ?").run(operation.id);
-    const targetInsert = this.database.prepare("INSERT INTO plan_chain_refs(plan_id, chain_id, position) VALUES (?, ?, ?)");
-    [...new Set(scopes.map((scope) => scope.chainId))].forEach((chainId, index) => targetInsert.run(operation.id, chainId, index));
+    this.refreshPlanChainRefs(operation.id);
     return this.finishPlanRelationMutation(plan, operation, "chain-scopes-set", `${scopes.length} detailed Chain scope(s)`);
+  }
+  updatePlanChainScope(operation, { timestamp }) {
+    const plan = this.planForMutation(operation, "update_plan_chain_scope");
+    const scopeId = operation.fields?.scopeId;
+    const patch = operation.fields?.patch;
+    if (!scopeId || !patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new Error("update_plan_chain_scope requires fields.scopeId and fields.patch");
+    }
+    for (const field of Object.keys(patch)) {
+      if (!EDITABLE_PLAN_CHAIN_SCOPE_FIELDS.has(field)) throw new Error(`Unsupported Plan ChainScope field: ${field}`);
+    }
+    const row = this.database.prepare("SELECT * FROM plan_chain_scopes WHERE plan_id = ? AND id = ?").get(operation.id, scopeId);
+    if (!row) throw new Error(`plan_chain_scope:${scopeId} not found in plan:${operation.id}`);
+    const current = normalizePlanChainScope(row);
+    const next = this.validatedPlanChainScope({ ...current, ...patch }, current.position);
+    this.database.prepare(
+      `UPDATE plan_chain_scopes SET
+        chain_id = ?, position = ?, title = ?, summary = ?, rationale = ?, start_block_id = ?, end_block_id = ?,
+        node_ids_json = ?, link_ids_json = ?, expected_delta_json = ?, prohibitions_json = ?, localizations_json = ?,
+        status = ?, current_revision = current_revision + 1, updated_at = ?
+       WHERE plan_id = ? AND id = ?`
+    ).run(
+      next.chainId,
+      next.position,
+      next.title,
+      next.summary,
+      next.rationale,
+      next.startBlockId,
+      next.endBlockId,
+      JSON.stringify(next.nodeIds),
+      JSON.stringify(next.linkIds),
+      JSON.stringify(next.expectedDelta),
+      JSON.stringify(next.prohibitions),
+      JSON.stringify(next.localizations),
+      next.status,
+      timestamp,
+      operation.id,
+      scopeId
+    );
+    this.refreshPlanChainRefs(operation.id);
+    return this.finishPlanRelationMutation(plan, operation, "chain-scope-updated", `Updated plan_chain_scope:${scopeId}`);
   }
   setPlanChanges(operation, { timestamp }) {
     const plan = this.planForMutation(operation, "set_plan_changes");
@@ -25651,13 +25788,26 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     if (!Array.isArray(changes)) throw new Error("changes must be an array");
     const keys = changes.map((change) => `${change.entityType}:${change.entityId}`);
     if (new Set(keys).size !== keys.length) throw new Error("A Plan may define only one canonical change per entity");
-    for (const [index, change] of changes.entries()) {
-      if (!change.title?.trim()) throw new Error(`Plan change ${index + 1} requires title`);
-      if (!["block", "link", "chain"].includes(change.entityType) || !entityExists(this.database, this.paths.descriptor.id, change.entityType, change.entityId)) {
-        throw new Error(`${change.entityType}:${change.entityId} not found`);
+    const normalizedChanges = changes.map((change, index) => this.validatedPlanChange({
+      ...change,
+      id: change.id ?? `${operation.id}-${change.entityType}-${change.entityId}`,
+      position: index
+    }, index));
+    const existingRows = this.database.prepare("SELECT * FROM plan_changes WHERE plan_id = ?").all(operation.id);
+    const existingById = new Map(existingRows.map((row) => [row.id, row]));
+    for (const change of normalizedChanges) {
+      const owner = this.database.prepare("SELECT plan_id, entity_type, entity_id FROM plan_changes WHERE id = ?").get(change.id);
+      if (owner && owner.plan_id !== operation.id) throw new Error(`plan_change:${change.id} belongs to another Plan`);
+      if (owner && (owner.entity_type !== change.entityType || owner.entity_id !== change.entityId)) {
+        throw new Error(`plan_change:${change.id} target is immutable; create a new Plan change ID`);
       }
     }
-    this.database.prepare("DELETE FROM plan_changes WHERE plan_id = ?").run(operation.id);
+    const desiredIds = new Set(normalizedChanges.map((change) => change.id));
+    const removedIds = existingRows.filter((row) => !desiredIds.has(row.id)).map((row) => row.id);
+    for (const id of removedIds) {
+      this.database.prepare("DELETE FROM checkpoint_bindings WHERE subject_type = 'plan_change' AND subject_id = ?").run(id);
+      this.database.prepare("DELETE FROM plan_changes WHERE plan_id = ? AND id = ?").run(operation.id, id);
+    }
     const insert = this.database.prepare(
       `INSERT INTO plan_changes(
         id, plan_id, entity_type, entity_id, position, title, summary, current_behavior, proposed_behavior,
@@ -25665,26 +25815,73 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         status, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    changes.forEach((change, index) => insert.run(
-      change.id ?? `${operation.id}-${change.entityType}-${change.entityId}`,
-      operation.id,
-      change.entityType,
-      change.entityId,
-      index,
-      change.title.trim(),
-      change.summary ?? "",
-      change.currentBehavior ?? "",
-      change.proposedBehavior ?? "",
-      change.rationale ?? "",
-      JSON.stringify(change.prohibitions ?? []),
-      JSON.stringify(change.expectedEffects ?? []),
-      JSON.stringify(change.sourceRefs ?? []),
-      JSON.stringify(change.localizations ?? {}),
-      change.status ?? "pending",
-      timestamp,
-      timestamp
-    ));
+    const update = this.database.prepare(
+      `UPDATE plan_changes SET position = ?, title = ?, summary = ?, current_behavior = ?, proposed_behavior = ?,
+        rationale = ?, prohibitions_json = ?, expected_effects_json = ?, source_refs_json = ?, localizations_json = ?,
+        status = ?, current_revision = current_revision + 1, updated_at = ? WHERE plan_id = ? AND id = ?`
+    );
+    normalizedChanges.forEach((change) => {
+      const values = [
+        change.position,
+        change.title,
+        change.summary ?? "",
+        change.currentBehavior ?? "",
+        change.proposedBehavior ?? "",
+        change.rationale ?? "",
+        JSON.stringify(change.prohibitions ?? []),
+        JSON.stringify(change.expectedEffects ?? []),
+        JSON.stringify(change.sourceRefs ?? []),
+        JSON.stringify(change.localizations ?? {}),
+        change.status
+      ];
+      if (existingById.has(change.id)) update.run(...values, timestamp, operation.id, change.id);
+      else insert.run(
+        change.id,
+        operation.id,
+        change.entityType,
+        change.entityId,
+        ...values,
+        timestamp,
+        timestamp
+      );
+    });
     return this.finishPlanRelationMutation(plan, operation, "changes-set", `${changes.length} canonical entity change(s)`);
+  }
+  updatePlanChange(operation, { timestamp }) {
+    const plan = this.planForMutation(operation, "update_plan_change");
+    const changeId = operation.fields?.changeId;
+    const patch = operation.fields?.patch;
+    if (!changeId || !patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new Error("update_plan_change requires fields.changeId and fields.patch");
+    }
+    for (const field of Object.keys(patch)) {
+      if (!EDITABLE_PLAN_CHANGE_FIELDS.has(field)) throw new Error(`Unsupported Plan change field: ${field}`);
+    }
+    const row = this.database.prepare("SELECT * FROM plan_changes WHERE plan_id = ? AND id = ?").get(operation.id, changeId);
+    if (!row) throw new Error(`plan_change:${changeId} not found in plan:${operation.id}`);
+    const current = normalizePlanChange(row);
+    const next = this.validatedPlanChange({ ...current, ...patch }, current.position);
+    this.database.prepare(
+      `UPDATE plan_changes SET position = ?, title = ?, summary = ?, current_behavior = ?, proposed_behavior = ?,
+        rationale = ?, prohibitions_json = ?, expected_effects_json = ?, source_refs_json = ?, localizations_json = ?,
+        status = ?, current_revision = current_revision + 1, updated_at = ? WHERE plan_id = ? AND id = ?`
+    ).run(
+      next.position,
+      next.title,
+      next.summary,
+      next.currentBehavior,
+      next.proposedBehavior,
+      next.rationale,
+      JSON.stringify(next.prohibitions),
+      JSON.stringify(next.expectedEffects),
+      JSON.stringify(next.sourceRefs),
+      JSON.stringify(next.localizations),
+      next.status,
+      timestamp,
+      operation.id,
+      changeId
+    );
+    return this.finishPlanRelationMutation(plan, operation, "plan-change-updated", `Updated plan_change:${changeId}`);
   }
   setPlanChainChangeRefs(operation) {
     const plan = this.planForMutation(operation, "set_plan_chain_change_refs");
@@ -26523,7 +26720,9 @@ server.registerTool(
             "set_plan_steps",
             "set_plan_checkpoints",
             "set_plan_chain_scopes",
+            "update_plan_chain_scope",
             "set_plan_changes",
+            "update_plan_change",
             "set_plan_chain_change_refs",
             "set_checkpoint_bindings",
             "set_checkpoint_dependencies",

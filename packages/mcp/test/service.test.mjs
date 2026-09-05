@@ -620,6 +620,47 @@ test("hierarchical Plan context preserves one canonical change across multiple C
     const snapshot = context.service.snapshot();
     assert.equal(snapshot.planChanges.filter((item) => item.entityId === "core").length, 1);
     assert.equal(snapshot.planChainChangeRefs.filter((item) => item.planChangeId === "change-core").length, 2);
+
+    context.service.mutate({ reason: "Refresh canonical changes without dropping scope references", operations: [{
+      action: "set_plan_changes", id: "refactor", expectedRevision: 4, fields: { changes: [
+        { id: "change-core", entityType: "block", entityId: "core", title: "Centralize transaction", summary: "One transaction boundary", currentBehavior: "Each caller writes independently", proposedBehavior: "Core owns one transaction", rationale: "Avoid partial writes", prohibitions: ["Do not move validation into Store"], expectedEffects: ["Atomic persistence"], sourceRefs: ["src/core.ts:20"] },
+        { id: "change-link", entityType: "link", entityId: "core-store", title: "Strengthen write contract", proposedBehavior: "Write only committed state" },
+      ] },
+    }] });
+    assert.equal(context.service.snapshot().planChainChangeRefs.length, 3);
+
+    const historyBaseline = context.service.snapshot().changeSequence;
+    context.service.mutate({ reason: "Patch one canonical change", operations: [{
+      action: "update_plan_change", id: "refactor", expectedRevision: 5,
+      fields: { changeId: "change-core", patch: { summary: "Core owns the complete transaction boundary" } },
+    }] });
+    let patchedSnapshot = context.service.snapshot();
+    assert.equal(patchedSnapshot.planChanges.find((item) => item.id === "change-core").summary, "Core owns the complete transaction boundary");
+    assert.equal(patchedSnapshot.planChanges.find((item) => item.id === "change-core").currentRevision, 3);
+    assert.equal(patchedSnapshot.planChainChangeRefs.length, 3);
+    const incremental = context.service.changesSince({ sequence: historyBaseline });
+    assert.deepEqual(incremental.changes[0].changedFields, ["summary"]);
+    assert.equal(incremental.changes[0].before.summary, "One transaction boundary");
+    assert.equal(incremental.changes[0].after.summary, "Core owns the complete transaction boundary");
+    assert.ok(incremental.changes[0].affectedRefs.includes("plan_change:change-core"));
+
+    context.service.mutate({ reason: "Patch one ChainScope without moving the camera target", operations: [{
+      action: "update_plan_chain_scope", id: "refactor", expectedRevision: 6,
+      fields: { scopeId: "request-scope", patch: { summary: "Validate request before transaction work" } },
+    }] });
+    patchedSnapshot = context.service.snapshot();
+    assert.equal(patchedSnapshot.planChainScopes.find((item) => item.id === "request-scope").summary, "Validate request before transaction work");
+    assert.equal(patchedSnapshot.planChainScopes.find((item) => item.id === "request-scope").currentRevision, 2);
+    assert.equal(patchedSnapshot.planChainChangeRefs.length, 3);
+
+    context.service.mutate({ reason: "Refresh scopes without dropping canonical change references", operations: [{
+      action: "set_plan_chain_scopes", id: "refactor", expectedRevision: 7, fields: { scopes: [
+        { id: "request-scope", chainId: "request", title: "Validate before Core", summary: "Keep request validation explicit", nodeIds: ["api", "core"], linkIds: ["api-core"], rationale: "Reject invalid input early" },
+        { id: "persistence-scope", chainId: "persistence", title: "Commit after Core", nodeIds: ["core", "store"], linkIds: ["core-store"], rationale: "Keep writes atomic" },
+      ] },
+    }] });
+    assert.equal(context.service.snapshot().planChainChangeRefs.length, 3);
+
     const opened = context.service.planContext({ id: "refactor", maxChars: 12000 });
     assert.equal(opened.hierarchy.length, 2);
     assert.equal(opened.hierarchy[0].changes[0].id, "change-core");
@@ -629,7 +670,7 @@ test("hierarchical Plan context preserves one canonical change across multiple C
     assert.match(opened.markdown, /src\/core\.ts:20/);
     assert.ok(opened.markdown.length <= 12000);
     assert.throws(() => context.service.mutate({ reason: "Reject an off-path segment", operations: [{
-      action: "set_plan_chain_scopes", id: "refactor", expectedRevision: 4,
+      action: "set_plan_chain_scopes", id: "refactor", expectedRevision: 8,
       fields: { scopes: [{ chainId: "request", title: "Wrong", nodeIds: ["store"] }] },
     }] }), /outside chain:request/);
   } finally {
