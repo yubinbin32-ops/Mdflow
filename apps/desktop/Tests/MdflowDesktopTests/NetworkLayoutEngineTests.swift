@@ -57,6 +57,44 @@ import Testing
     }
 }
 
+@Test func threeHundredBlockCyclicMultiChainOverviewKeepsCycleRoadsSafe() {
+    let ids = (0..<300).map { "large-cycle-\($0)" }
+    let chainEdges = (1..<300).map { index in
+        LayoutEdge(id: "large-cycle-edge-\(index)", sourceID: "large-cycle-\(index - 1)", targetID: "large-cycle-\(index)")
+    }
+    let crossEdges = (0..<270).map { index in
+        LayoutEdge(id: "large-cycle-cross-\(index)", sourceID: "large-cycle-\(index)", targetID: "large-cycle-\(index + 30)")
+    }
+    let cycleEdges = (0..<30).map { index in
+        LayoutEdge(id: "large-cycle-back-\(index)", sourceID: "large-cycle-\(270 + index)", targetID: "large-cycle-\(index)")
+    }
+    let edges = chainEdges + crossEdges + cycleEdges
+    let districts = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0 % 7) })
+    let sharedChains = (0..<12).map { chain in
+        stride(from: chain * 12, to: min(chain * 12 + 96, 300), by: 12).map { index in "large-cycle-\(index)" }
+    }
+    let first = NetworkLayoutEngine.make(
+        nodeIDs: ids, edges: edges, focusPaths: sharedChains, districts: districts,
+        cardSize: CGSize(width: 196, height: 108), topInset: 190
+    )
+    let second = NetworkLayoutEngine.make(
+        nodeIDs: ids, edges: edges, focusPaths: sharedChains, districts: districts,
+        cardSize: CGSize(width: 196, height: 108), topInset: 190
+    )
+    #expect(first == second)
+    #expect(first.positions.count == ids.count)
+    #expect(first.routes.count == edges.count)
+    for edge in cycleEdges {
+        let route = first.routes[edge.id] ?? []
+        #expect(route.count > 1)
+        #expect(zip(route, route.dropFirst()).allSatisfy { left, right in left.x == right.x || left.y == right.y })
+        for id in ids where id != edge.sourceID && id != edge.targetID {
+            let building = CGRect(origin: first.positions[id]!, size: CGSize(width: 196, height: 108)).insetBy(dx: -1, dy: -1)
+            #expect(zip(route, route.dropFirst()).allSatisfy { !segment($0, $1, intersects: building) })
+        }
+    }
+}
+
 @Test func orderedChainCreatesACompactTurningPrimaryRoad() {
     let ids = ["start", "ui", "service", "data", "test"]
     let edges = [
