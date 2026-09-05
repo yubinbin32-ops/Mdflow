@@ -1,5 +1,7 @@
 # mdflow 产品与系统设计方案
 
+> **历史文档声明（2026-09-05）**：本文件是早期产品方案。文中“SQLite 位于用户目录”“Plan 是 purpose=plan 的 Chain”“七个固定 Lens”“Context Rule”“隐藏节点虚拟边”等描述已被当前实现替换或否决。当前唯一实现基线见 [docs/architecture.md](docs/architecture.md)；本文件只作为演进历史保留，不再作为开发事实源。
+>
 > 状态：可运行首版（语义图已自举）  
 > 日期：2026-09-04  
 > 依据：`manual.md`、Topic 工程手册、Archify 的可验证空间叙事方法、OpenAI 官方 Codex 插件规范
