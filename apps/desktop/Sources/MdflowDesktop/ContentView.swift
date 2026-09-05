@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var store = GraphStore()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { proxy in
@@ -24,7 +25,7 @@ struct ContentView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
-            .animation(.easeOut(duration: 0.18), value: store.selection)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: store.selection)
         }
         .frame(minWidth: 1_080, minHeight: 680)
         .background(MdflowTheme.canvas)
@@ -112,7 +113,7 @@ struct ContentView: View {
     private func sidebarSection<Content: View>(_ section: SidebarSection, title: String, @ViewBuilder content: () -> Content) -> some View {
         let collapsed = store.isSidebarSectionCollapsed(section)
         Button {
-            withAnimation(.smooth(duration: 0.24)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.24)) {
                 store.setSidebarSection(section, collapsed: !collapsed)
             }
         } label: {

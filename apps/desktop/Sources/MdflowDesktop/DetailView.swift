@@ -3,6 +3,7 @@ import SwiftUI
 struct DetailView: View {
     @ObservedObject var store: GraphStore
     let selection: GraphSelection
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expandedScopeIDs: Set<String> = []
     @State private var expandedChangeIDs: Set<String> = []
     @State private var expandedStepIDs: Set<String> = []
@@ -210,7 +211,7 @@ struct DetailView: View {
                         .padding(.leading, 46)
                 }
             }
-            .animation(.smooth(duration: 0.24), value: expandedStepIDs)
+            .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: expandedStepIDs)
         }
         if steps.isEmpty && scopes.isEmpty && directChanges.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
@@ -313,7 +314,7 @@ struct DetailView: View {
                         .padding(.leading, 46)
                 }
             }
-            .animation(.smooth(duration: 0.24), value: expandedScopeIDs)
+            .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: expandedScopeIDs)
         }
     }
 
@@ -392,7 +393,7 @@ struct DetailView: View {
         .overlay(alignment: .leading) {
             Rectangle().fill(MdflowTheme.hairline).frame(width: 1)
         }
-        .animation(.smooth(duration: 0.24), value: expandedChangeIDs)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: expandedChangeIDs)
     }
 
     @ViewBuilder
@@ -763,7 +764,7 @@ struct DetailView: View {
                     Divider().opacity(0.65).padding(.leading, 34)
                 }
             }
-            .animation(.smooth(duration: 0.24), value: expandedCheckpointIDs)
+            .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: expandedCheckpointIDs)
         }
     }
 
@@ -805,7 +806,7 @@ struct DetailView: View {
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())
-                    .animation(.smooth(duration: 0.24), value: expandedHistoryIDs)
+                    .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: expandedHistoryIDs)
                 }
             }
         }
