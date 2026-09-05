@@ -70,7 +70,7 @@ struct DetailView: View {
         case .link:
             if let link = store.snapshot.links.first(where: { $0.id == selection.id }) {
                 linkEndpointsSection(link)
-                section(store.text("contract").uppercased(), text: store.localized(type: "link", id: link.id, field: "contract", fallback: link.contract))
+                section(store.text("contract").uppercased(), text: link.contract)
             }
         case .plan:
             if let plan = store.snapshot.plans.first(where: { $0.id == selection.id }) {
@@ -460,7 +460,7 @@ struct DetailView: View {
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                                     .foregroundStyle(MdflowTheme.linkKindColor(link.kind))
                                 if !link.contract.isEmpty {
-                                    Text(store.localized(type: "link", id: link.id, field: "contract", fallback: link.contract))
+                                    Text(link.contract)
                                         .font(.system(size: 9.5, design: .rounded))
                                         .foregroundStyle(MdflowTheme.muted)
                                         .lineLimit(2)

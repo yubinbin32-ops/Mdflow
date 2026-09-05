@@ -427,24 +427,18 @@ function normalizeLocalizations(rows) {
   }));
 }
 
-function localizationMap(snapshot) {
-  return new Map(
-    snapshot.localizations.map((item) => [
-      `${item.entityType}:${item.entityId}:${item.locale}:${item.field}`,
-      item.value,
-    ]),
-  );
+function localizationMap(_snapshot) {
+  // Legacy localizations remain readable in storage for compatibility, but project
+  // facts are always emitted from their canonical field. App language is UI chrome.
+  return null;
 }
 
-function localizedValue(map, type, id, locale, field, fallback = "") {
-  return map.get(`${type}:${id}:${locale}:${field}`) ?? fallback;
+function localizedValue(_map, _type, _id, _locale, _field, fallback = "") {
+  return fallback;
 }
 
-function localizedSearchText(snapshot, type, id) {
-  return snapshot.localizations
-    .filter((item) => item.entityType === type && item.entityId === id)
-    .map((item) => item.value)
-    .join(" ");
+function localizedSearchText(_snapshot, _type, _id) {
+  return "";
 }
 
 function operationEntityType(action) {

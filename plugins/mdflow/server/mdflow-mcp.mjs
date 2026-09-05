@@ -24286,19 +24286,14 @@ function normalizeLocalizations(rows) {
     value: row.value
   }));
 }
-function localizationMap(snapshot) {
-  return new Map(
-    snapshot.localizations.map((item) => [
-      `${item.entityType}:${item.entityId}:${item.locale}:${item.field}`,
-      item.value
-    ])
-  );
+function localizationMap(_snapshot) {
+  return null;
 }
-function localizedValue(map, type, id, locale, field, fallback = "") {
-  return map.get(`${type}:${id}:${locale}:${field}`) ?? fallback;
+function localizedValue(_map, _type, _id, _locale, _field, fallback = "") {
+  return fallback;
 }
-function localizedSearchText(snapshot, type, id) {
-  return snapshot.localizations.filter((item) => item.entityType === type && item.entityId === id).map((item) => item.value).join(" ");
+function localizedSearchText(_snapshot, _type, _id) {
+  return "";
 }
 function operationEntityType(action) {
   if (action.includes("block") || ["add_source_ref", "remove_source_ref", "set_background_scopes"].includes(action)) return "block";

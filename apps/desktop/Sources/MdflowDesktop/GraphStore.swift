@@ -289,17 +289,13 @@ final class GraphStore: ObservableObject {
     func title(for value: GraphSelection) -> String {
         switch value.type {
         case .block:
-            let fallback = snapshot.blocks.first(where: { $0.id == value.id })?.title ?? value.id
-            return localized(type: "block", id: value.id, field: "title", fallback: fallback)
+            return snapshot.blocks.first(where: { $0.id == value.id })?.title ?? value.id
         case .chain:
-            let fallback = snapshot.chains.first(where: { $0.id == value.id })?.title ?? value.id
-            return localized(type: "chain", id: value.id, field: "title", fallback: fallback)
+            return snapshot.chains.first(where: { $0.id == value.id })?.title ?? value.id
         case .link:
-            let fallback = snapshot.links.first(where: { $0.id == value.id })?.label.nonEmpty ?? text("link")
-            return localized(type: "link", id: value.id, field: "label", fallback: fallback)
+            return snapshot.links.first(where: { $0.id == value.id })?.label.nonEmpty ?? text("link")
         case .plan:
-            let fallback = snapshot.plans.first(where: { $0.id == value.id })?.title ?? value.id
-            return localized(type: "plan", id: value.id, field: "title", fallback: fallback)
+            return snapshot.plans.first(where: { $0.id == value.id })?.title ?? value.id
         }
     }
 
@@ -311,28 +307,30 @@ final class GraphStore: ObservableObject {
         }
     }
 
-    func localized(type: String, id: String, field: String, fallback: String) -> String {
-        snapshot.localizations.first {
-            $0.entityType == type && $0.entityId == id && $0.locale == activeLocale && $0.field == field
-        }?.value ?? fallback
+    nonisolated static func projectContent(
+        _ canonical: String,
+        appLanguage _: AppLanguage,
+        localizations _: [LocalizedTextItem] = []
+    ) -> String {
+        canonical
     }
 
     func blockText(_ block: BlockItem, field: String) -> String {
-        let fallback: String
-        switch field { case "title": fallback = block.title; case "summary": fallback = block.summary; case "body": fallback = block.body; default: fallback = block.contract }
-        return localized(type: "block", id: block.id, field: field, fallback: fallback)
+        let canonical: String
+        switch field { case "title": canonical = block.title; case "summary": canonical = block.summary; case "body": canonical = block.body; default: canonical = block.contract }
+        return Self.projectContent(canonical, appLanguage: language, localizations: snapshot.localizations)
     }
 
     func chainText(_ chain: ChainItem, field: String) -> String {
-        let fallback: String
-        switch field { case "title": fallback = chain.title; case "intent": fallback = chain.intent; case "inputContract": fallback = chain.inputContract; default: fallback = chain.outputContract }
-        return localized(type: "chain", id: chain.id, field: field, fallback: fallback)
+        let canonical: String
+        switch field { case "title": canonical = chain.title; case "intent": canonical = chain.intent; case "inputContract": canonical = chain.inputContract; default: canonical = chain.outputContract }
+        return Self.projectContent(canonical, appLanguage: language, localizations: snapshot.localizations)
     }
 
     func planText(_ plan: PlanItem, field: String) -> String {
-        let fallback: String
-        switch field { case "title": fallback = plan.title; case "summary": fallback = plan.summary; case "goal": fallback = plan.goal; default: fallback = plan.nextAction }
-        return localized(type: "plan", id: plan.id, field: field, fallback: fallback)
+        let canonical: String
+        switch field { case "title": canonical = plan.title; case "summary": canonical = plan.summary; case "goal": canonical = plan.goal; default: canonical = plan.nextAction }
+        return Self.projectContent(canonical, appLanguage: language, localizations: snapshot.localizations)
     }
 
     func targetChains(for planID: String) -> [ChainItem] {

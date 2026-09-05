@@ -43,7 +43,8 @@ Plan phase/order should make a new project readable from foundation through deli
 ## Mutation fidelity
 
 - Keep every mutation small, cohesive, and truthful. Use current `expectedRevision`; on conflict, reopen and reconcile.
-- When meaning changes, update every supported locale in the same mutation. Do not translate identifiers or create duplicate localized entities.
+- Store each project fact once, in the language used by the project or current author. Do not generate or maintain translated copies of Block, Link, Chain, Plan, Checkpoint, evidence, or history fields unless the user explicitly asks to translate project content.
+- Treat App interface localization as separate from graph content. A `locale` argument may select tool-generated headings or labels, but it must not cause entity fields to be translated or duplicated. Do not send `localizations` merely because the App supports English and Chinese.
 - After every meaningful write:
   1. inspect every returned `ref`, `revision`, and `uiLocation` receipt;
   2. call `entity_open` for every changed semantic entity;

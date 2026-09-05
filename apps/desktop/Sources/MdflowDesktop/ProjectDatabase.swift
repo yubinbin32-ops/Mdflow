@@ -340,23 +340,10 @@ final class ProjectDatabase {
             if left.order != right.order { return left.order < right.order }
             return left.title.localizedCaseInsensitiveCompare(right.title) == .orderedAscending
         }
-        let localizations = try rows(
-            """
-            SELECT lt.* FROM localized_text lt
-            WHERE EXISTS (
-              SELECT 1 FROM blocks b WHERE b.project_id = ? AND lt.entity_type = 'block' AND b.id = lt.entity_id
-              UNION ALL SELECT 1 FROM chains c WHERE c.project_id = ? AND lt.entity_type = 'chain' AND c.id = lt.entity_id
-              UNION ALL SELECT 1 FROM links l WHERE l.project_id = ? AND lt.entity_type = 'link' AND l.id = lt.entity_id
-              UNION ALL SELECT 1 FROM plans p WHERE p.project_id = ? AND lt.entity_type = 'plan' AND p.id = lt.entity_id
-            )
-            """,
-            bindings: [project.id, project.id, project.id, project.id]
-        ).map { row in
-            LocalizedTextItem(
-                entityType: row.text("entity_type"), entityId: row.text("entity_id"),
-                locale: row.text("locale"), field: row.text("field"), value: row.text("value")
-            )
-        }
+        // Project facts are canonical content, not App-localized UI strings. Keep the
+        // legacy table readable by older releases, but do not load translation copies
+        // into the live Canvas snapshot.
+        let localizations: [LocalizedTextItem] = []
         let history = try rows(
             """
             SELECT h.* FROM history h

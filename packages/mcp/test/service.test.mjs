@@ -357,11 +357,11 @@ test("a completed Chain requires passed checkpoint evidence", () => {
   }
 });
 
-test("localized fields are stored and Chinese tasks retrieve the same semantic graph", () => {
+test("locale never replaces canonical project content", () => {
   const context = fixture();
   try {
     context.service.mutate({
-      reason: "Create bilingual block",
+      reason: "Create a canonical block with one legacy translation",
       operations: [{
         action: "create_block", id: "canvas", fields: {
           kind: "ui", title: "Zoomable canvas", summary: "Scale and pan the graph",
@@ -369,10 +369,13 @@ test("localized fields are stored and Chinese tasks retrieve the same semantic g
         },
       }],
     });
-    const result = context.service.contextForTask({ task: "调整画布缩放", locale: "zh-Hans" });
-    assert.match(result.markdown, /可缩放画布/);
-    assert.ok(result.refs.includes("block:canvas"));
-    assert.equal(context.service.search({ query: "画布", locale: "zh-Hans" }).results[0].title, "可缩放画布");
+    const english = context.service.entityOpen({ type: "block", id: "canvas", locale: "en" });
+    const chineseUI = context.service.entityOpen({ type: "block", id: "canvas", locale: "zh-Hans" });
+    assert.match(english.markdown, /Zoomable canvas/);
+    assert.match(chineseUI.markdown, /Zoomable canvas/);
+    assert.doesNotMatch(chineseUI.markdown, /可缩放画布/);
+    assert.equal(context.service.search({ query: "Zoomable", locale: "zh-Hans" }).results[0].title, "Zoomable canvas");
+    assert.deepEqual(context.service.search({ query: "可缩放", locale: "zh-Hans" }).results, []);
   } finally {
     context.cleanup();
   }
@@ -404,7 +407,7 @@ test("Blocks carry explicit architecture placement and reject invalid layers", (
   }
 });
 
-test("updating canonical content removes untranslated stale localized facts", () => {
+test("legacy localization input never overrides canonical plan facts", () => {
   const context = fixture();
   try {
     context.service.mutate({
@@ -419,9 +422,10 @@ test("updating canonical content removes untranslated stale localized facts", ()
       operations: [{ action: "update_plan", id: "release", expectedRevision: 1, fields: { nextAction: "Run new check" } }],
     });
     const opened = context.service.entityOpen({ type: "plan", id: "release", locale: "zh-Hans" });
+    assert.match(opened.markdown, /# Release/);
     assert.match(opened.markdown, /Run new check/);
     assert.doesNotMatch(opened.markdown, /运行旧检查/);
-    assert.match(opened.markdown, /# 发布/);
+    assert.doesNotMatch(opened.markdown, /# 发布/);
   } finally {
     context.cleanup();
   }
@@ -433,7 +437,7 @@ test("a project-owned graph replaces broad prose with bounded golden task contex
     context.service.mutate({
       reason: "Create a representative project-owned graph",
       operations: [
-        { action: "create_block", id: "canvas", fields: { kind: "ui", title: "Network canvas", summary: "Arrange project nodes without overlap", contract: "Selection focuses one stable graph", localizations: { "zh-Hans": { title: "网络画布", summary: "无重叠地排布项目节点" } } } },
+        { action: "create_block", id: "canvas", fields: { kind: "ui", title: "Network canvas", summary: "Arrange project nodes without overlap", contract: "Selection focuses one stable graph" } },
         { action: "create_block", id: "router", fields: { kind: "service", title: "Project router", summary: "Isolate every project", contract: "Every call resolves an absolute project root" } },
         { action: "create_block", id: "database", fields: { kind: "database", title: "Local graph database", summary: "Store private project state", contract: "Runtime data lives inside ignored .mdflow" } },
         { action: "create_chain", id: "project-loop", fields: { title: "Project development loop", intent: "Read, modify and render one project" } },
@@ -450,9 +454,10 @@ test("a project-owned graph replaces broad prose with bounded golden task contex
       ],
     });
     const snapshot = context.service.snapshot();
-    const chinese = context.service.contextForTask({ task: "调整网络画布排布", locale: "zh-Hans" });
-    assert.ok(chinese.refs.includes("block:canvas"));
-    assert.match(chinese.markdown, /网络画布/);
+    const chineseUI = context.service.contextForTask({ task: "adjust the network canvas layout", locale: "zh-Hans" });
+    assert.ok(chineseUI.refs.includes("block:canvas"));
+    assert.match(chineseUI.markdown, /Network canvas/);
+    assert.doesNotMatch(chineseUI.markdown, /网络画布/);
     const focused = context.service.contextForTask({ task: "change the isolated project database routing", focusRefs: ["plan:verify-project-loop"] });
     assert.ok(focused.refs.includes("plan:verify-project-loop"));
     assert.ok(focused.refs.includes("chain:project-loop"));
