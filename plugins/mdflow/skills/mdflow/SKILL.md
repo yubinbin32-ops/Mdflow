@@ -98,3 +98,5 @@ Do not claim initialization is complete while a non-deprecated Block lacks its o
 - `scope` is semantic metadata only; it does not imply Canvas position. Set `localOrder` only to stabilize order inside a semantic area.
 
 The desktop App is a live read-only projection. MCP writes must produce a change-feed event and become visible without manual refresh.
+
+When a Git checkout or atomic replacement changes `.mdflow/mdflow.sqlite`, both the desktop reader and any long-lived MCP router must detect the file identity change, discard the stale connection, and reopen the new database before serving the next read or write. A path that stayed the same is not proof that the active graph is current.

@@ -95,6 +95,38 @@ import Testing
     }
 }
 
+@Test func threeHundredBlockCyclicOverviewRemainsStableAcrossRepeatedRefreshes() {
+    let ids = (0..<300).map { "large-endurance-\($0)" }
+    let chainEdges = (1..<300).map { index in
+        LayoutEdge(id: "large-endurance-edge-\(index)", sourceID: "large-endurance-\(index - 1)", targetID: "large-endurance-\(index)")
+    }
+    let crossEdges = (0..<270).map { index in
+        LayoutEdge(id: "large-endurance-cross-\(index)", sourceID: "large-endurance-\(index)", targetID: "large-endurance-\(index + 30)")
+    }
+    let cycleEdges = (0..<30).map { index in
+        LayoutEdge(id: "large-endurance-back-\(index)", sourceID: "large-endurance-\(270 + index)", targetID: "large-endurance-\(index)")
+    }
+    let edges = chainEdges + crossEdges + cycleEdges
+    let districts = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0 % 7) })
+    let paths = (0..<12).map { chain in
+        stride(from: chain * 12, to: min(chain * 12 + 96, 300), by: 12).map { index in "large-endurance-\(index)" }
+    }
+    let started = Date()
+    var first: NetworkLayoutSnapshot?
+    for _ in 0..<3 {
+        let layout = NetworkLayoutEngine.make(
+            nodeIDs: ids, edges: edges, focusPaths: paths, districts: districts,
+            cardSize: CGSize(width: 196, height: 108), topInset: 190
+        )
+        #expect(layout.positions.count == 300)
+        #expect(layout.routes.count == edges.count)
+        if let first { #expect(layout == first) } else { first = layout }
+    }
+    // This is a regression guard for repeated live-refresh work, not a claim
+    // that a unit test replaces a long-running real-target memory soak.
+    #expect(Date().timeIntervalSince(started) < 45)
+}
+
 @Test func orderedChainCreatesACompactTurningPrimaryRoad() {
     let ids = ["start", "ui", "service", "data", "test"]
     let edges = [

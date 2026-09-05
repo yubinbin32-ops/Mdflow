@@ -7181,12 +7181,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs2, exportName) {
+    function addFormats(ajv, list, fs3, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs2[f]);
+        ajv.addFormat(f, fs3[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -23204,6 +23204,7 @@ var StdioServerTransport = class {
 
 // packages/mcp/src/project-router.mjs
 import path2 from "node:path";
+import fs2 from "node:fs";
 
 // packages/mcp/src/service.mjs
 import crypto2 from "node:crypto";
@@ -27410,6 +27411,14 @@ function createService(options = {}) {
 }
 
 // packages/mcp/src/project-router.mjs
+function databaseFileIdentity(databasePath) {
+  try {
+    const stat = fs2.statSync(databasePath);
+    return `${stat.dev}:${stat.ino}`;
+  } catch {
+    return null;
+  }
+}
 var ProjectServiceRouter = class {
   constructor(options = {}) {
     this.defaultProjectRoot = options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT;
@@ -27417,6 +27426,7 @@ var ProjectServiceRouter = class {
     this.dataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
     this.maxEntries = options.maxEntries ?? 8;
     this.services = /* @__PURE__ */ new Map();
+    this.serviceIdentities = /* @__PURE__ */ new Map();
   }
   projectRoot(input = {}) {
     return input.projectRoot ?? this.activeProjectRoot ?? this.defaultProjectRoot ?? process.cwd();
@@ -27427,15 +27437,25 @@ var ProjectServiceRouter = class {
     this.activeProjectRoot = key;
     const cached2 = this.services.get(key);
     if (cached2) {
-      this.services.delete(key);
-      this.services.set(key, cached2);
-      return cached2;
+      const currentIdentity = databaseFileIdentity(paths.databasePath);
+      const cachedIdentity = this.serviceIdentities.get(key);
+      if (currentIdentity !== cachedIdentity) {
+        cached2.close();
+        this.services.delete(key);
+        this.serviceIdentities.delete(key);
+      } else {
+        this.services.delete(key);
+        this.services.set(key, cached2);
+        return cached2;
+      }
     }
     const service = createService({ projectRoot: key, dataRoot: this.dataRoot });
     this.services.set(key, service);
+    this.serviceIdentities.set(key, databaseFileIdentity(paths.databasePath));
     while (this.services.size > this.maxEntries) {
       const [oldestKey, oldestService] = this.services.entries().next().value;
       this.services.delete(oldestKey);
+      this.serviceIdentities.delete(oldestKey);
       oldestService.close();
     }
     return service;
@@ -27448,6 +27468,7 @@ var ProjectServiceRouter = class {
   close() {
     for (const service of this.services.values()) service.close();
     this.services.clear();
+    this.serviceIdentities.clear();
   }
 };
 

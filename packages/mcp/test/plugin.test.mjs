@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { registerProject, resolveProjectPaths } from "../src/paths.mjs";
+import { ProjectServiceRouter } from "../src/project-router.mjs";
+import { createService } from "../src/service.mjs";
 
 test("registered projects version the canonical graph but ignore SQLite sidecars", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-local-data-"));
@@ -23,6 +25,50 @@ test("registered projects version the canonical graph but ignore SQLite sidecars
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("project router reopens a cached MCP service after SQLite checkout replacement", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-router-reopen-"));
+  const replacementRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-router-replacement-"));
+  const descriptor = { id: "router-reopen", name: "Router Reopen", schemaVersion: 1 };
+  const writeProject = (projectRoot) => {
+    fs.mkdirSync(path.join(projectRoot, ".mdflow"));
+    fs.writeFileSync(path.join(projectRoot, ".mdflow", "project.json"), `${JSON.stringify(descriptor)}\n`);
+  };
+  writeProject(root);
+  writeProject(replacementRoot);
+  const router = new ProjectServiceRouter();
+  let replacementService;
+  try {
+    const first = router.serviceFor({ projectRoot: root });
+    first.mutate({
+      reason: "Seed the original cached service",
+      operations: [{ action: "create_block", id: "before-checkout", fields: { kind: "service", title: "Before checkout" } }],
+    });
+
+    fs.copyFileSync(path.join(root, ".mdflow", "mdflow.sqlite"), path.join(replacementRoot, ".mdflow", "mdflow.sqlite"));
+    replacementService = createService({ projectRoot: replacementRoot });
+    replacementService.mutate({
+      reason: "Prepare the checked-out graph",
+      operations: [{ action: "create_block", id: "after-checkout", fields: { kind: "service", title: "After checkout" } }],
+    });
+    replacementService.close();
+    replacementService = undefined;
+
+    const staged = path.join(root, ".mdflow", "mdflow.sqlite.replacement");
+    fs.copyFileSync(path.join(replacementRoot, ".mdflow", "mdflow.sqlite"), staged);
+    fs.renameSync(staged, path.join(root, ".mdflow", "mdflow.sqlite"));
+
+    const reopened = router.serviceFor({ projectRoot: root });
+    assert.notEqual(reopened, first);
+    const ids = reopened.snapshot().blocks.map((block) => block.id).sort();
+    assert.deepEqual(ids, ["after-checkout", "before-checkout"]);
+  } finally {
+    replacementService?.close();
+    router.close();
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(replacementRoot, { recursive: true, force: true });
   }
 });
 
