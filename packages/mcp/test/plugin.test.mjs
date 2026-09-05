@@ -86,7 +86,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
       },
     });
     assert.equal(create.isError, undefined);
-    assert.equal(create.structuredContent.graphRevision, 1);
+    assert.equal(create.structuredContent, undefined);
 
     const compose = await client.callTool({
       name: "graph_mutate",
@@ -100,7 +100,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
       },
     });
     assert.equal(compose.isError, undefined);
-    assert.equal(compose.structuredContent.graphRevision, 2);
+    assert.equal(compose.structuredContent, undefined);
 
     const checkpoint = await client.callTool({
       name: "checkpoint_record",
@@ -111,6 +111,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
       },
     });
     assert.equal(checkpoint.isError, undefined);
+    assert.equal(checkpoint.structuredContent, undefined);
     const checkpointIndex = await client.callTool({ name: "checkpoint_list", arguments: { unassignedOnly: true } });
     assert.equal(checkpointIndex.isError, undefined);
     assert.equal(checkpointIndex.structuredContent, undefined);
@@ -123,9 +124,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     });
     assert.equal(foundation.isError, undefined);
     assert.match(foundation.content[0].text, /Generated plan:foundation-receipt/);
-    assert.equal(foundation.structuredContent.plan.id, "foundation-receipt");
-    assert.equal(foundation.structuredContent.plan.body, undefined);
-    assert.equal(Array.isArray(foundation.structuredContent.generated.blockIds), true);
+    assert.equal(foundation.structuredContent, undefined);
 
     const contextPack = await client.callTool({
       name: "context_for_task",
@@ -173,13 +172,14 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
       name: "graph_mutate",
       arguments: {
         reason: "Exercise packaged rollback",
+        includeStructured: true,
         operations: [{ action: "update_block", id: "source", expectedRevision: 1, fields: { summary: "Temporarily changed" } }],
       },
     });
     assert.equal(changed.isError, undefined);
     const reverted = await client.callTool({
       name: "change_set_revert",
-      arguments: { changeSetId: changed.structuredContent.changeSetId, reason: "Undo packaged rollback probe" },
+      arguments: { changeSetId: changed.structuredContent.changeSetId, reason: "Undo packaged rollback probe", includeStructured: true },
     });
     assert.equal(reverted.isError, undefined);
     const afterRevert = await client.callTool({ name: "entity_open", arguments: { type: "block", id: "source" } });
@@ -188,8 +188,10 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
 
     const validation = await client.callTool({ name: "graph_validate", arguments: {} });
     assert.equal(validation.isError, undefined);
-    assert.equal(validation.structuredContent.valid, true);
-    assert.deepEqual(validation.structuredContent.errors, []);
+    assert.equal(validation.structuredContent, undefined);
+    const validationStructured = await client.callTool({ name: "graph_validate", arguments: { includeStructured: true } });
+    assert.equal(validationStructured.structuredContent.valid, true);
+    assert.deepEqual(validationStructured.structuredContent.errors, []);
 
     const changes = await client.callTool({ name: "changes_since", arguments: { sequence: 0 } });
     assert.equal(changes.isError, undefined);
@@ -235,7 +237,7 @@ test("bundled plugin registers and isolates multiple projects in one Codex conne
     ]) {
       const registered = await client.callTool({ name: "project_register", arguments: project });
       assert.equal(registered.isError, undefined);
-      assert.equal(registered.structuredContent.created, true);
+      assert.equal(registered.structuredContent, undefined);
     }
 
     for (const [projectRoot, title] of [[firstRoot, "First architecture"], [secondRoot, "Second architecture"]]) {
@@ -248,7 +250,7 @@ test("bundled plugin registers and isolates multiple projects in one Codex conne
         },
       });
       assert.equal(mutation.isError, undefined);
-      assert.equal(mutation.structuredContent.graphRevision, 1);
+      assert.equal(mutation.structuredContent, undefined);
     }
 
     const firstMap = await client.callTool({ name: "project_map", arguments: { projectRoot: firstRoot } });

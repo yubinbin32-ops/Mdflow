@@ -30,6 +30,33 @@ import Testing
     #expect(overlaps(in: first, cardSize: CGSize(width: 196, height: 108)).isEmpty)
 }
 
+@Test func threeHundredBlockOverviewRoutesAvoidUnrelatedBuildings() {
+    let ids = (0..<300).map { "large-route-\($0)" }
+    let edges = (1..<300).map { index in
+        LayoutEdge(id: "large-route-edge-\(index)", sourceID: "large-route-\(index - 1)", targetID: "large-route-\(index)")
+    } + (0..<270).map { index in
+        LayoutEdge(id: "large-route-cross-\(index)", sourceID: "large-route-\(index)", targetID: "large-route-\(index + 30)")
+    }
+    let districts = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0 % 7) })
+    let size = CGSize(width: 196, height: 108)
+    let layout = NetworkLayoutEngine.make(
+        nodeIDs: ids,
+        edges: edges,
+        focusPaths: [],
+        districts: districts,
+        cardSize: size,
+        topInset: 190
+    )
+    for edge in edges {
+        let route = layout.routes[edge.id] ?? []
+        #expect(!route.isEmpty)
+        for id in ids where id != edge.sourceID && id != edge.targetID {
+            let building = CGRect(origin: layout.positions[id]!, size: size).insetBy(dx: -1, dy: -1)
+            #expect(zip(route, route.dropFirst()).allSatisfy { !segment($0, $1, intersects: building) })
+        }
+    }
+}
+
 @Test func orderedChainCreatesACompactTurningPrimaryRoad() {
     let ids = ["start", "ui", "service", "data", "test"]
     let edges = [

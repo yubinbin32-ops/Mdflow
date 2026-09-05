@@ -20,19 +20,58 @@ function withProject(input, callback) {
   return callback(service, payload);
 }
 
-function result(data, markdown) {
-  return response(data, markdown, data);
-}
-
 function readResult(data, markdown, includeStructured = false) {
   return response(data, markdown, includeStructured ? data : undefined);
 }
 
+function writeResult(data, markdown, includeStructured = false) {
+  const text = markdown ?? data?.markdown ?? writeReceiptMarkdown(data);
+  return response(data, text, includeStructured ? data : undefined);
+}
+
+function writeReceiptMarkdown(data = {}) {
+  if (data?.changeSetId && Number.isInteger(data?.graphRevision)) {
+    return [
+      "# Graph mutation",
+      `- ChangeSet: ${data.changeSetId}`,
+      `- Graph revision: ${data.graphRevision}`,
+      ...(Array.isArray(data.receipts) && data.receipts.length
+        ? ["", "## Applied operations", ...data.receipts.map((receipt) =>
+          `- ${receipt.action ?? "updated"} ${receipt.ref ?? `${receipt.entityType ?? "entity"}:${receipt.id ?? "?"}`} · r${receipt.revision ?? "?"}`)]
+        : []),
+    ].join("\n");
+  }
+  if (data?.checkpoint && data?.changeSetId) {
+    const checkpoint = data.checkpoint;
+    return [
+      "# Checkpoint recorded",
+      `- Checkpoint: ${checkpoint.id}`,
+      `- Status: ${checkpoint.status}`,
+      `- Target: ${checkpoint.targetType ?? "?"}:${checkpoint.targetId ?? "?"}`,
+      `- Revision: ${checkpoint.revision ?? "?"}`,
+      `- Graph revision: ${data.graphRevision}`,
+      `- ChangeSet: ${data.changeSetId}`,
+    ].join("\n");
+  }
+  if (typeof data?.valid === "boolean") {
+    return [
+      "# Graph validation",
+      `- Status: ${data.valid ? "valid" : "invalid"}`,
+      `- Graph revision: ${data.graphRevision ?? "?"}`,
+      `- Errors: ${data.errors?.length ?? 0}`,
+      `- Warnings: ${data.warnings?.length ?? 0}`,
+      ...(data.errors?.length ? ["", "## Errors", ...data.errors.map((item) => `- ${item}`)] : []),
+      ...(data.warnings?.length ? ["", "## Warnings", ...data.warnings.map((item) => `- ${item}`)] : []),
+    ].join("\n");
+  }
+  return "# mdflow operation\n- Completed";
+}
+
 // Read tools are Markdown-first. MCP clients may place both content and
 // structuredContent in the model context, so duplicating a projection in both
-// fields wastes tokens and can make the model choose stale values. Mutations
-// and validation keep their small machine receipt; read tools pass undefined
-// here unless the caller explicitly asks for includeStructured=true.
+// fields wastes tokens and can make the model choose stale values. Every tool
+// is Markdown-first; callers opt into the exact JSON projection with
+// includeStructured=true.
 function response(data, markdown, structuredContent) {
   const output = { content: [{ type: "text", text: markdown ?? JSON.stringify(data) }] };
   if (structuredContent !== undefined) output.structuredContent = structuredContent;
@@ -48,11 +87,12 @@ server.registerTool(
       projectRoot: z.string().min(1),
       name: z.string().min(1).optional(),
       id: z.string().min(1).optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
     const data = router.register(input);
-    return result(data, `${data.created ? "Registered" : "Opened"} ${data.descriptor.name} at ${data.projectRoot}.`);
+    return writeResult(data, `${data.created ? "Registered" : "Opened"} ${data.descriptor.name} at ${data.projectRoot}.`, input.includeStructured);
   },
 );
 
@@ -87,14 +127,8 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.createFoundationPlan(payload));
-    const receipt = {
-      changeSetId: data.changeSetId,
-      graphRevision: data.graphRevision,
-      plan: data.plan ? { id: data.plan.id, currentRevision: data.plan.currentRevision, status: data.plan.derivedStatus ?? data.plan.status } : null,
-      generated: data.generated,
-    };
     const text = `Generated plan:${data.plan?.id ?? input.id} with ${data.generated?.blockIds?.length ?? 0} direct Block(s), ${data.generated?.chainIds?.length ?? 0} Chain gate(s), and acceptance checkpoint ${data.generated?.planAcceptanceCheckpointId ?? "—"}.`;
-    return response(input.includeStructured ? data : receipt, input.includeStructured ? data.markdown : text, input.includeStructured ? data : receipt);
+    return writeResult(data, text, input.includeStructured);
   },
 );
 
@@ -169,9 +203,13 @@ server.registerTool(
       gitHead: z.string().nullable().optional(),
       planId: z.string().optional(),
       chainScopeId: z.string().optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
-  async (input) => result(withProject(input, (service, payload) => service.revertChangeSet(payload))),
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.revertChangeSet(payload));
+    return writeResult(data, `Reverted ChangeSet ${input.changeSetId}. Graph revision ${data.graphRevision}. New ChangeSet ${data.changeSetId}.`, input.includeStructured);
+  },
 );
 
 server.registerTool(
@@ -250,6 +288,7 @@ server.registerTool(
       gitHead: z.string().nullable().optional(),
       planId: z.string().optional(),
       chainScopeId: z.string().optional(),
+      includeStructured: z.boolean().default(false),
       operations: z
         .array(
           z.object({
@@ -292,7 +331,7 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.mutate(payload));
     const text = `Applied ${data.receipts.length} operation(s). Graph revision ${data.graphRevision}. ChangeSet ${data.changeSetId}.`;
-    return result(data, text);
+    return writeResult(data, text, input.includeStructured);
   },
 );
 
@@ -322,18 +361,25 @@ server.registerTool(
       planId: z.string().optional(),
       chainScopeId: z.string().optional(),
       gitHead: z.string().nullable().optional(),
+      includeStructured: z.boolean().default(false),
     },
   },
-  async (input) => result(withProject(input, (service, payload) => service.recordCheckpoint(payload))),
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.recordCheckpoint(payload));
+    return writeResult(data, `Recorded checkpoint ${data.checkpoint.id} for ${data.checkpoint.status}. Graph revision ${data.graphRevision}.`, input.includeStructured);
+  },
 );
 
 server.registerTool(
   "graph_validate",
   {
     description: "Validate global graph references, Chain paths, Plan targets, Background scopes, contracts, and checkpoint-backed completion.",
-    inputSchema: { ...projectRootInput },
+    inputSchema: { ...projectRootInput, includeStructured: z.boolean().default(false) },
   },
-  async (input) => result(withProject(input, (service) => service.validate())),
+  async (input) => {
+    const data = withProject(input, (service) => service.validate());
+    return writeResult(data, undefined, input.includeStructured);
+  },
 );
 
 const transport = new StdioServerTransport();

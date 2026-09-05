@@ -314,11 +314,19 @@ enum NetworkLayoutEngine {
                 // On an overview, do not feed every previously routed road into
                 // the scoring loop. This keeps route work linear in the number
                 // of buildings and makes repeated canvas updates predictable.
+                // A direct road is still preferred, but the bounded obstacle
+                // grid is the safe fallback for crowded corridors. Falling
+                // straight through the old unconstrained fallback can draw a
+                // road across an unrelated Block on a large overview.
                 path = directFirstRoute(
                     source: source, target: target, obstacles: activeObstacles, used: [], lane: lane
+                ) ?? gridRoute(
+                    source: source, target: target, horizontal: horizontal,
+                    sourceOffset: sourceOffset, targetOffset: targetOffset,
+                    obstacles: activeObstacles, used: []
                 ) ?? fallbackRoute(
                     source: source, target: target, horizontal: horizontal,
-                    sourceOffset: sourceOffset, targetOffset: targetOffset
+                    sourceOffset: sourceOffset, targetOffset: targetOffset, obstacles: activeObstacles
                 )
             }
             let clean = compact(path)
@@ -466,15 +474,50 @@ enum NetworkLayoutEngine {
     }
 
     private static func fallbackRoute(
-        source: CGRect, target: CGRect, horizontal: Bool, sourceOffset: CGFloat, targetOffset: CGFloat
+        source: CGRect, target: CGRect, horizontal: Bool, sourceOffset: CGFloat, targetOffset: CGFloat,
+        obstacles: [CGRect] = []
     ) -> [CGPoint] {
         let points = routeEndpoints(source: source, target: target, horizontal: horizontal, sourceOffset: sourceOffset, targetOffset: targetOffset, clearance: 18)
+        let direct: [CGPoint]
         if horizontal {
             let trackY = (points.escape.y + points.approach.y) / 2
-            return compact([points.start, points.escape, CGPoint(x: points.escape.x, y: trackY), CGPoint(x: points.approach.x, y: trackY), points.approach, points.end])
+            direct = compact([points.start, points.escape, CGPoint(x: points.escape.x, y: trackY), CGPoint(x: points.approach.x, y: trackY), points.approach, points.end])
+        } else {
+            let trackX = (points.escape.x + points.approach.x) / 2
+            direct = compact([points.start, points.escape, CGPoint(x: trackX, y: points.escape.y), CGPoint(x: trackX, y: points.approach.y), points.approach, points.end])
         }
-        let trackX = (points.escape.x + points.approach.x) / 2
-        return compact([points.start, points.escape, CGPoint(x: trackX, y: points.escape.y), CGPoint(x: trackX, y: points.approach.y), points.approach, points.end])
+        guard !obstacles.isEmpty else { return direct }
+        let isClear: ([CGPoint]) -> Bool = { candidate in
+            zip(candidate, candidate.dropFirst()).allSatisfy { segmentIsClear($0, $1, obstacles: obstacles) }
+        }
+        if isClear(direct) { return direct }
+
+        // Try deterministic tracks outside the obstacle envelope before giving
+        // up. The bounded grid normally resolves this case; these candidates
+        // keep the final fallback honest if the grid has no finite route.
+        let clearance: CGFloat = 36
+        if horizontal {
+            let tracks = uniqueSorted([
+                (points.escape.y + points.approach.y) / 2,
+                obstacles.map(\.minY).min()! - clearance,
+                obstacles.map(\.maxY).max()! + clearance
+            ])
+            for trackY in tracks {
+                let candidate = compact([points.start, points.escape, CGPoint(x: points.escape.x, y: trackY), CGPoint(x: points.approach.x, y: trackY), points.approach, points.end])
+                if isClear(candidate) { return candidate }
+            }
+        } else {
+            let tracks = uniqueSorted([
+                (points.escape.x + points.approach.x) / 2,
+                obstacles.map(\.minX).min()! - clearance,
+                obstacles.map(\.maxX).max()! + clearance
+            ])
+            for trackX in tracks {
+                let candidate = compact([points.start, points.escape, CGPoint(x: trackX, y: points.escape.y), CGPoint(x: trackX, y: points.approach.y), points.approach, points.end])
+                if isClear(candidate) { return candidate }
+            }
+        }
+        return direct
     }
 
     private static func portOffset(index: Int, count: Int, span: CGFloat) -> CGFloat {
