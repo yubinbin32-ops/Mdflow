@@ -22,6 +22,9 @@ final class GraphStore: ObservableObject {
     @Published var settingsPresented = false
     @Published private(set) var pluginInstallStatus: PluginInstallStatus = .idle
     @Published var canvasScale: CGFloat = 1
+    @Published var canvasOffset: CGSize = .zero
+    @Published private(set) var hasRestoredCamera = false
+    @Published private(set) var cameraRestoreRequestID = UUID()
     @Published var language: AppLanguage {
         didSet { UserDefaults.standard.set(language.rawValue, forKey: "mdflow.language") }
     }
@@ -41,6 +44,7 @@ final class GraphStore: ObservableObject {
         let highlightedChainIDs: Set<String>
         let enabledLenses: Set<ViewLens>
         let canvasScale: CGFloat
+        let canvasOffset: CGSize
         let focusTarget: GraphSelection?
         let isolateFocused: Bool
     }
@@ -69,6 +73,7 @@ final class GraphStore: ObservableObject {
             self.errorMessage = error.localizedDescription
             Self.log(error, context: "project resolution")
         }
+        restoreProjectViewState(for: snapshot.project.id)
         startLiveUpdates()
     }
 
@@ -120,30 +125,76 @@ final class GraphStore: ObservableObject {
             highlightedChainIDs: highlightedChainIDs,
             enabledLenses: enabledLenses,
             canvasScale: canvasScale,
+            canvasOffset: canvasOffset,
             focusTarget: focusTarget,
             isolateFocused: isolateFocused
         )
+        persistCameraState(for: snapshot.project.id)
     }
 
     private func restoreProjectViewState(for projectID: String) {
         focusTask?.cancel()
-        guard let state = projectViewStates[projectID] else {
+        if let state = projectViewStates[projectID] {
+            selection = state.selection.flatMap { Self.selection($0, existsIn: snapshot) ? $0 : nil }
+            highlightedChainIDs = state.highlightedChainIDs.intersection(snapshot.chains.map(\.id))
+            enabledLenses = state.enabledLenses
+            canvasScale = state.canvasScale
+            canvasOffset = state.canvasOffset
+            focusTarget = state.focusTarget.flatMap { Self.selection($0, existsIn: snapshot) ? $0 : nil }
+            isolateFocused = state.isolateFocused && focusTarget != nil
+            hasRestoredCamera = true
+            cameraRestoreRequestID = UUID()
+            collapsedSidebarSections = loadSidebarState(for: projectID)
+            persistCameraState(for: projectID)
+            return
+        }
+        if let persisted = persistedCameraState(for: projectID) {
             selection = nil
             highlightedChainIDs.removeAll()
             focusTarget = nil
             isolateFocused = false
             enabledLenses = Set(ViewLens.allCases)
-            canvasScale = 1
+            canvasScale = persisted.scale
+            canvasOffset = persisted.offset
+            hasRestoredCamera = true
+            cameraRestoreRequestID = UUID()
             collapsedSidebarSections = loadSidebarState(for: projectID)
             return
         }
-        selection = state.selection.flatMap { Self.selection($0, existsIn: snapshot) ? $0 : nil }
-        highlightedChainIDs = state.highlightedChainIDs.intersection(snapshot.chains.map(\.id))
-        enabledLenses = state.enabledLenses
-        canvasScale = state.canvasScale
-        focusTarget = state.focusTarget.flatMap { Self.selection($0, existsIn: snapshot) ? $0 : nil }
-        isolateFocused = state.isolateFocused && focusTarget != nil
+        selection = nil
+        highlightedChainIDs.removeAll()
+        focusTarget = nil
+        isolateFocused = false
+        enabledLenses = Set(ViewLens.allCases)
+        canvasScale = 1
+        canvasOffset = .zero
+        hasRestoredCamera = false
+        cameraRestoreRequestID = UUID()
         collapsedSidebarSections = loadSidebarState(for: projectID)
+    }
+
+    private func cameraStateKey(for projectID: String, component: String) -> String {
+        "mdflow.camera.\(projectID).\(component)"
+    }
+
+    private func persistCameraState(for projectID: String) {
+        guard !projectID.isEmpty else { return }
+        let defaults = UserDefaults.standard
+        defaults.set(Double(canvasScale), forKey: cameraStateKey(for: projectID, component: "scale"))
+        defaults.set(Double(canvasOffset.width), forKey: cameraStateKey(for: projectID, component: "x"))
+        defaults.set(Double(canvasOffset.height), forKey: cameraStateKey(for: projectID, component: "y"))
+    }
+
+    private func persistedCameraState(for projectID: String) -> (scale: CGFloat, offset: CGSize)? {
+        let defaults = UserDefaults.standard
+        let scaleKey = cameraStateKey(for: projectID, component: "scale")
+        let xKey = cameraStateKey(for: projectID, component: "x")
+        let yKey = cameraStateKey(for: projectID, component: "y")
+        guard defaults.object(forKey: scaleKey) != nil,
+              let x = defaults.object(forKey: xKey) as? Double,
+              let y = defaults.object(forKey: yKey) as? Double else { return nil }
+        let scale = defaults.object(forKey: scaleKey) as? Double ?? 1
+        return (CGFloat(min(1.8, max(0.25, scale))), CGSize(width: x, height: y))
     }
 
     private func sidebarStateKey(for projectID: String) -> String {
@@ -418,6 +469,7 @@ final class GraphStore: ObservableObject {
                 selection = retainedSelection
                 focusTarget = retainedFocus
                 highlightedChainIDs = retainedChainIDs
+                isolateFocused = isolateFocused && retainedFocus != nil
                 recentlyChangedRefs = Set(changed)
                 errorMessage = nil
             }
@@ -448,6 +500,8 @@ final class GraphStore: ObservableObject {
         fileWatcher = nil
         livePollingTask?.cancel()
         livePollingTask = nil
+        refreshDebounceTask?.cancel()
+        refreshDebounceTask = nil
         watchedDescriptor = -1
         guard let location else { return }
         let directory = location.root.appending(path: ".mdflow", directoryHint: .isDirectory).path
@@ -667,9 +721,25 @@ final class GraphStore: ObservableObject {
         }
     }
 
-    func zoom(by amount: CGFloat) { canvasScale = min(1.8, max(0.25, canvasScale + amount)) }
-    func setZoom(_ value: CGFloat) { canvasScale = min(1.8, max(0.25, value)) }
-    func resetZoom() { canvasScale = 1 }
+    func setCanvasOffset(_ value: CGSize) {
+        canvasOffset = value
+        persistCameraState(for: snapshot.project.id)
+    }
+
+    func zoom(by amount: CGFloat) {
+        canvasScale = min(1.8, max(0.25, canvasScale + amount))
+        persistCameraState(for: snapshot.project.id)
+    }
+
+    func setZoom(_ value: CGFloat) {
+        canvasScale = min(1.8, max(0.25, value))
+        persistCameraState(for: snapshot.project.id)
+    }
+
+    func resetZoom() {
+        canvasScale = 1
+        persistCameraState(for: snapshot.project.id)
+    }
 
     func checkpoints(for value: GraphSelection) -> [CheckpointItem] {
         if value.type == .plan {

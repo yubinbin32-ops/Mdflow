@@ -44,6 +44,7 @@ struct GraphCanvasView: View {
                         if dragStartOffset == nil { dragStartOffset = start }
                         camera.owner = .userPan
                         camera.offset = CGSize(width: start.width + value.translation.width, height: start.height + value.translation.height)
+                        store.setCanvasOffset(camera.offset)
                     }
                     .onEnded { _ in dragStartOffset = nil; camera.owner = .none }
             )
@@ -66,13 +67,14 @@ struct GraphCanvasView: View {
                             camera.owner = .userPan
                             camera.offset.width += delta.width
                             camera.offset.height += delta.height
+                            store.setCanvasOffset(camera.offset)
                             camera.owner = .none
                         }
                     },
                     onDoubleClick: { point, zoomOut in zoom(by: zoomOut ? -0.32 : 0.42, around: point) }
                 )
             }
-            .onAppear { rebuildScene(viewport: viewport.size, fit: true) }
+            .onAppear { rebuildScene(viewport: viewport.size, fit: !store.hasRestoredCamera) }
             .onChange(of: sceneKey) { rebuildScene(viewport: viewport.size, fit: false) }
             .onChange(of: store.focusRequestID) { fitSelection(viewport: viewport.size) }
             .onChange(of: store.overviewFitRequestID) { fitAll(viewport: viewport.size) }
@@ -99,7 +101,14 @@ struct GraphCanvasView: View {
         }
         if fit || didFitProjectID != store.snapshot.project.id {
             didFitProjectID = store.snapshot.project.id
-            fitAll(viewport: viewport)
+            if store.hasRestoredCamera {
+                camera.owner = .explicitLocate
+                camera.scale = store.canvasScale
+                camera.offset = store.canvasOffset
+                camera.owner = .none
+            } else {
+                fitAll(viewport: viewport)
+            }
         }
     }
 
@@ -386,6 +395,7 @@ struct GraphCanvasView: View {
             height: (viewport.height - scene.layout.size.height * scale) / 2
         )
         store.setZoom(scale)
+        store.setCanvasOffset(camera.offset)
         camera.owner = .none
     }
 
@@ -404,6 +414,7 @@ struct GraphCanvasView: View {
         camera.scale = scale
         camera.offset = CGSize(width: viewport.width / 2 - bounds.midX * scale, height: viewport.height / 2 - bounds.midY * scale)
         store.setZoom(scale)
+        store.setCanvasOffset(camera.offset)
         camera.owner = .none
     }
 
@@ -420,6 +431,7 @@ struct GraphCanvasView: View {
         camera.scale = next
         camera.offset = CGSize(width: viewportPoint.x - world.x * next, height: viewportPoint.y - world.y * next)
         store.setZoom(next)
+        store.setCanvasOffset(camera.offset)
     }
 
     private func worldPoint(from viewportPoint: CGPoint) -> CGPoint {

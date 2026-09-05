@@ -1,0 +1,112 @@
+{
+  "benchmark": "todo-context-parity",
+  "tokenizer": "cl100k_base (js-tiktoken)",
+  "fixture": {
+    "blocks": 6,
+    "links": 5,
+    "chains": 1,
+    "plans": 1,
+    "tasks": 3
+  },
+  "mdflow": {
+    "name": "mdflow-first",
+    "baselineTokens": 1107,
+    "totalTokens": 2030,
+    "totalChars": 8426,
+    "durationMs": 4.89,
+    "expectedFacts": 13,
+    "recalledFacts": 13,
+    "recallRate": 1,
+    "errorRate": 0,
+    "reworkTurns": 0,
+    "tasks": [
+      {
+        "id": "create",
+        "tokens": 685,
+        "chars": 2827,
+        "expected": 5,
+        "recalled": 5,
+        "missingRefs": [],
+        "recallRate": 1,
+        "reworkTurns": 0
+      },
+      {
+        "id": "recover",
+        "tokens": 613,
+        "chars": 2570,
+        "expected": 5,
+        "recalled": 5,
+        "missingRefs": [],
+        "recallRate": 1,
+        "reworkTurns": 0
+      },
+      {
+        "id": "migration",
+        "tokens": 732,
+        "chars": 3029,
+        "expected": 3,
+        "recalled": 3,
+        "missingRefs": [],
+        "recallRate": 1,
+        "reworkTurns": 0
+      }
+    ]
+  },
+  "markdown": {
+    "name": "markdown-first",
+    "baselineTokens": 1107,
+    "totalTokens": 3321,
+    "totalChars": 16170,
+    "durationMs": 0.01,
+    "expectedFacts": 13,
+    "recalledFacts": 13,
+    "recallRate": 1,
+    "errorRate": 0,
+    "reworkTurns": 0,
+    "tasks": [
+      {
+        "id": "create",
+        "tokens": 1107,
+        "chars": 5390,
+        "expected": 5,
+        "recalled": 5,
+        "missingRefs": [],
+        "recallRate": 1,
+        "reworkTurns": 0
+      },
+      {
+        "id": "recover",
+        "tokens": 1107,
+        "chars": 5390,
+        "expected": 5,
+        "recalled": 5,
+        "missingRefs": [],
+        "recallRate": 1,
+        "reworkTurns": 0
+      },
+      {
+        "id": "migration",
+        "tokens": 1107,
+        "chars": 5390,
+        "expected": 3,
+        "recalled": 3,
+        "missingRefs": [],
+        "recallRate": 1,
+        "reworkTurns": 0
+      }
+    ]
+  },
+  "comparison": {
+    "tokenReduction": 0.38873833182776274,
+    "recalledFactsDelta": 0,
+    "errorRateDelta": 0,
+    "reworkTurnsDelta": 0,
+    "reworkTurnsDefinition": "Deterministic recovery proxy: one extra context turn for each task with a missing expected reference; this is not an LLM claim."
+  },
+  "graphValidation": {
+    "valid": true,
+    "errors": [],
+    "warnings": [],
+    "graphRevision": 3
+  }
+}
