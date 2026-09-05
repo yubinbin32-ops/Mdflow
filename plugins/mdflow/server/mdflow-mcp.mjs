@@ -25031,6 +25031,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
   changesSince({ sequence = 0, limit = 100 } = {}) {
     if (!Number.isInteger(sequence) || sequence < 0) throw new Error("sequence must be a non-negative integer");
     const boundedLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+    const latestSequence = this.database.prepare(
+      "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?"
+    ).get(this.paths.descriptor.id).sequence;
+    const earliestSequence = this.database.prepare(
+      "SELECT COALESCE(MIN(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?"
+    ).get(this.paths.descriptor.id).sequence;
     const rows = this.database.prepare(
       `SELECT cf.sequence, cf.change_set_id, cf.entity_type, cf.entity_id, cf.action, cf.created_at,
               h.revision, h.summary, h.plan_id, h.chain_scope_id, h.before_json, h.after_json,
@@ -25039,7 +25045,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
        LEFT JOIN history h ON h.change_set_id = cf.change_set_id AND h.entity_type = cf.entity_type
          AND h.entity_id = cf.entity_id AND h.action = cf.action
        WHERE cf.project_id = ? AND cf.sequence > ? ORDER BY cf.sequence LIMIT ?`
-    ).all(this.paths.descriptor.id, sequence, boundedLimit).map((row) => ({
+    ).all(this.paths.descriptor.id, sequence, boundedLimit + 1).map((row) => ({
       sequence: row.sequence,
       changeSetId: row.change_set_id,
       ref: `${row.entity_type}:${row.entity_id}`,
@@ -25055,7 +25061,16 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       evidenceRefs: parseJson(row.evidence_refs_json, []),
       createdAt: row.created_at
     }));
-    return { fromSequence: sequence, nextSequence: rows.at(-1)?.sequence ?? sequence, changes: rows };
+    const hasMore = rows.length > boundedLimit;
+    if (hasMore) rows.pop();
+    return {
+      fromSequence: sequence,
+      nextSequence: rows.at(-1)?.sequence ?? sequence,
+      latestSequence,
+      earliestSequence,
+      hasMore,
+      changes: rows
+    };
   }
   contextForTask({ task, focusRefs = [], maxChars = 6e3, locale = "en" }) {
     const snapshot = this.snapshot();

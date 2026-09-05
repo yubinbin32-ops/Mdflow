@@ -771,6 +771,39 @@ test("changes_since returns compact incremental mutation receipts", () => {
     assert.deepEqual(checkpointChanges.changes[0].evidenceRefs, ["test/one.test.mjs"]);
     assert.equal(checkpointChanges.changes[0].before.status, "pending");
     assert.equal(checkpointChanges.changes[0].after.status, "passed");
+    assert.equal(checkpointChanges.hasMore, false);
+    assert.equal(checkpointChanges.latestSequence, checkpointChanges.nextSequence);
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("changes_since paginates long sequences without losing the resume cursor", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({ reason: "Create long-sequence probe", operations: [
+      { action: "create_block", id: "long-sequence", fields: { kind: "test", title: "Long sequence" } },
+    ] });
+    const baseline = context.service.snapshot().changeSequence;
+    for (let index = 0; index < 505; index += 1) {
+      context.service.mutate({ reason: `Long sequence mutation ${index + 1}`, operations: [{
+        action: "update_block", id: "long-sequence", expectedRevision: index + 1,
+        fields: { summary: `mutation-${index + 1}` },
+      }] });
+    }
+    const firstPage = context.service.changesSince({ sequence: baseline, limit: 500 });
+    assert.equal(firstPage.changes.length, 500);
+    assert.equal(firstPage.hasMore, true);
+    assert.equal(firstPage.changes[0].sequence, baseline + 1);
+    assert.equal(firstPage.changes.at(-1).sequence, baseline + 500);
+    assert.equal(firstPage.nextSequence, baseline + 500);
+    assert.equal(firstPage.latestSequence, baseline + 505);
+    const secondPage = context.service.changesSince({ sequence: firstPage.nextSequence, limit: 500 });
+    assert.equal(secondPage.changes.length, 5);
+    assert.equal(secondPage.hasMore, false);
+    assert.equal(secondPage.changes[0].sequence, baseline + 501);
+    assert.equal(secondPage.changes.at(-1).sequence, baseline + 505);
+    assert.equal(secondPage.nextSequence, secondPage.latestSequence);
   } finally {
     context.cleanup();
   }
