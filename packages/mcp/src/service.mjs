@@ -1267,6 +1267,108 @@ export class MdflowService {
     };
   }
 
+  revertChangeSet({ changeSetId, actor = "agent", reason, task = "", gitHead = null, planId = null, chainScopeId = null }) {
+    if (!changeSetId?.trim()) throw new Error("changeSetId is required");
+    const changeSet = this.database.prepare(
+      "SELECT * FROM change_sets WHERE project_id = ? AND id = ?",
+    ).get(this.paths.descriptor.id, changeSetId);
+    if (!changeSet) throw new Error(`change_set:${changeSetId} not found`);
+    const history = this.database.prepare(
+      "SELECT * FROM history WHERE change_set_id = ? ORDER BY id DESC",
+    ).all(changeSetId);
+    if (history.length === 0) throw new Error(`change_set:${changeSetId} has no reversible history`);
+
+    const inverse = [];
+    const expectedRevisions = new Map();
+    const stateForHistory = (item) => {
+      if (item.action === "plan-change-updated") {
+        const planIdForChange = item.plan_id ?? [...parseJson(item.affected_refs_json, [])]
+          .find((ref) => ref.startsWith("plan:"))?.slice("plan:".length);
+        const changeId = parseJson(item.affected_refs_json, [])
+          .find((ref) => ref.startsWith("plan_change:"))?.slice("plan_change:".length);
+        if (!planIdForChange || !changeId) throw new Error(`change_set:${changeSetId} child change target is missing`);
+        return { operation: { action: "update_plan_change", id: planIdForChange, fields: { changeId } }, planId: planIdForChange };
+      }
+      if (item.action === "chain-scope-updated") {
+        const planIdForScope = item.plan_id ?? [...parseJson(item.affected_refs_json, [])]
+          .find((ref) => ref.startsWith("plan:"))?.slice("plan:".length);
+        const scopeId = parseJson(item.affected_refs_json, [])
+          .find((ref) => ref.startsWith("plan_chain_scope:"))?.slice("plan_chain_scope:".length);
+        if (!planIdForScope || !scopeId) throw new Error(`change_set:${changeSetId} ChainScope target is missing`);
+        return { operation: { action: "update_plan_chain_scope", id: planIdForScope, fields: { scopeId } }, planId: planIdForScope };
+      }
+      return { operation: null, planId: null };
+    };
+    for (const item of history) {
+      if (item.action === "updated" && ["block", "chain", "link", "plan"].includes(item.entity_type)) {
+        const before = parseJson(item.before_json, {});
+        const after = parseJson(item.after_json, {});
+        const fields = parseJson(item.changed_fields_json, []);
+        const allowed = item.entity_type === "block" ? EDITABLE_BLOCK_FIELDS
+          : item.entity_type === "chain" ? EDITABLE_CHAIN_FIELDS
+            : item.entity_type === "link" ? EDITABLE_LINK_FIELDS : EDITABLE_PLAN_FIELDS;
+        if (!fields.length || fields.some((field) => !allowed.has(field))) {
+          throw new Error(`change_set:${changeSetId} contains a non-reversible ${item.entity_type} update`);
+        }
+        const current = this.historyState(item.entity_type, item.entity_id);
+        for (const field of fields) {
+          if (JSON.stringify(current?.[field] ?? null) !== JSON.stringify(after?.[field] ?? null)) {
+            throw new Error(`change_set:${changeSetId} is stale for ${item.entity_type}:${item.entity_id}; refusing to overwrite newer work`);
+          }
+        }
+        const key = `${item.entity_type}:${item.entity_id}`;
+        const revision = expectedRevisions.get(key) ?? this.database.prepare(
+          `SELECT current_revision FROM ${item.entity_type === "block" ? "blocks" : item.entity_type === "chain" ? "chains" : item.entity_type === "link" ? "links" : "plans"} WHERE project_id = ? AND id = ?`,
+        ).get(this.paths.descriptor.id, item.entity_id)?.current_revision;
+        if (!Number.isInteger(revision)) throw new Error(`${item.entity_type}:${item.entity_id} not found`);
+        inverse.push({ action: `update_${item.entity_type}`, id: item.entity_id, expectedRevision: revision, fields: Object.fromEntries(fields.map((field) => [field, before[field]])) });
+        expectedRevisions.set(key, revision + 1);
+        continue;
+      }
+      if (item.action === "plan-change-updated" || item.action === "chain-scope-updated") {
+        const target = stateForHistory(item);
+        const before = parseJson(item.before_json, {});
+        const after = parseJson(item.after_json, {});
+        const fields = parseJson(item.changed_fields_json, []);
+        const allowed = item.action === "plan-change-updated" ? EDITABLE_PLAN_CHANGE_FIELDS : EDITABLE_PLAN_CHAIN_SCOPE_FIELDS;
+        if (!fields.length || fields.some((field) => !allowed.has(field))) {
+          throw new Error(`change_set:${changeSetId} contains a non-reversible ${item.action}`);
+        }
+        const current = this.historyStateForOperation(target.operation, "plan", target.planId);
+        for (const field of fields) {
+          if (JSON.stringify(current?.[field] ?? null) !== JSON.stringify(after?.[field] ?? null)) {
+            throw new Error(`change_set:${changeSetId} is stale for ${item.action}; refusing to overwrite newer work`);
+          }
+        }
+        const key = `plan:${target.planId}`;
+        const revision = expectedRevisions.get(key) ?? this.database.prepare("SELECT current_revision FROM plans WHERE project_id = ? AND id = ?")
+          .get(this.paths.descriptor.id, target.planId)?.current_revision;
+        if (!Number.isInteger(revision)) throw new Error(`plan:${target.planId} not found`);
+        inverse.push({
+          action: item.action === "plan-change-updated" ? "update_plan_change" : "update_plan_chain_scope",
+          id: target.planId,
+          expectedRevision: revision,
+          fields: item.action === "plan-change-updated"
+            ? { changeId: target.operation.fields.changeId, patch: Object.fromEntries(fields.map((field) => [field, before[field]])) }
+            : { scopeId: target.operation.fields.scopeId, patch: Object.fromEntries(fields.map((field) => [field, before[field]])) },
+        });
+        expectedRevisions.set(key, revision + 1);
+        continue;
+      }
+      throw new Error(`change_set:${changeSetId} contains unsupported action ${item.action}; refusing partial revert`);
+    }
+    const resolvedContext = this.resolveHistoryContext(planId, chainScopeId);
+    return this.mutate({
+      actor,
+      reason: reason?.trim() || `Revert change set ${changeSetId}`,
+      task,
+      gitHead,
+      planId: resolvedContext.planId,
+      chainScopeId: resolvedContext.chainScopeId,
+      operations: inverse,
+    });
+  }
+
   contextForTask({ task, focusRefs = [], maxChars = 6000, locale = "en" }) {
     const snapshot = this.snapshot();
     assertAllowed(locale, LOCALES, "locale");

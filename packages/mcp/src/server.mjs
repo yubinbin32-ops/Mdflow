@@ -108,6 +108,25 @@ server.registerTool(
 );
 
 server.registerTool(
+  "change_set_revert",
+  {
+    description:
+      "Create a new reverse ChangeSet for a safe, fully reversible update-only ChangeSet. Original History is preserved; stale or unsupported changes are rejected instead of partially reverted.",
+    inputSchema: {
+      ...projectRootInput,
+      changeSetId: z.string().min(1),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      task: z.string().optional(),
+      gitHead: z.string().nullable().optional(),
+      planId: z.string().optional(),
+      chainScopeId: z.string().optional(),
+    },
+  },
+  async (input) => result(withProject(input, (service, payload) => service.revertChangeSet(payload))),
+);
+
+server.registerTool(
   "entity_open",
   {
     description: "Open one Block, Chain, Link, or Plan with only its relevant checkpoints, code refs, targets, and recent history.",

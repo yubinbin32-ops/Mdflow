@@ -808,3 +808,31 @@ test("changes_since paginates long sequences without losing the resume cursor", 
     context.cleanup();
   }
 });
+
+test("change_set_revert creates a reverse audit trail and refuses stale work", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({ reason: "Create revert probe", operations: [
+      { action: "create_block", id: "revert-probe", fields: { kind: "service", title: "Revert probe", summary: "Before" } },
+    ] });
+    const changed = context.service.mutate({ reason: "Change revert probe", operations: [
+      { action: "update_block", id: "revert-probe", expectedRevision: 1, fields: { summary: "After" } },
+    ] });
+    const reversed = context.service.revertChangeSet({ changeSetId: changed.changeSetId, reason: "Undo probe" });
+    assert.equal(reversed.receipts[0].action, "updated");
+    assert.equal(context.service.snapshot().blocks.find((item) => item.id === "revert-probe").summary, "Before");
+    const changes = context.service.changesSince({ sequence: 1 });
+    assert.equal(changes.changes.length, 2);
+    assert.equal(changes.changes.at(-1).before.summary, "After");
+    assert.equal(changes.changes.at(-1).after.summary, "Before");
+
+    const second = context.service.mutate({ reason: "Change after revert", operations: [
+      { action: "update_block", id: "revert-probe", expectedRevision: 3, fields: { summary: "Newer" } },
+    ] });
+    assert.throws(() => context.service.revertChangeSet({ changeSetId: changed.changeSetId, reason: "Reject stale undo" }), /stale/);
+    assert.equal(context.service.snapshot().blocks.find((item) => item.id === "revert-probe").summary, "Newer");
+    assert.notEqual(second.changeSetId, reversed.changeSetId);
+  } finally {
+    context.cleanup();
+  }
+});
