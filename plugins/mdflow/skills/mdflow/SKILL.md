@@ -30,7 +30,7 @@ Read-tool response budget:
 
 - Every MCP tool is Markdown-first by default, including mutation, checkpoint, validation, and read tools. MCP clients may place both `content` and `structuredContent` in model context, so a duplicate JSON projection wastes context and can create conflicting facts.
 - Pass `includeStructured: true` only when the caller must programmatically inspect exact fields, IDs, evidence, receipts, or before/after values. That opt-in returns the full structured payload; it is not part of ordinary reasoning.
-- `graph_mutate`, `checkpoint_record`, `change_set_revert`, `foundation_plan_create`, and `graph_validate` may return small machine receipts because follow-up writes require changeSet IDs, revisions, and validation errors.
+- Write and validation results include changeSet IDs, revisions, and validation errors in their Markdown receipt; request `includeStructured: true` only when a follow-up needs machine-readable fields.
 - Markdown projections are deterministic: coverage summary → execution order → direct Block work → Chain paths and gates → Plan acceptance → uncovered or failing items. Stable `block:`, `chain:`, `plan:`, `checkpoint:`, and `plan_change:` refs are required; Markdown is a structured projection, not free-form pasted prose.
 - Keep the Markdown `maxChars` budget modest. Do not copy full entity bodies into Plans, Chain paths, or History; use `entity_open` with an exact ref when more detail is needed.
 
