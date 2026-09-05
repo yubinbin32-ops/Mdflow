@@ -110,3 +110,30 @@ import Testing
     #expect(!first.contains(CGPoint(x: 140, y: 100)))
     #expect(first.contains(CGPoint(x: 230, y: 100)))
 }
+
+@Test func largeChainEnvelopeBoundsContourGridWork() {
+    let cardSize = CGSize(width: 120, height: 64)
+    let nodeIDs = (0..<180).map { "node-\($0)" }
+    let positions = Dictionary(uniqueKeysWithValues: nodeIDs.map { id in
+        let index = Int(id.dropFirst("node-".count))!
+        return (id, CGPoint(x: CGFloat(index) * 132, y: 0))
+    })
+    let routePoints = Dictionary(uniqueKeysWithValues: (0..<179).map { index in
+        ("edge-\(index)", [
+            CGPoint(x: CGFloat(index) * 132 + cardSize.width, y: cardSize.height / 2),
+            CGPoint(x: CGFloat(index + 1) * 132, y: cardSize.height / 2),
+        ])
+    })
+    let layout = NetworkLayoutSnapshot(
+        positions: positions, routes: routePoints, layerBands: [], scopeBands: [],
+        size: CGSize(width: CGFloat(180 * 132), height: 200)
+    )
+
+    let envelope = ChainEnvelopeEngine.make(
+        nodeIDs: nodeIDs, linkIDs: routePoints.keys.sorted(), layout: layout,
+        cardSize: cardSize, expansion: ChainEnvelopeEngine.baseExpansion
+    )
+
+    #expect(!envelope.contours.isEmpty)
+    #expect(envelope.contours.flatMap(\.self).count < 2_000)
+}

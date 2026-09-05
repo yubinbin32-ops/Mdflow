@@ -147,6 +147,16 @@ enum ChainEnvelopeEngine {
         let end: CGPoint
     }
 
+    private struct PointKey: Hashable {
+        let x: Double
+        let y: Double
+
+        init(_ point: CGPoint) {
+            x = Double(point.x)
+            y = Double(point.y)
+        }
+    }
+
     static func make(
         nodeIDs: [String], linkIDs: [String], layout: NetworkLayoutSnapshot,
         cardSize: CGSize, expansion: CGFloat
@@ -172,7 +182,7 @@ enum ChainEnvelopeEngine {
         )
     }
 
-    private static func unionContours(rectangles: [CGRect]) -> [[CGPoint]] {
+    private static func unionContours(rectangles: [CGRect], allowCoarsening: Bool = true) -> [[CGPoint]] {
         let rectangles = rectangles.map(
             { $0.standardized }
         ).filter { !$0.isEmpty && !$0.isNull }
@@ -180,6 +190,35 @@ enum ChainEnvelopeEngine {
         let xs = Array(Set(rectangles.flatMap { [$0.minX, $0.maxX] })).sorted()
         let ys = Array(Set(rectangles.flatMap { [$0.minY, $0.maxY] })).sorted()
         guard xs.count > 1, ys.count > 1 else { return [] }
+
+        // A long Chain can expose thousands of route/card boundaries. Keep
+        // overview contour work bounded without changing the exact corridor
+        // frames used for collision checks. Small and medium Chains retain
+        // their exact snake contour; only an extreme coordinate grid is
+        // quantized to a deterministic 160×160 envelope grid.
+        let maximumAxisCells: CGFloat = 160
+        if allowCoarsening, xs.count > Int(maximumAxisCells) + 1 || ys.count > Int(maximumAxisCells) + 1 {
+            let xRange = xs.last! - xs.first!
+            let yRange = ys.last! - ys.first!
+            let xStep = max(1, xRange / maximumAxisCells)
+            let yStep = max(1, yRange / maximumAxisCells)
+            func quantize(_ value: CGFloat, minimum: CGFloat, step: CGFloat, upper: CGFloat) -> CGFloat {
+                min(upper, minimum + floor((value - minimum) / step) * step)
+            }
+            let coarse = rectangles.map { rectangle -> CGRect in
+                let minX = quantize(rectangle.minX, minimum: xs.first!, step: xStep, upper: xs.last!)
+                let minY = quantize(rectangle.minY, minimum: ys.first!, step: yStep, upper: ys.last!)
+                let xCeiling = xs.first! + ceil((rectangle.maxX - xs.first!) / xStep) * xStep
+                let yCeiling = ys.first! + ceil((rectangle.maxY - ys.first!) / yStep) * yStep
+                let maxX = min(xs.last!, max(minX + xStep, xCeiling))
+                let maxY = min(ys.last!, max(minY + yStep, yCeiling))
+                let width = max(CGFloat(1), maxX - minX)
+                let height = max(CGFloat(1), maxY - minY)
+                return CGRect(x: minX, y: minY, width: width, height: height)
+            }
+            return unionContours(rectangles: coarse, allowCoarsening: false)
+        }
+
         var occupied = Array(repeating: Array(repeating: false, count: ys.count - 1), count: xs.count - 1)
         for xIndex in 0..<(xs.count - 1) {
             for yIndex in 0..<(ys.count - 1) {
@@ -197,6 +236,14 @@ enum ChainEnvelopeEngine {
                 if xIndex == 0 || !occupied[xIndex - 1][yIndex] { edges.insert(Edge(start: CGPoint(x: x0, y: y1), end: CGPoint(x: x0, y: y0))) }
             }
         }
+
+        // Keep contour walking proportional to the number of boundary edges.
+        // The previous implementation filtered the entire active edge set for
+        // every next vertex. That is quadratic for a dense Chain envelope and
+        // made a 300-Block overview spend unbounded memory/time before the
+        // Canvas could present its first frame.
+        let outgoing = Dictionary(grouping: edges, by: { PointKey($0.start) })
+            .mapValues { $0.sorted(by: edgeOrder) }
         var contours: [[CGPoint]] = []
         while let first = edges.min(by: { edgeOrder($0, $1) }) {
             var contour = [first.start]
@@ -205,8 +252,8 @@ enum ChainEnvelopeEngine {
             var safety = edges.count + 2
             while edge.end != first.start && safety > 0 {
                 contour.append(edge.end)
-                let candidates = edges.filter { $0.start == edge.end }
-                guard let next = candidates.min(by: { edgeOrder($0, $1) }) else { break }
+                guard let candidates = outgoing[PointKey(edge.end)],
+                      let next = candidates.first(where: { edges.contains($0) }) else { break }
                 edge = next
                 edges.remove(next)
                 safety -= 1

@@ -170,57 +170,72 @@ struct GraphCanvasView: View {
         .allowsHitTesting(false)
     }
 
+    @ViewBuilder
     private var chainMotionLayer: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
-            Canvas { context, _ in
-                let chains = store.snapshot.chains.sorted { $0.id < $1.id }
-                let seconds = timeline.date.timeIntervalSinceReferenceDate
-                for (index, chain) in chains.enumerated() {
-                    let selected = store.highlightedChainIDs.contains(chain.id)
-                    let active = ["implementing", "verifying"].contains(chain.deliveryState)
-                    let unhealthy = ["warning", "failing", "unstable", "disputed"].contains(chain.healthState)
-                    guard selected || active || unhealthy else { continue }
-                    guard let envelope = scene.chainEnvelopes[chain.id] else { continue }
+        if hasAnimatedChain {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion || scene.blocks.count > 120)) { timeline in
+                Canvas { context, _ in
+                    let chains = store.snapshot.chains.sorted { $0.id < $1.id }
+                    let seconds = timeline.date.timeIntervalSinceReferenceDate
+                    for (index, chain) in chains.enumerated() {
+                        let selected = store.highlightedChainIDs.contains(chain.id)
+                        let active = ["implementing", "verifying"].contains(chain.deliveryState)
+                        let unhealthy = ["warning", "failing", "unstable", "disputed"].contains(chain.healthState)
+                        guard selected || active || unhealthy else { continue }
+                        guard let envelope = scene.chainEnvelopes[chain.id] else { continue }
 
-                    let color = store.chainColor(chain.id)
-                    let signature = index % 3
-                    let speed = chain.deliveryState == "verifying" ? 0.075 : 0.12 + Double(signature) * 0.018
-                    let phaseOffset = Double(index) * 0.173
-                    let progress = reduceMotion ? 0.82 : positiveRemainder(seconds * speed + phaseOffset, modulus: 1)
-                    let dashPhase = reduceMotion ? 0 : CGFloat(-seconds * (18 + Double(signature) * 5))
-                    let dash: [CGFloat] = switch signature {
-                    case 0: [9, 14]
-                    case 1: [4, 8, 13, 8]
-                    default: [2, 7, 2, 15]
-                    }
-                    let path = chainEnvelopePath(envelope)
-                    context.stroke(
-                        path,
-                        with: .color(color.opacity(selected ? 0.72 : 0.34)),
-                        style: StrokeStyle(
-                            lineWidth: selected ? 2.0 : 1.2,
-                            lineCap: .round,
-                            lineJoin: .round,
-                            dash: dash,
-                            dashPhase: dashPhase
+                        let color = store.chainColor(chain.id)
+                        let signature = index % 3
+                        let speed = chain.deliveryState == "verifying" ? 0.075 : 0.12 + Double(signature) * 0.018
+                        let phaseOffset = Double(index) * 0.173
+                        let progress = reduceMotion ? 0.82 : positiveRemainder(seconds * speed + phaseOffset, modulus: 1)
+                        let dashPhase = reduceMotion ? 0 : CGFloat(-seconds * (18 + Double(signature) * 5))
+                        let dash: [CGFloat] = switch signature {
+                        case 0: [9, 14]
+                        case 1: [4, 8, 13, 8]
+                        default: [2, 7, 2, 15]
+                        }
+                        let path = chainEnvelopePath(envelope)
+                        context.stroke(
+                            path,
+                            with: .color(color.opacity(selected ? 0.72 : 0.34)),
+                            style: StrokeStyle(
+                                lineWidth: selected ? 2.0 : 1.2,
+                                lineCap: .round,
+                                lineJoin: .round,
+                                dash: dash,
+                                dashPhase: dashPhase
+                            )
                         )
-                    )
 
-                    guard let sample = chainMotionSample(chain.id, progress: progress) else { continue }
-                    let pulse = unhealthy && !reduceMotion ? 0.68 + 0.32 * sin(seconds * 3.2) : 1
-                    drawChainMarker(
-                        context: &context,
-                        point: sample.point,
-                        horizontal: sample.horizontal,
-                        signature: signature,
-                        color: color.opacity((selected ? 0.96 : 0.72) * pulse),
-                        selected: selected
-                    )
+                        guard let sample = chainMotionSample(chain.id, progress: progress) else { continue }
+                        let pulse = unhealthy && !reduceMotion ? 0.68 + 0.32 * sin(seconds * 3.2) : 1
+                        drawChainMarker(
+                            context: &context,
+                            point: sample.point,
+                            horizontal: sample.horizontal,
+                            signature: signature,
+                            color: color.opacity((selected ? 0.96 : 0.72) * pulse),
+                            selected: selected
+                        )
+                    }
                 }
             }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        } else {
+            Color.clear
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+    }
+
+    private var hasAnimatedChain: Bool {
+        store.snapshot.chains.contains { chain in
+            store.highlightedChainIDs.contains(chain.id)
+                || ["implementing", "verifying"].contains(chain.deliveryState)
+                || ["warning", "failing", "unstable", "disputed"].contains(chain.healthState)
+        }
     }
 
     private func chainMotionSample(_ chainID: String, progress: Double) -> (point: CGPoint, horizontal: Bool)? {
