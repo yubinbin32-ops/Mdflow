@@ -1159,6 +1159,16 @@ test("Foundation Plan generation covers every unfinished Block with ordered work
     assert.match(planContext.markdown, /## Typed progress/);
     assert.match(planContext.markdown, /Path: block:database → block:service → block:ui/);
     assert.match(planContext.markdown, /Blocked by required checks:/);
+    const architectureIndex = planContext.markdown.indexOf("## Architecture coverage");
+    const executionIndex = planContext.markdown.indexOf("## Execution order");
+    const directIndex = planContext.markdown.indexOf("## Direct Block work");
+    const chainIndex = planContext.markdown.indexOf("## Chain integration");
+    const acceptanceIndex = planContext.markdown.indexOf("## Plan acceptance");
+    assert.ok(architectureIndex >= 0 && architectureIndex < executionIndex);
+    assert.ok(executionIndex < directIndex && directIndex < chainIndex && chainIndex < acceptanceIndex);
+    assert.match(planContext.markdown, /Current:/);
+    assert.match(planContext.markdown, /Change:/);
+    assert.match(planContext.markdown, /Why:/);
     assert.equal(planContext.hierarchy[0].checkpoints[0].blockers.some((item) => item.checkpoint.id === "database-proof"), true);
     assert.equal(planContext.checkpointGates[0].dependencies.length > 0, true);
     assert.equal(planContext.checkpointGates[0].blockers.length > 0, true);
