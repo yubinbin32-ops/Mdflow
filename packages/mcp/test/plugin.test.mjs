@@ -53,6 +53,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
       [
         "change_set_revert",
         "changes_since",
+        "checkpoint_list",
         "checkpoint_record",
         "context_for_task",
         "entity_open",
@@ -106,6 +107,9 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
       },
     });
     assert.equal(checkpoint.isError, undefined);
+    const checkpointIndex = await client.callTool({ name: "checkpoint_list", arguments: { unassignedOnly: true } });
+    assert.equal(checkpointIndex.isError, undefined);
+    assert.equal(checkpointIndex.structuredContent.count, 0);
 
     const contextPack = await client.callTool({
       name: "context_for_task",

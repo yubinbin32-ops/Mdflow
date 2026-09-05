@@ -340,6 +340,28 @@ test("checkpoints cannot be recorded against missing graph entities", () => {
   }
 });
 
+test("standalone checkpoints are discoverable without being forced into a Plan", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create an independently testable service Block",
+      operations: [{ action: "create_block", id: "worker", fields: { kind: "service", title: "Worker", summary: "Runs background jobs" } }],
+    });
+    context.service.recordCheckpoint({
+      id: "worker-test", targetType: "block", targetId: "worker", title: "Worker unit tests", status: "pending",
+    });
+    const listed = context.service.checkpointList({ unassignedOnly: true });
+    assert.equal(listed.count, 1);
+    assert.equal(listed.items[0].id, "worker-test");
+    assert.equal(listed.items[0].planned, false);
+    const contextPack = context.service.contextForTask({ task: "continue the project" });
+    assert.match(contextPack.markdown, /Standalone verification/);
+    assert.match(contextPack.markdown, /Worker unit tests/);
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("a completed Chain requires passed checkpoint evidence", () => {
   const context = fixture();
   try {

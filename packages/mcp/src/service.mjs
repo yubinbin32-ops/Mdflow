@@ -1125,6 +1125,49 @@ export class MdflowService {
     return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, markdown: lines.join("\n") };
   }
 
+  checkpointList({ status, targetType, targetId, planId, chainScopeId, unassignedOnly = false, limit = 100, locale = "en" } = {}) {
+    const snapshot = this.snapshot();
+    assertAllowed(locale, LOCALES, "locale");
+    const planCheckpointIDs = new Set([
+      ...snapshot.planCheckpointRefs.map((item) => item.checkpointId),
+      ...snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan").map((checkpoint) => checkpoint.id),
+    ]);
+    const planBoundIDs = new Set(snapshot.checkpointBindings.filter((binding) =>
+      binding.subjectType === "plan" || binding.subjectType === "plan_change" || binding.subjectType === "plan_chain_scope",
+    ).map((binding) => binding.checkpointId));
+    const scopeCheckpointIDs = chainScopeId
+      ? new Set(snapshot.checkpointBindings.filter((binding) => binding.subjectType === "plan_chain_scope" && binding.subjectId === chainScopeId).map((binding) => binding.checkpointId))
+      : null;
+    const matching = snapshot.checkpoints.filter((checkpoint) => {
+      if (status && checkpoint.status !== status) return false;
+      if (targetType && checkpoint.targetType !== targetType) return false;
+      if (targetId && checkpoint.targetId !== targetId) return false;
+      if (planId) {
+        const direct = checkpoint.targetType === "plan" && checkpoint.targetId === planId;
+        const referenced = snapshot.planCheckpointRefs.some((item) => item.planId === planId && item.checkpointId === checkpoint.id);
+        const bound = snapshot.checkpointBindings.some((item) => item.subjectType === "plan" && item.subjectId === planId && item.checkpointId === checkpoint.id);
+        if (!direct && !referenced && !bound) return false;
+      }
+      if (scopeCheckpointIDs && !scopeCheckpointIDs.has(checkpoint.id)) return false;
+      if (unassignedOnly && (planCheckpointIDs.has(checkpoint.id) || planBoundIDs.has(checkpoint.id))) return false;
+      return true;
+    }).slice(0, limit);
+    const ownerTitle = (checkpoint) => {
+      if (checkpoint.targetType === "block") return snapshot.blocks.find((item) => item.id === checkpoint.targetId)?.title ?? checkpoint.targetId;
+      if (checkpoint.targetType === "chain") return snapshot.chains.find((item) => item.id === checkpoint.targetId)?.title ?? checkpoint.targetId;
+      if (checkpoint.targetType === "plan") return snapshot.plans.find((item) => item.id === checkpoint.targetId)?.title ?? checkpoint.targetId;
+      return checkpoint.targetId;
+    };
+    const items = matching.map((checkpoint) => ({
+      ...checkpoint,
+      owner: { type: checkpoint.targetType, id: checkpoint.targetId, title: ownerTitle(checkpoint) },
+      planned: planCheckpointIDs.has(checkpoint.id) || planBoundIDs.has(checkpoint.id),
+    }));
+    const lines = [`# Checkpoints`, `Count: ${items.length}`, ""];
+    for (const item of items) lines.push(`- [${item.status}] ${item.title} — ${item.targetType}:${item.targetId} · ${item.owner.title}${item.planned ? " · planned" : " · standalone"}`);
+    return { items, count: items.length, markdown: lines.join("\n") };
+  }
+
   planContext({ id, locale = "en", maxChars = 12000 }) {
     assertAllowed(locale, LOCALES, "locale");
     const snapshot = this.snapshot();
@@ -1473,6 +1516,18 @@ export class MdflowService {
       (binding.subjectType === "plan_chain_scope" && relevantScopeIDs.has(binding.subjectId)) ||
       (binding.subjectType === "plan_change" && relevantChangeIDs.has(binding.subjectId)))
       .map((binding) => binding.checkpointId));
+    const plannedCheckpointIDs = new Set([
+      ...snapshot.planCheckpointRefs.map((item) => item.checkpointId),
+      ...snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan").map((checkpoint) => checkpoint.id),
+      ...snapshot.checkpointBindings
+        .filter((binding) => ["plan", "plan_change", "plan_chain_scope"].includes(binding.subjectType))
+        .map((binding) => binding.checkpointId),
+    ]);
+    // A checkpoint can be intentionally independent of all Plans. Keep open
+    // standalone checks in bounded context so an agent can discover and run them.
+    const standaloneOpenCheckpoints = snapshot.checkpoints
+      .filter((checkpoint) => !plannedCheckpointIDs.has(checkpoint.id) && checkpoint.status !== "passed")
+      .slice(0, 20);
     const relevantCheckpoints = snapshot.checkpoints.filter(
       (checkpoint) =>
         (checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId)) ||
@@ -1568,6 +1623,16 @@ export class MdflowService {
       lines.push("## Open checkpoints");
       for (const checkpoint of failing) {
         lines.push(`- ${checkpoint.status} · ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} · ${checkpoint.coverage}: ${checkpoint.title}`);
+      }
+      lines.push("");
+    }
+    if (standaloneOpenCheckpoints.length) {
+      lines.push("## Standalone verification");
+      for (const checkpoint of standaloneOpenCheckpoints) {
+        const owner = checkpoint.targetType === "block"
+          ? snapshot.blocks.find((block) => block.id === checkpoint.targetId)?.title ?? checkpoint.targetId
+          : checkpoint.targetId;
+        lines.push(`- ${checkpoint.status} · ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} · ${checkpoint.targetType}:${checkpoint.targetId} (${owner}): ${checkpoint.title}`);
       }
       lines.push("");
     }

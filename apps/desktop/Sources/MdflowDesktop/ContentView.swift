@@ -46,36 +46,56 @@ struct ContentView: View {
             Divider().padding(.horizontal, 14)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if !projectRuleBlocks.isEmpty {
-                        sidebarLabel(store.text("projectRules"))
+                    sidebarSection(.projectRules, title: store.text("projectRules")) {
                         ForEach(projectRuleBlocks) { block in
                             sidebarButton(
                                 title: store.blockText(block, field: "title"),
-                                subtitle: block.kind.uppercased(),
+                                subtitle: "\(block.kind.uppercased()) · \(block.deliveryState.uppercased())",
                                 color: MdflowTheme.blockKindColor(block.kind),
                                 selected: store.selection == GraphSelection(type: .block, id: block.id)
                             ) { store.select(GraphSelection(type: .block, id: block.id)) }
                         }
                     }
 
-                    sidebarLabel(store.text("chains"))
-                    ForEach(store.snapshot.chains) { chain in
-                        sidebarButton(
-                            title: store.chainText(chain, field: "title"),
-                            subtitle: "\(store.chainNodeIDs(chain.id).count) BLOCKS",
-                            color: store.chainColor(chain.id),
-                            selected: store.selection == GraphSelection(type: .chain, id: chain.id)
-                        ) { store.select(GraphSelection(type: .chain, id: chain.id)) }
+                    sidebarSection(.plans, title: store.text("plans")) {
+                        ForEach(store.plans) { plan in
+                            sidebarButton(
+                                title: "\(plan.phase.uppercased()) \(plan.order) · \(store.planText(plan, field: "title"))",
+                                subtitle: "\(plan.priority.uppercased()) · \(plan.derivedStatus.uppercased()) · \(plan.progress.completedSteps)/\(plan.progress.totalSteps)",
+                                color: MdflowTheme.planColor(plan.derivedStatus),
+                                selected: store.selection == GraphSelection(type: .plan, id: plan.id)
+                            ) { store.focusPlan(plan.id) }
+                        }
                     }
 
-                    sidebarLabel(store.text("plans"))
-                    ForEach(store.plans) { plan in
-                        sidebarButton(
-                            title: "\(plan.phase.uppercased()) \(plan.order) · \(store.planText(plan, field: "title"))",
-                            subtitle: "\(plan.priority.uppercased()) · \(plan.derivedStatus.uppercased()) · \(plan.progress.completedSteps)/\(plan.progress.totalSteps)",
-                            color: MdflowTheme.planColor(plan.derivedStatus),
-                            selected: store.selection == GraphSelection(type: .plan, id: plan.id)
-                        ) { store.focusPlan(plan.id) }
+                    sidebarSection(.chains, title: store.text("chains")) {
+                        ForEach(store.snapshot.chains) { chain in
+                            sidebarButton(
+                                title: store.chainText(chain, field: "title"),
+                                subtitle: "\(store.chainNodeIDs(chain.id).count) BLOCKS · \(chain.deliveryState.uppercased())",
+                                color: store.chainColor(chain.id),
+                                selected: store.selection == GraphSelection(type: .chain, id: chain.id)
+                            ) { store.select(GraphSelection(type: .chain, id: chain.id)) }
+                        }
+                    }
+
+                    if !store.unassignedCheckpoints.isEmpty {
+                        sidebarSection(.verification, title: store.text("verification")) {
+                            Text(store.text("unassigned"))
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundStyle(MdflowTheme.muted)
+                                .padding(.horizontal, 18).padding(.top, 4).padding(.bottom, 4)
+                            ForEach(store.unassignedCheckpoints) { checkpoint in
+                                if let type = GraphSelection.EntityType(rawValue: checkpoint.targetType) {
+                                    sidebarButton(
+                                        title: checkpoint.title,
+                                        subtitle: "\(checkpoint.status.uppercased()) · \(store.checkpointOwner(checkpoint))",
+                                        color: MdflowTheme.checkpointColor(checkpoint.status),
+                                        selected: store.selection == GraphSelection(type: type, id: checkpoint.targetId)
+                                    ) { store.select(GraphSelection(type: type, id: checkpoint.targetId)) }
+                                }
+                            }
+                        }
                     }
                 }
                 .padding(.bottom, 16)
@@ -84,6 +104,27 @@ struct ContentView: View {
             legend
         }
         .background(MdflowTheme.surface.opacity(0.97))
+    }
+
+    @ViewBuilder
+    private func sidebarSection<Content: View>(_ section: SidebarSection, title: String, @ViewBuilder content: () -> Content) -> some View {
+        let collapsed = store.isSidebarSectionCollapsed(section)
+        Button {
+            store.setSidebarSection(section, collapsed: !collapsed)
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                Text(title.uppercased())
+                    .font(.system(size: 9, weight: .bold, design: .monospaced)).tracking(1.35)
+                Spacer()
+            }
+            .foregroundStyle(MdflowTheme.muted)
+            .padding(.horizontal, 18).padding(.top, 17).padding(.bottom, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        if !collapsed { content() }
     }
 
     private var projectHeader: some View {
@@ -144,7 +185,7 @@ struct ContentView: View {
 
     private var canvasToolbar: some View {
         HStack(spacing: 13) {
-            ForEach(ViewLens.allCases) { lens in
+            ForEach(store.availableLenses) { lens in
                 Toggle(
                     store.lensTitle(lens),
                     isOn: Binding(get: { store.enabledLenses.contains(lens) }, set: { store.setLens(lens, enabled: $0) })
@@ -174,7 +215,7 @@ struct ContentView: View {
                 .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(1.2).foregroundStyle(MdflowTheme.muted)
             HStack(spacing: 10) {
                 legendItem(color: MdflowTheme.blockKindColor("ui"), text: store.text("ui"))
-                legendItem(color: MdflowTheme.blockKindColor("service"), text: store.text("runtime"))
+                legendItem(color: MdflowTheme.blockKindColor("service"), text: store.text("service"))
                 legendItem(color: MdflowTheme.blockKindColor("database"), text: store.text("data"))
             }
             HStack(spacing: 10) {

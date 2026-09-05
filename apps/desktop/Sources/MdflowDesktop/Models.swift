@@ -337,25 +337,42 @@ struct GraphSelection: Equatable, Hashable {
 }
 
 enum ViewLens: String, CaseIterable, Identifiable {
+    // Canvas filters are a projection of the canonical Block.kind values.
+    // Plans and QA are not kinds, so they must not appear as competing lenses.
+    case principle = "Principle"
+    case product = "Product"
+    case requirement = "Requirement"
+    case decision = "Decision"
+    case flow = "Flow"
     case ui = "UI"
-    case runtime = "Runtime"
+    case service = "Service"
+    case function = "Function"
     case api = "API"
+    case integration = "Integration"
     case data = "Data"
-    case quality = "QA"
-    case plan = "Plan"
+    case database = "Database"
+    case risk = "Risk"
+    case test = "Test"
+    case checkpoint = "Checkpoint"
 
     var id: String { rawValue }
 
     func includes(block: BlockItem) -> Bool {
-        switch self {
-        case .ui: ["ui", "flow"].contains(block.kind)
-        case .runtime: ["service", "function", "integration"].contains(block.kind)
-        case .api: ["service", "integration"].contains(block.kind)
-        case .data: ["data", "database"].contains(block.kind)
-        case .quality: ["test", "checkpoint", "risk"].contains(block.kind)
-        case .plan: block.deliveryState != "complete" && block.deliveryState != "deprecated"
-        }
+        block.kind.caseInsensitiveCompare(rawValue) == .orderedSame
     }
+
+    static func forKind(_ kind: String) -> ViewLens? {
+        allCases.first { $0.rawValue.caseInsensitiveCompare(kind) == .orderedSame }
+    }
+}
+
+enum SidebarSection: String, CaseIterable, Identifiable {
+    case projectRules
+    case plans
+    case chains
+    case verification
+
+    var id: String { rawValue }
 }
 
 enum AppLanguage: String, CaseIterable, Identifiable {

@@ -145,6 +145,29 @@ server.registerTool(
 );
 
 server.registerTool(
+  "checkpoint_list",
+  {
+    description:
+      "List checkpoints by status, target, Plan or ChainScope, including standalone checkpoints that are not referenced by any Plan. Use this for a compact verification inbox instead of opening every entity.",
+    inputSchema: {
+      ...projectRootInput,
+      status: z.enum(["pending", "running", "passed", "partial_pass", "failed", "blocked", "not_supported", "retest_required"]).optional(),
+      targetType: z.enum(["block", "chain", "link", "plan"]).optional(),
+      targetId: z.string().min(1).optional(),
+      planId: z.string().min(1).optional(),
+      chainScopeId: z.string().min(1).optional(),
+      unassignedOnly: z.boolean().default(false),
+      limit: z.number().int().min(1).max(500).default(100),
+      locale: z.enum(["en", "zh-Hans"]).optional(),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.checkpointList(payload));
+    return result(data, data.markdown);
+  },
+);
+
+server.registerTool(
   "graph_search",
   {
     description: "Search graph entities and source paths without loading the entire project.",

@@ -21,17 +21,9 @@ struct CanvasScene: Equatable {
     )
 
     static func compile(snapshot: GraphSnapshot, lenses: Set<ViewLens>, topInset: CGFloat = 70) -> CanvasScene {
-        let backgroundIDs = Set(snapshot.backgroundScopes.map(\.blockId))
-        let regularLenses = lenses.subtracting([.plan])
-        var visibleIDs = Set(snapshot.blocks.filter { block in
-            regularLenses.contains { $0.includes(block: block) }
+        let visibleIDs = Set(snapshot.blocks.filter { block in
+            lenses.contains { $0.includes(block: block) }
         }.map(\.id))
-        if lenses.contains(.plan) {
-            let planIDs = snapshot.plans.filter { ["active", "blocked", "failed", "retest_required", "verifying"].contains($0.derivedStatus) }.map(\.id)
-            let chainIDs = Set(snapshot.planChainReferences.filter { planIDs.contains($0.planId) }.map(\.chainId))
-            visibleIDs.formUnion(snapshot.chainNodes.filter { chainIDs.contains($0.chainId) }.map(\.blockId))
-        }
-        visibleIDs.subtract(backgroundIDs)
         let blocks = snapshot.blocks.filter { visibleIDs.contains($0.id) }
         let links = snapshot.links.filter {
             $0.sourceType == "block" && $0.targetType == "block" && visibleIDs.contains($0.sourceId) && visibleIDs.contains($0.targetId)

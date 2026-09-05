@@ -24920,6 +24920,46 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     }
     return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, markdown: lines.join("\n") };
   }
+  checkpointList({ status, targetType, targetId, planId, chainScopeId, unassignedOnly = false, limit = 100, locale = "en" } = {}) {
+    const snapshot = this.snapshot();
+    assertAllowed(locale, LOCALES, "locale");
+    const planCheckpointIDs = /* @__PURE__ */ new Set([
+      ...snapshot.planCheckpointRefs.map((item) => item.checkpointId),
+      ...snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan").map((checkpoint) => checkpoint.id)
+    ]);
+    const planBoundIDs = new Set(snapshot.checkpointBindings.filter(
+      (binding) => binding.subjectType === "plan" || binding.subjectType === "plan_change" || binding.subjectType === "plan_chain_scope"
+    ).map((binding) => binding.checkpointId));
+    const scopeCheckpointIDs = chainScopeId ? new Set(snapshot.checkpointBindings.filter((binding) => binding.subjectType === "plan_chain_scope" && binding.subjectId === chainScopeId).map((binding) => binding.checkpointId)) : null;
+    const matching = snapshot.checkpoints.filter((checkpoint) => {
+      if (status && checkpoint.status !== status) return false;
+      if (targetType && checkpoint.targetType !== targetType) return false;
+      if (targetId && checkpoint.targetId !== targetId) return false;
+      if (planId) {
+        const direct = checkpoint.targetType === "plan" && checkpoint.targetId === planId;
+        const referenced = snapshot.planCheckpointRefs.some((item) => item.planId === planId && item.checkpointId === checkpoint.id);
+        const bound = snapshot.checkpointBindings.some((item) => item.subjectType === "plan" && item.subjectId === planId && item.checkpointId === checkpoint.id);
+        if (!direct && !referenced && !bound) return false;
+      }
+      if (scopeCheckpointIDs && !scopeCheckpointIDs.has(checkpoint.id)) return false;
+      if (unassignedOnly && (planCheckpointIDs.has(checkpoint.id) || planBoundIDs.has(checkpoint.id))) return false;
+      return true;
+    }).slice(0, limit);
+    const ownerTitle = (checkpoint) => {
+      if (checkpoint.targetType === "block") return snapshot.blocks.find((item) => item.id === checkpoint.targetId)?.title ?? checkpoint.targetId;
+      if (checkpoint.targetType === "chain") return snapshot.chains.find((item) => item.id === checkpoint.targetId)?.title ?? checkpoint.targetId;
+      if (checkpoint.targetType === "plan") return snapshot.plans.find((item) => item.id === checkpoint.targetId)?.title ?? checkpoint.targetId;
+      return checkpoint.targetId;
+    };
+    const items = matching.map((checkpoint) => ({
+      ...checkpoint,
+      owner: { type: checkpoint.targetType, id: checkpoint.targetId, title: ownerTitle(checkpoint) },
+      planned: planCheckpointIDs.has(checkpoint.id) || planBoundIDs.has(checkpoint.id)
+    }));
+    const lines = [`# Checkpoints`, `Count: ${items.length}`, ""];
+    for (const item of items) lines.push(`- [${item.status}] ${item.title} \u2014 ${item.targetType}:${item.targetId} \xB7 ${item.owner.title}${item.planned ? " \xB7 planned" : " \xB7 standalone"}`);
+    return { items, count: items.length, markdown: lines.join("\n") };
+  }
   planContext({ id, locale = "en", maxChars = 12e3 }) {
     assertAllowed(locale, LOCALES, "locale");
     const snapshot = this.snapshot();
@@ -25240,6 +25280,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const relevantScopeIDs = new Set(snapshot.planChainScopes.filter((scope) => selectedPlanIds.has(scope.planId)).map((scope) => scope.id));
     const relevantChangeIDs = new Set(snapshot.planChanges.filter((change) => selectedPlanIds.has(change.planId)).map((change) => change.id));
     const boundCheckpointIDs = new Set(snapshot.checkpointBindings.filter((binding) => binding.subjectType === "plan" && selectedPlanIds.has(binding.subjectId) || binding.subjectType === "plan_chain_scope" && relevantScopeIDs.has(binding.subjectId) || binding.subjectType === "plan_change" && relevantChangeIDs.has(binding.subjectId)).map((binding) => binding.checkpointId));
+    const plannedCheckpointIDs = /* @__PURE__ */ new Set([
+      ...snapshot.planCheckpointRefs.map((item) => item.checkpointId),
+      ...snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan").map((checkpoint) => checkpoint.id),
+      ...snapshot.checkpointBindings.filter((binding) => ["plan", "plan_change", "plan_chain_scope"].includes(binding.subjectType)).map((binding) => binding.checkpointId)
+    ]);
+    const standaloneOpenCheckpoints = snapshot.checkpoints.filter((checkpoint) => !plannedCheckpointIDs.has(checkpoint.id) && checkpoint.status !== "passed").slice(0, 20);
     const relevantCheckpoints = snapshot.checkpoints.filter(
       (checkpoint) => checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId) || checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId) || checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId) || boundCheckpointIDs.has(checkpoint.id)
     );
@@ -25330,6 +25376,14 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       lines.push("## Open checkpoints");
       for (const checkpoint of failing) {
         lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.coverage}: ${checkpoint.title}`);
+      }
+      lines.push("");
+    }
+    if (standaloneOpenCheckpoints.length) {
+      lines.push("## Standalone verification");
+      for (const checkpoint of standaloneOpenCheckpoints) {
+        const owner = checkpoint.targetType === "block" ? snapshot.blocks.find((block) => block.id === checkpoint.targetId)?.title ?? checkpoint.targetId : checkpoint.targetId;
+        lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.targetType}:${checkpoint.targetId} (${owner}): ${checkpoint.title}`);
       }
       lines.push("");
     }
@@ -26800,6 +26854,27 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.entityOpen(payload));
+    return result(data, data.markdown);
+  }
+);
+server.registerTool(
+  "checkpoint_list",
+  {
+    description: "List checkpoints by status, target, Plan or ChainScope, including standalone checkpoints that are not referenced by any Plan. Use this for a compact verification inbox instead of opening every entity.",
+    inputSchema: {
+      ...projectRootInput,
+      status: _enum(["pending", "running", "passed", "partial_pass", "failed", "blocked", "not_supported", "retest_required"]).optional(),
+      targetType: _enum(["block", "chain", "link", "plan"]).optional(),
+      targetId: string2().min(1).optional(),
+      planId: string2().min(1).optional(),
+      chainScopeId: string2().min(1).optional(),
+      unassignedOnly: boolean2().default(false),
+      limit: number2().int().min(1).max(500).default(100),
+      locale: _enum(["en", "zh-Hans"]).optional()
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.checkpointList(payload));
     return result(data, data.markdown);
   }
 );

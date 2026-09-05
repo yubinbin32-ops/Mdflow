@@ -14,6 +14,9 @@ final class GraphStore: ObservableObject {
     @Published private(set) var overviewFitRequestID = UUID()
     @Published var isolateFocused = false
     @Published var enabledLenses: Set<ViewLens> = Set(ViewLens.allCases)
+    @Published var collapsedSidebarSections: Set<SidebarSection> = [] {
+        didSet { persistSidebarState() }
+    }
     @Published private(set) var recentlyChangedRefs: Set<String> = []
     @Published private(set) var errorMessage: String?
     @Published var settingsPresented = false
@@ -131,6 +134,7 @@ final class GraphStore: ObservableObject {
             isolateFocused = false
             enabledLenses = Set(ViewLens.allCases)
             canvasScale = 1
+            collapsedSidebarSections = loadSidebarState(for: projectID)
             return
         }
         selection = state.selection
@@ -139,6 +143,21 @@ final class GraphStore: ObservableObject {
         canvasScale = state.canvasScale
         focusTarget = state.focusTarget
         isolateFocused = state.isolateFocused
+        collapsedSidebarSections = loadSidebarState(for: projectID)
+    }
+
+    private func sidebarStateKey(for projectID: String) -> String {
+        "mdflow.sidebar.\(projectID).collapsed"
+    }
+
+    private func loadSidebarState(for projectID: String) -> Set<SidebarSection> {
+        let values = UserDefaults.standard.stringArray(forKey: sidebarStateKey(for: projectID)) ?? []
+        return Set(values.compactMap(SidebarSection.init(rawValue:)))
+    }
+
+    private func persistSidebarState() {
+        guard !snapshot.project.id.isEmpty else { return }
+        UserDefaults.standard.set(collapsedSidebarSections.map(\.rawValue).sorted(), forKey: sidebarStateKey(for: snapshot.project.id))
     }
 
     private static func log(_ error: Error, context: String) {
@@ -150,16 +169,32 @@ final class GraphStore: ObservableObject {
         snapshot.plans
     }
 
+    /// Only kinds present in this project are offered by the Canvas filter.
+    /// This keeps the toolbar semantic and avoids empty or overlapping lenses.
+    var availableLenses: [ViewLens] {
+        let kinds = Set(snapshot.blocks.map { $0.kind.lowercased() })
+        return ViewLens.allCases.filter { kinds.contains($0.rawValue.lowercased()) }
+    }
+
+    var unassignedCheckpoints: [CheckpointItem] {
+        let planIDs = Set(snapshot.planCheckpointReferences.map(\.checkpointId))
+        let boundToPlan = Set(snapshot.checkpointBindings.filter {
+            ["plan", "plan_change", "plan_chain_scope"].contains($0.subjectType)
+        }.map(\.checkpointId))
+        return snapshot.checkpoints.filter { !planIDs.contains($0.id) && !boundToPlan.contains($0.id) }
+    }
+
+    func checkpointOwner(_ checkpoint: CheckpointItem) -> String {
+        if let block = snapshot.blocks.first(where: { checkpoint.targetType == "block" && $0.id == checkpoint.targetId }) { return block.title }
+        if let chain = snapshot.chains.first(where: { checkpoint.targetType == "chain" && $0.id == checkpoint.targetId }) { return chain.title }
+        if let plan = snapshot.plans.first(where: { checkpoint.targetType == "plan" && $0.id == checkpoint.targetId }) { return plan.title }
+        if let link = snapshot.links.first(where: { checkpoint.targetType == "link" && $0.id == checkpoint.targetId }) { return link.label.isEmpty ? link.kind : link.label }
+        return "\(checkpoint.targetType):\(checkpoint.targetId)"
+    }
+
     var visibleBlocks: [BlockItem] {
-        let regularLenses = enabledLenses.subtracting([.plan])
-        var ids = Set(snapshot.blocks.filter { block in regularLenses.contains { $0.includes(block: block) } }.map(\.id))
-        if enabledLenses.contains(.plan) {
-            let planIDs = selection?.type == .plan ? [selection!.id] : snapshot.plans.filter { ["active", "blocked", "verifying"].contains($0.status) }.map(\.id)
-            let chainIDs = Set(snapshot.planChainReferences.filter { planIDs.contains($0.planId) }.map(\.chainId))
-            ids.formUnion(snapshot.chainNodes.filter { chainIDs.contains($0.chainId) }.map(\.blockId))
-        }
-        ids.formUnion(snapshot.backgroundScopes.map(\.blockId))
-        return snapshot.blocks.filter { ids.contains($0.id) }
+        guard !enabledLenses.isEmpty else { return [] }
+        return snapshot.blocks.filter { block in enabledLenses.contains { $0.includes(block: block) } }
     }
 
     func setLens(_ lens: ViewLens, enabled: Bool) {
@@ -168,6 +203,15 @@ final class GraphStore: ObservableObject {
         } else {
             enabledLenses.remove(lens)
         }
+    }
+
+    func setSidebarSection(_ section: SidebarSection, collapsed: Bool) {
+        if collapsed { collapsedSidebarSections.insert(section) }
+        else { collapsedSidebarSections.remove(section) }
+    }
+
+    func isSidebarSectionCollapsed(_ section: SidebarSection) -> Bool {
+        collapsedSidebarSections.contains(section)
     }
 
     func showOverview() {
@@ -462,7 +506,7 @@ final class GraphStore: ObservableObject {
             "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
             "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则",
             "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
-            "all":"全部", "ui":"界面", "runtime":"运行时", "api":"API", "data":"数据", "quality":"质量", "plan":"计划"
+            "all":"全部", "verification":"验证", "unassigned":"独立验证", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
         ]
         let en: [String: String] = [
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
@@ -475,13 +519,18 @@ final class GraphStore: ObservableObject {
             "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
             "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules",
             "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
-            "all":"All", "ui":"UI", "runtime":"Runtime", "api":"API", "data":"Data", "quality":"QA", "plan":"Plan"
+            "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
         ]
         return (activeLocale == "zh-Hans" ? zh : en)[key] ?? key
     }
 
     func lensTitle(_ lens: ViewLens) -> String {
-        switch lens { case .ui: text("ui"); case .runtime: text("runtime"); case .api: text("api"); case .data: text("data"); case .quality: text("quality"); case .plan: text("plan") }
+        switch lens {
+        case .principle: text("principle"); case .product: text("product"); case .requirement: text("requirement")
+        case .decision: text("decision"); case .flow: text("flow"); case .ui: text("ui"); case .service: text("service")
+        case .function: text("function"); case .api: text("api"); case .integration: text("integration"); case .data: text("data")
+        case .database: text("database"); case .risk: text("risk"); case .test: text("test"); case .checkpoint: text("checkpoint")
+        }
     }
 
     func zoom(by amount: CGFloat) { canvasScale = min(1.8, max(0.25, canvasScale + amount)) }
