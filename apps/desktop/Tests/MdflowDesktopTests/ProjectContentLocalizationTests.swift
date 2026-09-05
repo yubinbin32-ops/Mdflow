@@ -1,3 +1,4 @@
+import CSQLite
 import Foundation
 import Testing
 @testable import MdflowDesktop
@@ -18,6 +19,12 @@ private final class ConcurrentReaderResults: @unchecked Sendable {
             count: count
         )
     }
+}
+
+private final class BusyReadResult: @unchecked Sendable {
+    let semaphore = DispatchSemaphore(value: 0)
+    var snapshot: GraphSnapshot?
+    var error: String?
 }
 
 @Test func databaseFileIdentityChangesWhenCheckoutReplacesSQLiteFile() throws {
@@ -121,6 +128,96 @@ private final class ConcurrentReaderResults: @unchecked Sendable {
     #expect(values.allSatisfy { $0.error == nil })
     #expect(values.allSatisfy { $0.snapshotMatches })
     #expect(values.allSatisfy { $0.sequenceMatches })
+}
+
+@Test func projectDatabaseReaderRecoversAfterShortWriterLock() throws {
+    let fileManager = FileManager.default
+    let sourceFile = URL(fileURLWithPath: #filePath)
+    let repositoryRoot = sourceFile
+        .deletingLastPathComponent() // MdflowDesktopTests
+        .deletingLastPathComponent() // Tests
+        .deletingLastPathComponent() // desktop
+        .deletingLastPathComponent() // apps
+        .deletingLastPathComponent() // repository
+    let sourceDescriptorURL = repositoryRoot.appending(path: ".mdflow/project.json")
+    let sourceDatabaseURL = repositoryRoot.appending(path: ".mdflow/mdflow.sqlite")
+    guard fileManager.fileExists(atPath: sourceDescriptorURL.path),
+          fileManager.fileExists(atPath: sourceDatabaseURL.path) else {
+        Issue.record("The checked-in mdflow fixture is required for the busy-reader test")
+        return
+    }
+
+    let root = fileManager.temporaryDirectory.appending(path: "mdflow-busy-reader-\(UUID().uuidString)", directoryHint: .isDirectory)
+    let dataDirectory = root.appending(path: ".mdflow", directoryHint: .isDirectory)
+    try fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: root) }
+    try fileManager.copyItem(at: sourceDescriptorURL, to: dataDirectory.appending(path: "project.json"))
+    try fileManager.copyItem(at: sourceDatabaseURL, to: dataDirectory.appending(path: "mdflow.sqlite"))
+
+    let descriptor = try JSONDecoder().decode(
+        ProjectDescriptor.self,
+        from: Data(contentsOf: dataDirectory.appending(path: "project.json"))
+    )
+    let databaseURL = dataDirectory.appending(path: "mdflow.sqlite")
+    let location = ProjectLocation(root: root, descriptor: descriptor, database: databaseURL)
+    let reader = try ProjectDatabase(location: location)
+    defer { reader.close() }
+    let expected = try reader.loadSnapshot()
+
+    var writer: OpaquePointer?
+    let openResult = sqlite3_open_v2(
+        databaseURL.path,
+        &writer,
+        SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
+        nil
+    )
+    #expect(openResult == SQLITE_OK)
+    guard openResult == SQLITE_OK, let writer else {
+        if let writer { sqlite3_close(writer) }
+        return
+    }
+    defer { sqlite3_close(writer) }
+    sqlite3_busy_timeout(writer, 3_000)
+    var errorMessage: UnsafeMutablePointer<CChar>?
+    let beginResult = sqlite3_exec(writer, "BEGIN EXCLUSIVE", nil, nil, &errorMessage)
+    #expect(beginResult == SQLITE_OK)
+    if let errorMessage { sqlite3_free(errorMessage) }
+    guard beginResult == SQLITE_OK else { return }
+
+    let result = BusyReadResult()
+    let rootPath = root.path
+    let dataPath = dataDirectory.path
+    DispatchQueue.global(qos: .userInitiated).async {
+        var busyReader: ProjectDatabase?
+        do {
+            let workerRoot = URL(fileURLWithPath: rootPath, isDirectory: true)
+            let workerData = URL(fileURLWithPath: dataPath, isDirectory: true)
+            let workerDescriptor = try JSONDecoder().decode(
+                ProjectDescriptor.self,
+                from: Data(contentsOf: workerData.appending(path: "project.json"))
+            )
+            let workerLocation = ProjectLocation(
+                root: workerRoot,
+                descriptor: workerDescriptor,
+                database: workerData.appending(path: "mdflow.sqlite")
+            )
+            busyReader = try ProjectDatabase(location: workerLocation)
+            result.snapshot = try busyReader?.loadSnapshot()
+        } catch {
+            result.error = error.localizedDescription
+        }
+        busyReader?.close()
+        result.semaphore.signal()
+    }
+
+    // The reader must wait on SQLite's busy timeout rather than fail immediately.
+    Thread.sleep(forTimeInterval: 0.15)
+    let rollbackResult = sqlite3_exec(writer, "ROLLBACK", nil, nil, &errorMessage)
+    #expect(rollbackResult == SQLITE_OK)
+    if let errorMessage { sqlite3_free(errorMessage) }
+    #expect(result.semaphore.wait(timeout: .now() + 3.0) == .success)
+    #expect(result.error == nil)
+    #expect(result.snapshot == expected)
 }
 
 @Test func appLanguageNeverReplacesCanonicalProjectContent() {
