@@ -25,6 +25,10 @@ final class GraphStore: ObservableObject {
     @Published var canvasOffset: CGSize = .zero
     @Published private(set) var hasRestoredCamera = false
     @Published private(set) var cameraRestoreRequestID = UUID()
+    /// Changes even when a Git checkout restores a database with the same
+    /// graph revision and change sequence. SwiftUI must still rebuild the
+    /// Canvas scene because the canonical snapshot contents may differ.
+    @Published private(set) var snapshotPresentationID = UUID()
     @Published var language: AppLanguage {
         didSet { UserDefaults.standard.set(language.rawValue, forKey: "mdflow.language") }
     }
@@ -111,6 +115,7 @@ final class GraphStore: ObservableObject {
             recentProjects = ProjectLocation.recentProjects()
             withAnimation(.smooth(duration: 0.24)) {
                 snapshot = next
+                snapshotPresentationID = UUID()
                 restoreProjectViewState(for: next.project.id)
                 recentlyChangedRefs.removeAll()
                 errorMessage = nil
@@ -492,6 +497,7 @@ final class GraphStore: ObservableObject {
                 .map { "\($0.entityType):\($0.entityId)" }
             withAnimation(.smooth(duration: 0.28)) {
                 snapshot = next
+                snapshotPresentationID = UUID()
                 // A data refresh must not behave like navigation. Re-publish the
                 // still-valid view state after the snapshot so SwiftUI keeps the
                 // inspector, Chain emphasis, and camera focus attached to the same

@@ -83,7 +83,7 @@ struct GraphCanvasView: View {
 
     private var sceneKey: String {
         let lenses = store.enabledLenses.map(\.rawValue).sorted().joined(separator: ",")
-        return "\(store.snapshot.project.id):\(store.snapshot.project.graphRevision):\(store.snapshot.changeSequence):\(lenses)"
+        return "\(store.snapshot.project.id):\(store.snapshot.project.graphRevision):\(store.snapshot.changeSequence):\(store.snapshotPresentationID.uuidString):\(lenses)"
     }
 
     private var sceneProjectionKey: String {
