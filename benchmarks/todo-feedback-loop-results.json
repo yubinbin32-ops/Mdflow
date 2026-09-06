@@ -30,7 +30,7 @@
       "changedLines": 1,
       "file": "api/todo.ts"
     },
-    "elapsedMs": 71.91
+    "elapsedMs": 87.09
   },
   "markdown": {
     "name": "markdown-first",
@@ -50,7 +50,7 @@
       "changedLines": 1,
       "file": "api/todo.ts"
     },
-    "elapsedMs": 10.62
+    "elapsedMs": 1.89
   },
   "comparison": {
     "tokenReduction": 0.20505871725383917,

@@ -141,6 +141,7 @@ Use the repository checkout when you are changing mdflow itself. Do not combine 
 
 - [Architecture and current boundaries](architecture.md)
 - [Generated graph snapshot](graph.snapshot.md)
+- [Feedback-loop adapter contract](feedback-loop-adapter.md)
 - [v0.1.0 release notes](releases/v0.1.0.md)
 - [Agent skill contract](../plugins/mdflow/skills/mdflow/SKILL.md)
 
