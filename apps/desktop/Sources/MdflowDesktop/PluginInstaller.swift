@@ -1,7 +1,8 @@
 import Foundation
 
 enum PluginInstallStatus: Equatable {
-    case idle
+    case checking
+    case notInstalled
     case installing
     case installed
     case failed(String)
@@ -24,8 +25,39 @@ enum PluginInstaller {
         }
 
         let install = try run(executable, arguments: ["plugin", "add", "mdflow@mdflow-development", "--json"])
-        guard install.status == 0 else {
+        let alreadyInstalled = install.output.localizedCaseInsensitiveContains("already installed")
+            || install.output.localizedCaseInsensitiveContains("already exists")
+        guard install.status == 0 || alreadyInstalled else {
             throw CommandFailure(output: install.output.nonEmpty ?? "Unable to install the mdflow plugin.")
+        }
+    }
+
+    static func isInstalled(marketplaceRoot: URL) throws -> Bool {
+        let executable = try codexExecutable()
+        let result = try run(executable, arguments: ["plugin", "list", "--marketplace", "mdflow-development", "--json"])
+        guard result.status == 0 else {
+            throw CommandFailure(output: result.output.nonEmpty ?? "Unable to read the mdflow plugin status.")
+        }
+
+        guard let data = result.output.data(using: .utf8),
+              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let installed = object["installed"] as? [[String: Any]] else {
+            throw CommandFailure(output: "Codex returned an invalid plugin status response.")
+        }
+
+        let expectedMarketplace = marketplaceRoot.standardizedFileURL.path
+        let expectedPlugin = marketplaceRoot
+            .appending(path: "plugins/mdflow", directoryHint: .isDirectory)
+            .standardizedFileURL.path
+
+        return installed.contains { plugin in
+            let pluginSource = (plugin["source"] as? [String: Any])?["path"] as? String
+            let marketplaceSource = (plugin["marketplaceSource"] as? [String: Any])?["source"] as? String
+            return plugin["pluginId"] as? String == "mdflow@mdflow-development"
+                && (plugin["installed"] as? Bool ?? false)
+                && (plugin["enabled"] as? Bool ?? false)
+                && URL(fileURLWithPath: pluginSource ?? "").standardizedFileURL.path == expectedPlugin
+                && URL(fileURLWithPath: marketplaceSource ?? "").standardizedFileURL.path == expectedMarketplace
         }
     }
 

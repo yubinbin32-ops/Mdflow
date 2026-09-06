@@ -289,7 +289,7 @@ private struct SettingsView: View {
     @AppStorage("mdflow.appearance") private var appearance = AppearancePreference.system.rawValue
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack { Text(store.text("settings")).font(.system(size: 20, weight: .semibold, design: .rounded)); Spacer(); Button(store.text("done")) { dismiss() } }
             VStack(alignment: .leading, spacing: 8) {
                 label(store.text("language"))
@@ -308,22 +308,40 @@ private struct SettingsView: View {
                 .accessibilityLabel(store.text("appearance"))
             }
             VStack(alignment: .leading, spacing: 8) {
-                label(store.text("plugin")); Text(store.text("pluginHelp")).font(.system(size: 12, design: .rounded))
-                HStack {
-                    Button(store.pluginInstallStatus == .installing ? store.text("installingPlugin") : store.text("installPlugin")) { store.installPlugin() }
-                        .buttonStyle(.borderedProminent).disabled(store.pluginInstallStatus == .installing)
-                    Button(store.text("revealPlugin")) { store.revealPlugin() }
+                label(store.text("plugin"))
+                Text(store.text("pluginHelp")).font(.system(size: 12, design: .rounded)).lineLimit(1)
+                HStack(spacing: 8) {
+                    pluginStatusIndicator
+                        .frame(width: 18, height: 28)
+                    Button(store.pluginInstallStatus == .installing ? store.text("installingPlugin") : store.text("installPlugin")) {
+                        store.installPlugin()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(store.pluginInstallStatus == .checking || store.pluginInstallStatus == .installing)
                 }
-                if case .installed = store.pluginInstallStatus { Label(store.text("pluginInstalled"), systemImage: "checkmark.circle.fill").foregroundStyle(MdflowTheme.success) }
-                if case .failed(let message) = store.pluginInstallStatus { Text("\(store.text("pluginInstallFailed")): \(message)").foregroundStyle(MdflowTheme.failure) }
+                .frame(height: 28, alignment: .leading)
             }
             VStack(alignment: .leading, spacing: 8) {
                 label(store.text("liveData")); Text(store.databasePath).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(MdflowTheme.muted).textSelection(.enabled)
                 Text(store.text("liveHelp")).font(.system(size: 12, design: .rounded)); Button(store.text("changeProject")) { store.chooseProject() }
             }
-            Spacer()
         }
-        .padding(28).frame(width: 480, height: 410)
+        .padding(28)
+        .frame(width: 536, height: 430, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private var pluginStatusIndicator: some View {
+        switch store.pluginInstallStatus {
+        case .installed:
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(MdflowTheme.success).accessibilityLabel(store.text("pluginInstalled"))
+        case .checking, .installing:
+            ProgressView().controlSize(.small).accessibilityLabel(store.text("checkingPlugin"))
+        case .notInstalled:
+            Image(systemName: "circle").foregroundStyle(MdflowTheme.muted).accessibilityLabel(store.text("pluginNotInstalled"))
+        case .failed:
+            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(MdflowTheme.failure).accessibilityLabel(store.text("pluginInstallFailed"))
+        }
     }
 
     private func label(_ value: String) -> some View {

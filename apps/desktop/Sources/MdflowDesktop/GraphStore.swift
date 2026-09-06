@@ -20,7 +20,7 @@ final class GraphStore: ObservableObject {
     @Published private(set) var recentlyChangedRefs: Set<String> = []
     @Published private(set) var errorMessage: String?
     @Published var settingsPresented = false
-    @Published private(set) var pluginInstallStatus: PluginInstallStatus = .idle
+    @Published private(set) var pluginInstallStatus: PluginInstallStatus = .checking
     @Published var canvasScale: CGFloat = 1
     @Published var canvasOffset: CGSize = .zero
     @Published private(set) var hasRestoredCamera = false
@@ -83,6 +83,7 @@ final class GraphStore: ObservableObject {
         }
         restoreProjectViewState(for: snapshot.project.id)
         startLiveUpdates()
+        refreshPluginStatus(autoInstallIfNeeded: true)
     }
 
     func chooseProject() {
@@ -789,8 +790,8 @@ final class GraphStore: ObservableObject {
         let zh: [String: String] = [
             "overview":"整体网络", "plans":"计划", "chains":"链路", "settings":"设置", "done":"完成",
             "summary":"摘要", "details":"详情", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
-            "plugin":"CODEX 插件", "pluginHelp":"开发插件包位于当前项目中。", "revealPlugin":"在访达中显示插件",
-            "installPlugin":"一键安装", "installingPlugin":"正在安装…", "pluginInstalled":"已安装；新任务中即可使用", "pluginInstallFailed":"安装失败",
+            "plugin":"CODEX 插件", "pluginHelp":"插件随应用内置，启动时会自动同步到 Codex。",
+            "installPlugin":"一键安装", "installingPlugin":"正在安装…", "checkingPlugin":"正在检查 Codex 插件状态…", "pluginNotInstalled":"尚未安装，可点击一键安装", "pluginInstalled":"已安装；新任务中即可使用", "pluginInstallFailed":"安装失败",
             "liveData":"实时数据", "liveHelp":"变化会自动同步，无需刷新。", "language":"语言", "appearance":"外观", "system":"跟随系统", "light":"浅色", "dark":"深色",
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
             "goal":"目标", "nextAction":"下一步", "targetChains":"目标 Chain", "proposedDelta":"计划中的图变更", "blockers":"阻塞",
@@ -802,8 +803,8 @@ final class GraphStore: ObservableObject {
         let en: [String: String] = [
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
             "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
-            "plugin":"CODEX PLUGIN", "pluginHelp":"The development plugin bundle is available in this project.", "revealPlugin":"Reveal Plugin",
-            "installPlugin":"Install in Codex", "installingPlugin":"Installing…", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
+            "plugin":"CODEX PLUGIN", "pluginHelp":"The plugin ships inside the app and syncs to Codex at startup.",
+            "installPlugin":"Install in Codex", "installingPlugin":"Installing…", "checkingPlugin":"Checking the Codex plugin status…", "pluginNotInstalled":"Not installed; click Install in Codex", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
             "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "appearance":"Appearance", "system":"System", "light":"Light", "dark":"Dark",
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
             "goal":"Goal", "nextAction":"Next Action", "targetChains":"Target Chains", "proposedDelta":"Proposed Graph Delta", "blockers":"Blockers",
@@ -965,20 +966,39 @@ final class GraphStore: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    func revealPlugin() {
-        guard let location else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([
-            location.root.appending(path: "plugins/mdflow")
-        ])
-    }
-
     func installPlugin() {
         guard pluginInstallStatus != .installing, let marketplaceRoot else { return }
         pluginInstallStatus = .installing
         Task {
             do {
                 try await Task.detached { try PluginInstaller.install(marketplaceRoot: marketplaceRoot) }.value
-                pluginInstallStatus = .installed
+                pluginInstallStatus = .checking
+                refreshPluginStatus(autoInstallIfNeeded: false)
+            } catch {
+                pluginInstallStatus = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func refreshPluginStatus(autoInstallIfNeeded: Bool) {
+        guard pluginInstallStatus != .installing else { return }
+        pluginInstallStatus = .checking
+        Task {
+            do {
+                guard let marketplaceRoot else {
+                    pluginInstallStatus = .notInstalled
+                    return
+                }
+                let installed = try await Task.detached {
+                    try PluginInstaller.isInstalled(marketplaceRoot: marketplaceRoot)
+                }.value
+                if installed {
+                    pluginInstallStatus = .installed
+                } else if autoInstallIfNeeded, marketplaceRoot != nil {
+                    installPlugin()
+                } else {
+                    pluginInstallStatus = .notInstalled
+                }
             } catch {
                 pluginInstallStatus = .failed(error.localizedDescription)
             }
