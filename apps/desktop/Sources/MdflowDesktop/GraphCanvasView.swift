@@ -55,15 +55,15 @@ struct GraphCanvasView: View {
                         let start = pinchStartScale ?? camera.scale
                         if pinchStartScale == nil { pinchStartScale = start }
                         camera.owner = .userPinch
-                        setScale(start * value, around: CGPoint(x: viewport.size.width / 2, y: viewport.size.height / 2))
+                        setScale(start * value, around: viewportCenter(viewport.size))
                     }
                     .onEnded { _ in pinchStartScale = nil; camera.owner = .none }
             )
             .background {
                 CameraEventBridge(
-                    onScroll: { delta, point, zooming in
+                    onScroll: { delta, _, zooming in
                         if zooming {
-                            zoom(by: min(0.12, max(-0.12, delta.height * 0.012)), around: point)
+                            zoom(by: min(0.12, max(-0.12, delta.height * 0.012)), around: viewportCenter(viewport.size))
                         } else {
                             camera.owner = .userPan
                             camera.offset.width += delta.width
@@ -72,7 +72,7 @@ struct GraphCanvasView: View {
                             camera.owner = .none
                         }
                     },
-                    onDoubleClick: { point, zoomOut in zoom(by: zoomOut ? -0.32 : 0.42, around: point) }
+                    onDoubleClick: { _, zoomOut in zoom(by: zoomOut ? -0.32 : 0.42, around: viewportCenter(viewport.size)) }
                 )
             }
             .onAppear { rebuildScene(viewport: viewport.size, fit: !store.hasRestoredCamera) }
@@ -471,9 +471,13 @@ struct GraphCanvasView: View {
 
     private func zoom(by delta: CGFloat, around point: CGPoint) {
         let factor = delta >= 0 ? 1 + delta : 1 / (1 - delta)
-        camera.owner = .pointerZoom
+        camera.owner = .userZoom
         setScale(camera.scale * factor, around: point)
         camera.owner = .none
+    }
+
+    private func viewportCenter(_ size: CGSize) -> CGPoint {
+        CGPoint(x: size.width / 2, y: size.height / 2)
     }
 
     private func setScale(_ proposed: CGFloat, around viewportPoint: CGPoint) {
@@ -594,7 +598,7 @@ struct GraphCanvasView: View {
 }
 
 private struct CanvasCamera {
-    enum Owner { case userPan, userPinch, pointerZoom, explicitLocate, none }
+    enum Owner { case userPan, userPinch, userZoom, explicitLocate, none }
     var scale: CGFloat = 1
     var offset: CGSize = .zero
     var owner: Owner = .none
