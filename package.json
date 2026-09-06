@@ -14,7 +14,6 @@
     "benchmark:feedback-loop": "node --test benchmarks/feedback-loop.test.mjs benchmarks/feedback-loop-adapter.test.mjs && node scripts/feedback-loop-benchmark.mjs --write-report=benchmarks/todo-feedback-loop-results.json",
     "benchmark:feedback-loop:external": "node scripts/feedback-loop-llm.mjs --adapter-command=\"$MDFLOW_LLM_ADAPTER\" --model=\"$MDFLOW_LLM_MODEL\" --claim-llm --write-report=benchmarks/todo-feedback-loop-external.json",
     "release:plugin-lifecycle": "node scripts/codex-plugin-lifecycle.mjs --write-report=benchmarks/plugin-lifecycle-results.json",
-    "graph:export": "node scripts/export-graph-markdown.mjs",
     "release:verify": "npm run plugin:build && npm run desktop:build && sh scripts/package-app.sh debug && node scripts/verify-package.mjs dist/mdflow.app --write-manifest --resign",
     "release:assets": "sh scripts/create-release-assets.sh",
     "release:upload": "sh scripts/upload-release.sh",

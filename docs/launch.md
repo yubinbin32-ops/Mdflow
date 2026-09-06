@@ -132,7 +132,7 @@ Use the repository checkout when you are changing mdflow itself. Do not combine 
 
 ## Boundaries worth keeping
 
-- The SQLite graph is the canonical project state; `docs/graph.snapshot.md` is a generated review projection.
+- The SQLite graph is the canonical project state; current architecture and progress are read through mdflow's bounded Markdown projections.
 - Markdown is the default AI-facing projection; structured JSON is opt-in, not a second source of truth.
 - A passed checkpoint is hidden from the verification inbox, but its evidence remains in history and Plan detail.
 - Ordinary Block creation does not manufacture checkpoints. Once a Block enters required Plan or gate coverage, missing verification is shown explicitly.
@@ -140,8 +140,6 @@ Use the repository checkout when you are changing mdflow itself. Do not combine 
 
 ## Read next
 
-- [Architecture and current boundaries](architecture.md)
-- [Generated graph snapshot](graph.snapshot.md)
 - [Feedback-loop adapter contract](feedback-loop-adapter.md)
 - [Codex plugin lifecycle smoke](../benchmarks/plugin-lifecycle-results.json)
 - [v0.1.0 release notes](releases/v0.1.0.md)
