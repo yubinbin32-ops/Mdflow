@@ -4,7 +4,7 @@
 > 基线 HEAD：`9947ae6`（本文件写作时的仓库状态）
 > 用途：这是“先把内容写入 Markdown，再按 Markdown 重建 mdflow”的一次性迁移基线。迁移完成后，本文件应降级为公开发布/历史材料，开发期唯一交接入口回到 `.mdflow`。
 
-> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 554）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 为 2,359 vs 3,321 tokens（29.0% reduction，13/13 facts，0 errors）。剩余开放门禁见 mdflow Foundation Plan：系统性全路人工冲突审查、最终 Reduce Motion/色盲视觉 human_review、Developer ID Edge 发布/升级回滚/notarization。
+> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 589）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃，且已获用户验收。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 已稳定为 2,344 vs 3,321 tokens（29.4188% reduction，13/13 facts，0 errors，0 rework proxy turns）；真实 Todo target 的迁移、UI/API、超时恢复、幂等重放和无重复写入也已通过。UI lens、Plan inspector 与大图已获用户视觉验收。已生成 ad-hoc 本地 App zip、release manifest、SHA256SUMS 与发布/宣传页；尚未宣称 Developer ID/notarization 或 GitHub 公开上传。剩余开放门禁见 mdflow Foundation Plan：真实 LLM/code-edit 对比、agent-feedback-loop 的 clean-project 实验、plugin-release 的 Developer ID/notarization 与 GitHub 上传、validation closure 与最终清理。
 
 ## 1. 这份文件要解决什么
 
@@ -81,7 +81,13 @@ packages/mcp/src/
   paths.mjs                        .mdflow 路径解析
   project-router.mjs               多项目服务路由
   server.mjs                       MCP stdio 工具面
-packages/mcp/test/                 MCP 回归（当前 38 个测试）
+packages/mcp/test/                 MCP 回归（当前 41 个测试）
+
+benchmarks/todo-target/             真实 Todo 垂直目标（UI/API/SQLite/provider/retry）
+docs/launch.md                      发布会式产品宣传页
+docs/releases/v0.1.0.md             GitHub Release body
+scripts/create-release-assets.sh    macOS .app、manifest、SHA256 发布资产
+scripts/upload-release.sh            公证后 GitHub Release 上传入口
 
 plugins/mdflow/
   .codex-plugin/plugin.json        插件清单与版本
@@ -226,7 +232,9 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 - MCP 回归：41/41 通过。
 - Swift/Desktop：当前 Swift desktop package build 通过；既有 30/30 回归证据仍包含精确 300 Block / 599 Link / 6 Chain 全路冲突检查、重复刷新和大包络边界回归。
+- 真实 Todo target：`npm run benchmark:todo:target` 通过迁移幂等、UI/API 创建、校验错误、provider timeout 恢复、幂等重放和无重复写入；结果写入 `benchmarks/todo-target-results.json`。
 - `release:verify`：`valid=true`，严格 codesign、私有数据审计、13-file manifest 通过；清单现在在最终 re-sign 前写入，避免破坏 sealed resources。
+- `release:assets`：生成 `.app` zip、release manifest 与 `SHA256SUMS`；`release:upload` 会拒绝 ad-hoc 包，只有 Developer ID/notarized 产物才允许公开上传。
 - 本地开发包保持 ad-hoc 签名；`MDFLOW_CODESIGN_IDENTITY` 可注入 Developer ID，`npm run release:notarize` 负责 notarytool/staple/spctl 门禁，不把 ad-hoc 包误称为公证产物。
 - 当前插件版本：`0.1.0+codex.20260905101443`；bundle/Skill 与仓库哈希一致。
 - 读取工具默认 Markdown；只有显式 `includeStructured=true` 才返回完整 structuredContent；自动回归仍不能替代 real_target/human_review。
@@ -239,17 +247,17 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 |---|---|---|---|---|
 | in-app-plugin-install | integration / boundary / codex | complete / healthy | Settings 一键安装/更新打包插件并返回诊断 | passed |
 | bilingual-content | ui / application / localization | complete / healthy | App 固定界面双语；项目实体单一原文 | passed |
-| city-layout | ui / client / canvas | verifying / healthy | 确定性 Chain-first 城市街道布局 | passed（大图 gate pending） |
+| city-layout | ui / client / canvas | verifying / healthy | 确定性 Chain-first 城市街道布局 | passed（大图 gate passed） |
 | chain-route-overlay | ui / client / canvas | verifying / warning | 沿真实正交路线的方向圆角 Chain 包络 | passed + partial |
-| codex-plugin | integration / boundary / codex | verifying / healthy | 打包 MCP+Skill；安装/升级/回滚可验证 | passed（edge pending） |
+| codex-plugin | integration / boundary / codex | verifying / warning | 打包 MCP+Skill；安装/升级/回滚可验证 | passed + edge partial |
 | sqlite-graph-store | database / data / graph | verifying / healthy | 项目级 SQLite 规范图；主库随 Git 跟踪 | passed |
-| large-system-benchmark | test / quality / quality | verifying / warning | Topic/全栈大图与 Todo 双路径基准 | retest + pending |
+| large-system-benchmark | test / quality / quality | verifying / warning | Topic/全栈大图与 Todo 双路径基准 | Todo partial；LLM/code-edit open |
 | atomic-mutation | service / application / graph | complete / healthy | 原子、带 revision 的 MCP 写入与历史 | passed |
 | native-app-package | ui / infrastructure / desktop | complete / healthy | macOS bundle、图标、签名路径 | passed |
-| detail-inspector | ui / client / canvas | verifying / healthy | 唯一右侧详情检视器 | passed + partial human |
+| detail-inspector | ui / client / canvas | verifying / healthy | 唯一右侧详情检视器 | passed + human review |
 | orthogonal-street-router | function / client / canvas | verifying / healthy | 避障多折线正交街道路由 | passed |
 | project-switcher | ui / client / projects | complete / healthy | 最近项目切换，项目状态隔离 | passed |
-| view-lenses | ui / client / canvas | implementing / warning | 只按实际存在的 Block.kind 筛选 | retest_required |
+| view-lenses | ui / client / canvas | implementing / healthy | 只按实际存在的 Block.kind 筛选 | passed + human review |
 | product-contract | principle / domain / governance | verifying / healthy | mdflow 是开发期唯一规范交接入口 | passed |
 | architecture-classification | data / domain/platform | verifying / healthy | scope/layer/localOrder 是显式语义，不决定位置 | passed |
 | live-desktop-reader | service / application / desktop | complete / healthy | 只读 SQLite + 实时 change sequence 投影 | passed |
@@ -276,8 +284,8 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 |---|---|---|---|
 | agent-feedback-loop | implementing / healthy | AI 先读范围化上下文，经 MCP 写入并增量恢复 | project-registration → project-service-router → context-retrieval → codex-plugin → atomic-mutation → sqlite-graph-store → live-desktop-reader → verification-suite |
 | project-lifecycle | complete / healthy | 项目注册、隔离、实时打开 | project-switcher → project-registration → sqlite-graph-store → live-desktop-reader |
-| city-canvas-projection | implementing / warning | Chain 主路城市画布投影 | sqlite-graph-store → view-lenses → city-layout → orthogonal-street-router → chain-route-overlay → compact-block-card → detail-inspector |
-| continuous-navigation | verifying / warning | 连续导航、聚焦稳定 | gesture-navigation → city-layout → chain-route-overlay → detail-inspector |
+| city-canvas-projection | complete / healthy | Chain 主路城市画布投影 | sqlite-graph-store → view-lenses → city-layout → orthogonal-street-router → chain-route-overlay → compact-block-card → detail-inspector |
+| continuous-navigation | complete / healthy | 连续导航、聚焦稳定 | gesture-navigation → city-layout → chain-route-overlay → detail-inspector |
 | plugin-release | verifying / warning | 插件与 App 发布 | codex-plugin → in-app-plugin-install → native-app-package → verification-suite |
 | bilingual-flow | complete / healthy | 界面语言只投影 UI chrome | bilingual-content → context-retrieval → codex-plugin |
 
@@ -356,18 +364,15 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 ### 10.1 mdflow-native-migration（活动，critical，foundation #1）
 
-- 状态：`active`；进度 2/10 steps、2/10 required gates。
+- 状态：`active`；23/27 direct changes、28/35 required gates；typed progress 为 3/5 Chain gates、6/10 Plan gates。
 - 角色：mdflow 自身自举迁移与产品级验证的唯一活动入口。
 - 目标：证明 mdflow 能替代开发期 Markdown 且在真实项目里无损、省 token、可恢复。
-- 下一步（重建后立即执行）：
-  1. 真实 Git checkout/revert 与 watcher 重开；
-  2. Todo 双路径与大型项目等价性基准；
-  3. Canvas/详情/动画最终人工验收；
-  4. 大图性能；
-  5. 多项目闭环；
-  6. 插件/App 公开发布门禁。
-- 步骤状态：step-history complete；step-versioning、step-reconcile、step-chain、step-ui active；step-context、step-large-graph、step-projects、step-release、step-cleanup pending。
-- ChainScopes：context(active)、canvas(pending)、navigation(pending)、bilingual(complete)、release(pending)。
+- 下一步：
+  1. agent-feedback-loop 的 clean-project LLM/code-edit/recovery 实验；
+  2. Developer ID/notarization、干净升级/禁用/回滚和 GitHub 公开上传；
+  3. validation-closure、Plan acceptance 与最终 entity_open → graph_validate → Git commit 收口。
+- 步骤状态：step-history、step-chain、step-ui、step-large-graph complete；step-versioning、step-reconcile active；step-context、step-projects、step-release、step-cleanup pending。
+- ChainScopes：context(partial)、canvas(complete)、navigation(complete)、bilingual(complete)、release(partial)。
 
 ### 10.2 open-source-release（ready/blocked，high，delivery #2）
 
@@ -382,7 +387,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 归档后仍残留的 checkpoint 需要处理，不能让它们在 App “独立验证”中显示为可点击但不可打开的对象。
 
-## 11. Checkpoint 清单（45）
+## 11. Checkpoint 清单（当前活动摘要）
 
 ### 11.1 活动 Block/Chain 的 atomic/integration checkpoint
 
@@ -392,22 +397,22 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 | bilingual-acceptance | block:bilingual-content | passed | real_target/integration | 界面语言与项目原文隔离 |
 | proof-bilingual-content | block:bilingual-content | passed | integration/integration | 默认不写 localizations |
 | proof-city-layout | block:city-layout | passed | integration/static | 确定性无重叠布局 |
-| large-canvas-acceptance | block:city-layout | pending | none/real_target | 大图密度/性能人工门禁 |
+| large-canvas-acceptance | block:city-layout | passed | real_target/real_target | 大图密度/性能人工门禁；用户已验收 |
 | chain-arrow-separation | block:chain-route-overlay | partial_pass | real_target/real_target | 共享路段隔离/箭头单一 |
 | proof-chain-route-overlay | block:chain-route-overlay | passed | real_target/static | 蛇形包络基础不变量 |
 | proof-codex-plugin | block:codex-plugin | passed | integration/static | 插件安装/MCP 启动 |
-| edge-release-acceptance | block:codex-plugin | pending | none/real_target | Edge 发布与全新环境 |
+| edge-release-acceptance | block:codex-plugin | partial_pass | real_target/real_target | 本地包、manifest、checksum 已过；公证/公开上传仍开放 |
 | proof-sqlite-graph-store | block:sqlite-graph-store | passed | integration/static | byte-stable、项目隔离 |
 | topic-chain-first-product-scale | block:large-system-benchmark | retest_required | none/static | 真实多层项目适配 |
-| todo-mdflow-parity | block:large-system-benchmark | pending | none/real_target | Todo 双路径对比 |
+| todo-mdflow-parity | block:large-system-benchmark | partial_pass | real_target/real_target | 2,344 vs 3,321 tokens；真实 target 通过；LLM/code-edit 仍开放 |
 | mdflow-history-diff-complete | block:atomic-mutation | passed | real_target/integration | 历史差异闭环 |
 | proof-atomic-mutation | block:atomic-mutation | passed | integration/static | 原子写入与安全回退 |
 | proof-native-app-package | block:native-app-package | passed | static/static | bundle/Info.plist/icon/签名 |
 | proof-detail-inspector | block:detail-inspector | passed | real_target/static | 独立滚动详情列 |
-| detail-inspector-acceptance | block:detail-inspector | partial_pass | real_target/human_review | 最终排版/美术人工验收 |
+| detail-inspector-acceptance | block:detail-inspector | passed | real_target/human_review | 用户已确认详情 UI 合格 |
 | proof-orthogonal-street-router | block:orthogonal-street-router | passed | static/static | 正交安全 |
 | proof-project-switcher | block:project-switcher | passed | integration/static | 原生切换最终人工仍开放 |
-| proof-view-lenses | block:view-lenses | retest_required | none/static | 默认 Lens 需要按当前 HEAD 重测 |
+| proof-view-lenses | block:view-lenses | passed | real_target/human_review | 用户已确认 Lens UI 合格 |
 | proof-product-contract | block:product-contract | passed | static/static | 干净图重建契约 |
 | architecture-classification-contract | block:architecture-classification | passed | integration/integration | 显式 scope/layer/order 一致读取 |
 | proof-live-desktop-reader | block:live-desktop-reader | passed | real_target/static | 实时刷新无崩溃 |
@@ -416,14 +421,14 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 | proof-compact-block-card | block:compact-block-card | passed | real_target/static | 卡片全缩放保留 summary |
 | semantic-zoom-topic-evidence | block:semantic-zoom | passed | real_target/static | 缩放不改事实 |
 | proof-verification-suite | block:verification-suite | partial_pass | integration/static | 自动回归基线 |
-| validation-closure | block:verification-suite | partial_pass | none/human_review | 最终验证收口 |
+| validation-closure | block:verification-suite | partial_pass | real_target/human_review | 自动、真实目标与用户验收已部分闭合；发布/LLM/最终 Git 收口仍开放 |
 | proof-gesture-navigation | block:gesture-navigation | passed | static/static | 导航几何；physical review open |
 | proof-project-registration | block:project-registration | passed | integration/static | 注册与 sidecar 规则（内容需校准） |
 | proof-project-service-router | block:project-service-router | passed | integration/static | 多项目隔离路由 |
 | proof-context-retrieval | block:context-retrieval | partial_pass | integration/static | 上下文范围化；真实等价性 open |
 | proof-agent-feedback-loop | chain:agent-feedback-loop | passed | integration/static | AI↔MCP↔校验闭环 |
 | proof-project-lifecycle | chain:project-lifecycle | passed | integration/static | 多项目生命周期 |
-| proof-city-canvas-projection | chain:city-canvas-projection | retest_required | none/static | 城市画布路径按当前实现重测 |
+| proof-city-canvas-projection | chain:city-canvas-projection | passed | integration/integration | 300 Block/599 Link/6 Chain 路由与用户大图验收 |
 | proof-continuous-navigation | chain:continuous-navigation | passed | static/static | 连续导航路径 |
 | proof-plugin-release-product | chain:plugin-release | passed | static/static | Topic 品牌发布路径 |
 | proof-bilingual-flow | chain:bilingual-flow | passed | real_target/integration | 双语只投影 chrome |
@@ -440,10 +445,10 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 | checkpoint | target | 状态 | 说明 |
 |---|---|---|---|
-| mdflow-self-graph-migrated | plan:mdflow-native-migration | pending | 本次 Markdown→mdflow 重建完成后按 real_target 验收 |
-| public-release-closure | plan:mdflow-native-migration | pending | 发布收口 |
+| mdflow-self-graph-migrated | plan:mdflow-native-migration | passed | 图谱迁移、覆盖和校验已完成 |
+| public-release-closure | plan:mdflow-native-migration | partial_pass | 本地发布包和宣传材料已完成；公证/公开上传仍开放 |
 | open-source-release-gate | plan:open-source-release | pending | 发布 Plan gate |
-| validation-closure | block:verification-suite | partial_pass | 等待真实 Git/大图/UI/发布 |
+| validation-closure | block:verification-suite | partial_pass | 自动、真实目标与 UI 已部分闭合；LLM、发布和最终 Git 收口仍开放 |
 
 ## 12. 已发现并必须在迁移中处理的图谱缺陷
 
@@ -485,24 +490,24 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 1. ~~新建 Block 时缺少便捷的按需 checkpoint 初始化 mutation~~：已实现 `graph_mutate` 操作 `create_checkpoint`；普通 `create_block` 只记录架构，compact `checkpoint=auto` 或同一 ChangeSet 的 `create_checkpoint` 才明确创建验证义务。
 2. ~~从零项目缺少 Foundation Plan 批量初始化~~：`foundation_plan_create` 会在显式实施计划中为未实现 Block 建立 atomic checkpoint、Direct PlanChange、依赖顺序、Chain integration gate 与 Plan acceptance gate；架构-only Block 不会被普通创建隐式验证。
-3. `.mdflow` 的人类可读 Git diff 尚未实现；二进制 SQLite 不适合逐行 review。
+3. `.mdflow` 的人类可读 Git diff 已提供为可重建的 `npm run graph:export` / `docs/graph.snapshot.md`；它是审阅投影，不是第二事实源，二进制 SQLite 仍是唯一规范状态。
 4. ~~App 的 Verification inbox 需要过滤归档 target~~：已修复，见第 1 节执行记录。
 5. 新建/校准 Block 与 Link 时，healthState 与 checkpoint 应尽量派生，避免手工不一致。
 
 ### 14.2 真实验收门禁（不能由自动测试替代）
 
-1. Git checkout/reset/revert/branch switch 后，`.mdflow` 与源码一起恢复且 watcher 正常重开。
-2. Todo 双路径：同一需求分别 Markdown-first 与 mdflow-first，记录 token、召回、错误率、返工次数和恢复。
+1. Git checkout/reset/revert/branch switch 后，`.mdflow` 与源码一起恢复且 watcher 正常重开；主要 real-target 路径已通过，仍需最终跨层收口。
+2. Todo target 垂直实现已通过；仍需真实 LLM/code-edit 双路径记录时间、返工次数和恢复差异。
 3. 大型真实项目（有前后端/数据库/外部接口）使用 mdflow 完成理解、定位、修改与交接。
-4. Canvas 大图（100/300 Blocks、多 Chain、实时 mutation）无重叠、镜头稳定、点击/缩放流畅。
-5. Reduce Motion、色盲对比、最终视觉/排版/交互人工验收。
-6. 多项目并发开发闭环。
-7. 干净环境插件安装/升级/禁用/回滚、App 打包/签名/公证与公开仓库审计。
+4. Canvas 大图自动安全与 30 分钟 real-target 稳定性已通过；city-canvas-projection 与 continuous-navigation gate 已通过，agent-feedback-loop/ plugin-release 仍为 partial。
+5. UI lens、Plan inspector 和大图视觉/交互人工验收已由用户确认通过。
+6. 多项目并发开发闭环的主要 real-target 路径已通过，仍需与发布/跨层 gate 合并收口。
+7. 干净环境插件安装/升级/禁用/回滚、Developer ID 签名、公证与 GitHub 公开上传仍待外部凭据和 repository remote。
 
 ## 15. 最终状态定义
 
 - `mdflow-self-graph-migrated` passed 的条件：本基线全部写入并回读、graph_validate 干净、App 无失效验证项、真实任务可以从 `.mdflow` 独立恢复。
-- `todo-mdflow-parity` passed 的条件：Todo 双路径完成且结论记录可复现。
+- `todo-mdflow-parity` passed 的条件：Todo 双路径完成且结论记录可复现；当前真实 target 垂直实现已通过，LLM/code-edit 双路径仍是剩余实验。
 - `validation-closure` passed 的条件：自动 + real_target + human_review 证据链闭合。
 - `edge-release-acceptance` / `public-release-closure` passed 的条件：发布产物与源码一致、干净环境可安装、无私有数据、签名/公证说明准确。
 - 这些门禁全部通过前，不得宣称“mdflow 已完全替代 Markdown”。

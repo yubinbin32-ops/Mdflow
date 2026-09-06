@@ -1941,11 +1941,13 @@ export class MdflowService {
     const relevantChains = snapshot.chains.filter((chain) => selectedChainIds.has(chain.id));
     const relevantPlans = snapshot.plans.filter((plan) => selectedPlanIds.has(plan.id));
     const planCoverage = new Map(relevantPlans.map((plan) => [plan.id, architectureCoverage(snapshot, plan.id)]));
-    const relevantLinks = snapshot.links.filter(
-      (link) =>
-        (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) &&
-        (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId)),
-    );
+    const relevantLinks = snapshot.links
+      .filter(
+        (link) =>
+          (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) &&
+          (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId)),
+      )
+      .sort((left, right) => left.id.localeCompare(right.id));
     const relevantScopeIDs = new Set(snapshot.planChainScopes.filter((scope) => selectedPlanIds.has(scope.planId)).map((scope) => scope.id));
     const relevantChangeIDs = new Set(snapshot.planChanges.filter((change) => selectedPlanIds.has(change.planId)).map((change) => change.id));
     const boundCheckpointIDs = new Set(snapshot.checkpointBindings.filter((binding) =>
@@ -1962,16 +1964,23 @@ export class MdflowService {
     ]);
     // A checkpoint can be intentionally independent of all Plans. Keep open
     // standalone checks in bounded context so an agent can discover and run them.
+    const checkpointOrder = (left, right) =>
+      left.targetType.localeCompare(right.targetType) ||
+      left.targetId.localeCompare(right.targetId) ||
+      left.id.localeCompare(right.id);
     const standaloneOpenCheckpoints = snapshot.checkpoints
       .filter((checkpoint) => !plannedCheckpointIDs.has(checkpoint.id) && checkpoint.status !== "passed")
+      .sort(checkpointOrder)
       .slice(0, 20);
-    const relevantCheckpoints = snapshot.checkpoints.filter(
-      (checkpoint) =>
-        (checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId)) ||
-        (checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId)) ||
-        (checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId)) ||
-        boundCheckpointIDs.has(checkpoint.id),
-    );
+    const relevantCheckpoints = snapshot.checkpoints
+      .filter(
+        (checkpoint) =>
+          (checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId)) ||
+          (checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId)) ||
+          (checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId)) ||
+          boundCheckpointIDs.has(checkpoint.id),
+      )
+      .sort(checkpointOrder);
 
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
     lines.push("## Architecture coverage");

@@ -25855,7 +25855,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const planCoverage = new Map(relevantPlans.map((plan) => [plan.id, architectureCoverage(snapshot, plan.id)]));
     const relevantLinks = snapshot.links.filter(
       (link) => (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) && (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId))
-    );
+    ).sort((left, right) => left.id.localeCompare(right.id));
     const relevantScopeIDs = new Set(snapshot.planChainScopes.filter((scope) => selectedPlanIds.has(scope.planId)).map((scope) => scope.id));
     const relevantChangeIDs = new Set(snapshot.planChanges.filter((change) => selectedPlanIds.has(change.planId)).map((change) => change.id));
     const boundCheckpointIDs = new Set(snapshot.checkpointBindings.filter((binding) => binding.subjectType === "plan" && selectedPlanIds.has(binding.subjectId) || binding.subjectType === "plan_chain_scope" && relevantScopeIDs.has(binding.subjectId) || binding.subjectType === "plan_change" && relevantChangeIDs.has(binding.subjectId)).map((binding) => binding.checkpointId));
@@ -25864,10 +25864,11 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       ...snapshot.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan").map((checkpoint) => checkpoint.id),
       ...snapshot.checkpointBindings.filter((binding) => ["plan", "plan_change", "plan_chain_scope"].includes(binding.subjectType)).map((binding) => binding.checkpointId)
     ]);
-    const standaloneOpenCheckpoints = snapshot.checkpoints.filter((checkpoint) => !plannedCheckpointIDs.has(checkpoint.id) && checkpoint.status !== "passed").slice(0, 20);
+    const checkpointOrder = (left, right) => left.targetType.localeCompare(right.targetType) || left.targetId.localeCompare(right.targetId) || left.id.localeCompare(right.id);
+    const standaloneOpenCheckpoints = snapshot.checkpoints.filter((checkpoint) => !plannedCheckpointIDs.has(checkpoint.id) && checkpoint.status !== "passed").sort(checkpointOrder).slice(0, 20);
     const relevantCheckpoints = snapshot.checkpoints.filter(
       (checkpoint) => checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId) || checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId) || checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId) || boundCheckpointIDs.has(checkpoint.id)
-    );
+    ).sort(checkpointOrder);
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
     lines.push("## Architecture coverage");
     lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);

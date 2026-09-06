@@ -1,0 +1,20 @@
+{
+  "name": "todo-target-real-path",
+  "status": "passed",
+  "checks": {
+    "migrationIsIdempotent": true,
+    "uiApiCreateFlow": true,
+    "validationErrorIsVisible": true,
+    "timeoutRecovery": true,
+    "idempotentReplay": true,
+    "noDuplicateTodoWrite": true
+  },
+  "implementation": {
+    "files": 7,
+    "schemaVersion": 1,
+    "providerCalls": 2,
+    "todos": 1,
+    "syncAttempts": 4
+  },
+  "durationMs": 30.84
+}
