@@ -47,14 +47,16 @@ mdflow makes those facts explicit:
 
 ## What the AI sees
 
-The default response is intentionally Markdown-first and bounded:
+The default response is intentionally Markdown-first and bounded. A current local snapshot looks like this:
 
 ```markdown
 # Task Context
-Architecture coverage: 24 blocks total · 18 in chains · 6 standalone
-Current plan: Foundation Implementation
-Unplanned direct Blocks: block:mail-worker, block:audit-log
+Architecture coverage: 27 blocks total · 19 in chains · 8 standalone
+Current plan: mdflow-native-migration
+Unverified Blocks: block:large-system-benchmark, block:verification-suite
+Unplanned direct Blocks: none
 Missing required checkpoints: 0
+Direct Plan Changes: 23/27
 
 ## Execution order
 1. Database Blocks
@@ -65,13 +67,13 @@ Missing required checkpoints: 0
 6. Plan acceptance
 
 ## Direct Block Work
-- block:auth-service — normalize token refresh and verify its atomic checkpoint
+- block:context-retrieval — keep scoped rules, coverage, and incremental recovery visible
 
 ## Chain integration
-- chain:user-login-flow — path and integration gate
+- chain:agent-feedback-loop — path and integration gate
 
 ## Plan acceptance
-- gate:foundation-acceptance — pending
+- gate:public-release-closure — partial_pass
 ```
 
 Rules are returned as a scope index (`project`, `lens`, `chain`, or `repo`). The AI can ask for the rule body when it is relevant; rules do not inflate every context pack or become Canvas blocks. A caller that truly needs machine-shaped data can opt in with `includeStructured=true`.
