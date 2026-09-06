@@ -11,6 +11,7 @@
     "test": "npm run plugin:build && node --test packages/mcp/test/*.test.mjs",
     "benchmark:todo": "node scripts/context-parity.mjs --write-report=benchmarks/todo-context-parity.json",
     "benchmark:todo:target": "node --test benchmarks/todo-target/test/*.test.mjs && node scripts/run-todo-target.mjs --write-report=benchmarks/todo-target-results.json",
+    "benchmark:feedback-loop": "node --test benchmarks/feedback-loop.test.mjs && node scripts/feedback-loop-benchmark.mjs --write-report=benchmarks/todo-feedback-loop-results.json",
     "graph:export": "node scripts/export-graph-markdown.mjs",
     "release:verify": "npm run plugin:build && npm run desktop:build && sh scripts/package-app.sh debug && node scripts/verify-package.mjs dist/mdflow.app --write-manifest --resign",
     "release:assets": "sh scripts/create-release-assets.sh",

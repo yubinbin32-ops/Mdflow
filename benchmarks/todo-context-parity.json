@@ -13,7 +13,7 @@
     "baselineTokens": 1107,
     "totalTokens": 2344,
     "totalChars": 9428,
-    "durationMs": 15.75,
+    "durationMs": 13.95,
     "expectedFacts": 13,
     "recalledFacts": 13,
     "recallRate": 1,

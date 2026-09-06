@@ -5,7 +5,7 @@ import { performance } from "node:perf_hooks";
 import { getEncoding } from "js-tiktoken";
 import { createService } from "../packages/mcp/src/service.mjs";
 
-const BLOCKS = [
+export const BLOCKS = [
   {
     id: "todo-ui",
     kind: "ui",
@@ -64,7 +64,7 @@ const LINKS = [
   ["todo-worker-tests", "todo-worker", "todo-tests", "validates", "Tests verify recovery idempotency."],
 ];
 
-const TASKS = [
+export const TASKS = [
   {
     id: "create",
     prompt: "Implement the Todo add flow from the UI through the API and database, then verify the response.",
@@ -96,7 +96,7 @@ function writeFixtureSources(root) {
   }
 }
 
-function markdownBaseline() {
+export function markdownBaseline() {
   const lines = [
     "# Todo website implementation context",
     "",
@@ -168,7 +168,7 @@ function markdownBaseline() {
   return lines.join("\n");
 }
 
-function createFixture() {
+export function createFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-todo-benchmark-"));
   const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-todo-data-"));
   fs.mkdirSync(path.join(root, ".mdflow"), { recursive: true });
@@ -268,6 +268,7 @@ function createFixture() {
   });
   return {
     root,
+    dataRoot,
     service,
     cleanup() {
       service.close();

@@ -4,7 +4,7 @@
 > 基线 HEAD：`9947ae6`（本文件写作时的仓库状态）
 > 用途：这是“先把内容写入 Markdown，再按 Markdown 重建 mdflow”的一次性迁移基线。迁移完成后，本文件应降级为公开发布/历史材料，开发期唯一交接入口回到 `.mdflow`。
 
-> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 589）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃，且已获用户验收。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 已稳定为 2,344 vs 3,321 tokens（29.4188% reduction，13/13 facts，0 errors，0 rework proxy turns）；真实 Todo target 的迁移、UI/API、超时恢复、幂等重放和无重复写入也已通过。UI lens、Plan inspector 与大图已获用户视觉验收。已生成 ad-hoc 本地 App zip、release manifest、SHA256SUMS 与发布/宣传页；尚未宣称 Developer ID/notarization 或 GitHub 公开上传。剩余开放门禁见 mdflow Foundation Plan：真实 LLM/code-edit 对比、agent-feedback-loop 的 clean-project 实验、plugin-release 的 Developer ID/notarization 与 GitHub 上传、validation closure 与最终清理。
+> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 601）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃，且已获用户验收。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 已稳定为 2,344 vs 3,321 tokens（29.4188% reduction，13/13 facts，0 errors，0 rework proxy turns）；真实 Todo target 的迁移、UI/API、超时恢复、幂等重放和无重复写入也已通过。新增 clean-project deterministic feedback-loop baseline：mdflow-first 880 vs Markdown-first 1,107 首次上下文 tokens、4/4 refs、1 次代码编辑，增量恢复 1 次对完整文档恢复 2 次；明确标注 `llmClaim=false`。UI lens、Plan inspector 与大图已获用户视觉验收。已生成 ad-hoc 本地 App zip、release manifest、SHA256SUMS 与发布/宣传页；尚未宣称 Developer ID/notarization 或 GitHub 公开上传。剩余开放门禁见 mdflow Foundation Plan：真实 LLM/code-edit 对比、validation closure、plugin-release 的 Developer ID/notarization 与 GitHub 上传、最终清理。
 
 ## 1. 这份文件要解决什么
 
@@ -497,7 +497,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ### 14.2 真实验收门禁（不能由自动测试替代）
 
 1. Git checkout/reset/revert/branch switch 后，`.mdflow` 与源码一起恢复且 watcher 正常重开；主要 real-target 路径已通过，仍需最终跨层收口。
-2. Todo target 垂直实现已通过；仍需真实 LLM/code-edit 双路径记录时间、返工次数和恢复差异。
+2. Todo target 垂直实现已通过；确定性 clean-project 回放已记录 mdflow-first 880 vs Markdown-first 1,107 首次上下文 tokens，以及 1 次增量恢复对 2 次完整文档恢复，但它明确不是 LLM 结果；仍需真实 LLM/code-edit 双路径记录时间、返工次数和恢复差异。
 3. 大型真实项目（有前后端/数据库/外部接口）使用 mdflow 完成理解、定位、修改与交接。
 4. Canvas 大图自动安全与 30 分钟 real-target 稳定性已通过；city-canvas-projection 与 continuous-navigation gate 已通过，agent-feedback-loop/ plugin-release 仍为 partial。
 5. UI lens、Plan inspector 和大图视觉/交互人工验收已由用户确认通过。
