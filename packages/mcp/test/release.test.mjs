@@ -32,6 +32,13 @@ test("release package verifier rejects private graph data and accepts a clean bu
     const clean = inspectPackage(app, { verifySignature: false });
     assert.equal(clean.valid, true);
     assert.equal(clean.manifest.pluginVersion, "0.1.0");
+    assert.equal(clean.manifest.files.executableHashBasis, "unsigned-executable-payload");
+    write(app, "Contents/Resources/RELEASE-MANIFEST.json", JSON.stringify({ files: { executableSha256: "stale-hash" } }));
+    const staleManifest = inspectPackage(app, { verifySignature: false });
+    assert.equal(staleManifest.valid, false);
+    assert.match(staleManifest.errors.join("\n"), /RELEASE-MANIFEST executableSha256/);
+    write(app, "Contents/Resources/RELEASE-MANIFEST.json", JSON.stringify(clean.manifest));
+    assert.equal(inspectPackage(app, { verifySignature: false }).valid, true);
     write(app, "Contents/Resources/MarketplaceRoot/.mdflow/mdflow.sqlite", "private");
     const dirty = inspectPackage(app, { verifySignature: false });
     assert.equal(dirty.valid, false);

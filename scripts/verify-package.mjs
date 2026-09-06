@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -29,6 +30,19 @@ function sha256(file) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
 
+function executablePayloadSha256(file) {
+  if (process.platform !== "darwin") return sha256(file);
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mdflow-executable-hash-"));
+  const copy = path.join(temporaryRoot, path.basename(file));
+  try {
+    fs.copyFileSync(file, copy);
+    const removed = spawnSync("codesign", ["--remove-signature", copy], { encoding: "utf8" });
+    return removed.status === 0 ? sha256(copy) : sha256(file);
+  } finally {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+}
+
 function signingArguments(root) {
   const identity = process.env.MDFLOW_CODESIGN_IDENTITY ?? "-";
   if (identity === "-") return ["--force", "--sign", "-", root];
@@ -55,6 +69,7 @@ export function inspectPackage(appRoot, { verifySignature = true } = {}) {
   const serverPath = requiredFile(root, "Contents/Resources/MarketplaceRoot/plugins/mdflow/server/mdflow-mcp.mjs", errors);
   const skillPath = requiredFile(root, "Contents/Resources/MarketplaceRoot/plugins/mdflow/skills/mdflow/SKILL.md", errors);
   const marketplacePath = requiredFile(root, "Contents/Resources/MarketplaceRoot/.agents/plugins/marketplace.json", errors);
+  const releaseManifestPath = path.join(root, "Contents/Resources/RELEASE-MANIFEST.json");
 
   let info = "";
   if (fs.existsSync(infoPath)) info = fs.readFileSync(infoPath, "utf8");
@@ -73,9 +88,11 @@ export function inspectPackage(appRoot, { verifySignature = true } = {}) {
   let plugin = {};
   let mcp = {};
   let marketplace = {};
+  let releaseManifest = null;
   try { if (fs.existsSync(manifestPath)) plugin = readJSON(manifestPath); } catch (error) { errors.push(`Invalid plugin manifest: ${error.message}`); }
   try { if (fs.existsSync(mcpPath)) mcp = readJSON(mcpPath); } catch (error) { errors.push(`Invalid MCP manifest: ${error.message}`); }
   try { if (fs.existsSync(marketplacePath)) marketplace = readJSON(marketplacePath); } catch (error) { errors.push(`Invalid marketplace manifest: ${error.message}`); }
+  try { if (fs.existsSync(releaseManifestPath)) releaseManifest = readJSON(releaseManifestPath); } catch (error) { errors.push(`Invalid release manifest: ${error.message}`); }
   if (!plugin.name || !plugin.version || plugin.name !== "mdflow") errors.push("Plugin manifest must identify mdflow and include a version");
   if (mcp.mcpServers?.mdflow?.command !== "node") errors.push("Plugin MCP manifest must launch node");
   if (!mcp.mcpServers?.mdflow?.args?.some((argument) => argument.includes("server/mdflow-mcp.mjs"))) errors.push("Plugin MCP manifest must point to the bundled server");
@@ -108,11 +125,15 @@ export function inspectPackage(appRoot, { verifySignature = true } = {}) {
     signature: signature.checked ? (signature.valid ? "verified" : "invalid") : "not-checked",
     signingMode: signature.mode ?? "not-checked",
     files: {
-      executableSha256: fs.existsSync(executable) ? sha256(executable) : null,
+      executableSha256: fs.existsSync(executable) ? executablePayloadSha256(executable) : null,
+      executableHashBasis: "unsigned-executable-payload",
       serverSha256: fs.existsSync(serverPath) ? sha256(serverPath) : null,
       fileCount: files.length,
     },
   };
+  if (releaseManifest?.files?.executableSha256 && releaseManifest.files.executableSha256 !== manifest.files.executableSha256) {
+    errors.push("RELEASE-MANIFEST executableSha256 does not match the signed bundle payload");
+  }
   return { valid: errors.length === 0, errors, warnings, root, info: infoValues, plugin: { name: plugin.name, version: plugin.version }, signature, files, manifest };
 }
 

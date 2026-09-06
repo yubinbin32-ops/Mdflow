@@ -4,7 +4,7 @@
 > 基线 HEAD：`9947ae6`（本文件写作时的仓库状态）
 > 用途：这是“先把内容写入 Markdown，再按 Markdown 重建 mdflow”的一次性迁移基线。迁移完成后，本文件应降级为公开发布/历史材料，开发期唯一交接入口回到 `.mdflow`。
 
-> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 608）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃，且已获用户验收。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 已稳定为 2,344 vs 3,321 tokens（29.4188% reduction，13/13 facts，0 errors，0 rework proxy turns）；真实 Todo target 的迁移、UI/API、超时恢复、幂等重放和无重复写入也已通过。新增 clean-project deterministic feedback-loop baseline：mdflow-first 880 vs Markdown-first 1,107 首次上下文 tokens、4/4 refs、1 次代码编辑，增量恢复 1 次对完整文档恢复 2 次；明确标注 `llmClaim=false`。`scripts/feedback-loop-llm.mjs` 与 adapter contract test 已可运行，但外部推理端点当前不可达，因此没有录入真实 LLM 结果。UI lens、Plan inspector 与大图已获用户视觉验收。已生成 ad-hoc 本地 App zip、release manifest、SHA256SUMS 与发布/宣传页；尚未宣称 Developer ID/notarization 或 GitHub 公开上传。剩余开放门禁见 mdflow Foundation Plan：真实 LLM/code-edit 对比、validation closure、plugin-release 的 Developer ID/notarization 与 GitHub 上传、最终清理。
+> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 619）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。发布 manifest 的 executable hash 现在明确采用去除签名后的 payload hash，并由 verifier 检查 manifest 与最终 bundle 一致，避免最终 re-sign 后产生静默漂移。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃，且已获用户验收。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 已稳定为 2,344 vs 3,321 tokens（29.4188% reduction，13/13 facts，0 rework proxy turns）；真实 Todo target 的迁移、UI/API、超时恢复、幂等重放和无重复写入也已通过。新增 clean-project deterministic feedback-loop baseline：mdflow-first 880 vs Markdown-first 1,107 首次上下文 tokens、4/4 refs、1 次代码编辑，增量恢复 1 次对完整文档恢复 2 次；明确标注 `llmClaim=false`。`scripts/feedback-loop-llm.mjs` 与 adapter contract test 已可运行，但外部推理端点当前不可达，因此没有录入真实 LLM 结果。`npm run release:plugin-lifecycle` 已在隔离的临时 CODEX_HOME 中真实执行本地 marketplace add、Fresh install、安装后 MCP 启动、upgrade、remove 和 rollback；报告已脱敏保存为 `benchmarks/plugin-lifecycle-results.json`。UI lens、Plan inspector 与大图已获用户视觉验收。已生成 ad-hoc 本地 App zip、release manifest、SHA256SUMS 与发布/宣传页；尚未宣称 Developer ID/notarization 或 GitHub 公开上传。剩余开放门禁见 mdflow Foundation Plan：真实 LLM/code-edit 对比、validation closure、plugin-release 的 Developer ID/notarization 与 GitHub 上传、最终清理。
 
 ## 1. 这份文件要解决什么
 
@@ -87,6 +87,7 @@ benchmarks/todo-target/             真实 Todo 垂直目标（UI/API/SQLite/pro
 docs/launch.md                      发布会式产品宣传页
 docs/releases/v0.1.0.md             GitHub Release body
 docs/feedback-loop-adapter.md       外部 LLM feedback-loop 适配器契约
+scripts/codex-plugin-lifecycle.mjs  隔离 CODEX_HOME 的真实插件生命周期 smoke
 scripts/create-release-assets.sh    macOS .app、manifest、SHA256 发布资产
 scripts/upload-release.sh            公证后 GitHub Release 上传入口
 
@@ -503,7 +504,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 4. Canvas 大图自动安全与 30 分钟 real-target 稳定性已通过；city-canvas-projection 与 continuous-navigation gate 已通过，agent-feedback-loop/ plugin-release 仍为 partial。
 5. UI lens、Plan inspector 和大图视觉/交互人工验收已由用户确认通过。
 6. 多项目并发开发闭环的主要 real-target 路径已通过，仍需与发布/跨层 gate 合并收口。
-7. 干净环境插件安装/升级/禁用/回滚、Developer ID 签名、公证与 GitHub 公开上传仍待外部凭据和 repository remote。
+7. 干净环境插件安装/升级/移除/回滚已通过真实 Codex CLI 隔离 `CODEX_HOME` smoke（报告见 `benchmarks/plugin-lifecycle-results.json`）；Developer ID 签名、公证与 GitHub 公开上传仍待外部凭据和 repository remote。
 
 ## 15. 最终状态定义
 

@@ -1,0 +1,68 @@
+{
+  "benchmark": "codex-plugin-lifecycle",
+  "codexBinary": "codex",
+  "isolatedHome": true,
+  "stages": {
+    "marketplace": {
+      "marketplaceName": "mdflow-development",
+      "installedRoot": "<isolated-marketplace>",
+      "alreadyAdded": false
+    },
+    "freshInstall": {
+      "pluginId": "mdflow@mdflow-development",
+      "name": "mdflow",
+      "marketplaceName": "mdflow-development",
+      "version": "0.1.0-test.previous",
+      "installedPath": "<isolated-codex-home>/plugins/cache/mdflow-development/mdflow/0.1.0-test.previous",
+      "authPolicy": "ON_INSTALL",
+      "mcp": {
+        "label": "fresh-install",
+        "server": "<isolated-codex-home>/plugins/cache/mdflow-development/mdflow/0.1.0-test.previous/server/mdflow-mcp.mjs",
+        "toolCount": 14,
+        "projectMapMarkdown": "# Lifecycle fresh-install\nGraph revision: 0\n\n## Plans\n- None\n\n## Project network\n- 0 Blocks / 0 Links / 0 Chain overlays\n- Coverage: 0/0 verified · 0/0 planned · 0/0 with checkpoints\n- Verification coverage: 0/0 bound or passed · 0 in Chain",
+        "graphValid": true
+      }
+    },
+    "marketplaceRefresh": {
+      "selectedMarketplaces": [],
+      "upgradedRoots": [],
+      "errors": []
+    },
+    "upgrade": {
+      "pluginId": "mdflow@mdflow-development",
+      "name": "mdflow",
+      "marketplaceName": "mdflow-development",
+      "version": "0.1.0+codex.20260905101443",
+      "installedPath": "<isolated-codex-home>/plugins/cache/mdflow-development/mdflow/0.1.0+codex.20260905101443",
+      "authPolicy": "ON_INSTALL",
+      "mcp": {
+        "label": "upgrade",
+        "server": "<isolated-codex-home>/plugins/cache/mdflow-development/mdflow/0.1.0+codex.20260905101443/server/mdflow-mcp.mjs",
+        "toolCount": 14,
+        "projectMapMarkdown": "# Lifecycle upgrade\nGraph revision: 0\n\n## Plans\n- None\n\n## Project network\n- 0 Blocks / 0 Links / 0 Chain overlays\n- Coverage: 0/0 verified · 0/0 planned · 0/0 with checkpoints\n- Verification coverage: 0/0 bound or passed · 0 in Chains · 0 ",
+        "graphValid": true
+      }
+    },
+    "disable": {
+      "pluginId": "mdflow@mdflow-development",
+      "name": "mdflow",
+      "marketplaceName": "mdflow-development"
+    },
+    "rollback": {
+      "pluginId": "mdflow@mdflow-development",
+      "name": "mdflow",
+      "marketplaceName": "mdflow-development",
+      "version": "0.1.0-test.previous",
+      "installedPath": "<isolated-codex-home>/plugins/cache/mdflow-development/mdflow/0.1.0-test.previous",
+      "authPolicy": "ON_INSTALL",
+      "mcp": {
+        "label": "rollback",
+        "server": "<isolated-codex-home>/plugins/cache/mdflow-development/mdflow/0.1.0-test.previous/server/mdflow-mcp.mjs",
+        "toolCount": 14,
+        "projectMapMarkdown": "# Lifecycle rollback\nGraph revision: 0\n\n## Plans\n- None\n\n## Project network\n- 0 Blocks / 0 Links / 0 Chain overlays\n- Coverage: 0/0 verified · 0/0 planned · 0/0 with checkpoints\n- Verification coverage: 0/0 bound or passed · 0 in Chains · 0",
+        "graphValid": true
+      }
+    }
+  },
+  "limitation": "Codex CLI remove is the disable/uninstall operation; Developer ID, notarization, and public marketplace upload remain separate gates."
+}

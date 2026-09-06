@@ -89,7 +89,8 @@ The current local candidate is measured and its limits are visible:
 | Large graph | 300 Blocks · 599 Links · 6 Chains | passed |
 | Context parity | 13/13 facts · 0 errors · 29.4188% fewer tokens (2,344 vs 3,321) | passed baseline |
 | Clean feedback-loop replay | 880 vs 1,107 first-context tokens · 1 incremental recovery vs 2 full-document recoveries | deterministic baseline; `llmClaim=false` |
-| Package audit | valid manifest · private-data audit · checksums | local ad-hoc candidate |
+| Fresh Codex lifecycle | Isolated marketplace add · install · MCP startup · upgrade · remove · rollback | passed local CLI smoke; public signing/upload still open |
+| Package audit | valid manifest · unsigned executable payload hash · private-data audit · checksums | local ad-hoc candidate |
 
 The clean replay is deliberately not presented as an LLM study. A real external LLM/code-edit/recovery experiment remains an open Plan gate.
 
@@ -142,6 +143,7 @@ Use the repository checkout when you are changing mdflow itself. Do not combine 
 - [Architecture and current boundaries](architecture.md)
 - [Generated graph snapshot](graph.snapshot.md)
 - [Feedback-loop adapter contract](feedback-loop-adapter.md)
+- [Codex plugin lifecycle smoke](../benchmarks/plugin-lifecycle-results.json)
 - [v0.1.0 release notes](releases/v0.1.0.md)
 - [Agent skill contract](../plugins/mdflow/skills/mdflow/SKILL.md)
 
