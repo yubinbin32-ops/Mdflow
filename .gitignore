@@ -6,3 +6,5 @@ dist/
 *.sqlite-shm
 *.sqlite-wal
 !.mdflow/mdflow.sqlite
+!benchmarks/open-source/express/.mdflow/
+!benchmarks/open-source/express/.mdflow/mdflow.sqlite

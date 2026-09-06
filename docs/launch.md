@@ -84,7 +84,7 @@ The current local candidate is measured and its limits are visible:
 
 | Surface | Evidence | State |
 | --- | --- | --- |
-| MCP | 41/41 tests | passed |
+| MCP | 42/42 tests | passed |
 | macOS app | 30/30 Swift tests | passed |
 | Large graph | 300 Blocks · 599 Links · 6 Chains | passed |
 | Context parity | 13/13 facts · 0 errors · 29.4188% fewer tokens (2,344 vs 3,321) | passed baseline |
@@ -93,6 +93,21 @@ The current local candidate is measured and its limits are visible:
 | Package audit | valid manifest · unsigned executable payload hash · private-data audit · checksums | local ad-hoc candidate |
 
 The clean replay is deliberately not presented as an LLM study. A real external LLM/code-edit/recovery experiment remains an open Plan gate.
+
+## A real-project comparison
+
+The release benchmark uses a fixed [Express 5.2.1 snapshot](https://github.com/expressjs/express) and the same three tasks on both paths. mdflow reads the task-scoped graph and expands only the needed Blocks; the Markdown control rereads a complete handoff on every task.
+
+| Metric | mdflow-first | Markdown-first | Result |
+| --- | ---: | ---: | --- |
+| Context tokens | 7,788 | 10,029 | **22.35% fewer** |
+| Characters | 21,283 | 43,899 | **51.52% fewer** |
+| Fact recall | 12 / 12 | 12 / 12 | equal |
+| Local context assembly | 64.43 ms | 11.09 ms | graph query overhead is visible |
+
+This is a deterministic context baseline (`llmClaim=false`), not a model-latency claim. The full method and raw result live in [the Express benchmark](../benchmarks/open-source/express/results.md), together with the public `.mdflow` sample that can be copied for exploration.
+
+![mdflow overview to release Plan](../benchmarks/open-source/express/mdflow-release-walkthrough.gif)
 
 ## Install — choose one path
 
@@ -140,6 +155,7 @@ Use the repository checkout when you are changing mdflow itself. Do not combine 
 
 ## Read next
 
+- [Public README](../README.md)
 - [Feedback-loop adapter contract](feedback-loop-adapter.md)
 - [Codex plugin lifecycle smoke](../benchmarks/plugin-lifecycle-results.json)
 - [v0.1.0 release notes](releases/v0.1.0.md)

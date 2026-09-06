@@ -10,6 +10,7 @@
     "mcp": "node packages/mcp/src/server.mjs",
     "test": "npm run plugin:build && node --test packages/mcp/test/*.test.mjs",
     "benchmark:todo": "node scripts/context-parity.mjs --write-report=benchmarks/todo-context-parity.json",
+    "benchmark:express": "node scripts/github-project-benchmark.mjs --write-report=benchmarks/open-source/express/results.json",
     "benchmark:todo:target": "node --test benchmarks/todo-target/test/*.test.mjs && node scripts/run-todo-target.mjs --write-report=benchmarks/todo-target-results.json",
     "benchmark:feedback-loop": "node --test benchmarks/feedback-loop.test.mjs benchmarks/feedback-loop-adapter.test.mjs && node scripts/feedback-loop-benchmark.mjs --write-report=benchmarks/todo-feedback-loop-results.json",
     "benchmark:feedback-loop:external": "node scripts/feedback-loop-llm.mjs --adapter-command=\"$MDFLOW_LLM_ADAPTER\" --model=\"$MDFLOW_LLM_MODEL\" --claim-llm --write-report=benchmarks/todo-feedback-loop-external.json",
