@@ -11,6 +11,11 @@ function argument(name, fallback) {
 
 const projectRoot = path.resolve(argument("project-root", process.cwd()));
 const outputPath = argument("out", null);
+// The MCP Plan projection stays budgeted at 24k for normal AI reads. This
+// checked-in snapshot is an explicit offline/review artifact, so keep enough
+// room for the complete Plan instead of persisting a misleading mid-sentence
+// truncation when the graph grows.
+const snapshotPlanMaxChars = 60000;
 const service = createService({ projectRoot });
 try {
   const snapshot = service.snapshot();
@@ -26,7 +31,7 @@ try {
     map.markdown,
   ];
   for (const plan of snapshot.plans.filter((item) => !item.archived).sort((left, right) => left.planOrder - right.planOrder)) {
-    const context = service.planContext({ id: plan.id, locale: "en", maxChars: 24000 });
+    const context = service.planContext({ id: plan.id, locale: "en", maxChars: snapshotPlanMaxChars });
     lines.push("", "---", "", context.markdown);
   }
   const validation = service.validate();

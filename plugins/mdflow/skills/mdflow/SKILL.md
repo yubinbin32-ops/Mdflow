@@ -7,6 +7,8 @@ description: Use a verified local mdflow project graph to retrieve task-scoped d
 
 Use mdflow as the canonical development-context system after its graph has passed validation. Public/release documentation may remain Markdown; ordinary development architecture, planning, progress, evidence, and implementation locations belong in mdflow.
 
+AI-facing development context is returned as deterministic Markdown projections, not as a second free-form Markdown source. Do not create an orphan design, decision, runbook, or status `.md` file merely because the handoff is naturally readable as Markdown. Map that intent to the existing mdflow record below, then let MCP render the Markdown view.
+
 ## Trust gate
 
 - Resolve the absolute repository root and pass it as `projectRoot` to every tool call. Never reuse entity IDs across project roots.
@@ -35,6 +37,43 @@ Read-tool response budget:
 - Keep the Markdown `maxChars` budget modest. Do not copy full entity bodies into Plans, Chain paths, or History; use `entity_open` with an exact ref when more detail is needed.
 
 The context must cover the facts needed for the task: positive requirements, prohibitions, state transitions, architecture, interfaces/contracts, current progress, decisions, risks, code locations, ordered steps, checkpoint gates, and relevant history. If a required fact is missing, record the gap, investigate narrowly, and repair it before relying on mdflow later.
+
+## AI-facing development record contract
+
+Treat a Markdown-shaped need as a semantic record, not as permission to add another prose source:
+
+| Need | Canonical mdflow record | Write when | Read with |
+| --- | --- | --- | --- |
+| Architecture or component | Block, Link, Chain, source ref | When a responsibility or relationship is discovered or changed | `context_for_task`, `project_map`, `entity_open` |
+| Requirement or risk | Block with the appropriate kind and contract | When the requirement is accepted, narrowed, or invalidated | `context_for_task`, `entity_open` |
+| Scoped project rule | Background rule with explicit project/lens/chain/repo scope | Before work that depends on the rule, and when the rule changes | Context rule index first; expand only on demand |
+| Implementation order | Plan, PlanChange, Plan step, ChainScope | Before coding a new responsibility or changing intended scope | `plan_context`, `entity_open` |
+| Design rationale or durable architecture decision | PlanChange rationale; use a `decision` Block only when the choice affects future architecture or multiple Plans | At the moment the choice is made, including alternatives and consequences | `entity_open` for the exact decision or PlanChange |
+| Verification | Atomic Checkpoint, evidence, dependency DAG | Immediately after the check or when its criteria changes | `checkpoint_list`, `entity_open`, `changes_since` |
+| Timeline or implementation handoff | History plus Plan step status | Automatically through every MCP mutation; reconcile before handoff | `changes_since`, `entity_open`, `plan_context` |
+| Reusable operational procedure | A Plan (or a dedicated Block only when it is a durable capability) | When the procedure will be reused across tasks | `plan_context` |
+| README, release note, store copy, landing page | Public/release Markdown outside the graph | During release preparation | Open the explicit public file; never treat it as current architecture |
+
+History is the automatic audit ledger, not a long-form decision document. Do not write a separate runbook or decision note for every mutation. A decision record is justified only when a future agent needs the alternatives, chosen trade-off, or long-lived consequence; ordinary before/after fields, changed fields, source refs, Plan ownership, and evidence stay in History and Checkpoints.
+
+Rules are constraints, not design essays. Keep the rule's scope and enforceable statement in the scoped rule system. Put explanatory architecture rationale in the affected Block/PlanChange or an explicitly linked decision record. Rules never become Canvas nodes and their full bodies are not appended to every context pack.
+
+If no existing record can express a fact, stop and repair the graph model or add the smallest semantic Block/Link/Plan/Checkpoint needed. Do not bypass the gap by writing an untracked development Markdown file.
+
+## Timely write protocol
+
+Write the canonical record at the same boundary where the fact becomes true:
+
+1. After discovering or reconciling architecture, write Blocks, Links, source refs, and scope before editing implementation files.
+2. Before coding a planned responsibility, write or update the Direct PlanChange, current behavior, proposed behavior, prohibitions, and expected effects.
+3. After a meaningful code/config/schema change, update the affected source refs and Plan/step state in the same task turn; do not defer all graph writes to the end of a long task.
+4. Immediately after a test, manual review, or real-target run, record the Checkpoint status, evidence level, command, result, and limitations. Never mark a test as passed only in prose.
+5. When a requirement, scope, design choice, or blocker changes, update the owning record before proceeding on the new assumption. Use a `decision` Block only for a durable cross-entity choice; otherwise keep the rationale in the PlanChange and let History capture the mutation.
+6. Before handing work to another AI or ending a task, read back the changed entities, call `changes_since` from the last known sequence, run `graph_validate` for structural/completion changes, and sync the Git head where relevant.
+
+Use `graph_patch` with a current `base` for small AI-authored updates. Every write must preserve omitted fields, advance one revision, and produce a compact Markdown receipt. The next read must use the returned refs/revision; do not continue from an unverified assumption.
+
+For normal AI reads, request the Markdown projection (`context_for_task` → `plan_context` → exact `entity_open` → `changes_since`). Request `includeStructured=true` only when code needs exact IDs, evidence arrays, before/after values, or a machine-readable receipt. Public Markdown is readable by people, but it is never a substitute for the current mdflow context during development.
 
 ## Build and maintain the graph in semantic order
 
