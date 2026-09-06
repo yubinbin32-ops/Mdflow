@@ -23443,6 +23443,32 @@ CREATE TABLE IF NOT EXISTS background_scopes (
   PRIMARY KEY(block_id, scope_type, scope_value)
 );
 
+-- Decisions are durable architecture memory, not Canvas nodes.  Their scope
+-- index mirrors Background rules so normal context reads can return only the
+-- applicable title/status while entity_open/decision_open expands the body.
+CREATE TABLE IF NOT EXISTS decisions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  rationale TEXT NOT NULL DEFAULT '',
+  alternatives_json TEXT NOT NULL DEFAULT '[]',
+  consequences_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('proposed', 'active', 'superseded', 'reconsidered')),
+  supersedes_decision_id TEXT REFERENCES decisions(id) ON DELETE SET NULL,
+  current_revision INTEGER NOT NULL DEFAULT 1,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decision_scopes (
+  decision_id TEXT NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
+  scope_type TEXT NOT NULL CHECK(scope_type IN ('project', 'lens', 'chain', 'repo')),
+  scope_value TEXT NOT NULL DEFAULT '*',
+  PRIMARY KEY(decision_id, scope_type, scope_value)
+);
+
 CREATE TABLE IF NOT EXISTS checkpoints (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -23535,6 +23561,8 @@ CREATE INDEX IF NOT EXISTS idx_plan_chain_change_refs_scope ON plan_chain_change
 CREATE INDEX IF NOT EXISTS idx_chain_nodes_chain ON chain_nodes(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_chain_edges_chain ON chain_edges(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_background_scopes_block ON background_scopes(block_id);
+CREATE INDEX IF NOT EXISTS idx_decisions_project ON decisions(project_id, archived, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_decision_scopes_decision ON decision_scopes(decision_id, scope_type, scope_value);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_target ON checkpoints(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_checkpoint_bindings_subject ON checkpoint_bindings(subject_type, subject_id, position);
 CREATE INDEX IF NOT EXISTS idx_checkpoint_dependencies_parent ON checkpoint_dependencies(parent_checkpoint_id, position);
@@ -23889,7 +23917,7 @@ function resolveProjectPaths(options = {}) {
 
 // packages/mcp/src/patch.mjs
 var HEADER_PATTERN = /^mdflow\/(\d+)(?:\s+(.*))?$/;
-var TARGET_PATTERN = /^(block|chain|link|plan|checkpoint|plan_change|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
+var TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
 function tokenize(input, lineNumber) {
   const tokens = [];
   let token = "";
@@ -24068,7 +24096,6 @@ var BLOCK_KINDS = /* @__PURE__ */ new Set([
   "principle",
   "product",
   "requirement",
-  "decision",
   "flow",
   "ui",
   "service",
@@ -24080,6 +24107,7 @@ var BLOCK_KINDS = /* @__PURE__ */ new Set([
   "test",
   "checkpoint"
 ]);
+var LEGACY_BLOCK_KINDS = /* @__PURE__ */ new Set([...BLOCK_KINDS, "decision"]);
 var DELIVERY_STATES = /* @__PURE__ */ new Set([
   "proposed",
   "planned",
@@ -24098,6 +24126,7 @@ var HEALTH_STATES = /* @__PURE__ */ new Set([
 ]);
 var PLAN_STATUSES = /* @__PURE__ */ new Set(["draft", "ready", "active", "verifying", "complete", "blocked", "failed", "retest_required", "cancelled"]);
 var PLAN_STEP_STATUSES = /* @__PURE__ */ new Set(["pending", "active", "complete", "blocked", "failed", "skipped"]);
+var DECISION_STATUSES = /* @__PURE__ */ new Set(["proposed", "active", "superseded", "reconsidered"]);
 var CHECKPOINT_STATUSES = /* @__PURE__ */ new Set([
   "pending",
   "running",
@@ -24196,6 +24225,16 @@ var EDITABLE_PLAN_FIELDS = /* @__PURE__ */ new Set([
   "invalidatedAt",
   "archived"
 ]);
+var EDITABLE_DECISION_FIELDS = /* @__PURE__ */ new Set([
+  "title",
+  "summary",
+  "rationale",
+  "alternatives",
+  "consequences",
+  "status",
+  "supersedesDecisionId",
+  "archived"
+]);
 var EDITABLE_PLAN_CHAIN_SCOPE_FIELDS = /* @__PURE__ */ new Set([
   "chainId",
   "position",
@@ -24260,7 +24299,7 @@ function assertAllowed(value, allowed, label) {
   if (!allowed.has(value)) throw new Error(`Invalid ${label}: ${value}`);
 }
 function entityExists(database, projectId, type, id) {
-  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "link" ? "links" : type === "plan" ? "plans" : type === "plan_change" ? "plan_changes" : type === "plan_chain_scope" ? "plan_chain_scopes" : null;
+  const table = type === "block" ? "blocks" : type === "chain" ? "chains" : type === "link" ? "links" : type === "plan" ? "plans" : type === "decision" ? "decisions" : type === "plan_change" ? "plan_changes" : type === "plan_chain_scope" ? "plan_chain_scopes" : null;
   if (!table) return false;
   if (["plan_changes", "plan_chain_scopes"].includes(table)) {
     return Boolean(database.prepare(
@@ -24287,6 +24326,22 @@ function normalizeBlock(row) {
     tags: parseJson(row.tags_json, []),
     currentRevision: row.current_revision,
     archived: Boolean(row.archived),
+    updatedAt: row.updated_at
+  };
+}
+function normalizeDecision(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    summary: row.summary,
+    rationale: row.rationale,
+    alternatives: parseJson(row.alternatives_json, []),
+    consequences: parseJson(row.consequences_json, []),
+    status: row.status,
+    supersedesDecisionId: row.supersedes_decision_id,
+    currentRevision: row.current_revision,
+    archived: Boolean(row.archived),
+    createdAt: row.created_at,
     updatedAt: row.updated_at
   };
 }
@@ -24443,7 +24498,7 @@ function checkpointSatisfiesGate(checkpoint) {
   return checkpoint?.status === "passed" && checkpoint.coverage === "complete" && (EVIDENCE_LEVEL_RANK.get(checkpoint.evidenceLevel) ?? 0) >= (EVIDENCE_LEVEL_RANK.get(checkpoint.requiredEvidenceLevel) ?? 0) && !checkpoint.invalidatedAt;
 }
 function architectureCoverage(snapshot, planId = null) {
-  const blocks = snapshot.blocks.filter((block) => block.deliveryState !== "deprecated");
+  const blocks = snapshot.blocks.filter((block) => block.deliveryState !== "deprecated" && block.kind !== "decision");
   const blockIds = new Set(blocks.map((block) => block.id));
   const chainBlockIds = new Set(snapshot.chainNodes.filter((node2) => blockIds.has(node2.blockId)).map((node2) => node2.blockId));
   const checkpointsByBlock = new Map(blocks.map((block) => [block.id, []]));
@@ -24663,6 +24718,7 @@ function localizedSearchText(_snapshot, _type, _id) {
   return "";
 }
 function operationEntityType(action) {
+  if (action.includes("decision")) return "decision";
   if (action.includes("block") || ["add_source_ref", "remove_source_ref", "set_background_scopes"].includes(action)) return "block";
   if (action.includes("chain") && !action.startsWith("set_plan_")) return "chain";
   if (action.includes("link")) return "link";
@@ -24680,6 +24736,8 @@ function affectedRefsForOperation(operation) {
   for (const id of fields.linkIds ?? []) add("link", id);
   for (const id of fields.chainIds ?? []) add("chain", id);
   for (const id of fields.planIds ?? []) add("plan", id);
+  for (const id of fields.decisionIds ?? []) add("decision", id);
+  if (fields.supersedesDecisionId) add("decision", fields.supersedesDecisionId);
   for (const scope of fields.scopes ?? []) {
     add("chain", scope.chainId);
     for (const id of scope.nodeIds ?? []) add("block", id);
@@ -24870,6 +24928,11 @@ var MdflowService = class {
       `SELECT bs.* FROM background_scopes bs JOIN blocks b ON b.id = bs.block_id
          WHERE b.project_id = ? ORDER BY bs.block_id, bs.scope_type, bs.scope_value`
     ).all(projectId).map((row) => ({ blockId: row.block_id, scopeType: row.scope_type, scopeValue: row.scope_value }));
+    const decisions = this.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC, id").all(projectId).map(normalizeDecision);
+    const decisionScopes = this.database.prepare(
+      `SELECT ds.* FROM decision_scopes ds JOIN decisions d ON d.id = ds.decision_id
+         WHERE d.project_id = ? AND d.archived = 0 ORDER BY ds.decision_id, ds.scope_type, ds.scope_value`
+    ).all(projectId).map((row) => ({ decisionId: row.decision_id, scopeType: row.scope_type, scopeValue: row.scope_value }));
     const sourceRefs = this.database.prepare(
       `SELECT sr.* FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
          WHERE b.project_id = ? ORDER BY sr.path, sr.start_line`
@@ -24970,6 +25033,8 @@ var MdflowService = class {
       planChanges,
       planChainChangeRefs,
       backgroundScopes,
+      decisions,
+      decisionScopes,
       sourceRefs,
       checkpoints,
       checkpointBindings,
@@ -24980,17 +25045,18 @@ var MdflowService = class {
   projectMap({ locale = "en" } = {}) {
     const snapshot = this.snapshot();
     const coverage = architectureCoverage(snapshot);
+    const graphBlocks = snapshot.blocks.filter((block) => block.kind !== "decision");
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const layerCounts = Object.fromEntries(
-      [...ARCHITECTURE_LAYERS].map((layer) => [layer, snapshot.blocks.filter((block) => block.architectureLayer === layer).length]).filter(([, count]) => count > 0)
+      [...ARCHITECTURE_LAYERS].map((layer) => [layer, graphBlocks.filter((block) => block.architectureLayer === layer).length]).filter(([, count]) => count > 0)
     );
     const scopeCounts = Object.fromEntries(
-      [...new Set(snapshot.blocks.map((block) => block.scope))].sort().map((scope) => [scope, snapshot.blocks.filter((block) => block.scope === scope).length])
+      [...new Set(graphBlocks.map((block) => block.scope))].sort().map((scope) => [scope, graphBlocks.filter((block) => block.scope === scope).length])
     );
-    const architectureGroups = [...new Set(snapshot.blocks.map((block) => `${block.architectureLayer}\0${block.scope}`))].sort().map((key) => {
+    const architectureGroups = [...new Set(graphBlocks.map((block) => `${block.architectureLayer}\0${block.scope}`))].sort().map((key) => {
       const [layer, scope] = key.split("\0");
-      const members2 = snapshot.blocks.filter((block) => block.architectureLayer === layer && block.scope === scope).sort((left, right) => left.localOrder - right.localOrder || left.id.localeCompare(right.id));
+      const members2 = graphBlocks.filter((block) => block.architectureLayer === layer && block.scope === scope).sort((left, right) => left.localOrder - right.localOrder || left.id.localeCompare(right.id));
       return {
         layer,
         scope,
@@ -25017,7 +25083,8 @@ var MdflowService = class {
       if (plan.derivedReason) lines.push(`  ${plan.derivedReason}`);
     }
     lines.push("", "## Project network");
-    lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
+    lines.push(`- ${graphBlocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
+    lines.push(`- ${snapshot.decisions.length} Decisions (scoped index; expand a record on demand)`);
     lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
     lines.push(`- Verification coverage: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed \xB7 ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone`);
     lines.push(`- Architecture coverage: ${coverage.directPlanBlocks} direct Plan Blocks \xB7 ${coverage.chainPlanBlocks} through Chains \xB7 ${coverage.unverifiedIds.length} unverified \xB7 ${coverage.failingIds.length} failing`);
@@ -25031,19 +25098,28 @@ var MdflowService = class {
     if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " \u2026" : ""}`);
     lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" \xB7 ") || "None"}`);
     lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" \xB7 ") || "None"}`);
-    for (const block of snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8)) {
+    for (const block of graphBlocks.filter((item) => item.priority === "critical").slice(0, 8)) {
       const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
       lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
+    }
+    if (snapshot.decisions.length) {
+      lines.push("", "## Decision index");
+      for (const decision of snapshot.decisions.slice(0, 12)) {
+        const scopes = snapshot.decisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+        lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status}${scopes.length ? ` \xB7 scopes ${scopes.join(", ")}` : ""} \xB7 use decision_open for rationale`);
+      }
+      if (snapshot.decisions.length > 12) lines.push(`- \u2026 ${snapshot.decisions.length - 12} more; use decision_list for the complete index.`);
     }
     return {
       map: {
         project: snapshot.project,
         changeSequence: snapshot.changeSequence,
         counts: {
-          blocks: snapshot.blocks.length,
+          blocks: graphBlocks.length,
           links: snapshot.links.length,
           chains: snapshot.chains.length,
-          plans: snapshot.plans.length
+          plans: snapshot.plans.length,
+          decisions: snapshot.decisions.length
         },
         architecture: {
           layerCounts,
@@ -25065,15 +25141,40 @@ var MdflowService = class {
           dependencyPlanIds: snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.dependsOnPlanId),
           targetChainIds: snapshot.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId)
         })),
-        criticalBlocks: snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
+        criticalBlocks: graphBlocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
           id: block.id,
           title: localizedValue(translations, "block", block.id, locale, "title", block.title),
           deliveryState: block.deliveryState,
           healthState: block.healthState
+        })),
+        decisions: snapshot.decisions.map((decision) => ({
+          id: decision.id,
+          title: decision.title,
+          status: decision.status,
+          scopes: snapshot.decisionScopes.filter((scope) => scope.decisionId === decision.id)
         }))
       },
       markdown: lines.join("\n")
     };
+  }
+  decisionList({ locale = "en" } = {}) {
+    const snapshot = this.snapshot();
+    assertAllowed(locale, LOCALES, "locale");
+    const decisions = snapshot.decisions.map((decision) => ({
+      id: decision.id,
+      title: decision.title,
+      summary: decision.summary,
+      status: decision.status,
+      currentRevision: decision.currentRevision,
+      supersedesDecisionId: decision.supersedesDecisionId,
+      scopes: snapshot.decisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
+    }));
+    const lines = ["# Decision index", `- Graph revision: ${snapshot.project.graphRevision}`, `- Count: ${decisions.length}`, ""];
+    for (const decision of decisions) {
+      const scopes = decision.scopes.map((scope) => `${scope.type}:${scope.value}`).join(", ");
+      lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status}${scopes ? ` \xB7 scopes ${scopes}` : ""} \xB7 use decision_open for rationale`);
+    }
+    return { decisions, markdown: lines.join("\n") };
   }
   search({ query, kinds = [], states = [], limit = 20, locale = "en" }) {
     const term = `%${query.trim()}%`;
@@ -25084,7 +25185,7 @@ var MdflowService = class {
     const kindSet = new Set(kinds);
     const stateSet = new Set(states);
     const score = (text) => terms.reduce((total, item) => total + (text.toLowerCase().includes(item) ? 1 : 0), 0);
-    const blocks = snapshot.blocks.map((block) => {
+    const blocks = snapshot.blocks.filter((block) => block.kind !== "decision").map((block) => {
       const text = `${block.title}
 ${block.summary}
 ${block.body}
@@ -25117,6 +25218,15 @@ ${JSON.stringify(plan.blockers)}
 ${localizedSearchText(snapshot, "plan", plan.id)}`;
       return { item: plan, score: score(text) };
     }).filter(({ item: plan, score: score2 }) => score2 > 0 && (kindSet.size === 0 || kindSet.has("plan")) && (stateSet.size === 0 || stateSet.has(plan.status))).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+    const decisions = snapshot.decisions.map((decision) => {
+      const text = `${decision.title}
+${decision.summary}
+${decision.rationale}
+${decision.status}
+${JSON.stringify(decision.alternatives)}
+${JSON.stringify(decision.consequences)}`;
+      return { item: decision, score: score(text) };
+    }).filter(({ item: decision, score: score2 }) => score2 > 0 && (kindSet.size === 0 || kindSet.has("decision")) && (stateSet.size === 0 || stateSet.has(decision.status))).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
     const sourceRows = this.database.prepare(
       `SELECT sr.*, b.title FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
          WHERE b.project_id = ? AND (sr.path LIKE ? OR COALESCE(sr.symbol, '') LIKE ?) LIMIT ?`
@@ -25125,6 +25235,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       ...blocks.map((block) => `- [block:${block.id}] ${localizedValue(translations, "block", block.id, locale, "title", block.title)} \xB7 ${block.deliveryState}`),
       ...chains.map((chain) => `- [chain:${chain.id}] ${localizedValue(translations, "chain", chain.id, locale, "title", chain.title)} \xB7 ${chain.deliveryState}`),
       ...plans.map((plan) => `- [plan:${plan.id}] ${localizedValue(translations, "plan", plan.id, locale, "title", plan.title)} \xB7 ${plan.status}`),
+      ...decisions.map((decision) => `- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status} \xB7 use decision_open for rationale`),
       ...sourceRows.map((row) => `- [source:${row.id}] ${localizedValue(translations, "block", row.block_id, locale, "title", row.title)} \xB7 ${row.path}${row.start_line ? `:${row.start_line}` : ""}`)
     ].slice(0, limit);
     return {
@@ -25133,6 +25244,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         ...blocks.map((block) => ({ type: "block", id: block.id, title: localizedValue(translations, "block", block.id, locale, "title", block.title), state: block.deliveryState })),
         ...chains.map((chain) => ({ type: "chain", id: chain.id, title: localizedValue(translations, "chain", chain.id, locale, "title", chain.title), state: chain.deliveryState })),
         ...plans.map((plan) => ({ type: "plan", id: plan.id, title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title), state: plan.status })),
+        ...decisions.map((decision) => ({ type: "decision", id: decision.id, title: decision.title, state: decision.status })),
         ...sourceRows.map((row) => ({
           type: "source",
           id: row.id,
@@ -25163,6 +25275,9 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     } else if (type === "plan") {
       const row = this.database.prepare("SELECT * FROM plans WHERE project_id = ? AND id = ?").get(projectId, id);
       if (row) entity = normalizePlan(row);
+    } else if (type === "decision") {
+      const row = this.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?").get(projectId, id);
+      if (row) entity = normalizeDecision(row);
     }
     if (!entity) throw new Error(`${type}:${id} not found`);
     const checkpoints = this.database.prepare(
@@ -25203,6 +25318,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       role: row.role,
       gitCommit: row.git_commit
     })) : [];
+    const decisionScopes = type === "decision" ? this.database.prepare("SELECT scope_type, scope_value FROM decision_scopes WHERE decision_id = ? ORDER BY scope_type, scope_value").all(id).map((row) => ({ scopeType: row.scope_type, scopeValue: row.scope_value })) : [];
     const pathNodes = type === "chain" ? this.database.prepare("SELECT chain_id, 'block' AS member_type, block_id AS member_id, position FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({
       memberType: row.member_type,
       memberId: row.member_id,
@@ -25246,6 +25362,9 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         lines.push(`- Coverage: checkpoint=${coverage.hasCheckpoint ? "yes" : "no"} \xB7 required=${coverage.checkpointRequired ? "yes" : "no"} \xB7 requiredMissing=${coverage.missingRequiredCheckpoint ? "yes" : "no"} \xB7 plan=${coverage.isCoveredByPlan ? "yes" : "no"} \xB7 chain=${coverage.isCoveredByChain ? "yes" : "no"} \xB7 verification=${coverage.isCoveredByAnyVerification ? "yes" : "no"}`);
       }
     }
+    if (type === "decision" && decisionScopes.length) {
+      lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")} (background; not a Canvas entity)`);
+    }
     if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
     if (entity.status) lines.push(`- Status: ${entity.status}`);
     if (type === "plan") {
@@ -25258,6 +25377,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     if (type === "block") {
       const displayBody = localizedValue(translations, type, id, locale, "body", entity.body ?? "");
       if (displayBody) lines.push("", "## Details", displayBody);
+    }
+    if (type === "decision") {
+      if (entity.rationale) lines.push("", "## Rationale", entity.rationale);
+      if (entity.alternatives.length) lines.push("", "## Alternatives", ...entity.alternatives.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+      if (entity.consequences.length) lines.push("", "## Consequences", ...entity.consequences.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+      if (entity.supersedesDecisionId) lines.push("", "## Supersedes", `[decision:${entity.supersedesDecisionId}]`);
     }
     if (displayContract) lines.push("", "## Contract", displayContract);
     if (entity.inputContract || entity.outputContract) {
@@ -25320,7 +25445,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         markdown: detailed.markdown
       };
     }
-    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, markdown: lines.join("\n") };
+    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, decisionScopes, markdown: lines.join("\n") };
   }
   checkpointList({ status, targetType, targetId, planId, chainScopeId, unassignedOnly = false, limit = 100, locale = "en" } = {}) {
     const snapshot = this.snapshot();
@@ -25776,7 +25901,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const planSignals = /* @__PURE__ */ new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "\u8BA1\u5212", "\u8FDB\u5EA6", "\u963B\u585E", "\u53D1\u5E03"]);
     const taskMentionsPlan = terms.some((term) => planSignals.has(term));
     const scoreText = (text) => terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
-    const scoredBlocks = snapshot.blocks.filter((block) => !backgroundRuleIds.has(block.id)).map((block) => {
+    const scoredBlocks = snapshot.blocks.filter((block) => !backgroundRuleIds.has(block.id) && block.kind !== "decision").map((block) => {
       const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.scope} ${block.architectureLayer} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
       return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
     }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
@@ -25849,7 +25974,12 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       (scope) => scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue) || scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue)))
     );
     const applicableRuleIds = [...new Set(applicableRuleScopes.map((scope) => scope.blockId))];
-    const relevantBlocks = snapshot.blocks.filter((block) => selectedBlockIds.has(block.id));
+    const applicableDecisionScopes = snapshot.decisionScopes.filter(
+      (scope) => scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue) || scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue)))
+    );
+    const applicableDecisionIds = [...new Set(applicableDecisionScopes.map((scope) => scope.decisionId))];
+    const applicableDecisions = snapshot.decisions.filter((decision) => applicableDecisionIds.includes(decision.id)).sort((left, right) => left.title.localeCompare(right.title) || left.id.localeCompare(right.id));
+    const relevantBlocks = snapshot.blocks.filter((block) => selectedBlockIds.has(block.id) && block.kind !== "decision");
     const relevantChains = snapshot.chains.filter((chain) => selectedChainIds.has(chain.id));
     const relevantPlans = snapshot.plans.filter((plan) => selectedPlanIds.has(plan.id));
     const planCoverage = new Map(relevantPlans.map((plan) => [plan.id, architectureCoverage(snapshot, plan.id)]));
@@ -25888,6 +26018,15 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         const scopes = applicableRuleScopes.filter((scope) => scope.blockId === block.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
         lines.push(`- [block:${block.id}] ${title} \xB7 scopes ${scopes.join(", ")} \xB7 use entity_open only if the rule is needed`);
       }
+      lines.push("");
+    }
+    if (applicableDecisions.length) {
+      lines.push("## Applicable decision index");
+      for (const decision of applicableDecisions.slice(0, 12)) {
+        const scopes = applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+        lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status} \xB7 scopes ${scopes.join(", ")} \xB7 use decision_open/entity_open only if rationale is needed`);
+      }
+      if (applicableDecisions.length > 12) lines.push(`- \u2026 ${applicableDecisions.length - 12} more; use decision_list for the complete index.`);
       lines.push("");
     }
     if (relevantPlans.length) {
@@ -26020,7 +26159,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       }
       lines.push("");
     }
-    lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, or Link when more detail is needed.");
+    lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, Link, or Decision when more detail is needed.");
     const fullMarkdown = lines.join("\n");
     const markdown = fullMarkdown.length <= maxChars ? fullMarkdown : `${fullMarkdown.slice(0, Math.max(0, maxChars - 112))}
 
@@ -26031,11 +26170,18 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         ...relevantPlans.map((plan) => `plan:${plan.id}`),
         ...relevantChains.map((chain) => `chain:${chain.id}`),
         ...relevantBlocks.map((block) => `block:${block.id}`),
-        ...applicableRuleIds.map((blockId) => `block:${blockId}`)
+        ...applicableRuleIds.map((blockId) => `block:${blockId}`),
+        ...applicableDecisions.map((decision) => `decision:${decision.id}`)
       ],
       applicableRules: applicableRuleIds.map((blockId) => ({
         ref: `block:${blockId}`,
         scopes: applicableRuleScopes.filter((scope) => scope.blockId === blockId).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
+      })),
+      applicableDecisions: applicableDecisions.map((decision) => ({
+        ref: `decision:${decision.id}`,
+        title: decision.title,
+        status: decision.status,
+        scopes: applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
       })),
       markdown
     };
@@ -26072,7 +26218,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const snapshot = this.snapshot();
     if (snapshot.plans.some((plan) => plan.id === id)) throw new Error(`plan:${id} already exists`);
     const blocks = snapshot.blocks.filter(
-      (block) => !block.archived && !["complete", "deprecated"].includes(block.deliveryState)
+      (block) => !block.archived && block.kind !== "decision" && !["complete", "deprecated"].includes(block.deliveryState)
     );
     if (blocks.length === 0) throw new Error("No unimplemented Blocks are available for a Foundation Plan");
     const groups = foundationBlockGroups(snapshot, blocks);
@@ -26335,6 +26481,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       chain: before.chains,
       link: before.links,
       plan: before.plans,
+      decision: before.decisions,
       checkpoint: before.checkpoints,
       plan_change: before.planChanges,
       plan_scope: before.planChainScopes
@@ -26433,7 +26580,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         });
         continue;
       }
-      if (!["block", "chain", "link", "plan"].includes(targetType)) {
+      if (!["block", "chain", "link", "plan", "decision"].includes(targetType)) {
         throw new Error(`Unsupported compact patch target ${targetType}:${targetId}`);
       }
       if (item.action === "create") {
@@ -26678,6 +26825,13 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         changeIds: this.database.prepare("SELECT id FROM plan_changes WHERE plan_id = ? ORDER BY position").all(id).map((item) => item.id)
       } : {};
     }
+    if (entityType === "decision") {
+      const row = this.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+      return row ? {
+        ...normalizeDecision(row),
+        scopes: this.database.prepare("SELECT scope_type, scope_value FROM decision_scopes WHERE decision_id = ? ORDER BY scope_type, scope_value").all(id).map((item) => ({ type: item.scope_type, value: item.scope_value }))
+      } : {};
+    }
     if (entityType === "checkpoint") {
       const row = this.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
       return row ? {
@@ -26704,6 +26858,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
   }
   uiLocationFor(entityType, id) {
     if (entityType === "plan") return `Project > Plans > plan:${id}`;
+    if (entityType === "decision") return `Project > Decisions > decision:${id}`;
     if (entityType === "chain") return `Project > Chains > chain:${id}`;
     if (entityType === "block") return `Canvas > block:${id}`;
     if (entityType === "link") return `Canvas > link:${id}`;
@@ -26762,12 +26917,21 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
         return this.setChainPath(operation, context);
       case "set_background_scopes":
         return this.setBackgroundScopes(operation, context);
+      case "create_decision":
+        return this.createDecision(operation, context);
+      case "update_decision":
+        return this.updateEntity("decision", operation, context);
+      case "set_decision_scopes":
+        return this.setDecisionScopes(operation, context);
       default:
         throw new Error(`Unsupported action: ${operation.action}`);
     }
   }
   applyLocalizations(entityType, entityId, localizations, timestamp) {
     if (localizations == null) return;
+    if (entityType === "decision") {
+      throw new Error("Decision records keep one canonical project-language body; use summary/rationale instead of localizations");
+    }
     if (typeof localizations !== "object" || Array.isArray(localizations)) {
       throw new Error("fields.localizations must be an object keyed by locale");
     }
@@ -26792,6 +26956,7 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
   }
   removeStaleLocalizations(entityType, entityId, changedFields, localizations) {
     const localizedFields = LOCALIZED_FIELDS[entityType];
+    if (!localizedFields) return;
     const explicitlyUpdated = new Set(
       Object.values(localizations ?? {}).flatMap((values) => Object.keys(values ?? {}))
     );
@@ -27362,8 +27527,87 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     this.database.prepare("UPDATE blocks SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
     return { entityType: "block", id: operation.id, action: "scopes-set", revision, summary: `${scopes.length} scope(s)` };
   }
+  setDecisionScopes(operation) {
+    if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
+      throw new Error("set_decision_scopes requires decision id and expectedRevision");
+    }
+    const decision = this.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, operation.id);
+    if (!decision) throw new Error(`decision:${operation.id} not found`);
+    if (decision.current_revision !== operation.expectedRevision) {
+      throw new Error(`Revision conflict for decision:${operation.id}; expected ${operation.expectedRevision}, current ${decision.current_revision}`);
+    }
+    const scopes = operation.fields?.scopes ?? [];
+    if (!Array.isArray(scopes)) throw new Error("decision scopes must be an array");
+    const allowed = /* @__PURE__ */ new Set(["project", "lens", "chain", "repo"]);
+    this.database.prepare("DELETE FROM decision_scopes WHERE decision_id = ?").run(operation.id);
+    const insert = this.database.prepare("INSERT INTO decision_scopes(decision_id, scope_type, scope_value) VALUES (?, ?, ?)");
+    for (const scope of scopes) {
+      assertAllowed(scope.type, allowed, "decision scope type");
+      if (scope.value != null && (typeof scope.value !== "string" || !scope.value.trim())) {
+        throw new Error("decision scope value must be a non-empty string");
+      }
+      if (scope.type === "chain" && scope.value !== "*" && !entityExists(this.database, this.paths.descriptor.id, "chain", scope.value)) {
+        throw new Error(`chain:${scope.value} not found for decision scope`);
+      }
+      insert.run(operation.id, scope.type, scope.value?.trim() || "*");
+    }
+    const revision = decision.current_revision + 1;
+    this.database.prepare("UPDATE decisions SET current_revision = ?, updated_at = ? WHERE project_id = ? AND id = ?").run(revision, now(), this.paths.descriptor.id, operation.id);
+    return { entityType: "decision", id: operation.id, action: "scopes-set", revision, summary: `${scopes.length} scope(s)` };
+  }
+  createDecision(operation, { timestamp }) {
+    const fields = operation.fields ?? {};
+    if (!fields.title?.trim()) throw new Error("create_decision requires fields.title");
+    if (fields.localizations != null) {
+      throw new Error("create_decision does not accept localizations; keep one canonical decision body");
+    }
+    assertAllowed(fields.status ?? "active", DECISION_STATUSES, "decision status");
+    if (fields.alternatives != null && !Array.isArray(fields.alternatives)) throw new Error("decision alternatives must be an array");
+    if (fields.consequences != null && !Array.isArray(fields.consequences)) throw new Error("decision consequences must be an array");
+    if (fields.supersedesDecisionId && !entityExists(this.database, this.paths.descriptor.id, "decision", fields.supersedesDecisionId)) {
+      throw new Error(`decision:${fields.supersedesDecisionId} not found`);
+    }
+    const id = operation.id ?? identifier("decision");
+    this.database.prepare(
+      `INSERT INTO decisions(
+        id, project_id, title, summary, rationale, alternatives_json, consequences_json,
+        status, supersedes_decision_id, archived, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      this.paths.descriptor.id,
+      fields.title.trim(),
+      fields.summary ?? "",
+      fields.rationale ?? "",
+      JSON.stringify(fields.alternatives ?? []),
+      JSON.stringify(fields.consequences ?? []),
+      fields.status ?? "active",
+      fields.supersedesDecisionId ?? null,
+      Number(Boolean(fields.archived)),
+      timestamp,
+      timestamp
+    );
+    const scopes = fields.scopes;
+    if (scopes != null) {
+      if (!Array.isArray(scopes)) throw new Error("decision scopes must be an array");
+      const allowed = /* @__PURE__ */ new Set(["project", "lens", "chain", "repo"]);
+      const insert = this.database.prepare("INSERT INTO decision_scopes(decision_id, scope_type, scope_value) VALUES (?, ?, ?)");
+      for (const scope of scopes) {
+        assertAllowed(scope.type, allowed, "decision scope type");
+        const value = scope.value?.trim() || "*";
+        if (scope.type === "chain" && value !== "*" && !entityExists(this.database, this.paths.descriptor.id, "chain", value)) {
+          throw new Error(`chain:${value} not found for decision scope`);
+        }
+        insert.run(id, scope.type, value);
+      }
+    }
+    return { entityType: "decision", id, action: "created", revision: 1, summary: fields.title.trim() };
+  }
   createBlock(operation, { timestamp }) {
     const fields = operation.fields ?? {};
+    if (fields.kind === "decision") {
+      throw new Error("Decision records are not Canvas Blocks; use create_decision with project/lens/chain/repo scopes");
+    }
     assertAllowed(fields.kind, BLOCK_KINDS, "block kind");
     assertAllowed(fields.architectureLayer ?? "unspecified", ARCHITECTURE_LAYERS, "architecture layer");
     assertAllowed(fields.deliveryState ?? "proposed", DELIVERY_STATES, "delivery state");
@@ -27433,6 +27677,9 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
   }
   createLink(operation, { timestamp }) {
     const fields = operation.fields ?? {};
+    if (fields.sourceType === "decision" || fields.targetType === "decision") {
+      throw new Error("Decisions are scoped project memory, not Link endpoints; use decision scopes or a source reference");
+    }
     assertAllowed(fields.kind, LINK_KINDS, "link kind");
     assertAllowed(fields.healthState ?? "unknown", HEALTH_STATES, "health state");
     if (!entityExists(this.database, this.paths.descriptor.id, fields.sourceType, fields.sourceId)) {
@@ -27633,7 +27880,8 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       block: { table: "blocks", allowed: EDITABLE_BLOCK_FIELDS, normalizer: normalizeBlock },
       chain: { table: "chains", allowed: EDITABLE_CHAIN_FIELDS, normalizer: normalizeChain },
       link: { table: "links", allowed: EDITABLE_LINK_FIELDS, normalizer: normalizeLink },
-      plan: { table: "plans", allowed: EDITABLE_PLAN_FIELDS, normalizer: normalizePlan }
+      plan: { table: "plans", allowed: EDITABLE_PLAN_FIELDS, normalizer: normalizePlan },
+      decision: { table: "decisions", allowed: EDITABLE_DECISION_FIELDS, normalizer: normalizeDecision }
     }[type];
     if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
       throw new Error(`update_${type} requires id and expectedRevision`);
@@ -27648,11 +27896,18 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     const fields = { ...operation.fields ?? {} };
     const localizations = fields.localizations;
     delete fields.localizations;
+    const decisionScopes = type === "decision" ? fields.scopes : null;
+    if (type === "decision") delete fields.scopes;
     const updates = [];
     const values = [];
     for (const [field, rawValue] of Object.entries(fields)) {
       if (!config2.allowed.has(field)) throw new Error(`Field ${field} is not editable on ${type}`);
-      if (field === "kind" && type === "block") assertAllowed(rawValue, BLOCK_KINDS, "block kind");
+      if (field === "kind" && type === "block") {
+        if (rawValue === "decision") {
+          throw new Error("Decision records are not Canvas Blocks; use update_decision or create_decision");
+        }
+        assertAllowed(rawValue, BLOCK_KINDS, "block kind");
+      }
       if (field === "kind" && type === "link") assertAllowed(rawValue, LINK_KINDS, "link kind");
       if (field === "architectureLayer") assertAllowed(rawValue, ARCHITECTURE_LAYERS, "architecture layer");
       if (field === "scope" && (typeof rawValue !== "string" || !rawValue.trim())) {
@@ -27663,16 +27918,36 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
       }
       if (field === "deliveryState") assertAllowed(rawValue, DELIVERY_STATES, "delivery state");
       if (field === "healthState") assertAllowed(rawValue, HEALTH_STATES, "health state");
-      if (field === "status") assertAllowed(rawValue, PLAN_STATUSES, "plan status");
-      const column = field === "proposedDelta" ? "proposed_delta_json" : field === "completionPolicy" ? "completion_policy_json" : field === "blockers" ? "blockers_json" : camelToColumn(field);
+      if (field === "status") assertAllowed(rawValue, type === "decision" ? DECISION_STATUSES : PLAN_STATUSES, type === "decision" ? "decision status" : "plan status");
+      if (["alternatives", "consequences"].includes(field) && !Array.isArray(rawValue)) {
+        throw new Error(`decision ${field} must be an array`);
+      }
+      if (field === "supersedesDecisionId" && rawValue != null && !entityExists(this.database, this.paths.descriptor.id, "decision", rawValue)) {
+        throw new Error(`decision:${rawValue} not found`);
+      }
+      const column = field === "proposedDelta" ? "proposed_delta_json" : field === "completionPolicy" ? "completion_policy_json" : field === "blockers" ? "blockers_json" : field === "alternatives" ? "alternatives_json" : field === "consequences" ? "consequences_json" : camelToColumn(field);
       updates.push(`${column} = ?`);
-      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers", "completionPolicy"].includes(field) ? JSON.stringify(rawValue ?? (field === "completionPolicy" ? {} : [])) : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
+      values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers", "completionPolicy", "alternatives", "consequences"].includes(field) ? JSON.stringify(rawValue ?? (field === "completionPolicy" ? {} : [])) : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
     }
-    if (updates.length === 0 && localizations == null) throw new Error(`update_${type} has no fields`);
+    if (updates.length === 0 && localizations == null && decisionScopes == null) throw new Error(`update_${type} has no fields`);
     const revision = existing.current_revision + 1;
     updates.push("current_revision = ?", "updated_at = ?");
     values.push(revision, timestamp, this.paths.descriptor.id, operation.id);
     this.database.prepare(`UPDATE ${config2.table} SET ${updates.join(", ")} WHERE project_id = ? AND id = ?`).run(...values);
+    if (type === "decision" && decisionScopes != null) {
+      if (!Array.isArray(decisionScopes)) throw new Error("decision scopes must be an array");
+      const allowed = /* @__PURE__ */ new Set(["project", "lens", "chain", "repo"]);
+      this.database.prepare("DELETE FROM decision_scopes WHERE decision_id = ?").run(operation.id);
+      const insert = this.database.prepare("INSERT INTO decision_scopes(decision_id, scope_type, scope_value) VALUES (?, ?, ?)");
+      for (const scope of decisionScopes) {
+        assertAllowed(scope.type, allowed, "decision scope type");
+        const value = scope.value?.trim() || "*";
+        if (scope.type === "chain" && value !== "*" && !entityExists(this.database, this.paths.descriptor.id, "chain", value)) {
+          throw new Error(`chain:${value} not found for decision scope`);
+        }
+        insert.run(operation.id, scope.type, value);
+      }
+    }
     this.removeStaleLocalizations(type, operation.id, Object.keys(fields), localizations);
     this.applyLocalizations(type, operation.id, localizations, timestamp);
     const normalized = config2.normalizer(
@@ -27972,7 +28247,26 @@ ${localizedSearchText(snapshot, "plan", plan.id)}`;
     for (const scope of snapshot.backgroundScopes) {
       if (!snapshot.blocks.some((block) => block.id === scope.blockId)) errors.push(`Missing Background Block: block:${scope.blockId}`);
     }
+    const decisionIDs = new Set(snapshot.decisions.map((decision) => decision.id));
+    for (const decision of snapshot.decisions) {
+      if (!DECISION_STATUSES.has(decision.status)) errors.push(`Invalid Decision status: decision:${decision.id}`);
+      if (decision.supersedesDecisionId && !decisionIDs.has(decision.supersedesDecisionId)) {
+        errors.push(`Missing superseded Decision: decision:${decision.id} -> decision:${decision.supersedesDecisionId}`);
+      }
+    }
+    for (const scope of snapshot.decisionScopes) {
+      if (!decisionIDs.has(scope.decisionId)) errors.push(`Missing Decision for scope: decision:${scope.decisionId}`);
+      if (scope.scopeType === "chain" && scope.scopeValue !== "*" && !snapshot.chains.some((chain) => chain.id === scope.scopeValue)) {
+        errors.push(`Missing Chain for Decision scope: decision:${scope.decisionId} -> chain:${scope.scopeValue}`);
+      }
+    }
     for (const block of snapshot.blocks) {
+      if (!LEGACY_BLOCK_KINDS.has(block.kind)) {
+        errors.push(`Invalid Block kind: block:${block.id}`);
+      } else if (block.kind === "decision") {
+        warnings.push(`Legacy decision Block is not a Decision record and is excluded from the Canvas; migrate block:${block.id} to decision:<id>`);
+        continue;
+      }
       if (block.deliveryState === "complete") {
         const passed = snapshot.checkpoints.some(
           (checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpoint.status === "passed"
@@ -28179,6 +28473,28 @@ server.registerTool(
   }
 );
 server.registerTool(
+  "decision_list",
+  {
+    description: "Read the compact project-scoped Decision index. Bodies, rationale, alternatives, and consequences are omitted; use decision_open or entity_open(type=decision) for one record.",
+    inputSchema: { ...projectRootInput, locale: _enum(["en", "zh-Hans"]).optional(), includeStructured: boolean2().default(false) }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.decisionList(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  }
+);
+server.registerTool(
+  "decision_open",
+  {
+    description: "Open one project-scoped Decision. Returns its rationale, alternatives, consequences, scope, supersession, and compact History; never projects it onto Canvas.",
+    inputSchema: { ...projectRootInput, id: string2().min(1), historyLimit: number2().int().min(0).max(30).optional(), locale: _enum(["en", "zh-Hans"]).optional(), includeStructured: boolean2().default(false) }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.entityOpen({ ...payload, type: "decision" }));
+    return readResult(data, data.markdown, input.includeStructured);
+  }
+);
+server.registerTool(
   "foundation_plan_create",
   {
     description: "Generate one Foundation Plan from every non-deprecated unimplemented Block. Because this is an explicit implementation/verification Plan, the operation creates missing atomic Block checkpoints, direct Block PlanChanges, dependency-ordered parallel steps, Chain integration gates, and a final Plan acceptance gate in one transaction; plain architecture-only create_block does not.",
@@ -28275,10 +28591,10 @@ server.registerTool(
 server.registerTool(
   "entity_open",
   {
-    description: "Open one Block, Chain, Link, or Plan with only its relevant checkpoints, code refs, targets, and recent history.",
+    description: "Open one Block, Chain, Link, Plan, or project-scoped Decision with only relevant details and recent History. Decision bodies are never Canvas nodes.",
     inputSchema: {
       ...projectRootInput,
-      type: _enum(["block", "chain", "link", "plan"]),
+      type: _enum(["block", "chain", "link", "plan", "decision"]),
       id: string2().min(1),
       historyLimit: number2().int().min(0).max(30).optional(),
       locale: _enum(["en", "zh-Hans"]).optional(),
@@ -28334,7 +28650,7 @@ server.registerTool(
 server.registerTool(
   "graph_mutate",
   {
-    description: "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, and source refs. A plain create_block records architecture only; use create_checkpoint in the same ChangeSet when a requirement, Plan, Chain gate, or explicit verification request makes the check necessary. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
+    description: "Atomically create or patch Blocks, project-scoped Decisions, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, Decision scopes, and source refs. Decisions are not Canvas Blocks and never enter Block/Chain/Plan coverage. A plain create_block records architecture only; use create_checkpoint in the same ChangeSet when a requirement, Plan, Chain gate, or explicit verification request makes the check necessary. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
     inputSchema: {
       ...projectRootInput,
       actor: string2().optional(),
@@ -28348,8 +28664,10 @@ server.registerTool(
         object2({
           action: _enum([
             "create_block",
+            "create_decision",
             "create_checkpoint",
             "update_block",
+            "update_decision",
             "add_source_ref",
             "remove_source_ref",
             "create_chain",
@@ -28370,7 +28688,8 @@ server.registerTool(
             "set_checkpoint_bindings",
             "set_checkpoint_dependencies",
             "set_chain_path",
-            "set_background_scopes"
+            "set_background_scopes",
+            "set_decision_scopes"
           ]),
           id: string2().optional(),
           expectedRevision: number2().int().optional(),

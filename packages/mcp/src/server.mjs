@@ -109,6 +109,30 @@ server.registerTool(
 );
 
 server.registerTool(
+  "decision_list",
+  {
+    description: "Read the compact project-scoped Decision index. Bodies, rationale, alternatives, and consequences are omitted; use decision_open or entity_open(type=decision) for one record.",
+    inputSchema: { ...projectRootInput, locale: z.enum(["en", "zh-Hans"]).optional(), includeStructured: z.boolean().default(false) },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.decisionList(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "decision_open",
+  {
+    description: "Open one project-scoped Decision. Returns its rationale, alternatives, consequences, scope, supersession, and compact History; never projects it onto Canvas.",
+    inputSchema: { ...projectRootInput, id: z.string().min(1), historyLimit: z.number().int().min(0).max(30).optional(), locale: z.enum(["en", "zh-Hans"]).optional(), includeStructured: z.boolean().default(false) },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.entityOpen({ ...payload, type: "decision" }));
+    return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
   "foundation_plan_create",
   {
     description:
@@ -215,10 +239,10 @@ server.registerTool(
 server.registerTool(
   "entity_open",
   {
-    description: "Open one Block, Chain, Link, or Plan with only its relevant checkpoints, code refs, targets, and recent history.",
+    description: "Open one Block, Chain, Link, Plan, or project-scoped Decision with only relevant details and recent History. Decision bodies are never Canvas nodes.",
     inputSchema: {
       ...projectRootInput,
-      type: z.enum(["block", "chain", "link", "plan"]),
+      type: z.enum(["block", "chain", "link", "plan", "decision"]),
       id: z.string().min(1),
       historyLimit: z.number().int().min(0).max(30).optional(),
       locale: z.enum(["en", "zh-Hans"]).optional(),
@@ -279,7 +303,7 @@ server.registerTool(
   "graph_mutate",
   {
     description:
-      "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, and source refs. A plain create_block records architecture only; use create_checkpoint in the same ChangeSet when a requirement, Plan, Chain gate, or explicit verification request makes the check necessary. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
+      "Atomically create or patch Blocks, project-scoped Decisions, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, Decision scopes, and source refs. Decisions are not Canvas Blocks and never enter Block/Chain/Plan coverage. A plain create_block records architecture only; use create_checkpoint in the same ChangeSet when a requirement, Plan, Chain gate, or explicit verification request makes the check necessary. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
     inputSchema: {
       ...projectRootInput,
       actor: z.string().optional(),
@@ -294,8 +318,10 @@ server.registerTool(
           z.object({
             action: z.enum([
               "create_block",
+              "create_decision",
               "create_checkpoint",
               "update_block",
+              "update_decision",
               "add_source_ref",
               "remove_source_ref",
               "create_chain",
@@ -317,6 +343,7 @@ server.registerTool(
               "set_checkpoint_dependencies",
               "set_chain_path",
               "set_background_scopes",
+              "set_decision_scopes",
             ]),
             id: z.string().optional(),
             expectedRevision: z.number().int().optional(),

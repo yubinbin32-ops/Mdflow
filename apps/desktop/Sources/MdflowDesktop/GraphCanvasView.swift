@@ -127,6 +127,8 @@ struct GraphCanvasView: View {
         case .link:
             guard let link = scene.links.first(where: { $0.id == selection.id }) else { return [] }
             return [link.sourceId, link.targetId]
+        case .decision:
+            return []
         }
     }
 

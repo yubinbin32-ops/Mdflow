@@ -4,7 +4,7 @@
 > 基线 HEAD：`9947ae6`（本文件写作时的仓库状态）
 > 用途：这是“先把内容写入 Markdown，再按 Markdown 重建 mdflow”的一次性迁移基线。迁移完成后，本文件应降级为公开发布/历史材料，开发期唯一交接入口回到 `.mdflow`。
 
-> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 628）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。发布 manifest 的 executable hash 现在明确采用去除签名后的 payload hash，并由 verifier 检查 manifest 与最终 bundle 一致，避免最终 re-sign 后产生静默漂移；修复、测试、生命周期 harness 与文档已提交为 `bebb04f`。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃，且已获用户验收。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回；AI-facing 开发文档按 Skill 映射到 mdflow 语义记录并及时回写，只有 README、发布页和宣传材料保留为独立 Markdown。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 已稳定为 2,344 vs 3,321 tokens（29.4188% reduction，13/13 facts，0 rework proxy turns）；真实 Todo target 的迁移、UI/API、超时恢复、幂等重放和无重复写入也已通过。新增 clean-project deterministic feedback-loop baseline：mdflow-first 880 vs Markdown-first 1,107 首次上下文 tokens、4/4 refs、1 次代码编辑，增量恢复 1 次对完整文档恢复 2 次；明确标注 `llmClaim=false`。`scripts/feedback-loop-llm.mjs` 与 adapter contract test 已可运行，但外部推理端点当前不可达，因此没有录入真实 LLM 结果。`npm run release:plugin-lifecycle` 已在隔离的临时 CODEX_HOME 中真实执行本地 marketplace add、Fresh install、安装后 MCP 启动、upgrade、remove 和 rollback；报告已脱敏保存为 `benchmarks/plugin-lifecycle-results.json`。UI lens、Plan inspector 与大图已获用户视觉验收。已生成 ad-hoc 本地 App zip、release manifest、SHA256SUMS 与发布/宣传页；尚未宣称 Developer ID/notarization 或 GitHub 公开上传。剩余开放门禁见 mdflow Foundation Plan：真实 LLM/code-edit 对比、validation closure、plugin-release 的 Developer ID/notarization 与 GitHub 上传、最终清理。
+> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 639）；最新 MCP 回归为 42/42，Swift desktop package build 与 30/30 Swift tests 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。发布 manifest 的 executable hash 现在明确采用去除签名后的 payload hash，并由 verifier 检查 manifest 与最终 bundle 一致，避免最终 re-sign 后产生静默漂移；修复、测试、生命周期 harness 与文档已提交为 `bebb04f`。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃，且已获用户验收。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回；AI-facing 开发文档按 Skill 映射到 mdflow 语义记录并及时回写，只有 README、发布页和宣传材料保留为独立 Markdown。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。持久架构取舍使用独立的范围化 Decision 记录：它类似项目规则提供索引和按需展开，但不进入 Canvas、Block/Chain/Plan coverage 或 checkpoint。最终 Todo parity fixture 已稳定为 2,344 vs 3,321 tokens（29.4188% reduction，13/13 facts，0 rework proxy turns）；真实 Todo target 的迁移、UI/API、超时恢复、幂等重放和无重复写入也已通过。新增 clean-project deterministic feedback-loop baseline：mdflow-first 880 vs Markdown-first 1,107 首次上下文 tokens、4/4 refs、1 次代码编辑，增量恢复 1 次对完整文档恢复 2 次；明确标注 `llmClaim=false`。`scripts/feedback-loop-llm.mjs` 与 adapter contract test 已可运行，但外部推理端点当前不可达，因此没有录入真实 LLM 结果。`npm run release:plugin-lifecycle` 已在隔离的临时 CODEX_HOME 中真实执行本地 marketplace add、Fresh install、安装后 MCP 启动、upgrade、remove 和 rollback；报告已脱敏保存为 `benchmarks/plugin-lifecycle-results.json`。UI lens、Plan inspector 与大图已获用户视觉验收。已生成 ad-hoc 本地 App zip、release manifest、SHA256SUMS 与发布/宣传页；尚未宣称 Developer ID/notarization 或 GitHub 公开上传。剩余开放门禁见 mdflow Foundation Plan：真实 LLM/code-edit 对比、validation closure、plugin-release 的 Developer ID/notarization 与 GitHub 上传、最终清理。
 
 ## 1. 这份文件要解决什么
 
@@ -49,6 +49,7 @@ mdflow 是“面向开发 Agent 的可执行项目上下文层”。
 - Chain 是全局 Block/Link 网络上的一条有序路径包络，不拥有 Block；一个 Block 可以属于多个 Chain，也可以不属于任何 Chain。
 - Plan 既不是 Block 也不是 Chain。Plan 通过直接 `plan_change`、`plan_chain_scope`、步骤、checkpoint gate 和依赖来表达“接下来做什么、改哪里、如何验收”。
 - Block 是架构事实，不因创建就自动产生验证义务；建模阶段可以没有 checkpoint。需求、Plan、Chain/Plan gate 或显式验证请求确定验证范围后，相关 Block 才必须有自己的 checkpoint。不属于 Chain 的 Block 仍应在需要实施时由 Plan 的精确工作项覆盖。
+- Decision 是项目级架构记忆，不是 Block。它带显式 project/lens/chain/repo scope，保存取舍、备选方案和长期后果；默认只返回索引，打开详情才返回正文，并且不进入 Canvas、Chain、Plan coverage 或 checkpoint。
 - “把某条 Chain 设为 Plan 的 target”不等于“覆盖 Chain 内全部 Block”。严格覆盖只认：直接 Block PlanChange、Plan step 中的 Block 引用、ChainScope 中明确列出的 Block。
 - Test Block 只表示可复用测试能力；整个系统/发布验收是 Plan 的 integration checkpoint，不是 Test Block。
 - 状态必须有证据；`passed` 需要覆盖完整、evidence level 不低于 required level、且没有被 invalidate。
@@ -122,7 +123,7 @@ mdflow-mcp（plugins/mdflow/server/mdflow-mcp.mjs）
 macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件）
 ```
 
-### 3.3 MCP 工具面（当前 13 个）
+### 3.3 MCP 工具面（当前 16 个）
 
 | 工具 | 作用 |
 |---|---|
@@ -130,7 +131,8 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 | `project_map` | 低成本项目总览 + 架构覆盖 |
 | `context_for_task` | 按任务和预算生成 Context Pack |
 | `plan_context` | 单个 Plan 的分层上下文 |
-| `entity_open` | 打开 Block/Chain/Link/Plan |
+| `decision_list` / `decision_open` | 读取范围化 Decision 索引 / 展开一条架构决策 |
+| `entity_open` | 打开 Block/Chain/Link/Plan/Decision |
 | `checkpoint_list` | 验证索引（可按 Plan/ChainScope/status/unassigned） |
 | `checkpoint_record` | 记录 checkpoint 证据 |
 | `graph_mutate` | 原子写入（create/patch/set path/scope/bindings） |
@@ -145,11 +147,19 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ### Block
 
 - 字段：id、kind、title、summary、body、contract、scope、architectureLayer、localOrder、deliveryState、healthState、priority、confidence、tags、archived、currentRevision。
-- kind 枚举：principle、product、requirement、decision、flow、ui、service、function、integration、data、database、risk、test、checkpoint。
+- kind 枚举：principle、product、requirement、flow、ui、service、function、integration、data、database、risk、test、checkpoint。`decision` 仅作为旧图兼容值，不得创建新的 decision Block。
 - architectureLayer 枚举：client、boundary、application、domain、data、external、quality、infrastructure、unspecified。
 - deliveryState：proposed、planned、implementing、verifying、complete、deprecated。
 - healthState：unknown、healthy、warning、failing、unstable、disputed。
 - scope 只表达语义（如 canvas、codex、graph、projects），不决定 Canvas 空间分带。
+
+### Decision（独立项目记忆）
+
+- 字段：id、title、summary、rationale、alternatives、consequences、status、supersedesDecisionId、archived、currentRevision。
+- 通过 `decision_scopes` 绑定 `project`、`lens`、`chain` 或 `repo` 范围；范围只控制上下文索引，不产生 Canvas 位置。
+- `decision_list`/`context_for_task` 只返回 title/status/scope 索引；`decision_open`/`entity_open(type=decision)` 才返回 rationale、alternatives、consequences 和紧凑 History。
+- Decision 的每次创建、更新和范围变更仍进入 History，但 Decision 本身不是 checkpoint target，也不参与 Block、Chain、Plan 的覆盖计算。
+- Decision 不是 Link endpoint；需要关联实现时，用 PlanChange、source ref 或 Decision 的 supersedes 字段表达，不把它重新拉回 Canvas 图。
 
 ### Link
 
@@ -193,15 +203,16 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ```text
 ┌────────────────┬───────────────────────────────┬──────────────┐
 │ 项目标题/计数    │ 类型 checkbox …   100%   设置 │              │
-│ 项目规则        ├───────────────────────────────┤ 右侧详情栏    │
-│ Plans          │ Canvas                        │（选择后出现）  │
-│ Chains         │  · Block 卡片                  │              │
-│ 验证（独立检查） │  · Link 正交折线                │              │
-│ 图例            │  · Chain 圆角蛇形包络           │              │
+│ 项目规则        │ ├───────────────────────────────┤              │
+│ 架构决策        │ │ Canvas                        │ 右侧详情栏    │
+│ Plans           │ │  · Block 卡片                  │（选择后出现）  │
+│ Chains          │ │  · Link 正交折线                │              │
+│ 验证（独立检查） │ │  · Chain 圆角蛇形包络           │              │
+│ 图例            │ └───────────────────────────────┘              │
 └────────────────┴───────────────────────────────┴──────────────┘
 ```
 
-- 左侧栏可折叠分区：项目规则、Plans、Chains、Verification；折叠状态按 project id 保存在 UserDefaults。
+- 左侧栏可折叠分区：项目规则、架构决策、Plans、Chains、Verification；折叠状态按 project id 保存在 UserDefaults。架构决策只在此处和详情栏出现，不会变成 Canvas 卡片。
 - 顶栏 checkbox 只列当前项目真实存在的 Block.kind；不把 Plan/QA 伪造为 Block 类型。
 - 搜索框已被移除；缩放显示为百分比。
 - 右侧详情栏只有在选择后出现；Plan 宽度 33% 上限 500pt，其他实体 25% 上限 380pt。
@@ -220,6 +231,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ### 5.3 详情栏
 
 - Block 详情：类型、架构层、scope、标题、summary、contract、文件引用、checkpoint、history。
+- Decision 详情：scope、状态、summary、rationale、备选方案、后果、supersedes 和 history；不显示 Canvas 位置或 checkpoint。
 - Link 详情：关系类型、label、contract、health、history。
 - Chain 详情：路径、成员、checkpoint、history。
 - Plan 详情：架构覆盖、Direct Block Work、ChainScopes、每层修改、checkpoint gate、依赖、history；整行可展开。
@@ -232,7 +244,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 ## 6. 当前验证基线
 
-- MCP 回归：41/41 通过。
+- MCP 回归：42/42 通过。
 - Swift/Desktop：当前 Swift desktop package build 通过；既有 30/30 回归证据仍包含精确 300 Block / 599 Link / 6 Chain 全路冲突检查、重复刷新和大包络边界回归。
 - 真实 Todo target：`npm run benchmark:todo:target` 通过迁移幂等、UI/API 创建、校验错误、provider timeout 恢复、幂等重放和无重复写入；结果写入 `benchmarks/todo-target-results.json`。
 - `release:verify`：`valid=true`，严格 codesign、私有数据审计、13-file manifest 通过；清单现在在最终 re-sign 前写入，避免破坏 sealed resources。
@@ -276,7 +288,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ### 7.1 需要在重建时修正的 Block 内容
 
 1. `project-registration`：正文必须改为“主数据库随 Git 版本化，WAL/SHM/journal 忽略”，删除“mdflow.sqlite 保持忽略”的旧句。
-2. 该项已在当前图谱校准：`verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的当前正文/证据以 MCP 41/41、Swift desktop package build、插件 `0.1.0+codex.20260905101443` 为准；旧“32/32”“18/18”“25/25”“15 tests”“22 tests”等数字只保留在历史回放中。
+2. 该项已在当前图谱校准：`verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的当前正文/证据以 MCP 42/42、Swift desktop package build、插件 `0.1.0+codex.20260905101443` 为准；旧“32/32”“18/18”“25/25”“15 tests”“22 tests”等数字只保留在历史回放中。
 3. 所有 Block 的 `healthState` 应由当前 checkpoint 状态推导呈现，不再保留与 evidence 冲突的手工“healthy”表达。
 4. 不创建“全部/All/QA/Plan”伪 Block kind。
 

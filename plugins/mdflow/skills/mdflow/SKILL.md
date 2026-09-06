@@ -23,7 +23,7 @@ For a trusted graph, call `context_for_task` before broad file discovery, openin
 1. `context_for_task` with the actual task and a modest character budget.
 2. `plan_context` when implementing or reviewing a Plan. Read its ChainScopes, inline entity changes, prohibitions, code locations, and gates before opening files.
 3. `project_map` when whole-project order or active Plan sequencing matters.
-4. `entity_open` for exact Block, Chain, Link, or non-Plan details.
+4. `entity_open` for exact Block, Chain, Link, Decision, or non-Plan details.
 5. `changes_since` after a known change sequence to synchronize only incremental mutations.
 6. `graph_search` only when the returned references are insufficient.
 7. Open source references returned by mdflow and the smallest immediately related code neighborhood.
@@ -48,13 +48,13 @@ Treat a Markdown-shaped need as a semantic record, not as permission to add anot
 | Requirement or risk | Block with the appropriate kind and contract | When the requirement is accepted, narrowed, or invalidated | `context_for_task`, `entity_open` |
 | Scoped project rule | Background rule with explicit project/lens/chain/repo scope | Before work that depends on the rule, and when the rule changes | Context rule index first; expand only on demand |
 | Implementation order | Plan, PlanChange, Plan step, ChainScope | Before coding a new responsibility or changing intended scope | `plan_context`, `entity_open` |
-| Design rationale or durable architecture decision | PlanChange rationale; use a `decision` Block only when the choice affects future architecture or multiple Plans | At the moment the choice is made, including alternatives and consequences | `entity_open` for the exact decision or PlanChange |
+| Design rationale or durable architecture decision | A scoped `Decision` record; keep Plan-specific execution rationale in the owning PlanChange | At the moment the choice is made, including alternatives and consequences | `decision_list` for the index, then `decision_open`/`entity_open(type=decision)` for one record |
 | Verification | Atomic Checkpoint, evidence, dependency DAG | Immediately after the check or when its criteria changes | `checkpoint_list`, `entity_open`, `changes_since` |
 | Timeline or implementation handoff | History plus Plan step status | Automatically through every MCP mutation; reconcile before handoff | `changes_since`, `entity_open`, `plan_context` |
 | Reusable operational procedure | A Plan (or a dedicated Block only when it is a durable capability) | When the procedure will be reused across tasks | `plan_context` |
 | README, release note, store copy, landing page | Public/release Markdown outside the graph | During release preparation | Open the explicit public file; never treat it as current architecture |
 
-History is the automatic audit ledger, not a long-form decision document. Do not write a separate runbook or decision note for every mutation. A decision record is justified only when a future agent needs the alternatives, chosen trade-off, or long-lived consequence; ordinary before/after fields, changed fields, source refs, Plan ownership, and evidence stay in History and Checkpoints.
+History is the automatic audit ledger, not a long-form decision document. Do not write a separate runbook or decision note for every mutation. A Decision record is justified only when a future agent needs the alternatives, chosen trade-off, or long-lived consequence; ordinary before/after fields, changed fields, source refs, Plan ownership, and evidence stay in History and Checkpoints. Decision records are project memory with explicit `project`, `lens`, `chain`, or `repo` scopes: they are not Blocks, never appear on Canvas, never receive Block/Chain/Plan checkpoints, and are returned as an index unless their body is explicitly opened.
 
 Rules are constraints, not design essays. Keep the rule's scope and enforceable statement in the scoped rule system. Put explanatory architecture rationale in the affected Block/PlanChange or an explicitly linked decision record. Rules never become Canvas nodes and their full bodies are not appended to every context pack.
 
@@ -68,7 +68,7 @@ Write the canonical record at the same boundary where the fact becomes true:
 2. Before coding a planned responsibility, write or update the Direct PlanChange, current behavior, proposed behavior, prohibitions, and expected effects.
 3. After a meaningful code/config/schema change, update the affected source refs and Plan/step state in the same task turn; do not defer all graph writes to the end of a long task.
 4. Immediately after a test, manual review, or real-target run, record the Checkpoint status, evidence level, command, result, and limitations. Never mark a test as passed only in prose.
-5. When a requirement, scope, design choice, or blocker changes, update the owning record before proceeding on the new assumption. Use a `decision` Block only for a durable cross-entity choice; otherwise keep the rationale in the PlanChange and let History capture the mutation.
+5. When a requirement, scope, design choice, or blocker changes, update the owning record before proceeding on the new assumption. Write a scoped `create_decision`/`update_decision` record for a durable cross-entity choice; keep a Plan-local rationale in the PlanChange and let History capture the mutation. Never create a `decision` Block.
 6. Before handing work to another AI or ending a task, read back the changed entities, call `changes_since` from the last known sequence, run `graph_validate` for structural/completion changes, and sync the Git head where relevant.
 
 Use `graph_patch` with a current `base` for small AI-authored updates. Every write must preserve omitted fields, advance one revision, and produce a compact Markdown receipt. The next read must use the returned refs/revision; do not continue from an unverified assumption.
@@ -85,13 +85,20 @@ For normal AI reads, request the Markdown projection (`context_for_task` → `pl
 6. Build checkpoint bindings and a dependency DAG. Atomic checks bind to the affected change/entity; aggregate Chain gates derive from required children; integration gates become eligible only after their children pass; Plan gates aggregate Chain and cross-Chain acceptance.
 7. Attach implementation/test/schema/configuration locations to Blocks using source references. Keep one canonical fact in one storage location and derive other views from it.
 
+### Decision records are project memory
+
+- Use `create_decision` when a choice has alternatives, a selected trade-off, or a consequence that a later task must remember. Give it an explicit scope (`project`, `lens`, `chain`, or `repo`); use `decision_list` in ordinary context and `decision_open` only when the rationale is relevant.
+- A Decision is deliberately outside the Block/Link/Chain/Plan graph. Do not add it to Canvas, Chain nodes, PlanChanges, checkpoint bindings, or coverage counts. A PlanChange may reference a Decision in prose or source refs when the implementation rationale needs a stable pointer.
+- `History` still records every Decision create/update and scope change. Do not duplicate that audit trail with a second decision note. Mark a Decision `superseded` and set `supersedesDecisionId` when a later choice replaces it.
+- If an old graph contains `kind=decision` Blocks, treat them as legacy data: do not create more, do not put them on Canvas, and migrate the durable rationale to a scoped Decision record.
+
 Plan phase/order should make a new project readable from foundation through delivery. Todo is derived from unfinished Plan steps, gates, blockers, and next actions; do not create Todo Blocks or Plan Chains.
 
 ## Initialize a project before implementation
 
 When requirements describe a system that has not been implemented yet:
 
-1. Build the complete Block/Link architecture first. Mark unimplemented Blocks `proposed` or `planned`; do not omit Blocks simply because no Chain exists yet.
+1. Build the complete Block/Link architecture first. Mark unimplemented Blocks `proposed` or `planned`; do not omit Blocks simply because no Chain exists yet. Record durable cross-cutting choices separately as scoped Decisions; Decisions are not architecture Blocks.
 2. Give every Block that is actually being verified an atomic checkpoint with explicit criteria for that Block's own responsibility. Use `graph_mutate` `create_checkpoint`, `checkpoint_record`, or compact `checkpoint`/`checkpoint=auto` only when the verification requirement exists. A reusable Test Block verifies the test capability itself; whole-system acceptance is a Plan integration checkpoint, not a Test Block.
 3. Define Chains only for meaningful reusable paths through the existing network. A Block may remain outside every Chain; it becomes required work or verification only when a Plan, requirement, or gate says so.
 4. Create a foundation Plan with direct Block PlanChanges for all Blocks that need implementation, including Blocks outside Chains. Prefer `foundation_plan_create` after the complete Block/Link architecture is present: it creates missing atomic Block checkpoints, dependency-ordered parallel groups, exact Direct Block PlanChanges, Chain integration gates, and the final Plan acceptance gate in one transaction. Use `graph_mutate` only when the Plan needs a deliberately custom structure; use compact receipts instead of repeating full objects.
@@ -145,7 +152,8 @@ Do not claim a verification requirement is complete while its required checkpoin
 
 ## Storage vocabulary
 
-- Block `kind`: `principle`, `product`, `requirement`, `decision`, `flow`, `ui`, `service`, `function`, `integration`, `data`, `database`, `risk`, `test`, `checkpoint`.
+- Block `kind`: `principle`, `product`, `requirement`, `flow`, `ui`, `service`, `function`, `integration`, `data`, `database`, `risk`, `test`, `checkpoint`.
+- Decision: `id`, `title`, `summary`, `rationale`, `alternatives`, `consequences`, `status`, optional `supersedesDecisionId`, and scoped `project`/`lens`/`chain`/`repo` records. It is project memory, not a Canvas entity or checkpoint target.
 - Block `architectureLayer`: `client`, `boundary`, `application`, `domain`, `data`, `external`, `quality`, `infrastructure`, `unspecified`.
 - Link `kind`: `flows_to`, `calls`, `reads`, `writes`, `depends_on`, `implements`, `validates`, `constrains`, `supersedes`.
 - `scope` is semantic metadata only; it does not imply Canvas position. Set `localOrder` only to stabilize order inside a semantic area.

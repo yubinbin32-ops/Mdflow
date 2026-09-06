@@ -341,7 +341,7 @@ final class GraphStore: ObservableObject {
     /// This keeps the toolbar semantic and avoids empty or overlapping lenses.
     var availableLenses: [ViewLens] {
         let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
-        let kinds = Set(snapshot.blocks.filter { !backgroundRuleIDs.contains($0.id) }.map { $0.kind.lowercased() })
+        let kinds = Set(snapshot.blocks.filter { !backgroundRuleIDs.contains($0.id) && $0.kind.lowercased() != "decision" }.map { $0.kind.lowercased() })
         return ViewLens.allCases.filter { kinds.contains($0.rawValue.lowercased()) }
     }
 
@@ -386,7 +386,11 @@ final class GraphStore: ObservableObject {
     var visibleBlocks: [BlockItem] {
         guard !enabledLenses.isEmpty else { return [] }
         let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
-        return snapshot.blocks.filter { block in enabledLenses.contains { $0.includes(block: block) } }
+        return snapshot.blocks.filter { block in
+            // Legacy decision Blocks are deliberately not a Canvas projection.
+            // New decisions are loaded from the independent Decision entity.
+            block.kind.lowercased() != "decision" && enabledLenses.contains { $0.includes(block: block) }
+        }
             .filter { !backgroundRuleIDs.contains($0.id) }
     }
 
@@ -394,6 +398,12 @@ final class GraphStore: ObservableObject {
         snapshot.backgroundScopes.filter { $0.blockId == blockID }
             .map { "\($0.scopeType):\($0.scopeValue)" }
             .joined(separator: " · ")
+    }
+
+    func decisionScopeLabel(_ decisionID: String) -> String {
+        let scopes = snapshot.decisionScopes.filter { $0.decisionID == decisionID }
+            .map { "\($0.scopeType):\($0.scopeValue)" }
+        return scopes.isEmpty ? (activeLocale == "zh-Hans" ? "项目范围" : "PROJECT") : scopes.joined(separator: " · ")
     }
 
     func setLens(_ lens: ViewLens, enabled: Bool) {
@@ -444,6 +454,10 @@ final class GraphStore: ObservableObject {
             requestFocus(value)
         case .link:
             break
+        case .decision:
+            highlightedChainIDs.removeAll()
+            focusTask?.cancel()
+            focusTarget = nil
         }
     }
 
@@ -532,6 +546,7 @@ final class GraphStore: ObservableObject {
         case .chain: snapshot.chains.contains { $0.id == selection.id }
         case .plan: snapshot.plans.contains { $0.id == selection.id }
         case .link: snapshot.links.contains { $0.id == selection.id }
+        case .decision: snapshot.decisions.contains { $0.id == selection.id }
         }
     }
 
@@ -585,6 +600,8 @@ final class GraphStore: ObservableObject {
             return snapshot.links.first(where: { $0.id == value.id })?.label.nonEmpty ?? text("link")
         case .plan:
             return snapshot.plans.first(where: { $0.id == value.id })?.title ?? value.id
+        case .decision:
+            return snapshot.decisions.first(where: { $0.id == value.id })?.title ?? value.id
         }
     }
 
@@ -746,6 +763,8 @@ final class GraphStore: ObservableObject {
         case .link:
             guard let link = snapshot.links.first(where: { $0.id == selection.id }) else { return [] }
             return [link.sourceId, link.targetId]
+        case .decision:
+            return []
         }
     }
 
@@ -776,7 +795,7 @@ final class GraphStore: ObservableObject {
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
             "goal":"目标", "nextAction":"下一步", "targetChains":"目标 Chain", "proposedDelta":"计划中的图变更", "blockers":"阻塞",
             "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
-            "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则",
+            "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则", "decisions":"架构决策",
             "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
             "all":"全部", "verification":"验证", "unassigned":"独立验证", "verified":"已验证", "unplanned":"未规划", "noCheckpoint":"无检查点", "checkpointFree":"待验证", "directBlockWork":"直接 Block 工作", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
         ]
@@ -789,7 +808,7 @@ final class GraphStore: ObservableObject {
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
             "goal":"Goal", "nextAction":"Next Action", "targetChains":"Target Chains", "proposedDelta":"Proposed Graph Delta", "blockers":"Blockers",
             "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
-            "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules",
+            "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules", "decisions":"Architecture Decisions",
             "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
             "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "verified":"Verified", "unplanned":"Unplanned", "noCheckpoint":"No checkpoint", "checkpointFree":"Checkpoint-free", "directBlockWork":"Direct Block work", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
         ]
@@ -799,7 +818,7 @@ final class GraphStore: ObservableObject {
     func lensTitle(_ lens: ViewLens) -> String {
         switch lens {
         case .principle: text("principle"); case .product: text("product"); case .requirement: text("requirement")
-        case .decision: text("decision"); case .flow: text("flow"); case .ui: text("ui"); case .service: text("service")
+        case .flow: text("flow"); case .ui: text("ui"); case .service: text("service")
         case .function: text("function"); case .api: text("api"); case .integration: text("integration"); case .data: text("data")
         case .database: text("database"); case .risk: text("risk"); case .test: text("test"); case .checkpoint: text("checkpoint")
         }

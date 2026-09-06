@@ -281,6 +281,27 @@ final class ProjectDatabase {
         ).map { row in
             BackgroundScope(blockId: row.text("block_id"), scopeType: row.text("scope_type"), scopeValue: row.text("scope_value"))
         }
+        let decisions = try optionalRows(
+            "SELECT * FROM decisions WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC, id",
+            table: "decisions", bindings: [project.id]
+        ).map { row in
+            DecisionItem(
+                id: row.text("id"), title: row.text("title"), summary: row.text("summary"),
+                rationale: row.text("rationale"), alternatives: row.text("alternatives_json"),
+                consequences: row.text("consequences_json"), status: row.text("status"),
+                supersedesDecisionID: row.optionalText("supersedes_decision_id"),
+                revision: row.int("current_revision")
+            )
+        }
+        let decisionScopes = try optionalRows(
+            """
+            SELECT ds.* FROM decision_scopes ds JOIN decisions d ON d.id = ds.decision_id
+            WHERE d.project_id = ? AND d.archived = 0 ORDER BY ds.decision_id, ds.scope_type, ds.scope_value
+            """,
+            table: "decision_scopes", bindings: [project.id]
+        ).map { row in
+            DecisionScope(decisionID: row.text("decision_id"), scopeType: row.text("scope_type"), scopeValue: row.text("scope_value"))
+        }
         let sourceReferences = try rows(
             """
             SELECT sr.* FROM source_refs sr
@@ -422,6 +443,8 @@ final class ProjectDatabase {
             planChanges: planChanges,
             planChainChangeReferences: planChainChangeReferences,
             backgroundScopes: backgroundScopes,
+            decisions: decisions,
+            decisionScopes: decisionScopes,
             sourceReferences: sourceReferences,
             checkpoints: checkpoints,
             checkpointBindings: checkpointBindings,

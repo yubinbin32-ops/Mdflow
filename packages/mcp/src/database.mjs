@@ -232,6 +232,32 @@ CREATE TABLE IF NOT EXISTS background_scopes (
   PRIMARY KEY(block_id, scope_type, scope_value)
 );
 
+-- Decisions are durable architecture memory, not Canvas nodes.  Their scope
+-- index mirrors Background rules so normal context reads can return only the
+-- applicable title/status while entity_open/decision_open expands the body.
+CREATE TABLE IF NOT EXISTS decisions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  rationale TEXT NOT NULL DEFAULT '',
+  alternatives_json TEXT NOT NULL DEFAULT '[]',
+  consequences_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('proposed', 'active', 'superseded', 'reconsidered')),
+  supersedes_decision_id TEXT REFERENCES decisions(id) ON DELETE SET NULL,
+  current_revision INTEGER NOT NULL DEFAULT 1,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decision_scopes (
+  decision_id TEXT NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
+  scope_type TEXT NOT NULL CHECK(scope_type IN ('project', 'lens', 'chain', 'repo')),
+  scope_value TEXT NOT NULL DEFAULT '*',
+  PRIMARY KEY(decision_id, scope_type, scope_value)
+);
+
 CREATE TABLE IF NOT EXISTS checkpoints (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -324,6 +350,8 @@ CREATE INDEX IF NOT EXISTS idx_plan_chain_change_refs_scope ON plan_chain_change
 CREATE INDEX IF NOT EXISTS idx_chain_nodes_chain ON chain_nodes(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_chain_edges_chain ON chain_edges(chain_id, position);
 CREATE INDEX IF NOT EXISTS idx_background_scopes_block ON background_scopes(block_id);
+CREATE INDEX IF NOT EXISTS idx_decisions_project ON decisions(project_id, archived, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_decision_scopes_decision ON decision_scopes(decision_id, scope_type, scope_value);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_target ON checkpoints(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_checkpoint_bindings_subject ON checkpoint_bindings(subject_type, subject_id, position);
 CREATE INDEX IF NOT EXISTS idx_checkpoint_dependencies_parent ON checkpoint_dependencies(parent_checkpoint_id, position);

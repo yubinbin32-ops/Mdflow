@@ -237,6 +237,27 @@ struct BackgroundScope: Equatable {
     let scopeValue: String
 }
 
+/// A Decision is project memory, not a Canvas node.  Only its scoped index is
+/// loaded into the navigation context; the rationale and alternatives are
+/// expanded in the detail drawer.
+struct DecisionItem: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let summary: String
+    let rationale: String
+    let alternatives: String
+    let consequences: String
+    let status: String
+    let supersedesDecisionID: String?
+    let revision: Int
+}
+
+struct DecisionScope: Equatable {
+    let decisionID: String
+    let scopeType: String
+    let scopeValue: String
+}
+
 struct SourceReference: Identifiable, Equatable {
     let id: String
     let blockId: String
@@ -338,6 +359,8 @@ struct GraphSnapshot: Equatable {
     let planChanges: [PlanChangeItem]
     let planChainChangeReferences: [PlanChainChangeReference]
     let backgroundScopes: [BackgroundScope]
+    let decisions: [DecisionItem]
+    let decisionScopes: [DecisionScope]
     let sourceReferences: [SourceReference]
     let checkpoints: [CheckpointItem]
     let checkpointBindings: [CheckpointBinding]
@@ -364,6 +387,8 @@ struct GraphSnapshot: Equatable {
             planChanges: [],
             planChainChangeReferences: [],
             backgroundScopes: [],
+            decisions: [],
+            decisionScopes: [],
             sourceReferences: [],
             checkpoints: [],
             checkpointBindings: [],
@@ -381,6 +406,7 @@ struct GraphSelection: Equatable, Hashable {
         case chain
         case link
         case plan
+        case decision
     }
 
     let type: EntityType
@@ -393,7 +419,6 @@ enum ViewLens: String, CaseIterable, Identifiable {
     case principle = "Principle"
     case product = "Product"
     case requirement = "Requirement"
-    case decision = "Decision"
     case flow = "Flow"
     case ui = "UI"
     case service = "Service"
@@ -419,6 +444,7 @@ enum ViewLens: String, CaseIterable, Identifiable {
 
 enum SidebarSection: String, CaseIterable, Identifiable {
     case projectRules
+    case decisions
     case plans
     case chains
     case verification

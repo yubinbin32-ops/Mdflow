@@ -102,6 +102,8 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
         "checkpoint_list",
         "checkpoint_record",
         "context_for_task",
+        "decision_list",
+        "decision_open",
         "entity_open",
         "foundation_plan_create",
         "graph_mutate",
@@ -127,6 +129,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
           { action: "create_block", id: "canvas", fields: { kind: "ui", title: "Canvas", summary: "Renders the project network" } },
           { action: "create_chain", id: "live-path", fields: { title: "Live path", purpose: "architecture", intent: "Carry changes to the Canvas" } },
           { action: "create_plan", id: "verify-live-path", fields: { title: "Verify live path", goal: "Prove the packaged MCP workflow", status: "active", nextAction: "Record the end-to-end checkpoint" } },
+          { action: "create_decision", id: "packaged-decision", fields: { title: "Packaged Decision", summary: "Keep architecture memory outside Canvas", rationale: "Decisions need scoped, on-demand context.", scopes: [{ type: "project", value: "*" }] } },
           { action: "create_link", id: "source-canvas", fields: { sourceType: "block", sourceId: "source", targetType: "block", targetId: "canvas", kind: "writes", contract: "Only committed revisions are rendered" } },
           { action: "create_checkpoint", id: "source-proof", fields: { targetType: "block", targetId: "source", title: "Source is usable", status: "pending", checkpointKind: "atomic", requiredEvidenceLevel: "static" } },
         ],
@@ -134,6 +137,15 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     });
     assert.equal(create.isError, undefined);
     assert.equal(create.structuredContent, undefined);
+
+    const decisionIndex = await client.callTool({ name: "decision_list", arguments: {} });
+    assert.equal(decisionIndex.isError, undefined);
+    assert.equal(decisionIndex.structuredContent, undefined);
+    assert.match(decisionIndex.content[0].text, /packaged-decision/);
+    const decision = await client.callTool({ name: "decision_open", arguments: { id: "packaged-decision" } });
+    assert.equal(decision.isError, undefined);
+    assert.equal(decision.structuredContent, undefined);
+    assert.match(decision.content[0].text, /Decisions need scoped/);
 
     const compactPatch = await client.callTool({
       name: "graph_patch",

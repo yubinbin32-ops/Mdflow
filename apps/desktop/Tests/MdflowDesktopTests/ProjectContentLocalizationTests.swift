@@ -332,6 +332,8 @@ private final class BusyReadResult: @unchecked Sendable {
         planChanges: empty.planChanges,
         planChainChangeReferences: empty.planChainChangeReferences,
         backgroundScopes: empty.backgroundScopes,
+        decisions: empty.decisions,
+        decisionScopes: empty.decisionScopes,
         sourceReferences: empty.sourceReferences,
         checkpoints: empty.checkpoints,
         checkpointBindings: empty.checkpointBindings,

@@ -474,6 +474,86 @@ test("Background Blocks enter scoped context without polluting the global topolo
   }
 });
 
+test("Decisions are independent scoped records, not Canvas Blocks or History bodies", () => {
+  const context = fixture();
+  try {
+    assert.throws(
+      () => context.service.mutate({
+        reason: "Reject legacy Decision Block creation",
+        operations: [{ action: "create_block", id: "legacy-decision", fields: { kind: "decision", title: "Should not be a Block" } }],
+      }),
+      /not Canvas Blocks/,
+    );
+    assert.throws(
+      () => context.service.mutate({
+        reason: "Reject Decision Link endpoint",
+        operations: [{ action: "create_link", id: "decision-link", fields: { sourceType: "decision", sourceId: "missing", targetType: "block", targetId: "missing", kind: "constrains" } }],
+      }),
+      /not Link endpoints/,
+    );
+    context.service.mutate({
+      reason: "Create a scoped architecture decision",
+      operations: [
+        {
+          action: "create_decision",
+          id: "markdown-first",
+          fields: {
+            title: "Markdown-first MCP projection",
+            summary: "Keep ordinary AI reads compact and human-readable.",
+            rationale: "A deterministic Markdown projection preserves architecture order while avoiding duplicate JSON in context.",
+            alternatives: ["JSON by default", "Markdown plus JSON"],
+            consequences: ["Exact JSON remains available through explicit opt-in.", "The projection must include stable refs."],
+            scopes: [{ type: "project", value: "*" }],
+          },
+        },
+      ],
+    });
+    const snapshot = context.service.snapshot();
+    assert.equal(snapshot.decisions.length, 1);
+    assert.equal(snapshot.blocks.length, 0);
+    assert.deepEqual(snapshot.decisionScopes, [{ decisionId: "markdown-first", scopeType: "project", scopeValue: "*" }]);
+    assert.equal(context.service.validate().errors.length, 0);
+
+    const compact = context.service.contextForTask({ task: "change database retention" });
+    assert.match(compact.markdown, /Applicable decision index/);
+    assert.match(compact.markdown, /markdown-first/);
+    assert.doesNotMatch(compact.markdown, /deterministic Markdown projection preserves/);
+    assert.equal(compact.applicableDecisions[0].ref, "decision:markdown-first");
+
+    const opened = context.service.entityOpen({ type: "decision", id: "markdown-first" });
+    assert.match(opened.markdown, /## Rationale/);
+    assert.match(opened.markdown, /JSON by default/);
+    assert.match(opened.markdown, /not a Canvas entity/);
+    assert.equal(opened.checkpoints.length, 0);
+    assert.ok(opened.history.length >= 1);
+
+    const listed = context.service.decisionList();
+    assert.match(listed.markdown, /Decision index/);
+    assert.doesNotMatch(listed.markdown, /deterministic Markdown projection preserves/);
+
+    context.service.mutate({
+      reason: "Supersede the decision with a narrowed rule",
+      operations: [{
+        action: "update_decision",
+        id: "markdown-first",
+        expectedRevision: 1,
+        fields: { status: "reconsidered", scopes: [{ type: "lens", value: "context" }] },
+      }],
+    });
+    const updated = context.service.entityOpen({ type: "decision", id: "markdown-first" });
+    assert.match(updated.markdown, /reconsidered/);
+    assert.match(updated.markdown, /lens:context/);
+    assert.ok(updated.history.some((item) => item.action === "updated"));
+
+    context.service.graphPatch({
+      patch: `mdflow/1 base=${context.service.snapshot().project.graphRevision} reason="Patch a decision summary"\nupdate decision:markdown-first@2 summary="Narrowed context policy"`,
+    });
+    assert.equal(context.service.entityOpen({ type: "decision", id: "markdown-first" }).entity.summary, "Narrowed context policy");
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("Plan context exposes its target Chains, checkpoints, and next action", () => {
   const context = fixture();
   try {

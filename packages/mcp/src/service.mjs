@@ -8,7 +8,6 @@ const BLOCK_KINDS = new Set([
   "principle",
   "product",
   "requirement",
-  "decision",
   "flow",
   "ui",
   "service",
@@ -20,6 +19,11 @@ const BLOCK_KINDS = new Set([
   "test",
   "checkpoint",
 ]);
+
+// `decision` was briefly accepted as a Block kind in the migration-era
+// schema. Keep it readable for old graphs, but never create or mutate one:
+// durable architecture decisions now live in the scoped `decisions` table.
+const LEGACY_BLOCK_KINDS = new Set([...BLOCK_KINDS, "decision"]);
 
 const DELIVERY_STATES = new Set([
   "proposed",
@@ -41,6 +45,7 @@ const HEALTH_STATES = new Set([
 
 const PLAN_STATUSES = new Set(["draft", "ready", "active", "verifying", "complete", "blocked", "failed", "retest_required", "cancelled"]);
 const PLAN_STEP_STATUSES = new Set(["pending", "active", "complete", "blocked", "failed", "skipped"]);
+const DECISION_STATUSES = new Set(["proposed", "active", "superseded", "reconsidered"]);
 const CHECKPOINT_STATUSES = new Set([
   "pending", "running", "passed", "partial_pass", "failed", "blocked", "not_supported", "retest_required",
 ]);
@@ -140,6 +145,17 @@ const EDITABLE_PLAN_FIELDS = new Set([
   "archived",
 ]);
 
+const EDITABLE_DECISION_FIELDS = new Set([
+  "title",
+  "summary",
+  "rationale",
+  "alternatives",
+  "consequences",
+  "status",
+  "supersedesDecisionId",
+  "archived",
+]);
+
 const EDITABLE_PLAN_CHAIN_SCOPE_FIELDS = new Set([
   "chainId",
   "position",
@@ -219,6 +235,7 @@ function entityExists(database, projectId, type, id) {
     : type === "chain" ? "chains"
       : type === "link" ? "links"
         : type === "plan" ? "plans"
+          : type === "decision" ? "decisions"
           : type === "plan_change" ? "plan_changes"
             : type === "plan_chain_scope" ? "plan_chain_scopes" : null;
   if (!table) return false;
@@ -248,6 +265,23 @@ function normalizeBlock(row) {
     tags: parseJson(row.tags_json, []),
     currentRevision: row.current_revision,
     archived: Boolean(row.archived),
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeDecision(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    summary: row.summary,
+    rationale: row.rationale,
+    alternatives: parseJson(row.alternatives_json, []),
+    consequences: parseJson(row.consequences_json, []),
+    status: row.status,
+    supersedesDecisionId: row.supersedes_decision_id,
+    currentRevision: row.current_revision,
+    archived: Boolean(row.archived),
+    createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
@@ -397,7 +431,7 @@ function checkpointSatisfiesGate(checkpoint) {
 }
 
 function architectureCoverage(snapshot, planId = null) {
-  const blocks = snapshot.blocks.filter((block) => block.deliveryState !== "deprecated");
+  const blocks = snapshot.blocks.filter((block) => block.deliveryState !== "deprecated" && block.kind !== "decision");
   const blockIds = new Set(blocks.map((block) => block.id));
   const chainBlockIds = new Set(snapshot.chainNodes.filter((node) => blockIds.has(node.blockId)).map((node) => node.blockId));
   const checkpointsByBlock = new Map(blocks.map((block) => [block.id, []]));
@@ -650,6 +684,7 @@ function localizedSearchText(_snapshot, _type, _id) {
 }
 
 function operationEntityType(action) {
+  if (action.includes("decision")) return "decision";
   if (action.includes("block") || ["add_source_ref", "remove_source_ref", "set_background_scopes"].includes(action)) return "block";
   if (action.includes("chain") && !action.startsWith("set_plan_")) return "chain";
   if (action.includes("link")) return "link";
@@ -666,6 +701,8 @@ function affectedRefsForOperation(operation) {
   for (const id of fields.linkIds ?? []) add("link", id);
   for (const id of fields.chainIds ?? []) add("chain", id);
   for (const id of fields.planIds ?? []) add("plan", id);
+  for (const id of fields.decisionIds ?? []) add("decision", id);
+  if (fields.supersedesDecisionId) add("decision", fields.supersedesDecisionId);
   for (const scope of fields.scopes ?? []) {
     add("chain", scope.chainId);
     for (const id of scope.nodeIds ?? []) add("block", id);
@@ -883,6 +920,17 @@ export class MdflowService {
       )
       .all(projectId)
       .map((row) => ({ blockId: row.block_id, scopeType: row.scope_type, scopeValue: row.scope_value }));
+    const decisions = this.database
+      .prepare("SELECT * FROM decisions WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC, id")
+      .all(projectId)
+      .map(normalizeDecision);
+    const decisionScopes = this.database
+      .prepare(
+        `SELECT ds.* FROM decision_scopes ds JOIN decisions d ON d.id = ds.decision_id
+         WHERE d.project_id = ? AND d.archived = 0 ORDER BY ds.decision_id, ds.scope_type, ds.scope_value`,
+      )
+      .all(projectId)
+      .map((row) => ({ decisionId: row.decision_id, scopeType: row.scope_type, scopeValue: row.scope_value }));
     const sourceRefs = this.database
       .prepare(
         `SELECT sr.* FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
@@ -988,6 +1036,8 @@ export class MdflowService {
       planChanges,
       planChainChangeRefs,
       backgroundScopes,
+      decisions,
+      decisionScopes,
       sourceRefs,
       checkpoints,
       checkpointBindings,
@@ -999,23 +1049,24 @@ export class MdflowService {
   projectMap({ locale = "en" } = {}) {
     const snapshot = this.snapshot();
     const coverage = architectureCoverage(snapshot);
+    const graphBlocks = snapshot.blocks.filter((block) => block.kind !== "decision");
     assertAllowed(locale, LOCALES, "locale");
     const translations = localizationMap(snapshot);
     const layerCounts = Object.fromEntries(
-      [...ARCHITECTURE_LAYERS]
-        .map((layer) => [layer, snapshot.blocks.filter((block) => block.architectureLayer === layer).length])
+        [...ARCHITECTURE_LAYERS]
+        .map((layer) => [layer, graphBlocks.filter((block) => block.architectureLayer === layer).length])
         .filter(([, count]) => count > 0),
     );
     const scopeCounts = Object.fromEntries(
-      [...new Set(snapshot.blocks.map((block) => block.scope))]
+      [...new Set(graphBlocks.map((block) => block.scope))]
         .sort()
-        .map((scope) => [scope, snapshot.blocks.filter((block) => block.scope === scope).length]),
+        .map((scope) => [scope, graphBlocks.filter((block) => block.scope === scope).length]),
     );
-    const architectureGroups = [...new Set(snapshot.blocks.map((block) => `${block.architectureLayer}\u0000${block.scope}`))]
+    const architectureGroups = [...new Set(graphBlocks.map((block) => `${block.architectureLayer}\u0000${block.scope}`))]
       .sort()
       .map((key) => {
         const [layer, scope] = key.split("\u0000");
-        const members = snapshot.blocks
+        const members = graphBlocks
           .filter((block) => block.architectureLayer === layer && block.scope === scope)
           .sort((left, right) => left.localOrder - right.localOrder || left.id.localeCompare(right.id));
         return {
@@ -1044,7 +1095,8 @@ export class MdflowService {
       if (plan.derivedReason) lines.push(`  ${plan.derivedReason}`);
     }
     lines.push("", "## Project network");
-    lines.push(`- ${snapshot.blocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
+    lines.push(`- ${graphBlocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
+    lines.push(`- ${snapshot.decisions.length} Decisions (scoped index; expand a record on demand)`);
     lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
     lines.push(`- Verification coverage: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed · ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone`);
     lines.push(`- Architecture coverage: ${coverage.directPlanBlocks} direct Plan Blocks · ${coverage.chainPlanBlocks} through Chains · ${coverage.unverifiedIds.length} unverified · ${coverage.failingIds.length} failing`);
@@ -1058,19 +1110,29 @@ export class MdflowService {
     if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " …" : ""}`);
     lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" · ") || "None"}`);
     lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" · ") || "None"}`);
-    for (const block of snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8)) {
+    for (const block of graphBlocks.filter((item) => item.priority === "critical").slice(0, 8)) {
       const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
       lines.push(`- [block:${block.id}] ${title} — ${block.deliveryState}/${block.healthState}`);
+    }
+    if (snapshot.decisions.length) {
+      lines.push("", "## Decision index");
+      for (const decision of snapshot.decisions.slice(0, 12)) {
+        const scopes = snapshot.decisionScopes.filter((scope) => scope.decisionId === decision.id)
+          .map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+        lines.push(`- [decision:${decision.id}] ${decision.title} · ${decision.status}${scopes.length ? ` · scopes ${scopes.join(", ")}` : ""} · use decision_open for rationale`);
+      }
+      if (snapshot.decisions.length > 12) lines.push(`- … ${snapshot.decisions.length - 12} more; use decision_list for the complete index.`);
     }
     return {
       map: {
         project: snapshot.project,
         changeSequence: snapshot.changeSequence,
         counts: {
-          blocks: snapshot.blocks.length,
+          blocks: graphBlocks.length,
           links: snapshot.links.length,
           chains: snapshot.chains.length,
           plans: snapshot.plans.length,
+          decisions: snapshot.decisions.length,
         },
         architecture: {
           layerCounts,
@@ -1092,15 +1154,43 @@ export class MdflowService {
           dependencyPlanIds: snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.dependsOnPlanId),
           targetChainIds: snapshot.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId),
         })),
-        criticalBlocks: snapshot.blocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
+        criticalBlocks: graphBlocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
           id: block.id,
           title: localizedValue(translations, "block", block.id, locale, "title", block.title),
           deliveryState: block.deliveryState,
           healthState: block.healthState,
         })),
+        decisions: snapshot.decisions.map((decision) => ({
+          id: decision.id,
+          title: decision.title,
+          status: decision.status,
+          scopes: snapshot.decisionScopes.filter((scope) => scope.decisionId === decision.id),
+        })),
       },
       markdown: lines.join("\n"),
     };
+  }
+
+  decisionList({ locale = "en" } = {}) {
+    const snapshot = this.snapshot();
+    assertAllowed(locale, LOCALES, "locale");
+    const decisions = snapshot.decisions.map((decision) => ({
+      id: decision.id,
+      title: decision.title,
+      summary: decision.summary,
+      status: decision.status,
+      currentRevision: decision.currentRevision,
+      supersedesDecisionId: decision.supersedesDecisionId,
+      scopes: snapshot.decisionScopes
+        .filter((scope) => scope.decisionId === decision.id)
+        .map((scope) => ({ type: scope.scopeType, value: scope.scopeValue })),
+    }));
+    const lines = ["# Decision index", `- Graph revision: ${snapshot.project.graphRevision}`, `- Count: ${decisions.length}`, ""];
+    for (const decision of decisions) {
+      const scopes = decision.scopes.map((scope) => `${scope.type}:${scope.value}`).join(", ");
+      lines.push(`- [decision:${decision.id}] ${decision.title} · ${decision.status}${scopes ? ` · scopes ${scopes}` : ""} · use decision_open for rationale`);
+    }
+    return { decisions, markdown: lines.join("\n") };
   }
 
   search({ query, kinds = [], states = [], limit = 20, locale = "en" }) {
@@ -1112,7 +1202,7 @@ export class MdflowService {
     const kindSet = new Set(kinds);
     const stateSet = new Set(states);
     const score = (text) => terms.reduce((total, item) => total + (text.toLowerCase().includes(item) ? 1 : 0), 0);
-    const blocks = snapshot.blocks.map((block) => {
+    const blocks = snapshot.blocks.filter((block) => block.kind !== "decision").map((block) => {
       const text = `${block.title}\n${block.summary}\n${block.body}\n${block.contract}\n${block.scope}\n${block.architectureLayer}\n${block.tags.join(" ")}\n${localizedSearchText(snapshot, "block", block.id)}`;
       return { item: block, score: score(text) };
     }).filter(({ item: block, score }) => {
@@ -1137,6 +1227,13 @@ export class MdflowService {
         (kindSet.size === 0 || kindSet.has("plan")) &&
         (stateSet.size === 0 || stateSet.has(plan.status)))
       .sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+    const decisions = snapshot.decisions.map((decision) => {
+      const text = `${decision.title}\n${decision.summary}\n${decision.rationale}\n${decision.status}\n${JSON.stringify(decision.alternatives)}\n${JSON.stringify(decision.consequences)}`;
+      return { item: decision, score: score(text) };
+    }).filter(({ item: decision, score }) => score > 0 &&
+      (kindSet.size === 0 || kindSet.has("decision")) &&
+      (stateSet.size === 0 || stateSet.has(decision.status)))
+      .sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
     const sourceRows = this.database
       .prepare(
         `SELECT sr.*, b.title FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
@@ -1147,6 +1244,7 @@ export class MdflowService {
       ...blocks.map((block) => `- [block:${block.id}] ${localizedValue(translations, "block", block.id, locale, "title", block.title)} · ${block.deliveryState}`),
       ...chains.map((chain) => `- [chain:${chain.id}] ${localizedValue(translations, "chain", chain.id, locale, "title", chain.title)} · ${chain.deliveryState}`),
       ...plans.map((plan) => `- [plan:${plan.id}] ${localizedValue(translations, "plan", plan.id, locale, "title", plan.title)} · ${plan.status}`),
+      ...decisions.map((decision) => `- [decision:${decision.id}] ${decision.title} · ${decision.status} · use decision_open for rationale`),
       ...sourceRows.map((row) => `- [source:${row.id}] ${localizedValue(translations, "block", row.block_id, locale, "title", row.title)} · ${row.path}${row.start_line ? `:${row.start_line}` : ""}`),
     ].slice(0, limit);
     return {
@@ -1155,6 +1253,7 @@ export class MdflowService {
         ...blocks.map((block) => ({ type: "block", id: block.id, title: localizedValue(translations, "block", block.id, locale, "title", block.title), state: block.deliveryState })),
         ...chains.map((chain) => ({ type: "chain", id: chain.id, title: localizedValue(translations, "chain", chain.id, locale, "title", chain.title), state: chain.deliveryState })),
         ...plans.map((plan) => ({ type: "plan", id: plan.id, title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title), state: plan.status })),
+        ...decisions.map((decision) => ({ type: "decision", id: decision.id, title: decision.title, state: decision.status })),
         ...sourceRows.map((row) => ({
           type: "source",
           id: row.id,
@@ -1186,6 +1285,9 @@ export class MdflowService {
     } else if (type === "plan") {
       const row = this.database.prepare("SELECT * FROM plans WHERE project_id = ? AND id = ?").get(projectId, id);
       if (row) entity = normalizePlan(row);
+    } else if (type === "decision") {
+      const row = this.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?").get(projectId, id);
+      if (row) entity = normalizeDecision(row);
     }
     if (!entity) throw new Error(`${type}:${id} not found`);
 
@@ -1240,6 +1342,10 @@ export class MdflowService {
               gitCommit: row.git_commit,
             }))
         : [];
+    const decisionScopes = type === "decision"
+      ? this.database.prepare("SELECT scope_type, scope_value FROM decision_scopes WHERE decision_id = ? ORDER BY scope_type, scope_value").all(id)
+        .map((row) => ({ scopeType: row.scope_type, scopeValue: row.scope_value }))
+      : [];
     const pathNodes =
       type === "chain"
         ? this.database
@@ -1305,6 +1411,9 @@ export class MdflowService {
         lines.push(`- Coverage: checkpoint=${coverage.hasCheckpoint ? "yes" : "no"} · required=${coverage.checkpointRequired ? "yes" : "no"} · requiredMissing=${coverage.missingRequiredCheckpoint ? "yes" : "no"} · plan=${coverage.isCoveredByPlan ? "yes" : "no"} · chain=${coverage.isCoveredByChain ? "yes" : "no"} · verification=${coverage.isCoveredByAnyVerification ? "yes" : "no"}`);
       }
     }
+    if (type === "decision" && decisionScopes.length) {
+      lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")} (background; not a Canvas entity)`);
+    }
     if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
     if (entity.status) lines.push(`- Status: ${entity.status}`);
     if (type === "plan") {
@@ -1317,6 +1426,12 @@ export class MdflowService {
     if (type === "block") {
       const displayBody = localizedValue(translations, type, id, locale, "body", entity.body ?? "");
       if (displayBody) lines.push("", "## Details", displayBody);
+    }
+    if (type === "decision") {
+      if (entity.rationale) lines.push("", "## Rationale", entity.rationale);
+      if (entity.alternatives.length) lines.push("", "## Alternatives", ...entity.alternatives.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+      if (entity.consequences.length) lines.push("", "## Consequences", ...entity.consequences.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+      if (entity.supersedesDecisionId) lines.push("", "## Supersedes", `[decision:${entity.supersedesDecisionId}]`);
     }
     if (displayContract) lines.push("", "## Contract", displayContract);
     if (entity.inputContract || entity.outputContract) {
@@ -1370,7 +1485,7 @@ export class MdflowService {
         checkpoints: detailed.checkpoints, history, hierarchy: detailed.hierarchy, markdown: detailed.markdown,
       };
     }
-    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, markdown: lines.join("\n") };
+    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, decisionScopes, markdown: lines.join("\n") };
   }
 
   checkpointList({ status, targetType, targetId, planId, chainScopeId, unassignedOnly = false, limit = 100, locale = "en" } = {}) {
@@ -1838,7 +1953,7 @@ export class MdflowService {
     const scoreText = (text) =>
       terms.reduce((score, term) => score + (text.toLowerCase().includes(term) ? 1 : 0), 0);
     const scoredBlocks = snapshot.blocks
-      .filter((block) => !backgroundRuleIds.has(block.id))
+      .filter((block) => !backgroundRuleIds.has(block.id) && block.kind !== "decision")
       .map((block) => {
         const semanticScore = scoreText(`${block.title} ${block.summary} ${block.body} ${block.contract} ${block.scope} ${block.architectureLayer} ${block.tags.join(" ")} ${localizedSearchText(snapshot, "block", block.id)}`);
         return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
@@ -1937,7 +2052,17 @@ export class MdflowService {
       (scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue))))
     );
     const applicableRuleIds = [...new Set(applicableRuleScopes.map((scope) => scope.blockId))];
-    const relevantBlocks = snapshot.blocks.filter((block) => selectedBlockIds.has(block.id));
+    const applicableDecisionScopes = snapshot.decisionScopes.filter((scope) =>
+      scope.scopeType === "project" ||
+      (scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term))) ||
+      (scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue)) ||
+      (scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue))))
+    );
+    const applicableDecisionIds = [...new Set(applicableDecisionScopes.map((scope) => scope.decisionId))];
+    const applicableDecisions = snapshot.decisions
+      .filter((decision) => applicableDecisionIds.includes(decision.id))
+      .sort((left, right) => left.title.localeCompare(right.title) || left.id.localeCompare(right.id));
+    const relevantBlocks = snapshot.blocks.filter((block) => selectedBlockIds.has(block.id) && block.kind !== "decision");
     const relevantChains = snapshot.chains.filter((chain) => selectedChainIds.has(chain.id));
     const relevantPlans = snapshot.plans.filter((plan) => selectedPlanIds.has(plan.id));
     const planCoverage = new Map(relevantPlans.map((plan) => [plan.id, architectureCoverage(snapshot, plan.id)]));
@@ -2001,6 +2126,16 @@ export class MdflowService {
         const scopes = applicableRuleScopes.filter((scope) => scope.blockId === block.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
         lines.push(`- [block:${block.id}] ${title} · scopes ${scopes.join(", ")} · use entity_open only if the rule is needed`);
       }
+      lines.push("");
+    }
+    if (applicableDecisions.length) {
+      lines.push("## Applicable decision index");
+      for (const decision of applicableDecisions.slice(0, 12)) {
+        const scopes = applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id)
+          .map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+        lines.push(`- [decision:${decision.id}] ${decision.title} · ${decision.status} · scopes ${scopes.join(", ")} · use decision_open/entity_open only if rationale is needed`);
+      }
+      if (applicableDecisions.length > 12) lines.push(`- … ${applicableDecisions.length - 12} more; use decision_list for the complete index.`);
       lines.push("");
     }
     if (relevantPlans.length) {
@@ -2161,7 +2296,7 @@ export class MdflowService {
       }
       lines.push("");
     }
-    lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, or Link when more detail is needed.");
+    lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, Link, or Decision when more detail is needed.");
     const fullMarkdown = lines.join("\n");
     const markdown = fullMarkdown.length <= maxChars
       ? fullMarkdown
@@ -2173,10 +2308,18 @@ export class MdflowService {
         ...relevantChains.map((chain) => `chain:${chain.id}`),
         ...relevantBlocks.map((block) => `block:${block.id}`),
         ...applicableRuleIds.map((blockId) => `block:${blockId}`),
+        ...applicableDecisions.map((decision) => `decision:${decision.id}`),
       ],
       applicableRules: applicableRuleIds.map((blockId) => ({
         ref: `block:${blockId}`,
         scopes: applicableRuleScopes.filter((scope) => scope.blockId === blockId).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue })),
+      })),
+      applicableDecisions: applicableDecisions.map((decision) => ({
+        ref: `decision:${decision.id}`,
+        title: decision.title,
+        status: decision.status,
+        scopes: applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id)
+          .map((scope) => ({ type: scope.scopeType, value: scope.scopeValue })),
       })),
       markdown,
     };
@@ -2215,7 +2358,7 @@ export class MdflowService {
     const snapshot = this.snapshot();
     if (snapshot.plans.some((plan) => plan.id === id)) throw new Error(`plan:${id} already exists`);
     const blocks = snapshot.blocks.filter((block) =>
-      !block.archived && !["complete", "deprecated"].includes(block.deliveryState),
+      !block.archived && block.kind !== "decision" && !["complete", "deprecated"].includes(block.deliveryState),
     );
     if (blocks.length === 0) throw new Error("No unimplemented Blocks are available for a Foundation Plan");
 
@@ -2457,6 +2600,7 @@ export class MdflowService {
       chain: before.chains,
       link: before.links,
       plan: before.plans,
+      decision: before.decisions,
       checkpoint: before.checkpoints,
       plan_change: before.planChanges,
       plan_scope: before.planChainScopes,
@@ -2558,7 +2702,7 @@ export class MdflowService {
         });
         continue;
       }
-      if (!["block", "chain", "link", "plan"].includes(targetType)) {
+      if (!["block", "chain", "link", "plan", "decision"].includes(targetType)) {
         throw new Error(`Unsupported compact patch target ${targetType}:${targetId}`);
       }
       if (item.action === "create") {
@@ -2830,6 +2974,14 @@ export class MdflowService {
         changeIds: this.database.prepare("SELECT id FROM plan_changes WHERE plan_id = ? ORDER BY position").all(id).map((item) => item.id),
       } : {};
     }
+    if (entityType === "decision") {
+      const row = this.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
+      return row ? {
+        ...normalizeDecision(row),
+        scopes: this.database.prepare("SELECT scope_type, scope_value FROM decision_scopes WHERE decision_id = ? ORDER BY scope_type, scope_value")
+          .all(id).map((item) => ({ type: item.scope_type, value: item.scope_value })),
+      } : {};
+    }
     if (entityType === "checkpoint") {
       const row = this.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? AND id = ?").get(this.paths.descriptor.id, id);
       return row ? {
@@ -2849,6 +3001,7 @@ export class MdflowService {
 
   uiLocationFor(entityType, id) {
     if (entityType === "plan") return `Project > Plans > plan:${id}`;
+    if (entityType === "decision") return `Project > Decisions > decision:${id}`;
     if (entityType === "chain") return `Project > Chains > chain:${id}`;
     if (entityType === "block") return `Canvas > block:${id}`;
     if (entityType === "link") return `Canvas > link:${id}`;
@@ -2908,6 +3061,12 @@ export class MdflowService {
         return this.setChainPath(operation, context);
       case "set_background_scopes":
         return this.setBackgroundScopes(operation, context);
+      case "create_decision":
+        return this.createDecision(operation, context);
+      case "update_decision":
+        return this.updateEntity("decision", operation, context);
+      case "set_decision_scopes":
+        return this.setDecisionScopes(operation, context);
       default:
         throw new Error(`Unsupported action: ${operation.action}`);
     }
@@ -2915,6 +3074,9 @@ export class MdflowService {
 
   applyLocalizations(entityType, entityId, localizations, timestamp) {
     if (localizations == null) return;
+    if (entityType === "decision") {
+      throw new Error("Decision records keep one canonical project-language body; use summary/rationale instead of localizations");
+    }
     if (typeof localizations !== "object" || Array.isArray(localizations)) {
       throw new Error("fields.localizations must be an object keyed by locale");
     }
@@ -2940,6 +3102,7 @@ export class MdflowService {
 
   removeStaleLocalizations(entityType, entityId, changedFields, localizations) {
     const localizedFields = LOCALIZED_FIELDS[entityType];
+    if (!localizedFields) return;
     const explicitlyUpdated = new Set(
       Object.values(localizations ?? {}).flatMap((values) => Object.keys(values ?? {})),
     );
@@ -3470,8 +3633,82 @@ export class MdflowService {
     return { entityType: "block", id: operation.id, action: "scopes-set", revision, summary: `${scopes.length} scope(s)` };
   }
 
+  setDecisionScopes(operation) {
+    if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
+      throw new Error("set_decision_scopes requires decision id and expectedRevision");
+    }
+    const decision = this.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?")
+      .get(this.paths.descriptor.id, operation.id);
+    if (!decision) throw new Error(`decision:${operation.id} not found`);
+    if (decision.current_revision !== operation.expectedRevision) {
+      throw new Error(`Revision conflict for decision:${operation.id}; expected ${operation.expectedRevision}, current ${decision.current_revision}`);
+    }
+    const scopes = operation.fields?.scopes ?? [];
+    if (!Array.isArray(scopes)) throw new Error("decision scopes must be an array");
+    const allowed = new Set(["project", "lens", "chain", "repo"]);
+    this.database.prepare("DELETE FROM decision_scopes WHERE decision_id = ?").run(operation.id);
+    const insert = this.database.prepare("INSERT INTO decision_scopes(decision_id, scope_type, scope_value) VALUES (?, ?, ?)");
+    for (const scope of scopes) {
+      assertAllowed(scope.type, allowed, "decision scope type");
+      if (scope.value != null && (typeof scope.value !== "string" || !scope.value.trim())) {
+        throw new Error("decision scope value must be a non-empty string");
+      }
+      if (scope.type === "chain" && scope.value !== "*" && !entityExists(this.database, this.paths.descriptor.id, "chain", scope.value)) {
+        throw new Error(`chain:${scope.value} not found for decision scope`);
+      }
+      insert.run(operation.id, scope.type, scope.value?.trim() || "*");
+    }
+    const revision = decision.current_revision + 1;
+    this.database.prepare("UPDATE decisions SET current_revision = ?, updated_at = ? WHERE project_id = ? AND id = ?")
+      .run(revision, now(), this.paths.descriptor.id, operation.id);
+    return { entityType: "decision", id: operation.id, action: "scopes-set", revision, summary: `${scopes.length} scope(s)` };
+  }
+
+  createDecision(operation, { timestamp }) {
+    const fields = operation.fields ?? {};
+    if (!fields.title?.trim()) throw new Error("create_decision requires fields.title");
+    if (fields.localizations != null) {
+      throw new Error("create_decision does not accept localizations; keep one canonical decision body");
+    }
+    assertAllowed(fields.status ?? "active", DECISION_STATUSES, "decision status");
+    if (fields.alternatives != null && !Array.isArray(fields.alternatives)) throw new Error("decision alternatives must be an array");
+    if (fields.consequences != null && !Array.isArray(fields.consequences)) throw new Error("decision consequences must be an array");
+    if (fields.supersedesDecisionId && !entityExists(this.database, this.paths.descriptor.id, "decision", fields.supersedesDecisionId)) {
+      throw new Error(`decision:${fields.supersedesDecisionId} not found`);
+    }
+    const id = operation.id ?? identifier("decision");
+    this.database.prepare(
+      `INSERT INTO decisions(
+        id, project_id, title, summary, rationale, alternatives_json, consequences_json,
+        status, supersedes_decision_id, archived, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id, this.paths.descriptor.id, fields.title.trim(), fields.summary ?? "", fields.rationale ?? "",
+      JSON.stringify(fields.alternatives ?? []), JSON.stringify(fields.consequences ?? []), fields.status ?? "active",
+      fields.supersedesDecisionId ?? null, Number(Boolean(fields.archived)), timestamp, timestamp,
+    );
+    const scopes = fields.scopes;
+    if (scopes != null) {
+      if (!Array.isArray(scopes)) throw new Error("decision scopes must be an array");
+      const allowed = new Set(["project", "lens", "chain", "repo"]);
+      const insert = this.database.prepare("INSERT INTO decision_scopes(decision_id, scope_type, scope_value) VALUES (?, ?, ?)");
+      for (const scope of scopes) {
+        assertAllowed(scope.type, allowed, "decision scope type");
+        const value = scope.value?.trim() || "*";
+        if (scope.type === "chain" && value !== "*" && !entityExists(this.database, this.paths.descriptor.id, "chain", value)) {
+          throw new Error(`chain:${value} not found for decision scope`);
+        }
+        insert.run(id, scope.type, value);
+      }
+    }
+    return { entityType: "decision", id, action: "created", revision: 1, summary: fields.title.trim() };
+  }
+
   createBlock(operation, { timestamp }) {
     const fields = operation.fields ?? {};
+    if (fields.kind === "decision") {
+      throw new Error("Decision records are not Canvas Blocks; use create_decision with project/lens/chain/repo scopes");
+    }
     assertAllowed(fields.kind, BLOCK_KINDS, "block kind");
     assertAllowed(fields.architectureLayer ?? "unspecified", ARCHITECTURE_LAYERS, "architecture layer");
     assertAllowed(fields.deliveryState ?? "proposed", DELIVERY_STATES, "delivery state");
@@ -3547,6 +3784,9 @@ export class MdflowService {
 
   createLink(operation, { timestamp }) {
     const fields = operation.fields ?? {};
+    if (fields.sourceType === "decision" || fields.targetType === "decision") {
+      throw new Error("Decisions are scoped project memory, not Link endpoints; use decision scopes or a source reference");
+    }
     assertAllowed(fields.kind, LINK_KINDS, "link kind");
     assertAllowed(fields.healthState ?? "unknown", HEALTH_STATES, "health state");
     if (!entityExists(this.database, this.paths.descriptor.id, fields.sourceType, fields.sourceId)) {
@@ -3739,6 +3979,7 @@ export class MdflowService {
       chain: { table: "chains", allowed: EDITABLE_CHAIN_FIELDS, normalizer: normalizeChain },
       link: { table: "links", allowed: EDITABLE_LINK_FIELDS, normalizer: normalizeLink },
       plan: { table: "plans", allowed: EDITABLE_PLAN_FIELDS, normalizer: normalizePlan },
+      decision: { table: "decisions", allowed: EDITABLE_DECISION_FIELDS, normalizer: normalizeDecision },
     }[type];
     if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
       throw new Error(`update_${type} requires id and expectedRevision`);
@@ -3755,11 +3996,18 @@ export class MdflowService {
     const fields = { ...(operation.fields ?? {}) };
     const localizations = fields.localizations;
     delete fields.localizations;
+    const decisionScopes = type === "decision" ? fields.scopes : null;
+    if (type === "decision") delete fields.scopes;
     const updates = [];
     const values = [];
     for (const [field, rawValue] of Object.entries(fields)) {
       if (!config.allowed.has(field)) throw new Error(`Field ${field} is not editable on ${type}`);
-      if (field === "kind" && type === "block") assertAllowed(rawValue, BLOCK_KINDS, "block kind");
+      if (field === "kind" && type === "block") {
+        if (rawValue === "decision") {
+          throw new Error("Decision records are not Canvas Blocks; use update_decision or create_decision");
+        }
+        assertAllowed(rawValue, BLOCK_KINDS, "block kind");
+      }
       if (field === "kind" && type === "link") assertAllowed(rawValue, LINK_KINDS, "link kind");
       if (field === "architectureLayer") assertAllowed(rawValue, ARCHITECTURE_LAYERS, "architecture layer");
       if (field === "scope" && (typeof rawValue !== "string" || !rawValue.trim())) {
@@ -3770,22 +4018,45 @@ export class MdflowService {
       }
       if (field === "deliveryState") assertAllowed(rawValue, DELIVERY_STATES, "delivery state");
       if (field === "healthState") assertAllowed(rawValue, HEALTH_STATES, "health state");
-      if (field === "status") assertAllowed(rawValue, PLAN_STATUSES, "plan status");
+      if (field === "status") assertAllowed(rawValue, type === "decision" ? DECISION_STATUSES : PLAN_STATUSES, type === "decision" ? "decision status" : "plan status");
+      if (["alternatives", "consequences"].includes(field) && !Array.isArray(rawValue)) {
+        throw new Error(`decision ${field} must be an array`);
+      }
+      if (field === "supersedesDecisionId" && rawValue != null &&
+          !entityExists(this.database, this.paths.descriptor.id, "decision", rawValue)) {
+        throw new Error(`decision:${rawValue} not found`);
+      }
       const column = field === "proposedDelta" ? "proposed_delta_json"
         : field === "completionPolicy" ? "completion_policy_json"
-          : field === "blockers" ? "blockers_json" : camelToColumn(field);
+          : field === "blockers" ? "blockers_json"
+            : field === "alternatives" ? "alternatives_json"
+              : field === "consequences" ? "consequences_json" : camelToColumn(field);
       updates.push(`${column} = ?`);
       values.push(field === "tags" ? serializeTags(rawValue)
-        : ["proposedDelta", "blockers", "completionPolicy"].includes(field) ? JSON.stringify(rawValue ?? (field === "completionPolicy" ? {} : []))
+        : ["proposedDelta", "blockers", "completionPolicy", "alternatives", "consequences"].includes(field) ? JSON.stringify(rawValue ?? (field === "completionPolicy" ? {} : []))
           : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
     }
-    if (updates.length === 0 && localizations == null) throw new Error(`update_${type} has no fields`);
+    if (updates.length === 0 && localizations == null && decisionScopes == null) throw new Error(`update_${type} has no fields`);
     const revision = existing.current_revision + 1;
     updates.push("current_revision = ?", "updated_at = ?");
     values.push(revision, timestamp, this.paths.descriptor.id, operation.id);
     this.database
       .prepare(`UPDATE ${config.table} SET ${updates.join(", ")} WHERE project_id = ? AND id = ?`)
       .run(...values);
+    if (type === "decision" && decisionScopes != null) {
+      if (!Array.isArray(decisionScopes)) throw new Error("decision scopes must be an array");
+      const allowed = new Set(["project", "lens", "chain", "repo"]);
+      this.database.prepare("DELETE FROM decision_scopes WHERE decision_id = ?").run(operation.id);
+      const insert = this.database.prepare("INSERT INTO decision_scopes(decision_id, scope_type, scope_value) VALUES (?, ?, ?)");
+      for (const scope of decisionScopes) {
+        assertAllowed(scope.type, allowed, "decision scope type");
+        const value = scope.value?.trim() || "*";
+        if (scope.type === "chain" && value !== "*" && !entityExists(this.database, this.paths.descriptor.id, "chain", value)) {
+          throw new Error(`chain:${value} not found for decision scope`);
+        }
+        insert.run(operation.id, scope.type, value);
+      }
+    }
     this.removeStaleLocalizations(type, operation.id, Object.keys(fields), localizations);
     this.applyLocalizations(type, operation.id, localizations, timestamp);
     const normalized = config.normalizer(
@@ -4061,7 +4332,26 @@ export class MdflowService {
     for (const scope of snapshot.backgroundScopes) {
       if (!snapshot.blocks.some((block) => block.id === scope.blockId)) errors.push(`Missing Background Block: block:${scope.blockId}`);
     }
+    const decisionIDs = new Set(snapshot.decisions.map((decision) => decision.id));
+    for (const decision of snapshot.decisions) {
+      if (!DECISION_STATUSES.has(decision.status)) errors.push(`Invalid Decision status: decision:${decision.id}`);
+      if (decision.supersedesDecisionId && !decisionIDs.has(decision.supersedesDecisionId)) {
+        errors.push(`Missing superseded Decision: decision:${decision.id} -> decision:${decision.supersedesDecisionId}`);
+      }
+    }
+    for (const scope of snapshot.decisionScopes) {
+      if (!decisionIDs.has(scope.decisionId)) errors.push(`Missing Decision for scope: decision:${scope.decisionId}`);
+      if (scope.scopeType === "chain" && scope.scopeValue !== "*" && !snapshot.chains.some((chain) => chain.id === scope.scopeValue)) {
+        errors.push(`Missing Chain for Decision scope: decision:${scope.decisionId} -> chain:${scope.scopeValue}`);
+      }
+    }
     for (const block of snapshot.blocks) {
+      if (!LEGACY_BLOCK_KINDS.has(block.kind)) {
+        errors.push(`Invalid Block kind: block:${block.id}`);
+      } else if (block.kind === "decision") {
+        warnings.push(`Legacy decision Block is not a Decision record and is excluded from the Canvas; migrate block:${block.id} to decision:<id>`);
+        continue;
+      }
       if (block.deliveryState === "complete") {
         const passed = snapshot.checkpoints.some(
           (checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpoint.status === "passed",

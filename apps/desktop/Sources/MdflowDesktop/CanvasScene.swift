@@ -22,7 +22,9 @@ struct CanvasScene: Equatable {
 
     static func compile(snapshot: GraphSnapshot, lenses: Set<ViewLens>, topInset: CGFloat = 70) -> CanvasScene {
         let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
-        let allCanvasBlocks = snapshot.blocks.filter { !backgroundRuleIDs.contains($0.id) }
+        let allCanvasBlocks = snapshot.blocks.filter {
+            !backgroundRuleIDs.contains($0.id) && $0.kind.lowercased() != "decision"
+        }
         let allCanvasIDs = Set(allCanvasBlocks.map(\.id))
         let visibleIDs = Set(allCanvasBlocks.filter { block in
             lenses.contains { $0.includes(block: block) }
@@ -103,7 +105,7 @@ struct CanvasScene: Equatable {
 
     private static func districtIndex(_ kind: String) -> Int {
         switch kind {
-        case "principle", "requirement", "decision", "product": 0
+        case "principle", "requirement", "product": 0
         case "ui", "flow": 1
         case "service", "function": 2
         case "integration": 3

@@ -1,5 +1,5 @@
 const HEADER_PATTERN = /^mdflow\/(\d+)(?:\s+(.*))?$/;
-const TARGET_PATTERN = /^(block|chain|link|plan|checkpoint|plan_change|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
+const TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
 
 function tokenize(input, lineNumber) {
   const tokens = [];

@@ -73,6 +73,28 @@ struct DetailView: View {
                 relatedPlanSection(block.id)
                 sourceSection(block.id)
             }
+        case .decision:
+            if let decision = store.snapshot.decisions.first(where: { $0.id == selection.id }) {
+                HStack(spacing: 8) {
+                    metadataLabel(store.activeLocale == "zh-Hans" ? "架构决策" : "DECISION")
+                    metadataSeparator
+                    metadataLabel(decision.status)
+                    metadataSeparator
+                    metadataLabel(store.decisionScopeLabel(decision.id))
+                }
+                Text(store.activeLocale == "zh-Hans"
+                     ? "项目记忆 · 不进入 Canvas、Block 覆盖或 checkpoint"
+                     : "Project memory · excluded from Canvas, Block coverage, and checkpoints")
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(MdflowTheme.muted)
+                section(store.text("summary").uppercased(), text: decision.summary)
+                section(store.activeLocale == "zh-Hans" ? "决策理由" : "RATIONALE", text: decision.rationale)
+                structuredList(store.activeLocale == "zh-Hans" ? "备选方案" : "ALTERNATIVES", value: decision.alternatives)
+                structuredList(store.activeLocale == "zh-Hans" ? "后果" : "CONSEQUENCES", value: decision.consequences)
+                if let superseded = decision.supersedesDecisionID, !superseded.isEmpty {
+                    section(store.activeLocale == "zh-Hans" ? "取代决策" : "SUPERSEDES", text: "decision:\(superseded)")
+                }
+            }
         case .chain:
             if let chain = store.snapshot.chains.first(where: { $0.id == selection.id }) {
                 section(store.text("summary").uppercased(), text: store.chainText(chain, field: "intent"))
@@ -668,6 +690,7 @@ struct DetailView: View {
         case .chain: store.snapshot.chains.first { $0.id == selection.id }?.revision ?? 0
         case .link: store.snapshot.links.first { $0.id == selection.id }?.revision ?? 0
         case .plan: store.snapshot.plans.first { $0.id == selection.id }?.revision ?? 0
+        case .decision: store.snapshot.decisions.first { $0.id == selection.id }?.revision ?? 0
         }
         return HStack {
             sectionLabel(store.text("revision").uppercased())

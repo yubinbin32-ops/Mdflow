@@ -61,6 +61,17 @@ struct ContentView: View {
                         }
                     }
 
+                    sidebarSection(.decisions, title: store.text("decisions")) {
+                        ForEach(store.snapshot.decisions) { decision in
+                            sidebarButton(
+                                title: decision.title,
+                                subtitle: "\(decision.status.uppercased()) · \(store.decisionScopeLabel(decision.id))",
+                                color: MdflowTheme.blockKindColor("principle"),
+                                selected: store.selection == GraphSelection(type: .decision, id: decision.id)
+                            ) { store.select(GraphSelection(type: .decision, id: decision.id)) }
+                        }
+                    }
+
                     sidebarSection(.plans, title: store.text("plans")) {
                         ForEach(store.plans) { plan in
                             sidebarButton(
@@ -144,7 +155,7 @@ struct ContentView: View {
                 Text(store.snapshot.project.name)
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundStyle(MdflowTheme.ink).lineLimit(1)
-                Text("\(store.snapshot.blocks.count) BLOCKS · \(store.snapshot.chains.count) CHAINS")
+                Text("\(store.snapshot.blocks.count) BLOCKS · \(store.snapshot.chains.count) CHAINS · \(store.snapshot.decisions.count) DECISIONS")
                     .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(0.8)
                     .foregroundStyle(MdflowTheme.muted)
                 let coverage = store.architectureCoverage
