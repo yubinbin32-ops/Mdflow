@@ -127,6 +127,50 @@ import Testing
     #expect(Date().timeIntervalSince(started) < 45)
 }
 
+@Test func threeHundredBlockSixChain599LinkOverviewHasNoRoadBuildingConflicts() {
+    let ids = (0..<300).map { "real-target-\($0)" }
+    let forward = (0..<299).map { index in
+        LayoutEdge(id: "real-target-fwd-\(index)", sourceID: ids[index], targetID: ids[index + 1])
+    }
+    let reverse = (0..<299).map { index in
+        LayoutEdge(id: "real-target-rev-\(index)", sourceID: ids[index + 1], targetID: ids[index])
+    }
+    let loop = LayoutEdge(id: "real-target-loop", sourceID: ids[299], targetID: ids[0])
+    let edges = forward + reverse + [loop]
+    let paths = [
+        Array(ids[0..<100]),
+        Array(ids[100..<200]),
+        Array(ids[200..<300]),
+        Array(ids[0..<100].reversed()),
+        Array(ids[100..<200].reversed()),
+        Array(ids[200..<300].reversed()),
+    ]
+    let size = CGSize(width: 196, height: 108)
+    let started = Date()
+    let layout = NetworkLayoutEngine.make(
+        nodeIDs: ids,
+        edges: edges,
+        focusPaths: paths,
+        districts: Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0 % 9) }),
+        cardSize: size,
+        topInset: 190
+    )
+    #expect(layout.positions.count == 300)
+    #expect(layout.routes.count == 599)
+    for edge in edges {
+        let route = layout.routes[edge.id] ?? []
+        #expect(route.count > 1)
+        #expect(zip(route, route.dropFirst()).allSatisfy { left, right in
+            left.x == right.x || left.y == right.y
+        })
+        for id in ids where id != edge.sourceID && id != edge.targetID {
+            let building = CGRect(origin: layout.positions[id]!, size: size).insetBy(dx: -1, dy: -1)
+            #expect(zip(route, route.dropFirst()).allSatisfy { !segment($0, $1, intersects: building) })
+        }
+    }
+    #expect(Date().timeIntervalSince(started) < 60)
+}
+
 @Test func orderedChainCreatesACompactTurningPrimaryRoad() {
     let ids = ["start", "ui", "service", "data", "test"]
     let edges = [

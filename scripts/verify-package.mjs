@@ -29,6 +29,12 @@ function sha256(file) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
 
+function signingArguments(root) {
+  const identity = process.env.MDFLOW_CODESIGN_IDENTITY ?? "-";
+  if (identity === "-") return ["--force", "--sign", "-", root];
+  return ["--force", "--options", "runtime", "--timestamp", "--sign", identity, root];
+}
+
 function requiredFile(root, relative, errors) {
   const absolute = path.join(root, relative);
   if (!fs.existsSync(absolute)) errors.push(`Missing package file: ${relative}`);
@@ -86,6 +92,10 @@ export function inspectPackage(appRoot, { verifySignature = true } = {}) {
     const result = spawnSync("codesign", ["--verify", "--deep", "--strict", root], { encoding: "utf8" });
     signature = { checked: true, valid: result.status === 0, output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim() };
     if (!signature.valid) errors.push(`codesign verification failed: ${signature.output || "unknown error"}`);
+    const details = spawnSync("codesign", ["-dv", "--verbose=4", root], { encoding: "utf8" });
+    const detailOutput = `${details.stdout ?? ""}${details.stderr ?? ""}`;
+    signature.mode = detailOutput.includes("Signature=adhoc") ? "adhoc" : signature.valid ? "signed" : "invalid";
+    if (signature.mode === "adhoc") warnings.push("Package uses an ad-hoc signature; Developer ID/notarization is required for public distribution");
   }
 
   const manifest = {
@@ -96,6 +106,7 @@ export function inspectPackage(appRoot, { verifySignature = true } = {}) {
     pluginVersion: plugin.version ?? null,
     minimumSystem: infoValues.minimumSystem,
     signature: signature.checked ? (signature.valid ? "verified" : "invalid") : "not-checked",
+    signingMode: signature.mode ?? "not-checked",
     files: {
       executableSha256: fs.existsSync(executable) ? sha256(executable) : null,
       serverSha256: fs.existsSync(serverPath) ? sha256(serverPath) : null,
@@ -107,10 +118,48 @@ export function inspectPackage(appRoot, { verifySignature = true } = {}) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const appRoot = process.argv.find((argument) => argument.endsWith(".app")) ?? "dist/mdflow.app";
-  const result = inspectPackage(appRoot);
+  const manifestPath = path.join(path.resolve(appRoot), "Contents/Resources/RELEASE-MANIFEST.json");
+  let result = inspectPackage(appRoot);
+
   if (process.argv.includes("--write-manifest")) {
-    const manifestPath = path.join(path.resolve(appRoot), "Contents/Resources/RELEASE-MANIFEST.json");
-    fs.writeFileSync(manifestPath, `${JSON.stringify(result.manifest, null, 2)}\n`);
+    if (!process.argv.includes("--resign")) {
+      result = {
+        ...result,
+        valid: false,
+        errors: [...result.errors, "--write-manifest requires --resign so the manifest remains inside the code signature"],
+      };
+      console.log(JSON.stringify(result, null, 2));
+      process.exitCode = 1;
+      process.exit();
+    }
+    // The manifest is itself a sealed resource. Write it before the final
+    // signature, then inspect the signed bundle once more so the file count
+    // includes CodeResources/provisioning metadata that codesign adds.
+    const writeManifest = (manifest) => fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    writeManifest(result.manifest);
+    if (process.argv.includes("--resign")) {
+      const firstSign = spawnSync("codesign", signingArguments(path.resolve(appRoot)), { encoding: "utf8" });
+      if (firstSign.status !== 0) {
+        result = {
+          ...result,
+          valid: false,
+          errors: [...result.errors, `codesign re-sign failed: ${`${firstSign.stdout ?? ""}${firstSign.stderr ?? ""}`.trim()}`],
+        };
+      } else {
+        result = inspectPackage(appRoot);
+        writeManifest(result.manifest);
+        const finalSign = spawnSync("codesign", signingArguments(path.resolve(appRoot)), { encoding: "utf8" });
+        if (finalSign.status !== 0) {
+          result = {
+            ...result,
+            valid: false,
+            errors: [...result.errors, `codesign final sign failed: ${`${finalSign.stdout ?? ""}${finalSign.stderr ?? ""}`.trim()}`],
+          };
+        } else {
+          result = inspectPackage(appRoot);
+        }
+      }
+    }
   }
   console.log(JSON.stringify(result, null, 2));
   if (!result.valid) process.exitCode = 1;

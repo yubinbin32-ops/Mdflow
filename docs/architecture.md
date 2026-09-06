@@ -4,6 +4,8 @@
 > 基线 HEAD：`9947ae6`（本文件写作时的仓库状态）
 > 用途：这是“先把内容写入 Markdown，再按 Markdown 重建 mdflow”的一次性迁移基线。迁移完成后，本文件应降级为公开发布/历史材料，开发期唯一交接入口回到 `.mdflow`。
 
+> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 539）；最新回归为 MCP 38/38、Swift/Desktop 30/30、`release:verify` valid=true、严格 codesign 与 13-file manifest。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。剩余开放门禁见 mdflow Foundation Plan：系统性全路人工冲突审查、最终 Reduce Motion/色盲视觉 human_review、Developer ID Edge 发布/升级回滚/notarization。
+
 ## 1. 这份文件要解决什么
 
 ### 执行记录（已完成的迁移步骤）
@@ -71,7 +73,7 @@ apps/desktop/                      SwiftUI macOS App（只读投影）
     DetailView.swift               唯一右侧详情栏
     PluginInstaller.swift          调用 Codex CLI 安装插件
   Resources/AppIcon.icns           多分辨率图标
-  Tests/MdflowDesktopTests/        Swift 回归（当前 18 个测试）
+  Tests/MdflowDesktopTests/        Swift 回归（当前 30 个测试）
 
 packages/mcp/src/
   service.mjs                      数据模型、查询、写入、派生状态
@@ -79,7 +81,7 @@ packages/mcp/src/
   paths.mjs                        .mdflow 路径解析
   project-router.mjs               多项目服务路由
   server.mjs                       MCP stdio 工具面
-packages/mcp/test/                 MCP 回归（当前 30 个测试）
+packages/mcp/test/                 MCP 回归（当前 38 个测试）
 
 plugins/mdflow/
   .codex-plugin/plugin.json        插件清单与版本
@@ -222,12 +224,12 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 ## 6. 当前验证基线
 
-- MCP 回归：32/32 通过。
-- Swift/Desktop 回归：18/18 通过。
-- Skill validation：通过。
-- Plugin validation：通过。
-- 当前插件版本：`0.1.0+codex.20260905101443`，已安装启用；bundle/Skill 与安装缓存哈希一致。
-- 自动回归不等于 real_target/human_review；发布、大图、真实 UI 最终验收仍开放。
+- MCP 回归：38/38 通过。
+- Swift/Desktop 回归：30/30 通过；包含精确 300 Block / 599 Link / 6 Chain 全路冲突检查、重复刷新和大包络边界回归。
+- `release:verify`：`valid=true`，严格 codesign、私有数据审计、13-file manifest 通过；清单现在在最终 re-sign 前写入，避免破坏 sealed resources。
+- 本地开发包保持 ad-hoc 签名；`MDFLOW_CODESIGN_IDENTITY` 可注入 Developer ID，`npm run release:notarize` 负责 notarytool/staple/spctl 门禁，不把 ad-hoc 包误称为公证产物。
+- 当前插件版本：`0.1.0+codex.20260905101443`；bundle/Skill 与仓库哈希一致。
+- 读取工具默认 Markdown；只有显式 `includeStructured=true` 才返回完整 structuredContent；自动回归仍不能替代 real_target/human_review。
 
 ## 7. Block 清单（25）
 
@@ -264,7 +266,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ### 7.1 需要在重建时修正的 Block 内容
 
 1. `project-registration`：正文必须改为“主数据库随 Git 版本化，WAL/SHM/journal 忽略”，删除“mdflow.sqlite 保持忽略”的旧句。
-2. `verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的正文/证据必须统一为当前 32/32 MCP、18/18 Swift、插件 `0.1.0+codex.20260905101443`；旧“25/25”“15 tests”“22 tests”等数字不得继续作为当前证据。
+2. 该项已在当前图谱校准：`verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的当前正文/证据以 MCP 38/38、Swift 30/30、插件 `0.1.0+codex.20260905101443` 为准；旧“32/32”“18/18”“25/25”“15 tests”“22 tests”等数字只保留在历史回放中。
 3. 所有 Block 的 `healthState` 应由当前 checkpoint 状态推导呈现，不再保留与 evidence 冲突的手工“healthy”表达。
 4. 不创建“全部/All/QA/Plan”伪 Block kind。
 

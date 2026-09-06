@@ -14,9 +14,9 @@ struct GraphCanvasView: View {
     var body: some View {
         GeometryReader { viewport in
             ZStack(alignment: .topLeading) {
+                grid(viewportSize: viewport.size)
                 ZStack(alignment: .topLeading) {
                     Color.clear.contentShape(Rectangle())
-                    grid
                     chainEnvelopeLayer
                     linkLayer
                     chainMotionLayer
@@ -129,16 +129,25 @@ struct GraphCanvasView: View {
         }
     }
 
-    private var grid: some View {
-        Canvas { context, size in
+    /// The grid is decorative and does not belong to the semantic scene. Keep
+    /// its backing Canvas bounded to the viewport instead of the full world
+    /// layout. A 300-Block graph can be tens of thousands of points wide; a
+    /// world-sized grid needlessly allocates a giant render surface during the
+    /// first frame and inflates the startup memory peak.
+    private func grid(viewportSize: CGSize) -> some View {
+        let spacing = max(12, min(36, 24 * camera.scale))
+        let phaseX = positiveRemainder(camera.offset.width, modulus: spacing)
+        let phaseY = positiveRemainder(camera.offset.height, modulus: spacing)
+        return Canvas { context, size in
             var path = Path()
-            stride(from: 0, through: size.width, by: 24).forEach { x in
-                stride(from: 0, through: size.height, by: 24).forEach { y in
+            stride(from: phaseX - spacing, through: size.width, by: spacing).forEach { x in
+                stride(from: phaseY - spacing, through: size.height, by: spacing).forEach { y in
                     path.addEllipse(in: CGRect(x: x, y: y, width: 1, height: 1))
                 }
             }
             context.fill(path, with: .color(MdflowTheme.hairline.opacity(0.42)))
         }
+        .frame(width: max(1, viewportSize.width), height: max(1, viewportSize.height))
         .allowsHitTesting(false)
     }
 
@@ -293,6 +302,11 @@ struct GraphCanvasView: View {
     }
 
     private func positiveRemainder(_ value: Double, modulus: Double) -> Double {
+        let result = value.truncatingRemainder(dividingBy: modulus)
+        return result >= 0 ? result : result + modulus
+    }
+
+    private func positiveRemainder(_ value: CGFloat, modulus: CGFloat) -> CGFloat {
         let result = value.truncatingRemainder(dividingBy: modulus)
         return result >= 0 ? result : result + modulus
     }
