@@ -11,9 +11,9 @@
   "mdflow": {
     "name": "mdflow-first",
     "baselineTokens": 1107,
-    "totalTokens": 2030,
-    "totalChars": 8426,
-    "durationMs": 4.89,
+    "totalTokens": 2359,
+    "totalChars": 9497,
+    "durationMs": 17.98,
     "expectedFacts": 13,
     "recalledFacts": 13,
     "recallRate": 1,
@@ -22,8 +22,8 @@
     "tasks": [
       {
         "id": "create",
-        "tokens": 685,
-        "chars": 2827,
+        "tokens": 814,
+        "chars": 3259,
         "expected": 5,
         "recalled": 5,
         "missingRefs": [],
@@ -32,8 +32,8 @@
       },
       {
         "id": "recover",
-        "tokens": 613,
-        "chars": 2570,
+        "tokens": 777,
+        "chars": 3164,
         "expected": 5,
         "recalled": 5,
         "missingRefs": [],
@@ -42,8 +42,8 @@
       },
       {
         "id": "migration",
-        "tokens": 732,
-        "chars": 3029,
+        "tokens": 768,
+        "chars": 3074,
         "expected": 3,
         "recalled": 3,
         "missingRefs": [],
@@ -57,7 +57,7 @@
     "baselineTokens": 1107,
     "totalTokens": 3321,
     "totalChars": 16170,
-    "durationMs": 0.01,
+    "durationMs": 0.04,
     "expectedFacts": 13,
     "recalledFacts": 13,
     "recallRate": 1,
@@ -97,7 +97,7 @@
     ]
   },
   "comparison": {
-    "tokenReduction": 0.38873833182776274,
+    "tokenReduction": 0.289671785606745,
     "recalledFactsDelta": 0,
     "errorRateDelta": 0,
     "reworkTurnsDelta": 0,

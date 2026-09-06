@@ -828,6 +828,12 @@ test("Plan gates aggregate Block checkpoints even when the Block is outside ever
     assert.equal(planContext.directChanges[0].checkpoints[0].checkpoint.id, "standalone-api-check");
     assert.match(planContext.markdown, /Direct Block work/);
     assert.match(planContext.markdown, /Required checkpoint pending/);
+    const taskContext = context.service.contextForTask({
+      task: "implement the standalone API",
+      focusRefs: ["plan:implement"],
+    });
+    assert.match(taskContext.markdown, /Direct Blocks: block:standalone-api/);
+    assert.match(taskContext.markdown, /\[block:standalone-api\]/);
     const coverage = context.service.projectMap().map.architecture.coverage;
     assert.equal(coverage.outsideChainIds.includes("standalone-api"), true);
     assert.equal(coverage.unplannedIds.includes("standalone-api"), false);
@@ -845,7 +851,7 @@ test("Plan gates aggregate Block checkpoints even when the Block is outside ever
   }
 });
 
-test("architecture coverage reports Blocks that have no checkpoint or Plan coverage", () => {
+test("architecture coverage keeps optional checkpoint-free Blocks visible without treating them as failures", () => {
   const context = fixture();
   try {
     context.service.mutate({
@@ -856,11 +862,33 @@ test("architecture coverage reports Blocks that have no checkpoint or Plan cover
     assert.deepEqual(coverage.withoutCheckpointIds, ["orphan-ui"]);
     assert.deepEqual(coverage.unplannedIds, ["orphan-ui"]);
     const contextPack = context.service.contextForTask({ task: "implement the architecture" });
-    assert.match(contextPack.markdown, /Missing checkpoints: block:orphan-ui/);
+    assert.match(contextPack.markdown, /Checkpoint-free Blocks \(verification not requested yet\): block:orphan-ui/);
     assert.match(contextPack.markdown, /Unplanned: block:orphan-ui/);
     const warnings = context.service.validate().warnings;
-    assert.ok(warnings.some((warning) => warning.includes("Block(s) have no checkpoint") && warning.includes("block:orphan-ui")));
+    assert.equal(warnings.some((warning) => warning.includes("require a checkpoint") && warning.includes("block:orphan-ui")), false);
     assert.ok(warnings.some((warning) => warning.includes("Block(s) are not covered by any Plan") && warning.includes("block:orphan-ui")));
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("plain Block creation does not create a verification obligation", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Model an architecture Block before its requirement is known",
+      operations: [{ action: "create_block", id: "discovery-only", fields: { kind: "service", title: "Discovery-only service", deliveryState: "proposed" } }],
+    });
+    const snapshot = context.service.snapshot();
+    assert.equal(snapshot.checkpoints.length, 0);
+    const coverage = context.service.projectMap().map.architecture.coverage.blockCoverage.find((item) => item.blockId === "discovery-only");
+    assert.deepEqual({
+      hasCheckpoint: coverage.hasCheckpoint,
+      checkpointRequired: coverage.checkpointRequired,
+      missingRequiredCheckpoint: coverage.missingRequiredCheckpoint,
+    }, { hasCheckpoint: false, checkpointRequired: false, missingRequiredCheckpoint: false });
+    assert.match(context.service.entityOpen({ type: "block", id: "discovery-only" }).markdown, /required=no · requiredMissing=no · plan=no · chain=no/);
+    assert.equal(context.service.validate().warnings.some((warning) => warning.includes("require a checkpoint")), false);
   } finally {
     context.cleanup();
   }

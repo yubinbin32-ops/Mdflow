@@ -148,9 +148,9 @@ struct ContentView: View {
                     .font(.system(size: 8, weight: .bold, design: .monospaced)).tracking(0.8)
                     .foregroundStyle(MdflowTheme.muted)
                 let coverage = store.architectureCoverage
-                Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified").uppercased()) · \(coverage.unplannedIDs.count) \(store.text("unplanned").uppercased()) · \(coverage.withoutCheckpointIDs.count) \(store.text("noCheckpoint").uppercased()) · \(coverage.checkpointUnboundIDs.count) UNBOUND · \(coverage.chainGateMissingIDs.count) NO GATE")
+                Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified").uppercased()) · \(coverage.unplannedIDs.count) \(store.text("unplanned").uppercased()) · \(coverage.withoutCheckpointIDs.count) \(store.text("checkpointFree").uppercased()) · \(coverage.requiredCheckpointMissingIDs.count) REQUIRED · \(coverage.checkpointUnboundIDs.count) UNBOUND · \(coverage.chainGateMissingIDs.count) NO GATE")
                     .font(.system(size: 7.5, weight: .bold, design: .monospaced)).tracking(0.45)
-                    .foregroundStyle(coverage.unplannedIDs.isEmpty && coverage.withoutCheckpointIDs.isEmpty && coverage.checkpointUnboundIDs.isEmpty && coverage.chainGateMissingIDs.isEmpty ? MdflowTheme.success : MdflowTheme.pending)
+                    .foregroundStyle(coverage.unplannedIDs.isEmpty && coverage.requiredCheckpointMissingIDs.isEmpty && coverage.checkpointUnboundIDs.isEmpty && coverage.chainGateMissingIDs.isEmpty ? MdflowTheme.success : MdflowTheme.pending)
             }
             Spacer()
             Menu {

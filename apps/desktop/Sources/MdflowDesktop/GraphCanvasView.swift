@@ -88,7 +88,9 @@ struct GraphCanvasView: View {
     }
 
     private var sceneProjectionKey: String {
-        scene.blocks.map(\.id).sorted().joined(separator: ":")
+        let blocks = scene.blocks.map(\.id).sorted().joined(separator: ",")
+        let links = scene.links.map(\.id).sorted().joined(separator: ",")
+        return "b:\(blocks)|l:\(links)"
     }
 
     private func rebuildScene(viewport: CGSize, fit: Bool) {
@@ -121,8 +123,7 @@ struct GraphCanvasView: View {
         case .chain:
             return Set(scene.chainNodes[selection.id] ?? [])
         case .plan:
-            let chainIDs = store.snapshot.planChainReferences.filter { $0.planId == selection.id }.map(\.chainId)
-            return Set(chainIDs.flatMap { scene.chainNodes[$0] ?? [] })
+            return store.relatedBlockIDs(for: selection).intersection(Set(scene.blocks.map(\.id)))
         case .link:
             guard let link = scene.links.first(where: { $0.id == selection.id }) else { return [] }
             return [link.sourceId, link.targetId]
@@ -454,8 +455,7 @@ struct GraphCanvasView: View {
         if selection.type == .chain {
             ids = Set(scene.chainNodes[selection.id] ?? [])
         } else if selection.type == .plan {
-            let chains = store.snapshot.planChainReferences.filter { $0.planId == selection.id }.map(\.chainId)
-            ids = Set(chains.flatMap { scene.chainNodes[$0] ?? [] })
+            ids = store.relatedBlockIDs(for: selection).intersection(Set(scene.blocks.map(\.id)))
         } else { return }
         guard let bounds = scene.bounds(for: ids) else { return }
         let scale = min(1.25, max(0.4, min((viewport.width - 54) / bounds.width, (viewport.height - 54) / bounds.height)))

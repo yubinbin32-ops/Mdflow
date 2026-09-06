@@ -22,26 +22,40 @@ struct CanvasScene: Equatable {
 
     static func compile(snapshot: GraphSnapshot, lenses: Set<ViewLens>, topInset: CGFloat = 70) -> CanvasScene {
         let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
-        let visibleIDs = Set(snapshot.blocks.filter { block in
-            !backgroundRuleIDs.contains(block.id) && lenses.contains { $0.includes(block: block) }
+        let allCanvasBlocks = snapshot.blocks.filter { !backgroundRuleIDs.contains($0.id) }
+        let allCanvasIDs = Set(allCanvasBlocks.map(\.id))
+        let visibleIDs = Set(allCanvasBlocks.filter { block in
+            lenses.contains { $0.includes(block: block) }
         }.map(\.id))
-        let blocks = snapshot.blocks.filter { visibleIDs.contains($0.id) }
-        let links = snapshot.links.filter {
-            $0.sourceType == "block" && $0.targetType == "block" && visibleIDs.contains($0.sourceId) && visibleIDs.contains($0.targetId)
+        let blocks = allCanvasBlocks.filter { visibleIDs.contains($0.id) }
+        let allCanvasLinks = snapshot.links.filter {
+            $0.sourceType == "block" && $0.targetType == "block" &&
+                allCanvasIDs.contains($0.sourceId) && allCanvasIDs.contains($0.targetId)
+        }
+        let links = allCanvasLinks.filter {
+            visibleIDs.contains($0.sourceId) && visibleIDs.contains($0.targetId)
         }
         let cardSize = CGSize(width: 224, height: 128)
+        let allChainNodes = Dictionary(uniqueKeysWithValues: snapshot.chains.map { chain in
+            (chain.id, snapshot.chainNodes.filter { $0.chainId == chain.id && allCanvasIDs.contains($0.blockId) }.sorted { $0.position < $1.position }.map(\.blockId))
+        })
         let chainNodes = Dictionary(uniqueKeysWithValues: snapshot.chains.map { chain in
             (chain.id, snapshot.chainNodes.filter { $0.chainId == chain.id && visibleIDs.contains($0.blockId) }.sorted { $0.position < $1.position }.map(\.blockId))
         })
+        let visibleLinkIDs = Set(links.map(\.id))
         let chainLinks = Dictionary(uniqueKeysWithValues: snapshot.chains.map { chain in
-            (chain.id, snapshot.chainEdges.filter { $0.chainId == chain.id }.sorted { $0.position < $1.position }.map(\.linkId))
+            (chain.id, snapshot.chainEdges.filter { $0.chainId == chain.id && visibleLinkIDs.contains($0.linkId) }.sorted { $0.position < $1.position }.map(\.linkId))
         })
+        // Compile geometry from the complete semantic Canvas, then project the
+        // selected lenses onto it.  Recomputing layout from only the checked
+        // kinds made unrelated cards jump when a top checkbox changed; stable
+        // world coordinates let the transition reveal/hide nodes naturally.
         let layout = NetworkLayoutEngine.make(
-            nodeIDs: blocks.map(\.id),
-            edges: links.map { LayoutEdge(id: $0.id, sourceID: $0.sourceId, targetID: $0.targetId) },
-            focusPaths: snapshot.chains.compactMap { chainNodes[$0.id] }.filter { !$0.isEmpty },
-            districts: Dictionary(uniqueKeysWithValues: blocks.map { ($0.id, districtIndex($0.kind)) }),
-            metadata: Dictionary(uniqueKeysWithValues: blocks.map {
+            nodeIDs: allCanvasBlocks.map(\.id),
+            edges: allCanvasLinks.map { LayoutEdge(id: $0.id, sourceID: $0.sourceId, targetID: $0.targetId) },
+            focusPaths: snapshot.chains.compactMap { allChainNodes[$0.id] }.filter { !$0.isEmpty },
+            districts: Dictionary(uniqueKeysWithValues: allCanvasBlocks.map { ($0.id, districtIndex($0.kind)) }),
+            metadata: Dictionary(uniqueKeysWithValues: allCanvasBlocks.map {
                 ($0.id, LayoutNodeMetadata(layer: architectureIndex($0.architectureLayer), scope: $0.scope, order: $0.localOrder))
             }),
             cardSize: cardSize,

@@ -131,6 +131,8 @@ struct GateProgress: Equatable {
 struct BlockCoverage: Equatable {
     let blockID: String
     let hasCheckpoint: Bool
+    let checkpointRequired: Bool
+    let missingRequiredCheckpoint: Bool
     let isCoveredByPlan: Bool
     let isCoveredByChain: Bool
     let isCoveredByAnyVerification: Bool
@@ -146,6 +148,7 @@ struct ArchitectureCoverage: Equatable {
     let outsideChainIDs: [String]
     let unplannedIDs: [String]
     let withoutCheckpointIDs: [String]
+    let requiredCheckpointMissingIDs: [String]
     let failingIDs: [String]
     let verificationCoveredBlocks: Int
     let checkpointUnboundIDs: [String]

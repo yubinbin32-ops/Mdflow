@@ -471,9 +471,17 @@ function architectureCoverage(snapshot, planId = null) {
     const relevantChainIds = planId
       ? [...new Set((scopesByBlock.get(block.id) ?? []).map((scope) => scope.chainId))]
       : memberChainIds;
+    // A checkpoint is a requested verification artifact, not a prerequisite
+    // for merely declaring an architectural Block.  Direct Plan work and
+    // completed delivery explicitly request verification; an unplanned
+    // proposed Block may remain checkpoint-free until its requirement is
+    // understood.
+    const checkpointRequired = plannedBlockIds.has(block.id) || block.deliveryState === "complete";
     return {
       blockId: block.id,
       hasCheckpoint,
+      checkpointRequired,
+      missingRequiredCheckpoint: checkpointRequired && !hasCheckpoint,
       isCoveredByPlan: plannedBlockIds.has(block.id),
       isCoveredByChain: chainBlockIds.has(block.id),
       isCoveredByAnyVerification,
@@ -501,7 +509,11 @@ function architectureCoverage(snapshot, planId = null) {
     planned: plannedBlockIds.size,
     directPlanBlocks: directPlanBlockIds.size,
     chainPlanBlocks: chainPlanBlockIds.size,
-    withoutCheckpointIds: blocks.filter((block) => !withCheckpointIdSet.has(block.id)).map((block) => block.id),
+    // For a Plan-scoped projection, only report missing checkpoints for work
+    // that Plan actually covers; global project maps still expose every
+    // checkpoint-free Block so omission remains discoverable.
+    withoutCheckpointIds: blocks.filter((block) => !withCheckpointIdSet.has(block.id) && (!planId || plannedBlockIds.has(block.id))).map((block) => block.id),
+    requiredCheckpointMissingIds: blockCoverage.filter((item) => item.missingRequiredCheckpoint).map((item) => item.blockId),
     unverifiedIds: blocks.filter((block) => !verifiedIdSet.has(block.id)).map((block) => block.id),
     outsideChainIds: blocks.filter((block) => !chainBlockIds.has(block.id)).map((block) => block.id),
     unplannedIds: blocks.filter((block) => !plannedBlockIds.has(block.id)).map((block) => block.id),
@@ -1040,7 +1052,8 @@ export class MdflowService {
     if (coverage.failingIds.length) lines.push(`- Failed verification: ${coverage.failingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.failingIds.length > 12 ? " …" : ""}`);
     if (coverage.outsideChainIds.length) lines.push(`- Outside Chains: ${coverage.outsideChainIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.outsideChainIds.length > 12 ? " …" : ""}`);
     if (coverage.unplannedIds.length) lines.push(`- Unplanned Blocks: ${coverage.unplannedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
-    if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
+    if (coverage.withoutCheckpointIds.length) lines.push(`- Checkpoint-free Blocks (verification not requested yet): ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
+    if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " …" : ""}`);
     if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound Block checkpoints: ${coverage.checkpointUnboundIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " …" : ""}`);
     if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " …" : ""}`);
     lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" · ") || "None"}`);
@@ -1266,6 +1279,12 @@ export class MdflowService {
     assertAllowed(locale, LOCALES, "locale");
     const snapshot = this.snapshot();
     const translations = localizationMap(snapshot);
+    const coverage = type === "block"
+      ? architectureCoverage(snapshot).blockCoverage.find((item) => item.blockId === id) ?? null
+      : null;
+    const ruleScopes = type === "block"
+      ? snapshot.backgroundScopes.filter((scope) => scope.blockId === id)
+      : [];
     const field = type === "link" ? "label" : "title";
     const displayTitle = localizedValue(translations, type, id, locale, field, entity[field] ?? `${type}:${id}`);
     const displaySummary = localizedValue(translations, type, id, locale, type === "chain" ? "intent" : "summary", entity.intent ?? entity.summary ?? "");
@@ -1279,6 +1298,12 @@ export class MdflowService {
       lines.push(`- Architecture: ${entity.architectureLayer}`);
       lines.push(`- Scope: ${entity.scope}`);
       lines.push(`- Local order: ${entity.localOrder}`);
+      if (ruleScopes.length) {
+        lines.push(`- Rule scopes: ${ruleScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")} (background; not a Canvas Block)`);
+      }
+      if (coverage) {
+        lines.push(`- Coverage: checkpoint=${coverage.hasCheckpoint ? "yes" : "no"} · required=${coverage.checkpointRequired ? "yes" : "no"} · requiredMissing=${coverage.missingRequiredCheckpoint ? "yes" : "no"} · plan=${coverage.isCoveredByPlan ? "yes" : "no"} · chain=${coverage.isCoveredByChain ? "yes" : "no"} · verification=${coverage.isCoveredByAnyVerification ? "yes" : "no"}`);
+      }
     }
     if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
     if (entity.status) lines.push(`- Status: ${entity.status}`);
@@ -1302,9 +1327,11 @@ export class MdflowService {
       const nextAction = localizedValue(translations, type, id, locale, "nextAction", entity.nextAction);
       if (goal) lines.push("", "## Goal", goal);
       if (nextAction) lines.push("", "## Next action", nextAction);
-      if (targetChains.length) {
+      const scopeChainIDs = snapshot.planChainScopes.filter((scope) => scope.planId === id).sort((left, right) => left.position - right.position).map((scope) => scope.chainId);
+      const allTargetChainIDs = [...new Set([...targetChains.map((target) => target.chainId), ...scopeChainIDs])];
+      if (allTargetChainIDs.length) {
         lines.push("", "## Target chains");
-        for (const target of targetChains) lines.push(`- [chain:${target.chainId}]`);
+        for (const chainID of allTargetChainIDs) lines.push(`- [chain:${chainID}]`);
       }
       if (dependencies.length) {
         lines.push("", "## Prerequisites", ...dependencies.map((item) => `- [plan:${item.planId}]`));
@@ -1343,7 +1370,7 @@ export class MdflowService {
         checkpoints: detailed.checkpoints, history, hierarchy: detailed.hierarchy, markdown: detailed.markdown,
       };
     }
-    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, markdown: lines.join("\n") };
+    return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, markdown: lines.join("\n") };
   }
 
   checkpointList({ status, targetType, targetId, planId, chainScopeId, unassignedOnly = false, limit = 100, locale = "en" } = {}) {
@@ -1535,7 +1562,7 @@ export class MdflowService {
     lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct · ${coverage.chainPlanBlocks} through Chains)`);
     lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} · ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone · ${coverage.failingIds.length} failing`);
     if (coverage.unplannedIds.length) lines.push(`- Outside this Plan: ${coverage.unplannedIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
-    if (coverage.withoutCheckpointIds.length) lines.push(`- Missing Block checkpoints: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
+    if (coverage.withoutCheckpointIds.length) lines.push(`- Required Block checkpoints missing: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
     if (coverage.checkpointUnboundIds.length) lines.push(`- Block checkpoints not bound to an exact PlanChange: ${coverage.checkpointUnboundIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " …" : ""}`);
     if (coverage.chainGateMissingIds.length) lines.push(`- Blocks on Chains without integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " …" : ""}`);
     const typed = plan.typedProgress;
@@ -1859,11 +1886,35 @@ export class MdflowService {
       if (selectedChainIds.size >= 1) break;
       selectedChainIds.add(chainId);
     }
-    const traversalChainIds = new Set(selectedChainIds);
+    // A Plan is allowed to cover Blocks directly.  Do not make the context
+    // depend on a Chain reference just to discover those Blocks; otherwise a
+    // Plan can look complete while its standalone work is absent from the
+    // first context pack.
+    for (const planId of selectedPlanIds) {
+      for (const change of snapshot.planChanges) {
+        if (change.planId === planId && change.entityType === "block") selectedBlockIds.add(change.entityId);
+      }
+      for (const step of snapshot.planSteps) {
+        if (step.planId !== planId) continue;
+        for (const ref of step.targetRefs) {
+          if (String(ref).startsWith("block:")) selectedBlockIds.add(String(ref).slice("block:".length));
+        }
+      }
+      for (const scope of snapshot.planChainScopes) {
+        if (scope.planId !== planId) continue;
+        for (const blockId of scope.nodeIds) selectedBlockIds.add(blockId);
+      }
+    }
+    // Include Chain paths introduced by Plan ChainScopes in the same traversal
+    // pass.  The old snapshot of selectedChainIds was taken before Plan refs
+    // were added, so Plan context could omit its own path neighbours.
     for (const target of snapshot.planChainRefs) {
       if (selectedPlanIds.has(target.planId)) selectedChainIds.add(target.chainId);
     }
-    for (const chainId of traversalChainIds) {
+    for (const scope of snapshot.planChainScopes) {
+      if (selectedPlanIds.has(scope.planId)) selectedChainIds.add(scope.chainId);
+    }
+    for (const chainId of selectedChainIds) {
       const path = snapshot.chainNodes
         .filter((item) => item.chainId === chainId)
         .sort((a, b) => a.position - b.position)
@@ -1889,6 +1940,7 @@ export class MdflowService {
     const relevantBlocks = snapshot.blocks.filter((block) => selectedBlockIds.has(block.id));
     const relevantChains = snapshot.chains.filter((chain) => selectedChainIds.has(chain.id));
     const relevantPlans = snapshot.plans.filter((plan) => selectedPlanIds.has(plan.id));
+    const planCoverage = new Map(relevantPlans.map((plan) => [plan.id, architectureCoverage(snapshot, plan.id)]));
     const relevantLinks = snapshot.links.filter(
       (link) =>
         (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) &&
@@ -1926,7 +1978,8 @@ export class MdflowService {
     lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
     lines.push(`- ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone · ${coverage.verificationCovered}/${coverage.totalBlocks} covered by bound or passed verification · ${coverage.failingIds.length} failing`);
     if (coverage.unplannedIds.length) lines.push(`- Unplanned: ${coverage.unplannedIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 10 ? " …" : ""}`);
-    if (coverage.withoutCheckpointIds.length) lines.push(`- Missing checkpoints: ${coverage.withoutCheckpointIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 10 ? " …" : ""}`);
+    if (coverage.withoutCheckpointIds.length) lines.push(`- Checkpoint-free Blocks (verification not requested yet): ${coverage.withoutCheckpointIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 10 ? " …" : ""}`);
+    if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 10 ? " …" : ""}`);
     if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound checkpoints: ${coverage.checkpointUnboundIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 10 ? " …" : ""}`);
     if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain gates: ${coverage.chainGateMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 10 ? " …" : ""}`);
     lines.push("");
@@ -1950,17 +2003,50 @@ export class MdflowService {
         lines.push(`- [plan:${plan.id}] ${title} — ${plan.phase} #${plan.planOrder} · ${plan.priority} · ${plan.derivedStatus}`);
         const scopes = snapshot.planChainScopes.filter((scope) => scope.planId === plan.id).sort((a, b) => a.position - b.position);
         const changes = snapshot.planChanges.filter((change) => change.planId === plan.id).sort((a, b) => a.position - b.position);
-        const taskChanges = changes.filter((change) =>
-          selectedBlockIds.has(change.entityId) || selectedChainIds.has(change.entityId) ||
-          scoreText(`${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`) > 0
-        ).slice(0, 3);
+        // A Plan can legitimately cover many Blocks, but a task context must
+        // not repeat every PlanChange merely because those Blocks are in the
+        // selected Plan.  Keep the direct Block index complete above, then
+        // project only changes that match the task (or an explicitly focused
+        // Block/Chain).  Terms shared by most changes, such as a product name,
+        // are treated as noise so they cannot pull every change into context.
+        const changeTexts = changes.map((change) =>
+          `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase(),
+        );
+        const changeTermFrequency = new Map(terms.map((term) => [term, changeTexts.filter((text) => text.includes(term)).length]));
+        const broadChangeTermLimit = Math.max(2, Math.ceil(changes.length / 2));
+        const explicitBlockIDs = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
+        const explicitChainIDs = new Set(focusRefs.filter((ref) => ref.startsWith("chain:")).map((ref) => ref.slice("chain:".length)));
+        const taskChanges = changes
+          .map((change) => {
+            const text = `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase();
+            const semanticScore = terms.reduce((score, term) =>
+              score + (term.length > 2 && (changeTermFrequency.get(term) ?? 0) < broadChangeTermLimit && text.includes(term) ? 1 : 0), 0);
+            const focused = explicitBlockIDs.has(change.entityId) ||
+              (change.entityType === "chain" && explicitChainIDs.has(change.entityId));
+            return { change, semanticScore, focused };
+          })
+          .filter((entry) => entry.focused || entry.semanticScore > 0)
+          .sort((left, right) => Number(right.focused) - Number(left.focused) || right.semanticScore - left.semanticScore || left.change.position - right.change.position)
+          .slice(0, 3)
+          .map((entry) => entry.change);
         lines.push(`  Progress: ${plan.progress.completedSteps}/${plan.progress.totalSteps} ${scopes.length || changes.length ? "changes" : "steps"} · ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} required gates`);
         lines.push(`  Typed: Block ${plan.typedProgress.directBlockChanges.completed}/${plan.typedProgress.directBlockChanges.total} · Chain ${plan.typedProgress.chainChanges.completed}/${plan.typedProgress.chainChanges.total} · Link ${plan.typedProgress.linkChanges.completed}/${plan.typedProgress.linkChanges.total} · Chain gates ${plan.typedProgress.chainIntegrationGates.passed}/${plan.typedProgress.chainIntegrationGates.total} · Plan gates ${plan.typedProgress.planAcceptanceGates.passed}/${plan.typedProgress.planAcceptanceGates.total}`);
+        const selectedPlanCoverage = planCoverage.get(plan.id);
+        if (selectedPlanCoverage) {
+          const directBlocks = changes.filter((change) => change.planId === plan.id && change.entityType === "block").map((change) => `block:${change.entityId}`);
+          if (directBlocks.length) lines.push(`  Direct Blocks: ${directBlocks.slice(0, 20).join(", ")}${directBlocks.length > 20 ? ` … (${directBlocks.length} total)` : ""}`);
+          if (selectedPlanCoverage.unplannedIds.length) {
+            lines.push(`  Uncovered direct Blocks: ${selectedPlanCoverage.unplannedIds.slice(0, 20).map((blockId) => `block:${blockId}`).join(", ")}${selectedPlanCoverage.unplannedIds.length > 20 ? ` … (${selectedPlanCoverage.unplannedIds.length} total)` : ""}`);
+          }
+          if (selectedPlanCoverage.withoutCheckpointIds.length) {
+            lines.push(`  Blocks without checkpoint: ${selectedPlanCoverage.withoutCheckpointIds.slice(0, 20).map((blockId) => `block:${blockId}`).join(", ")}`);
+          }
+        }
         if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
         const dependencies = snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
         if (dependencies.length) lines.push(`  Prerequisites: ${dependencies.map((item) => `[plan:${item.dependsOnPlanId}]`).join(", ")}`);
         const steps = snapshot.planSteps.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
-        const openSteps = steps.filter((step) => !["complete", "skipped"].includes(step.status)).slice(0, 5);
+        const openSteps = steps.filter((step) => !["complete", "skipped"].includes(step.status)).slice(0, 3);
         for (const step of openSteps) lines.push(`  ${step.position + 1}. ${step.status}: ${step.title}${step.targetRefs.length ? ` (${step.targetRefs.join(", ")})` : ""}`);
         if (steps.length > openSteps.length) lines.push(`  Steps: showing ${openSteps.length} open of ${steps.length} total; use plan_context for full ordering.`);
         const taskChangeIds = new Set(taskChanges.map((change) => change.id));
@@ -1989,9 +2075,14 @@ export class MdflowService {
       lines.push("## Target chains");
       for (const chain of relevantChains) {
         const title = localizedValue(translations, "chain", chain.id, locale, "title", chain.title);
+        const path = snapshot.chainNodes
+          .filter((node) => node.chainId === chain.id)
+          .sort((left, right) => left.position - right.position)
+          .map((node) => `block:${node.blockId}`)
+          .join(" → ");
+        lines.push(`- [chain:${chain.id}] ${title} — ${chain.deliveryState}/${chain.healthState}${path ? ` · path ${path}` : ""}`);
         const intent = localizedValue(translations, "chain", chain.id, locale, "intent", chain.intent);
-        lines.push(`- [chain:${chain.id}] ${title} — ${chain.deliveryState}/${chain.healthState}`);
-        if (intent) lines.push(`  ${intent}`);
+        if (intent && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  ${intent}`);
       }
       lines.push("");
     }
@@ -2010,7 +2101,10 @@ export class MdflowService {
       (chainOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (chainOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) ||
       left.localOrder - right.localOrder || left.id.localeCompare(right.id),
     );
-    const contentBlocks = selectedPlanIds.size
+    // Plan context must show its direct Block work even when the caller only
+    // focused the Plan.  `focusRefs=block:*` remains an optional narrower read;
+    // it must not be the implicit gate for plan coverage.
+    const contentBlocks = selectedPlanIds.size && explicitBlockFocusIds.size
       ? orderedRelevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id))
       : orderedRelevantBlocks;
     if (contentBlocks.length) {
@@ -2021,7 +2115,7 @@ export class MdflowService {
         const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
         lines.push(`${index + 1}. [block:${block.id}] ${title} — ${block.architectureLayer}/${block.scope} · ${block.deliveryState}/${block.healthState}`);
-        if (summary) lines.push(`  ${summary}`);
+        if (summary && (selectedPlanIds.size === 0 || explicitBlockFocusIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
       });
@@ -2035,7 +2129,7 @@ export class MdflowService {
         lines.push(
           `- ${link.sourceType}:${link.sourceId} -[${link.kind}${label ? `:${label}` : ""}]-> ${link.targetType}:${link.targetId}`,
         );
-        if (contract) lines.push(`  Contract: ${contract}`);
+        if (contract && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  Contract: ${contract}`);
       }
       lines.push("");
     }
@@ -2604,6 +2698,7 @@ export class MdflowService {
   ) {
     if (!reason?.trim()) throw new Error("reason is required");
     if (!Array.isArray(operations) || operations.length === 0) throw new Error("operations are required");
+
     if (operations.length > maxOperations) throw new Error(`graph_mutate accepts at most ${maxOperations} operations`);
     if (JSON.stringify(operations).length > maxInputBytes) throw new Error("graph_mutate input exceeds 64 KB");
 
@@ -3969,8 +4064,8 @@ export class MdflowService {
     if (unspecifiedBlocks.length > 0) {
       warnings.push(`${unspecifiedBlocks.length} block(s) have no architecture layer`);
     }
-    if (coverage.withoutCheckpointIds.length) {
-      warnings.push(`${coverage.withoutCheckpointIds.length} Block(s) have no checkpoint: ${coverage.withoutCheckpointIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 20 ? " …" : ""}`);
+    if (coverage.requiredCheckpointMissingIds.length) {
+      warnings.push(`${coverage.requiredCheckpointMissingIds.length} Block(s) require a checkpoint but have none: ${coverage.requiredCheckpointMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 20 ? " …" : ""}`);
     }
     if (coverage.unplannedIds.length) {
       warnings.push(`${coverage.unplannedIds.length} Block(s) are not covered by any Plan: ${coverage.unplannedIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 20 ? " …" : ""}`);

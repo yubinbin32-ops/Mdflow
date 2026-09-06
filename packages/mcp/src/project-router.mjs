@@ -17,7 +17,10 @@ export class ProjectServiceRouter {
     this.defaultProjectRoot = options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT;
     this.activeProjectRoot = this.defaultProjectRoot;
     this.dataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
-    this.maxEntries = options.maxEntries ?? 8;
+    // Keep at most three live SQLite services.  The MCP projectRoot is the
+    // source of truth; evicted services are reopened on demand, so this bound
+    // limits file descriptors and watcher-like state without losing projects.
+    this.maxEntries = options.maxEntries ?? 3;
     this.services = new Map();
     this.serviceIdentities = new Map();
   }

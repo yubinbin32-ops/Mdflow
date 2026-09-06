@@ -9,7 +9,7 @@ const server = new McpServer(
   { name: "mdflow", version: "0.2.0" },
   {
     instructions:
-      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block does not need to belong to a Chain, but every non-deprecated Block needs its own checkpoint and intended Plan coverage. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
+      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block does not need to belong to a Chain or have a checkpoint until a requirement, Plan, Chain gate, or explicit verification request requires one. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
   },
 );
 const projectRootInput = { projectRoot: z.string().min(1).optional() };
@@ -99,7 +99,7 @@ server.registerTool(
 server.registerTool(
   "project_map",
   {
-    description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, unplanned Blocks, and missing Block checkpoints without loading entity bodies.",
+    description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, unplanned Blocks, checkpoint-free Blocks, and missing required checkpoints without loading entity bodies.",
     inputSchema: { ...projectRootInput, locale: z.enum(["en", "zh-Hans"]).optional(), includeStructured: z.boolean().default(false) },
   },
   async (input) => {
@@ -112,7 +112,7 @@ server.registerTool(
   "foundation_plan_create",
   {
     description:
-      "Generate one Foundation Plan from every non-deprecated unimplemented Block. The operation creates missing atomic Block checkpoints, direct Block PlanChanges, dependency-ordered parallel steps, Chain integration gates, and a final Plan acceptance gate in one transaction.",
+      "Generate one Foundation Plan from every non-deprecated unimplemented Block. Because this is an explicit implementation/verification Plan, the operation creates missing atomic Block checkpoints, direct Block PlanChanges, dependency-ordered parallel steps, Chain integration gates, and a final Plan acceptance gate in one transaction; plain architecture-only create_block does not.",
     inputSchema: {
       ...projectRootInput,
       id: z.string().min(1).default("foundation-plan"),
@@ -279,7 +279,7 @@ server.registerTool(
   "graph_mutate",
   {
     description:
-      "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, and source refs. Use create_checkpoint in the same ChangeSet as create_block when verification intent is already known. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
+      "Atomically create or patch Blocks, global Links, Chain paths, independent Plans, atomic Checkpoints, Background scopes, and source refs. A plain create_block records architecture only; use create_checkpoint in the same ChangeSet when a requirement, Plan, Chain gate, or explicit verification request makes the check necessary. Link kinds are flows_to, calls, reads, writes, depends_on, implements, validates, constrains, and supersedes. Keep each call small and provide expectedRevision for updates.",
     inputSchema: {
       ...projectRootInput,
       actor: z.string().optional(),

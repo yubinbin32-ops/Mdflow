@@ -279,9 +279,12 @@ final class GraphStore: ObservableObject {
             let relevantChainIDs = planID == nil
                 ? memberChainIDs
                 : Set(candidateScopes.filter { structuredStringList($0.nodeIds).contains(block.id) }.map(\.chainId))
+            let checkpointRequired = planned.contains(block.id) || block.deliveryState == "complete"
             return BlockCoverage(
                 blockID: block.id,
                 hasCheckpoint: !checkpoints.isEmpty,
+                checkpointRequired: checkpointRequired,
+                missingRequiredCheckpoint: checkpointRequired && checkpoints.isEmpty,
                 isCoveredByPlan: planned.contains(block.id),
                 isCoveredByChain: chainMemberIDs.contains(block.id),
                 isCoveredByAnyVerification: !checkpointBindings.isEmpty || checkpoints.contains(where: checkpointPasses),
@@ -303,7 +306,8 @@ final class GraphStore: ObservableObject {
             blocksWithCheckpoints: blocks.filter { withCheckpoints.contains($0.id) }.count,
             outsideChainIDs: blocks.filter { !chainMemberIDs.contains($0.id) }.map(\.id),
             unplannedIDs: blocks.filter { !planned.contains($0.id) }.map(\.id),
-            withoutCheckpointIDs: blocks.filter { !withCheckpoints.contains($0.id) }.map(\.id),
+            withoutCheckpointIDs: blocks.filter { !withCheckpoints.contains($0.id) && (planID == nil || planned.contains($0.id)) }.map(\.id),
+            requiredCheckpointMissingIDs: blockCoverage.filter(\.missingRequiredCheckpoint).map(\.blockID),
             failingIDs: failing,
             verificationCoveredBlocks: blockCoverage.filter(\.isCoveredByAnyVerification).count,
             checkpointUnboundIDs: blockCoverage.filter(\.checkpointUnbound).map(\.blockID),
@@ -421,7 +425,7 @@ final class GraphStore: ObservableObject {
     func focusPlan(_ id: String) {
         let target = GraphSelection(type: .plan, id: id)
         selection = target
-        highlightedChainIDs = Set(snapshot.planChainReferences.filter { $0.planId == id }.map(\.chainId))
+        highlightedChainIDs = planChainIDs(for: id)
         requestFocus(target)
     }
 
@@ -436,7 +440,7 @@ final class GraphStore: ObservableObject {
             highlightedChainIDs = [value.id]
             requestFocus(value)
         case .plan:
-            highlightedChainIDs = Set(snapshot.planChainReferences.filter { $0.planId == value.id }.map(\.chainId))
+            highlightedChainIDs = planChainIDs(for: value.id)
             requestFocus(value)
         case .link:
             break
@@ -619,9 +623,49 @@ final class GraphStore: ObservableObject {
     }
 
     func targetChains(for planID: String) -> [ChainItem] {
-        let ids = snapshot.planChainReferences.filter { $0.planId == planID }.sorted { $0.position < $1.position }.map(\.chainId)
+        var ids: [String] = []
+        for chainID in snapshot.planChainReferences
+            .filter({ $0.planId == planID })
+            .sorted(by: { $0.position < $1.position })
+            .map(\.chainId) {
+            if !ids.contains(chainID) { ids.append(chainID) }
+        }
+        for chainID in snapshot.planChainScopes
+            .filter({ $0.planId == planID })
+            .sorted(by: { $0.position < $1.position })
+            .map(\.chainId) {
+            if !ids.contains(chainID) { ids.append(chainID) }
+        }
         let byID = Dictionary(uniqueKeysWithValues: snapshot.chains.map { ($0.id, $0) })
         return ids.compactMap { byID[$0] }
+    }
+
+    /// Chain references and ChainScopes are both valid Plan path declarations.
+    /// Foundation Plans commonly have scopes without a separate target-chain
+    /// row, so the UI must project both forms.
+    func planChainIDs(for planID: String) -> Set<String> {
+        Set(snapshot.planChainReferences.filter { $0.planId == planID }.map(\.chainId))
+            .union(snapshot.planChainScopes.filter { $0.planId == planID }.map(\.chainId))
+    }
+
+    /// Direct PlanChanges are first-class work.  Include step target refs as a
+    /// compatibility path for older graphs that predate canonical changes.
+    func planBlockIDs(for planID: String) -> Set<String> {
+        var result = Set(snapshot.planChanges
+            .filter { $0.planId == planID && $0.entityType == "block" }
+            .map(\.entityId))
+        for step in snapshot.planSteps where step.planId == planID {
+            for ref in structuredStringList(step.targetReferences) where ref.hasPrefix("block:") {
+                result.insert(String(ref.dropFirst("block:".count)))
+            }
+        }
+        for scope in snapshot.planChainScopes where scope.planId == planID {
+            result.formUnion(structuredStringList(scope.nodeIds))
+        }
+        for chainID in planChainIDs(for: planID) {
+            result.formUnion(chainNodeIDs(chainID))
+        }
+        return result
     }
 
     func chainNodeIDs(_ chainID: String) -> [String] {
@@ -667,6 +711,11 @@ final class GraphStore: ObservableObject {
     func plans(containing blockID: String) -> [PlanItem] {
         let chainIDs = Set(snapshot.chainNodes.filter { $0.blockId == blockID }.map(\.chainId))
         let planIDs = Set(snapshot.planChainReferences.filter { chainIDs.contains($0.chainId) }.map(\.planId))
+            .union(snapshot.planChainScopes.filter { chainIDs.contains($0.chainId) }.map(\.planId))
+            .union(snapshot.planChanges.filter { $0.entityType == "block" && $0.entityId == blockID }.map(\.planId))
+            .union(snapshot.planSteps.filter { step in
+                structuredStringList(step.targetReferences).contains("block:\(blockID)")
+            }.map(\.planId))
         return snapshot.plans.filter { planIDs.contains($0.id) }
     }
 
@@ -693,8 +742,7 @@ final class GraphStore: ObservableObject {
         case .chain:
             return Set(chainNodeIDs(selection.id))
         case .plan:
-            let chainIDs = Set(targetChains(for: selection.id).map(\.id))
-            return Set(snapshot.chainNodes.filter { chainIDs.contains($0.chainId) }.map(\.blockId))
+            return planBlockIDs(for: selection.id)
         case .link:
             guard let link = snapshot.links.first(where: { $0.id == selection.id }) else { return [] }
             return [link.sourceId, link.targetId]
@@ -730,7 +778,7 @@ final class GraphStore: ObservableObject {
             "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
             "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则",
             "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
-            "all":"全部", "verification":"验证", "unassigned":"独立验证", "verified":"已验证", "unplanned":"未规划", "noCheckpoint":"无检查点", "directBlockWork":"直接 Block 工作", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
+            "all":"全部", "verification":"验证", "unassigned":"独立验证", "verified":"已验证", "unplanned":"未规划", "noCheckpoint":"无检查点", "checkpointFree":"待验证", "directBlockWork":"直接 Block 工作", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
         ]
         let en: [String: String] = [
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
@@ -743,7 +791,7 @@ final class GraphStore: ObservableObject {
             "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
             "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules",
             "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
-            "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "verified":"Verified", "unplanned":"Unplanned", "noCheckpoint":"No checkpoint", "directBlockWork":"Direct Block work", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
+            "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "verified":"Verified", "unplanned":"Unplanned", "noCheckpoint":"No checkpoint", "checkpointFree":"Checkpoint-free", "directBlockWork":"Direct Block work", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
         ]
         return (activeLocale == "zh-Hans" ? zh : en)[key] ?? key
     }

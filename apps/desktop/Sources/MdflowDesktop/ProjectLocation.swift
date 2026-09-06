@@ -80,7 +80,10 @@ struct ProjectLocation {
         let current = RecentProject(path: location.root.path, name: location.descriptor.name)
         var projects = recentProjects().filter { $0.path != current.path }
         projects.insert(current, at: 0)
-        if projects.count > 8 { projects.removeLast(projects.count - 8) }
+        // Keep the switcher a recent-project affordance, not an ever-growing
+        // project registry.  Project data remains on disk and can always be
+        // reopened from the file picker.
+        if projects.count > 3 { projects.removeLast(projects.count - 3) }
         if let data = try? JSONEncoder().encode(projects) {
             UserDefaults.standard.set(data, forKey: recentProjectsKey)
             UserDefaults.standard.removeObject(forKey: legacyRecentProjectKey)

@@ -4,7 +4,7 @@
 > 基线 HEAD：`9947ae6`（本文件写作时的仓库状态）
 > 用途：这是“先把内容写入 Markdown，再按 Markdown 重建 mdflow”的一次性迁移基线。迁移完成后，本文件应降级为公开发布/历史材料，开发期唯一交接入口回到 `.mdflow`。
 
-> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 539）；最新回归为 MCP 38/38、Swift/Desktop 30/30、`release:verify` valid=true、严格 codesign 与 13-file manifest。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。剩余开放门禁见 mdflow Foundation Plan：系统性全路人工冲突审查、最终 Reduce Motion/色盲视觉 human_review、Developer ID Edge 发布/升级回滚/notarization。
+> **当前校准（2026-09-06）**：下面的迁移记录和早期数字保留为历史证据，不是当前状态。当前开发事实以 `.mdflow/mdflow.sqlite` 为准（graph revision 554）；最新 MCP 回归为 41/41，Swift desktop package build 通过，`release:verify` 的既有 valid=true、严格 codesign 与 13-file manifest 证据仍有效。300 Block / 599 Link / 6 Chain 全路冲突已加入精确回归；视口级网格改为有界 Canvas 后，隔离大图完成 30 个一分钟采样，最终物理驻留 541.1M、历史峰值 578.8M，进程存活 34m41s 无崩溃。开发期 MCP 默认 Markdown，结构化 JSON 仅在显式 `includeStructured=true` 时返回。普通架构 Block 可以暂时没有 checkpoint；只有需求、Plan、Chain/Plan gate 或显式验证请求需要时才创建，coverage 会区分 checkpoint-free 与 required-missing。最终 Todo parity fixture 为 2,359 vs 3,321 tokens（29.0% reduction，13/13 facts，0 errors）。剩余开放门禁见 mdflow Foundation Plan：系统性全路人工冲突审查、最终 Reduce Motion/色盲视觉 human_review、Developer ID Edge 发布/升级回滚/notarization。
 
 ## 1. 这份文件要解决什么
 
@@ -48,7 +48,7 @@ mdflow 是“面向开发 Agent 的可执行项目上下文层”。
 - Link 表示真实关系；关系类型决定线的含义，Chain 成员关系不改变 Link 类型。
 - Chain 是全局 Block/Link 网络上的一条有序路径包络，不拥有 Block；一个 Block 可以属于多个 Chain，也可以不属于任何 Chain。
 - Plan 既不是 Block 也不是 Chain。Plan 通过直接 `plan_change`、`plan_chain_scope`、步骤、checkpoint gate 和依赖来表达“接下来做什么、改哪里、如何验收”。
-- 每个非 deprecated Block 都必须有自己的 checkpoint；不属于 Chain 的 Block 也必须被某个 Plan 的精确工作项覆盖。
+- Block 是架构事实，不因创建就自动产生验证义务；建模阶段可以没有 checkpoint。需求、Plan、Chain/Plan gate 或显式验证请求确定验证范围后，相关 Block 才必须有自己的 checkpoint。不属于 Chain 的 Block 仍应在需要实施时由 Plan 的精确工作项覆盖。
 - “把某条 Chain 设为 Plan 的 target”不等于“覆盖 Chain 内全部 Block”。严格覆盖只认：直接 Block PlanChange、Plan step 中的 Block 引用、ChainScope 中明确列出的 Block。
 - Test Block 只表示可复用测试能力；整个系统/发布验收是 Plan 的 integration checkpoint，不是 Test Block。
 - 状态必须有证据；`passed` 需要覆盖完整、evidence level 不低于 required level、且没有被 invalidate。
@@ -224,14 +224,14 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 ## 6. 当前验证基线
 
-- MCP 回归：38/38 通过。
-- Swift/Desktop 回归：30/30 通过；包含精确 300 Block / 599 Link / 6 Chain 全路冲突检查、重复刷新和大包络边界回归。
+- MCP 回归：41/41 通过。
+- Swift/Desktop：当前 Swift desktop package build 通过；既有 30/30 回归证据仍包含精确 300 Block / 599 Link / 6 Chain 全路冲突检查、重复刷新和大包络边界回归。
 - `release:verify`：`valid=true`，严格 codesign、私有数据审计、13-file manifest 通过；清单现在在最终 re-sign 前写入，避免破坏 sealed resources。
 - 本地开发包保持 ad-hoc 签名；`MDFLOW_CODESIGN_IDENTITY` 可注入 Developer ID，`npm run release:notarize` 负责 notarytool/staple/spctl 门禁，不把 ad-hoc 包误称为公证产物。
 - 当前插件版本：`0.1.0+codex.20260905101443`；bundle/Skill 与仓库哈希一致。
 - 读取工具默认 Markdown；只有显式 `includeStructured=true` 才返回完整 structuredContent；自动回归仍不能替代 real_target/human_review。
 
-## 7. Block 清单（25）
+## 7. Block 清单（迁移快照 25；当前图谱 27）
 
 约定：`checkpoint` 列给该 Block 自身最重要 checkpoint 的当前派生状态；有多个时按 `passed / partial / retest / pending` 的最高确定性列出。
 
@@ -266,7 +266,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 ### 7.1 需要在重建时修正的 Block 内容
 
 1. `project-registration`：正文必须改为“主数据库随 Git 版本化，WAL/SHM/journal 忽略”，删除“mdflow.sqlite 保持忽略”的旧句。
-2. 该项已在当前图谱校准：`verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的当前正文/证据以 MCP 38/38、Swift 30/30、插件 `0.1.0+codex.20260905101443` 为准；旧“32/32”“18/18”“25/25”“15 tests”“22 tests”等数字只保留在历史回放中。
+2. 该项已在当前图谱校准：`verification-suite`、`context-retrieval`、`codex-plugin`、`plan-workflow`、`sqlite-graph-store` 的当前正文/证据以 MCP 41/41、Swift desktop package build、插件 `0.1.0+codex.20260905101443` 为准；旧“32/32”“18/18”“25/25”“15 tests”“22 tests”等数字只保留在历史回放中。
 3. 所有 Block 的 `healthState` 应由当前 checkpoint 状态推导呈现，不再保留与 evidence 冲突的手工“healthy”表达。
 4. 不创建“全部/All/QA/Plan”伪 Block kind。
 
@@ -471,7 +471,7 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
    - 保留 2 个活动 Plan 及其 scopes/steps/changes；
    - 归档已失效 checkpoint，保持证据在 history 中可查。
 3. 重新整理 checkpoint 归属：
-   - 每个非 deprecated Block 至少一个自身 atomic/integration checkpoint；
+   - 对已进入需求、Plan、Chain/Plan gate 或显式验证范围的 Block 建立自身 atomic/integration checkpoint；架构发现阶段的 checkpoint-free Block 保留为可见 coverage 状态；
    - 每个活动 Chain 有路径级 checkpoint；
    - 每个 Plan 有最终 gate；计划 gate 的 required 子项只来自真实依赖。
 4. 逐实体写入并回读；写入后运行 `graph_validate`，必须 0 error、0 warning。
@@ -483,8 +483,8 @@ macOS App（ProjectDatabase 只读快照，250 ms 轮询 + .mdflow 文件事件�
 
 ### 14.1 开发功能缺口（尚未实现）
 
-1. ~~新建 Block 时缺少便捷的自动 checkpoint 初始化 mutation~~：已实现 `graph_mutate` 操作 `create_checkpoint`，可在同一 ChangeSet 与 `create_block`/`set_plan_changes`/`set_checkpoint_bindings` 组合完成初始化。
-2. 从零项目缺少“自动生成 Foundation Plan + 批量 Direct PlanChange + 绑定 Block checkpoint”的批量初始化工具；目前每个 Block 仍要显式列出操作。
+1. ~~新建 Block 时缺少便捷的按需 checkpoint 初始化 mutation~~：已实现 `graph_mutate` 操作 `create_checkpoint`；普通 `create_block` 只记录架构，compact `checkpoint=auto` 或同一 ChangeSet 的 `create_checkpoint` 才明确创建验证义务。
+2. ~~从零项目缺少 Foundation Plan 批量初始化~~：`foundation_plan_create` 会在显式实施计划中为未实现 Block 建立 atomic checkpoint、Direct PlanChange、依赖顺序、Chain integration gate 与 Plan acceptance gate；架构-only Block 不会被普通创建隐式验证。
 3. `.mdflow` 的人类可读 Git diff 尚未实现；二进制 SQLite 不适合逐行 review。
 4. ~~App 的 Verification inbox 需要过滤归档 target~~：已修复，见第 1 节执行记录。
 5. 新建/校准 Block 与 Link 时，healthState 与 checkpoint 应尽量派生，避免手工不一致。

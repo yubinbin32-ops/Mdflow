@@ -46,10 +46,23 @@ struct DetailView: View {
                     metadataLabel(block.architectureLayer)
                     metadataSeparator
                     metadataLabel(block.scope)
+                    let ruleScope = store.ruleScopeLabel(block.id)
+                    if !ruleScope.isEmpty {
+                        metadataSeparator
+                        metadataLabel(store.activeLocale == "zh-Hans" ? "规则 · \(ruleScope)" : "RULE · \(ruleScope)")
+                    }
                     if block.localOrder != 0 {
                         metadataSeparator
                         metadataLabel("#\(block.localOrder)")
                     }
+                }
+                if let coverage = store.architectureCoverage.blocks.first(where: { $0.blockID == block.id }) {
+                    let coverageText = store.activeLocale == "zh-Hans"
+                        ? "检查点 \(coverage.hasCheckpoint ? "有" : "无") · \(coverage.checkpointRequired ? "需要" : "暂不需要") · Plan \(coverage.isCoveredByPlan ? "有" : "无") · Chain \(coverage.isCoveredByChain ? "有" : "无") · 验证 \(coverage.isCoveredByAnyVerification ? "有" : "无")"
+                        : "CHECKPOINT \(coverage.hasCheckpoint ? "YES" : "NO") · \(coverage.checkpointRequired ? "REQUIRED" : "OPTIONAL") · PLAN \(coverage.isCoveredByPlan ? "YES" : "NO") · CHAIN \(coverage.isCoveredByChain ? "YES" : "NO") · VERIFICATION \(coverage.isCoveredByAnyVerification ? "YES" : "NO")"
+                    Text(coverageText)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(coverage.missingRequiredCheckpoint ? MdflowTheme.failure : MdflowTheme.muted)
                 }
                 section(store.text("summary").uppercased(), text: store.blockText(block, field: "summary"))
                 section(store.text("details").uppercased(), text: store.blockText(block, field: "body"))
@@ -141,6 +154,15 @@ struct DetailView: View {
             Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified")) · \(coverage.plannedBlocks)/\(coverage.totalBlocks) \(store.activeLocale == "zh-Hans" ? "由此 Plan 覆盖" : "covered by this Plan")")
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(MdflowTheme.ink.opacity(0.82))
+            let directStandaloneIDs = Set(directChanges.filter { $0.entityType == "block" }.map(\.entityId))
+                .intersection(Set(coverage.outsideChainIDs))
+            if !directStandaloneIDs.isEmpty {
+                let label = store.activeLocale == "zh-Hans" ? "不在 Chain 中的直接 Block" : "Direct Blocks outside Chains"
+                let refs = directStandaloneIDs.sorted().map { "block:\($0)" }.joined(separator: ", ")
+                Text("\(label): \(refs)")
+                    .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(MdflowTheme.focus)
+            }
             if !coverage.withoutCheckpointIDs.isEmpty {
                 Text("\(store.text("noCheckpoint")): \(coverage.withoutCheckpointIDs.prefix(6).joined(separator: ", "))")
                     .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.failure)
