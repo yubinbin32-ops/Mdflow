@@ -25,22 +25,15 @@ struct CanvasScene: Equatable {
         let allCanvasBlocks = snapshot.blocks.filter {
             !backgroundRuleIDs.contains($0.id) && $0.kind.lowercased() != "decision"
         }
-        let allCanvasIDs = Set(allCanvasBlocks.map(\.id))
         let visibleIDs = Set(allCanvasBlocks.filter { block in
             lenses.contains { $0.includes(block: block) }
         }.map(\.id))
         let blocks = allCanvasBlocks.filter { visibleIDs.contains($0.id) }
-        let allCanvasLinks = snapshot.links.filter {
+        let links = snapshot.links.filter {
             $0.sourceType == "block" && $0.targetType == "block" &&
-                allCanvasIDs.contains($0.sourceId) && allCanvasIDs.contains($0.targetId)
-        }
-        let links = allCanvasLinks.filter {
-            visibleIDs.contains($0.sourceId) && visibleIDs.contains($0.targetId)
+                visibleIDs.contains($0.sourceId) && visibleIDs.contains($0.targetId)
         }
         let cardSize = CGSize(width: 224, height: 128)
-        let allChainNodes = Dictionary(uniqueKeysWithValues: snapshot.chains.map { chain in
-            (chain.id, snapshot.chainNodes.filter { $0.chainId == chain.id && allCanvasIDs.contains($0.blockId) }.sorted { $0.position < $1.position }.map(\.blockId))
-        })
         let chainNodes = Dictionary(uniqueKeysWithValues: snapshot.chains.map { chain in
             (chain.id, snapshot.chainNodes.filter { $0.chainId == chain.id && visibleIDs.contains($0.blockId) }.sorted { $0.position < $1.position }.map(\.blockId))
         })
@@ -48,16 +41,15 @@ struct CanvasScene: Equatable {
         let chainLinks = Dictionary(uniqueKeysWithValues: snapshot.chains.map { chain in
             (chain.id, snapshot.chainEdges.filter { $0.chainId == chain.id && visibleLinkIDs.contains($0.linkId) }.sorted { $0.position < $1.position }.map(\.linkId))
         })
-        // Compile geometry from the complete semantic Canvas, then project the
-        // selected lenses onto it.  Recomputing layout from only the checked
-        // kinds made unrelated cards jump when a top checkbox changed; stable
-        // world coordinates let the transition reveal/hide nodes naturally.
+        // Recompile the visible subgraph when a lens changes.  The scene
+        // transition animates the resulting positions, so filtering changes
+        // the distribution without refitting the camera or mutating graph data.
         let layout = NetworkLayoutEngine.make(
-            nodeIDs: allCanvasBlocks.map(\.id),
-            edges: allCanvasLinks.map { LayoutEdge(id: $0.id, sourceID: $0.sourceId, targetID: $0.targetId) },
-            focusPaths: snapshot.chains.compactMap { allChainNodes[$0.id] }.filter { !$0.isEmpty },
-            districts: Dictionary(uniqueKeysWithValues: allCanvasBlocks.map { ($0.id, districtIndex($0.kind)) }),
-            metadata: Dictionary(uniqueKeysWithValues: allCanvasBlocks.map {
+            nodeIDs: blocks.map(\.id),
+            edges: links.map { LayoutEdge(id: $0.id, sourceID: $0.sourceId, targetID: $0.targetId) },
+            focusPaths: snapshot.chains.compactMap { chainNodes[$0.id] }.filter { !$0.isEmpty },
+            districts: Dictionary(uniqueKeysWithValues: blocks.map { ($0.id, districtIndex($0.kind)) }),
+            metadata: Dictionary(uniqueKeysWithValues: blocks.map {
                 ($0.id, LayoutNodeMetadata(layer: architectureIndex($0.architectureLayer), scope: $0.scope, order: $0.localOrder))
             }),
             cardSize: cardSize,

@@ -8,28 +8,15 @@
   ],
   "scripts": {
     "mcp": "node packages/mcp/src/server.mjs",
-    "test": "npm run plugin:build && node --test packages/mcp/test/*.test.mjs",
-    "benchmark:todo": "node scripts/context-parity.mjs --write-report=benchmarks/todo-context-parity.json",
-    "benchmark:express": "node scripts/github-project-benchmark.mjs --write-report=benchmarks/open-source/express/results.json",
-    "benchmark:todo:target": "node --test benchmarks/todo-target/test/*.test.mjs && node scripts/run-todo-target.mjs --write-report=benchmarks/todo-target-results.json",
-    "benchmark:feedback-loop": "node --test benchmarks/feedback-loop.test.mjs benchmarks/feedback-loop-adapter.test.mjs && node scripts/feedback-loop-benchmark.mjs --write-report=benchmarks/todo-feedback-loop-results.json",
-    "benchmark:feedback-loop:external": "node scripts/feedback-loop-llm.mjs --adapter-command=\"$MDFLOW_LLM_ADAPTER\" --model=\"$MDFLOW_LLM_MODEL\" --claim-llm --write-report=benchmarks/todo-feedback-loop-external.json",
-    "release:plugin-lifecycle": "node scripts/codex-plugin-lifecycle.mjs --write-report=benchmarks/plugin-lifecycle-results.json",
-    "release:verify": "npm run plugin:build && npm run desktop:build && sh scripts/package-app.sh debug && node scripts/verify-package.mjs dist/mdflow.app --write-manifest --resign",
-    "release:assets": "sh scripts/create-release-assets.sh",
-    "release:upload": "sh scripts/upload-release.sh",
-    "release:notarize": "sh scripts/notarize-app.sh",
     "plugin:build": "esbuild packages/mcp/src/server.mjs --bundle --platform=node --format=esm --target=node22 --outfile=plugins/mdflow/server/mdflow-mcp.mjs",
     "desktop:build": "swift build --package-path apps/desktop",
-    "desktop:run": "swift run --package-path apps/desktop mdflow-desktop",
-    "desktop:package": "sh scripts/package-app.sh"
+    "desktop:run": "swift run --package-path apps/desktop mdflow-desktop"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.1.5"
   },
   "devDependencies": {
-    "esbuild": "^0.25.9",
-    "js-tiktoken": "^1.0.21"
+    "esbuild": "^0.25.9"
   }
 }

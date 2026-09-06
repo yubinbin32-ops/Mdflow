@@ -13,9 +13,5 @@ let package = Package(
             name: "MdflowDesktop",
             dependencies: ["CSQLite"]
         ),
-        .testTarget(
-            name: "MdflowDesktopTests",
-            dependencies: ["MdflowDesktop", "CSQLite"]
-        ),
     ]
 )
