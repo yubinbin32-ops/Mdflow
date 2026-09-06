@@ -103,7 +103,7 @@ The release benchmark uses a fixed [Express 5.2.1 snapshot](https://github.com/e
 | Context tokens | 7,788 | 10,029 | **22.35% fewer** |
 | Characters | 21,283 | 43,899 | **51.52% fewer** |
 | Fact recall | 12 / 12 | 12 / 12 | equal |
-| Local context assembly | 64.43 ms | 11.09 ms | graph query overhead is visible |
+| Local context assembly | 94.98 ms | 14.50 ms | graph query overhead is visible |
 
 This is a deterministic context baseline (`llmClaim=false`), not a model-latency claim. The full method and raw result live in [the Express benchmark](../benchmarks/open-source/express/results.md), together with the public `.mdflow` sample that can be copied for exploration.
 

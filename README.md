@@ -52,7 +52,7 @@ The same three task prompts were run through two deterministic context assembler
 | Context tokens (`cl100k_base`) | **7,788** | 10,029 | **22.35% fewer** |
 | Characters | **21,283** | 43,899 | **51.52% fewer** |
 | Fact recall | 12 / 12 | 12 / 12 | equal |
-| Local context assembly | 64.43 ms | 11.09 ms | graph query overhead is visible |
+| Local context assembly | 94.98 ms | 14.50 ms | graph query overhead is visible |
 
 This is a reproducible context baseline, not an LLM latency claim (`llmClaim=false`). A real model/code-edit/recovery run remains a release gate. Read the [full result table](benchmarks/open-source/express/results.md), [Markdown control](benchmarks/open-source/express/markdown-baseline.md), or [sample graph](benchmarks/open-source/express/README.md).
 
