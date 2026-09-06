@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { openDatabase, transaction } from "./database.mjs";
 import { resolveProjectPaths } from "./paths.mjs";
+import { parseGraphPatch } from "./patch.mjs";
 
 const BLOCK_KINDS = new Set([
   "principle",
@@ -2315,6 +2316,288 @@ export class MdflowService {
     };
   }
 
+  graphPatch({
+    patch, actor = "agent", reason, task = "compact-patch", gitHead = null,
+    planId = null, chainScopeId = null,
+  } = {}) {
+    const parsed = parseGraphPatch(patch);
+    const metadata = parsed.metadata ?? {};
+    const allowedMetadata = new Set(["base", "plan", "chainScope", "actor", "reason", "task"]);
+    for (const key of Object.keys(metadata)) {
+      if (!allowedMetadata.has(key)) throw new Error(`Unsupported compact patch header field: ${key}`);
+    }
+    const before = this.snapshot();
+    const baseRevision = metadata.base;
+    if (baseRevision != null && (!Number.isInteger(baseRevision) || baseRevision < 0)) {
+      throw new Error("Compact patch base must be a non-negative graph revision");
+    }
+    if (baseRevision != null && baseRevision !== before.project.graphRevision) {
+      throw new Error(`Graph base revision conflict; expected ${baseRevision}, current ${before.project.graphRevision}`);
+    }
+    const resolvedPlanId = planId ?? metadata.plan ?? null;
+    const resolvedChainScopeId = chainScopeId ?? metadata.chainScope ?? null;
+    const resolvedActor = actor === "agent" && metadata.actor ? metadata.actor : actor;
+    const resolvedReason = reason?.trim() || metadata.reason?.trim();
+    if (!resolvedReason) throw new Error("Compact patch requires reason=... in the header or a reason argument");
+    const resolvedTask = task === "compact-patch" && metadata.task ? metadata.task : task;
+    const fieldAliases = {
+      delivery: "deliveryState",
+      health: "healthState",
+      layer: "architectureLayer",
+      order: "localOrder",
+    };
+    const normalizeFields = (fields = {}) => Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [fieldAliases[key] ?? key, value]),
+    );
+    const collections = {
+      block: before.blocks,
+      chain: before.chains,
+      link: before.links,
+      plan: before.plans,
+      checkpoint: before.checkpoints,
+      plan_change: before.planChanges,
+      plan_scope: before.planChainScopes,
+    };
+    const findEntity = (type, id) => collections[type]?.find((item) => item.id === id) ?? null;
+    const requireEntity = (type, id) => {
+      const entity = findEntity(type, id);
+      if (!entity) throw new Error(`${type}:${id} not found`);
+      return entity;
+    };
+    const resolvePlanForChange = (changeId) => {
+      if (resolvedPlanId) return requireEntity("plan", resolvedPlanId);
+      const matches = before.planChanges.filter((change) => change.id === changeId);
+      if (matches.length !== 1) throw new Error(`plan_change:${changeId} requires plan=... when it is not unique`);
+      return requireEntity("plan", matches[0].planId);
+    };
+    const checkpointForTarget = (targetType, targetId) => before.checkpoints
+      .filter((checkpoint) => checkpoint.targetType === targetType && checkpoint.targetId === targetId)
+      .sort((left, right) => (left.checkpointKind === "atomic" ? -1 : 1) - (right.checkpointKind === "atomic" ? -1 : 1) || left.id.localeCompare(right.id))[0] ?? null;
+    const normalizeCheckpointFields = (fields, targetType, targetId, existing) => {
+      const normalized = normalizeFields(fields);
+      const raw = existing ? this.database.prepare("SELECT status FROM checkpoints WHERE project_id = ? AND id = ?")
+        .get(this.paths.descriptor.id, existing.id) : null;
+      if (normalized.evidence != null && !Array.isArray(normalized.evidence)) {
+        normalized.evidence = [{ kind: "compact-patch", summary: String(normalized.evidence) }];
+      }
+      return {
+        ...normalized,
+        targetType,
+        targetId,
+        title: normalized.title ?? existing?.title ?? `Verify ${targetType}:${targetId}`,
+        criteria: normalized.criteria ?? existing?.criteria ?? `Verify ${targetType}:${targetId} satisfies its declared responsibility.`,
+        status: normalized.status ?? raw?.status ?? existing?.status ?? "pending",
+        checkpointKind: normalized.checkpointKind ?? existing?.checkpointKind ?? "atomic",
+        coverage: normalized.coverage ?? existing?.coverage ?? "complete",
+        evidenceLevel: normalized.evidenceLevel ?? existing?.evidenceLevel ?? (normalized.status === "passed" ? "static" : "none"),
+        requiredEvidenceLevel: normalized.requiredEvidenceLevel ?? existing?.requiredEvidenceLevel ?? "static",
+        aggregationPolicy: normalized.aggregationPolicy ?? existing?.aggregationPolicy ?? {},
+        eligibleAfterChildren: normalized.eligibleAfterChildren ?? existing?.eligibleAfterChildren ?? false,
+        evidence: normalized.evidence ?? existing?.evidence ?? [],
+        invalidatedAt: normalized.invalidatedAt ?? existing?.invalidatedAt ?? null,
+      };
+    };
+    const operations = [];
+    const autoPlanEntries = [];
+    for (const item of parsed.operations) {
+      const fields = normalizeFields(item.fields);
+      const targetType = item.targetType;
+      const targetId = item.targetId;
+      if (item.action === "source") {
+        if (targetType !== "block") throw new Error(`source target must be block:${targetId}`);
+        requireEntity("block", targetId);
+        operations.push({ action: "add_source_ref", id: targetId, fields });
+        continue;
+      }
+      if (item.action === "checkpoint" || (item.action === "update" && targetType === "checkpoint")) {
+        let existing;
+        let checkpointTargetType = targetType;
+        let checkpointTargetId = targetId;
+        if (targetType === "checkpoint") {
+          existing = requireEntity("checkpoint", targetId);
+          checkpointTargetType = existing.targetType;
+          checkpointTargetId = existing.targetId;
+        } else {
+          requireEntity(targetType, targetId);
+          existing = checkpointForTarget(targetType, targetId);
+        }
+        const checkpointId = existing?.id ?? fields.id ?? `${checkpointTargetType}-${checkpointTargetId}-checkpoint`;
+        delete fields.id;
+        operations.push({
+          action: "record_checkpoint",
+          id: checkpointId,
+          expectedRevision: item.expectedRevision ?? existing?.currentRevision,
+          fields: normalizeCheckpointFields(fields, checkpointTargetType, checkpointTargetId, existing),
+        });
+        continue;
+      }
+      if (targetType === "plan_change") {
+        if (item.action !== "update") throw new Error("plan_change supports update only");
+        const plan = resolvePlanForChange(targetId);
+        requireEntity("plan_change", targetId);
+        operations.push({
+          action: "update_plan_change",
+          id: plan.id,
+          expectedRevision: item.expectedRevision ?? plan.currentRevision,
+          fields: { changeId: targetId, patch: fields },
+        });
+        continue;
+      }
+      if (targetType === "plan_scope") {
+        if (item.action !== "update") throw new Error("plan_scope supports update only");
+        const scope = requireEntity("plan_scope", targetId);
+        const plan = resolvedPlanId ? requireEntity("plan", resolvedPlanId) : requireEntity("plan", scope.planId);
+        operations.push({
+          action: "update_plan_chain_scope",
+          id: plan.id,
+          expectedRevision: item.expectedRevision ?? plan.currentRevision,
+          fields: { scopeId: targetId, patch: fields },
+        });
+        continue;
+      }
+      if (!["block", "chain", "link", "plan"].includes(targetType)) {
+        throw new Error(`Unsupported compact patch target ${targetType}:${targetId}`);
+      }
+      if (item.action === "create") {
+        const operationFields = { ...fields };
+        const autoCheckpoint = targetType === "block" && operationFields.checkpoint === "auto";
+        delete operationFields.checkpoint;
+        operations.push({ action: `create_${targetType}`, id: targetId, fields: operationFields });
+        if (autoCheckpoint) {
+          operations.push({
+            action: "create_checkpoint",
+            id: `${targetId}-checkpoint`,
+            fields: {
+              targetType: "block",
+              targetId,
+              title: `Verify ${operationFields.title}`,
+              criteria: operationFields.contract || `Verify block:${targetId} satisfies its declared responsibility.`,
+              status: "pending",
+              checkpointKind: "atomic",
+              coverage: "complete",
+              requiredEvidenceLevel: "static",
+            },
+          });
+          if (resolvedPlanId) {
+            const plan = requireEntity("plan", resolvedPlanId);
+            const changeId = `${plan.id}-change-${targetId}`;
+            if (before.planChanges.some((change) => change.id === changeId)) {
+              throw new Error(`plan_change:${changeId} already exists; use update plan_change:${changeId}`);
+            }
+            autoPlanEntries.push({
+              plan,
+              checkpointId: `${targetId}-checkpoint`,
+              change: {
+                id: changeId,
+                entityType: "block",
+                entityId: targetId,
+                title: `Implement ${operationFields.title}`,
+                summary: operationFields.summary ?? "",
+                currentBehavior: `Delivery state: ${operationFields.deliveryState ?? "proposed"}.`,
+                proposedBehavior: operationFields.contract || `Implement the responsibility declared by block:${targetId}.`,
+                rationale: "The compact patch directly covers this Block; Chain membership is not required.",
+                expectedEffects: [`block:${targetId} reaches its atomic checkpoint`],
+                status: "pending",
+              },
+            });
+          }
+        }
+        continue;
+      }
+      if (item.action !== "update") throw new Error(`${item.action} does not support ${targetType}:${targetId}`);
+      const entity = requireEntity(targetType, targetId);
+      operations.push({
+        action: `update_${targetType}`,
+        id: targetId,
+        expectedRevision: item.expectedRevision ?? entity.currentRevision,
+        fields,
+      });
+    }
+    if (autoPlanEntries.length) {
+      const plan = autoPlanEntries[0].plan;
+      if (autoPlanEntries.some((entry) => entry.plan.id !== plan.id)) {
+        throw new Error("A compact patch cannot auto-bind Blocks to multiple Plans");
+      }
+      const existingChanges = before.planChanges
+        .filter((change) => change.planId === plan.id)
+        .sort((left, right) => left.position - right.position)
+        .map((change) => ({
+          id: change.id,
+          entityType: change.entityType,
+          entityId: change.entityId,
+          title: change.title,
+          summary: change.summary,
+          currentBehavior: change.currentBehavior,
+          proposedBehavior: change.proposedBehavior,
+          rationale: change.rationale,
+          prohibitions: change.prohibitions,
+          expectedEffects: change.expectedEffects,
+          sourceRefs: change.sourceRefs,
+          localizations: change.localizations,
+          status: change.status,
+        }));
+      operations.push({
+        action: "set_plan_changes",
+        id: plan.id,
+        expectedRevision: plan.currentRevision,
+        fields: { changes: existingChanges.concat(autoPlanEntries.map((entry) => entry.change)) },
+      });
+      for (const entry of autoPlanEntries) {
+        operations.push({
+          action: "set_checkpoint_bindings",
+          id: entry.checkpointId,
+          expectedRevision: 1,
+          fields: { bindings: [{ subjectType: "plan_change", subjectId: entry.change.id, role: "acceptance", required: true }] },
+        });
+      }
+    }
+    if (operations.length > 20) throw new Error("Compact patch expands to more than 20 operations; split it into smaller patches");
+    const mutation = this.mutate(
+      {
+        actor: resolvedActor,
+        reason: resolvedReason,
+        task: resolvedTask,
+        gitHead,
+        planId: resolvedPlanId,
+        chainScopeId: resolvedChainScopeId,
+        operations,
+      },
+      { maxOperations: 20, maxInputBytes: 65536 },
+    );
+    const after = this.snapshot();
+    const coverage = architectureCoverage(after);
+    const validation = this.validate();
+    const unverified = coverage.unverifiedIds.map((id) => `block:${id}`);
+    const markdown = [
+      "# Graph patch",
+      "- Protocol: mdflow/1",
+      `- ChangeSet: ${mutation.changeSetId}`,
+      `- Graph revision: ${before.project.graphRevision} → ${mutation.graphRevision}`,
+      `- Applied: ${mutation.receipts.length} operation(s)`,
+      `- Validation: ${validation.valid ? "valid" : "invalid"} · ${validation.errors.length} error(s) · ${validation.warnings.length} warning(s)`,
+      "",
+      "## Applied",
+      ...mutation.receipts.map((receipt) => `- ${receipt.action} ${receipt.ref ?? `${receipt.entityType}:${receipt.id}`} · r${receipt.revision}${receipt.summary ? ` · ${receipt.summary}` : ""}`),
+      "",
+      "## Coverage",
+      `- Blocks: ${coverage.totalBlocks} total · ${coverage.verified} verified · ${coverage.planned} planned · ${coverage.withCheckpoint} with checkpoints`,
+      `- Chains: ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone · ${coverage.failingIds.length} failing`,
+      ...(unverified.length ? [`- Unverified: ${unverified.join(", ")}`] : []),
+      "",
+      "## Next",
+      "Use entity_open for changed refs and graph_validate for the full validation report.",
+    ].join("\n");
+    return {
+      ...mutation,
+      baseRevision: before.project.graphRevision,
+      patchVersion: parsed.version,
+      operations,
+      coverage,
+      validation,
+      markdown,
+    };
+  }
+
   mutate(
     { actor = "agent", reason, task = "", gitHead = null, planId = null, chainScopeId = null, operations },
     { maxOperations = 20, maxInputBytes = 65536 } = {},
@@ -2475,6 +2758,8 @@ export class MdflowService {
         return this.createBlock(operation, context);
       case "create_checkpoint":
         return this.createCheckpoint(operation, context);
+      case "record_checkpoint":
+        return this.recordCheckpointOperation(operation, context);
       case "update_block":
         return this.updateEntity("block", operation, context);
       case "add_source_ref":
@@ -3262,6 +3547,86 @@ export class MdflowService {
         .run(healthState, timestamp, fields.targetId);
     }
     return { entityType: "checkpoint", id, action: "created", revision: 1, summary: fields.title.trim() };
+  }
+
+  recordCheckpointOperation(operation, { timestamp }) {
+    const fields = operation.fields ?? {};
+    if (!['block', 'chain', 'link', 'plan'].includes(fields.targetType)) {
+      throw new Error(`Invalid targetType: ${fields.targetType}`);
+    }
+    if (!fields.title?.trim()) throw new Error("record_checkpoint requires fields.title");
+    const status = fields.status ?? "pending";
+    const checkpointKind = fields.checkpointKind ?? "atomic";
+    const requiredEvidenceLevel = fields.requiredEvidenceLevel ?? "static";
+    const evidenceLevel = fields.evidenceLevel ?? (status === "passed" ? "static" : "none");
+    assertAllowed(status, CHECKPOINT_STATUSES, "checkpoint status");
+    assertAllowed(checkpointKind, CHECKPOINT_KINDS, "checkpoint kind");
+    assertAllowed(evidenceLevel, EVIDENCE_LEVELS, "evidence level");
+    assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
+    const coverage = fields.coverage ?? "complete";
+    if (!["complete", "partial"].includes(coverage)) throw new Error(`Invalid checkpoint coverage: ${coverage}`);
+    if (status === "passed" && coverage !== "complete") throw new Error("Passed checkpoint requires complete coverage");
+    if (checkpointKind === "aggregate" && status === "passed") {
+      throw new Error("Aggregate checkpoint status is derived from child checkpoints and cannot be recorded as passed");
+    }
+    if (status === "passed" && (EVIDENCE_LEVEL_RANK.get(evidenceLevel) ?? 0) < (EVIDENCE_LEVEL_RANK.get(requiredEvidenceLevel) ?? 0)) {
+      throw new Error(`Passed checkpoint requires ${requiredEvidenceLevel} evidence, received ${evidenceLevel}`);
+    }
+    if (!entityExists(this.database, this.paths.descriptor.id, fields.targetType, fields.targetId)) {
+      throw new Error(`${fields.targetType}:${fields.targetId} not found`);
+    }
+    const id = operation.id ?? identifier("checkpoint");
+    const existing = this.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? AND id = ?")
+      .get(this.paths.descriptor.id, id);
+    let revision = 1;
+    let action = "created";
+    if (existing) {
+      if (existing.project_id !== this.paths.descriptor.id || existing.target_type !== fields.targetType || existing.target_id !== fields.targetId) {
+        throw new Error(`checkpoint:${id} target cannot be changed`);
+      }
+      if (!Number.isInteger(operation.expectedRevision) || operation.expectedRevision !== existing.current_revision) {
+        throw new Error(`Revision conflict for checkpoint:${id}; expected ${operation.expectedRevision}, current ${existing.current_revision}`);
+      }
+      revision = existing.current_revision + 1;
+      action = "updated";
+      this.database.prepare(
+        `UPDATE checkpoints SET title = ?, criteria = ?, status = ?, checkpoint_kind = ?,
+         aggregation_policy_json = ?, eligible_after_children = ?, evidence_level = ?,
+         required_evidence_level = ?, coverage = ?, evidence_json = ?, invalidated_at = ?,
+         current_revision = ?, updated_at = ? WHERE project_id = ? AND id = ?`,
+      ).run(
+        fields.title.trim(), fields.criteria ?? "", status, checkpointKind,
+        JSON.stringify(fields.aggregationPolicy ?? {}), Number(Boolean(fields.eligibleAfterChildren)), evidenceLevel,
+        requiredEvidenceLevel, coverage, JSON.stringify(fields.evidence ?? []), fields.invalidatedAt ?? null,
+        revision, timestamp, this.paths.descriptor.id, id,
+      );
+    } else {
+      this.database.prepare(
+        `INSERT INTO checkpoints(
+          id, project_id, target_type, target_id, title, criteria, status, checkpoint_kind,
+          aggregation_policy_json, eligible_after_children, evidence_level,
+          required_evidence_level, coverage, evidence_json, invalidated_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        id, this.paths.descriptor.id, fields.targetType, fields.targetId, fields.title.trim(), fields.criteria ?? "",
+        status, checkpointKind, JSON.stringify(fields.aggregationPolicy ?? {}), Number(Boolean(fields.eligibleAfterChildren)),
+        evidenceLevel, requiredEvidenceLevel, coverage, JSON.stringify(fields.evidence ?? []), fields.invalidatedAt ?? null,
+        timestamp, timestamp,
+      );
+    }
+    const healthState = status === "passed" ? "healthy"
+      : status === "failed" ? "failing"
+        : ["blocked", "partial_pass", "retest_required"].includes(status) ? "warning" : null;
+    if (healthState && fields.targetType !== "plan") {
+      const targetTable = fields.targetType === "block" ? "blocks"
+        : fields.targetType === "chain" ? "chains" : "links";
+      this.database.prepare(`UPDATE ${targetTable} SET health_state = ?, updated_at = ? WHERE id = ?`)
+        .run(healthState, timestamp, fields.targetId);
+    }
+    return {
+      entityType: "checkpoint", id, action, revision,
+      summary: `${status}: ${fields.title.trim()}`,
+    };
   }
 
   updateEntity(type, operation, { timestamp }) {

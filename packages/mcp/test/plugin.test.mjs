@@ -105,6 +105,7 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
         "entity_open",
         "foundation_plan_create",
         "graph_mutate",
+        "graph_patch",
         "graph_search",
         "graph_validate",
         "plan_context",
@@ -133,6 +134,17 @@ test("bundled plugin starts and exposes the mdflow tools", async () => {
     });
     assert.equal(create.isError, undefined);
     assert.equal(create.structuredContent, undefined);
+
+    const compactPatch = await client.callTool({
+      name: "graph_patch",
+      arguments: {
+        patch: "mdflow/1 reason=\"Exercise compact Markdown-like writes\"\nupdate block:canvas\nsummary=\"Renders the project network compactly\"",
+      },
+    });
+    assert.equal(compactPatch.isError, undefined);
+    assert.equal(compactPatch.structuredContent, undefined);
+    assert.match(compactPatch.content[0].text, /# Graph patch/);
+    assert.match(compactPatch.content[0].text, /updated block:canvas/);
 
     const compose = await client.callTool({
       name: "graph_mutate",

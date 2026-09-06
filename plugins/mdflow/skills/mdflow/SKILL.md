@@ -64,6 +64,20 @@ Do not claim initialization is complete while a non-deprecated Block lacks its o
 ## Mutation fidelity
 
 - Keep every mutation small, cohesive, and truthful. Use current `expectedRevision`; on conflict, reopen and reconcile.
+- For small AI-authored edits, prefer the `graph_patch` MCP tool with the `mdflow/1` Markdown-like format. It is only a compact transport: the server expands it into the same atomic ChangeSet, history, revision, validation, and canonical graph writes as `graph_mutate`.
+- A compact patch should normally include `base=<graphRevision>` and a `reason="..."` header. Example:
+
+  ```text
+  mdflow/1 base=539 plan=foundation reason="Record the verified layout change"
+  update block:city-layout@3
+  summary="Bounded overview routing is in place"
+  delivery=verifying
+  checkpoint block:city-layout@1 status=partial_pass evidenceLevel=real_target evidence="Overview smoke test passed"
+  ```
+
+- `update block|chain|link|plan:<id>` changes only the listed fields; omitted fields are preserved. `create block:<id> ... checkpoint=auto` creates the Block and its atomic checkpoint in one ChangeSet; when the header includes `plan=<id>`, it also creates the direct PlanChange and binds that checkpoint. `checkpoint <type>:<id>` updates the target's existing atomic checkpoint (or creates one when absent). `update plan_change:<id>` requires or infers its owning `plan`; `source block:<id>` attaches a source reference.
+- Do not use compact syntax to bypass graph validation, Plan/ChainScope ownership, or checkpoint evidence rules. If the patch base is stale, the server must reject the whole patch; reopen context and retry with a new base revision.
+- The default patch receipt is Markdown and includes the ChangeSet, graph revision, applied refs, validation result, and compact coverage summary. Request `includeStructured=true` only when exact machine-readable receipts are required.
 - Prefer `graph_mutate` actions that compose initialization in one ChangeSet: `create_block` + `create_checkpoint`, then `set_plan_changes` and `set_checkpoint_bindings` when a Plan directly owns the work.
 - When implementing a Plan, pass its `planId` to `graph_mutate` and `checkpoint_record`. Once work is narrowed to a ChainScope, also pass `chainScopeId`; do not rely on prose summaries to reconstruct task ownership later. The service validates the relationship and records it in compact History metadata.
 - Use `change_set_revert` only for a fully reversible update-only ChangeSet. It creates a new reverse ChangeSet and preserves the original audit trail. If the target is stale, contains creates/deletes/relation replacement, or cannot be reversed completely, accept the rejection and reconcile explicitly; never simulate success with a partial revert.

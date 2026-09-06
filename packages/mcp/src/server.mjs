@@ -336,6 +336,29 @@ server.registerTool(
 );
 
 server.registerTool(
+  "graph_patch",
+  {
+    description:
+      "Apply a compact mdflow/1 Markdown-like patch. The server expands it into the same atomic ChangeSet used by graph_mutate, preserves omitted fields, and can create an atomic Block checkpoint with checkpoint=auto.",
+    inputSchema: {
+      ...projectRootInput,
+      patch: z.string().min(1).max(65536),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      task: z.string().optional(),
+      gitHead: z.string().nullable().optional(),
+      planId: z.string().optional(),
+      chainScopeId: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.graphPatch(payload));
+    return writeResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
   "checkpoint_record",
   {
     description:

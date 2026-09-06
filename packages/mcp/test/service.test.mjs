@@ -305,6 +305,94 @@ test("stale revisions cannot overwrite an entity", () => {
   }
 });
 
+test("compact Markdown-like patches preserve omitted fields and create atomic Block checkpoints", () => {
+  const context = fixture();
+  try {
+    const created = context.service.graphPatch({
+      patch: [
+        "mdflow/1 base=0 reason=\"Seed a compact Block\"",
+        "create block:compact kind=service title=\"Compact service\" summary=\"Initial summary\" body=\"Keep this body\" contract=\"Owns the compact write path\" checkpoint=auto",
+      ].join("\n"),
+    });
+    assert.equal(created.graphRevision, 1);
+    assert.equal(created.receipts.length, 2);
+    assert.equal(context.service.snapshot().checkpoints.length, 1);
+    assert.match(created.markdown, /# Graph patch/);
+    assert.match(created.markdown, /created checkpoint:compact-checkpoint/);
+
+    const updated = context.service.graphPatch({
+      patch: [
+        "mdflow/1 base=1 reason=\"Change only the compact summary\"",
+        "update block:compact@1",
+        "summary=\"Updated summary\"",
+      ].join("\n"),
+    });
+    assert.equal(updated.graphRevision, 2);
+    const block = context.service.snapshot().blocks.find((item) => item.id === "compact");
+    assert.equal(block.summary, "Updated summary");
+    assert.equal(block.body, "Keep this body");
+    assert.equal(block.contract, "Owns the compact write path");
+
+    const verified = context.service.graphPatch({
+      patch: [
+        "mdflow/1 base=2 reason=\"Record compact evidence\"",
+        "checkpoint block:compact@1 status=passed evidenceLevel=static evidence=\"compact smoke test passed\"",
+      ].join("\n"),
+    });
+    assert.equal(verified.graphRevision, 3);
+    assert.equal(context.service.snapshot().checkpoints[0].status, "passed");
+    assert.deepEqual(context.service.validate().errors, []);
+
+    assert.throws(
+      () => context.service.graphPatch({
+        patch: "mdflow/1 base=2 reason=\"Reject a stale compact patch\"\nupdate block:compact summary=\"stale\"",
+      }),
+      /Graph base revision conflict/,
+    );
+    assert.equal(context.service.snapshot().blocks.find((item) => item.id === "compact").summary, "Updated summary");
+  } finally {
+    context.cleanup();
+  }
+});
+
+test("compact Block creation can bind direct Plan work without a Chain", () => {
+  const context = fixture();
+  try {
+    context.service.mutate({
+      reason: "Create a direct foundation Plan for compact patch coverage",
+      operations: [{
+        action: "create_plan",
+        id: "foundation",
+        fields: { title: "Foundation", goal: "Implement direct Blocks", status: "active" },
+      }],
+    });
+    const result = context.service.graphPatch({
+      patch: [
+        "mdflow/1 base=1 plan=foundation reason=\"Add a direct Block to the foundation Plan\"",
+        "create block:worker kind=service title=\"Worker\" summary=\"Runs work\" contract=\"Processes queued work\" checkpoint=auto",
+      ].join("\n"),
+    });
+    assert.equal(result.graphRevision, 2);
+    const snapshot = context.service.snapshot();
+    assert.equal(snapshot.planChanges.length, 1);
+    assert.equal(snapshot.planChanges[0].entityId, "worker");
+    assert.equal(snapshot.planChanges[0].planId, "foundation");
+    assert.deepEqual(snapshot.checkpointBindings.map((binding) => ({
+      checkpointId: binding.checkpointId,
+      subjectType: binding.subjectType,
+      subjectId: binding.subjectId,
+    })), [{
+      checkpointId: "worker-checkpoint",
+      subjectType: "plan_change",
+      subjectId: "foundation-change-worker",
+    }]);
+    assert.equal(snapshot.plans[0].progress.totalSteps, 1);
+    assert.deepEqual(context.service.validate().errors, []);
+  } finally {
+    context.cleanup();
+  }
+});
+
 test("task context stays scoped and includes matching contracts", () => {
   const context = fixture();
   try {
