@@ -41,6 +41,8 @@ jobs:
             -derivedDataPath dist/build \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGN_STYLE="Manual" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
             build
 
           hdiutil create -volname "mdflow" \

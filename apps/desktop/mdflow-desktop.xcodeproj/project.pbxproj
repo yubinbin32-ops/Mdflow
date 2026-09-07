@@ -335,7 +335,7 @@
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Sources/CSQLite";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -435,7 +435,7 @@
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Sources/CSQLite";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
