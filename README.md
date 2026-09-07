@@ -181,19 +181,20 @@ flowchart LR
 
 ---
 
-## Comprehensive Comparison & Empirical Benchmark
+## Comparison with Traditional Markdown Docs & Empirical Benchmark
 
-### 1. Architectural Capability Comparison
+### 1. Architectural Capability Comparison (Markdown Specs vs mdflow)
 
-| Dimension | Traditional `.md` Specs | `context-mode` / CLI Wrappers | `code-context-engine` | **mdflow (Living Graph)** |
-| :--- | :---: | :---: | :---: | :---: |
-| **Context Granularity** | Monolithic (Entire files dumped) | Session-level prompt wrappers | AST / Code syntax index | **Task-scoped semantic slice** |
-| **Retrieval Latency** | 50ms – 300ms (File IO scanning) | High | 20ms – 50ms | **0.8ms – 3.2ms (Microsecond SQLite B-Tree)** |
-| **Context Token Compression** | 0% (Heavy redundancy) | Minimal | ~20% | **26% – 99.4% Empirical Savings** |
-| **Git Atomic Rollback** | Fragile / desync prone | None (Transient session) | Re-indexing required | **100% Zero-Drift (Plaintext `graph.json`)** |
-| **Acceptance Gate Evidence** | Text comments (Rotting quickly) | None | None | **Cryptographic Checkpoint Gates** |
-| **Visual Architecture** | None (Mental visualization) | None | None | **Native Interactive Canvas App** |
-| **Multi-Editor Support** | Manual copy-paste | Custom CLI | Custom scripts | **Universal Standard MCP** |
+| Dimension | Traditional `.md` Documentation | mdflow (Living Architecture Graph) | Generational Engineering Value |
+| :--- | :--- | :--- | :--- |
+| **Context Granularity** | Monolithic (Entire files dumped into prompt) | **Task-scoped semantic slice** | Zero information overload; only relevant facts |
+| **Retrieval Latency** | 50ms – 300ms (Full file disk IO & regex parsing) | **0.8ms – 3.2ms (Microsecond SQLite B-Tree)** | **15x – 100x faster**, near-instant response |
+| **Token Overhead** | Linearly expands to hundreds of thousands of tokens | **Up to 99.4% empirical token reduction** | Drastically cuts API costs and inference delay |
+| **Context Drift & Fidelity** | Severe multi-turn dilution; prone to hallucinations | **Zero drift** (Target domain locked, noise isolated) | Prevents AI from inventing non-existent contracts |
+| **Git Sync & Atomic Rollback** | Easily desyncs with code; manual and fragile | **100% Zero-Drift (Plaintext `graph.json` truth)** | Supports `git discard` hot-reloads & native rollback |
+| **Acceptance Gate Evidence** | Passive text notes that rot within weeks | **Cryptographic Checkpoint verification gates** | Unverified code is never marked complete |
+| **Visual Architecture** | None (Mental assembly of disconnected files) | **Native Interactive Canvas App** | Topological layers and impact flows at a glance |
+| **AI Tooling Ecosystem** | Manual copy-pasting of text snippets | **Universal Model Context Protocol (MCP)** | Plug-and-play across Cursor, Claude, Codex, etc. |
 
 ---
 
