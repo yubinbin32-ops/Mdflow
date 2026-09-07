@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Verification Tests
+        run: npm test
+
+      - name: Build MCP Plugin Bundle
+        run: npm run plugin:build
+
+      - name: Build macOS App & Package DMG
+        run: |
+          mkdir -p release-assets
+          xcodebuild -project apps/desktop/mdflow-desktop.xcodeproj \
+            -scheme mdflow-desktop \
+            -configuration Release \
+            -derivedDataPath dist/build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE="Manual" \
+            build
+
+          hdiutil create -volname "mdflow" \
+            -srcfolder dist/build/Build/Products/Release/mdflow.app \
+            -ov -format UDZO \
+            release-assets/mdflow-macos.dmg
+
+      - name: Prepare Release Assets
+        run: |
+          cp plugins/mdflow/server/mdflow-mcp.mjs release-assets/mdflow-mcp.mjs
+
+      - name: Create GitHub Release (Tag)
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      - name: Publish Latest Release (Main Branch Push)
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: "mdflow Latest Preview"
+          files: release-assets/*
+          draft: false
+          prerelease: true
