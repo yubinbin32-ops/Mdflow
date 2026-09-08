@@ -1,18 +1,18 @@
 {
   "version": 1,
   "projectId": "mdflow",
-  "graphRevision": 720,
-  "exportedAt": "2026-09-08T10:25:13.012Z",
+  "graphRevision": 726,
+  "exportedAt": "2026-09-08T11:46:18.385Z",
   "data": {
     "projects": [
       {
         "created_at": "2026-09-04T08:35:14.191Z",
-        "graph_revision": 719,
+        "graph_revision": 726,
         "id": "mdflow",
         "name": "mdflow",
         "repo_root": ".",
         "schema_version": 1,
-        "updated_at": "2026-09-08T09:57:17.172Z"
+        "updated_at": "2026-09-08T11:46:18.385Z"
       }
     ],
     "blocks": [
@@ -161,7 +161,7 @@
         "summary": "内置 mdflow MCP 与 Skill；App 一键安装后由 Codex 在新任务中按需自动拉起服务，公开交付为中文 README、功能 GIF、多张真实界面截图与 MIT License。",
         "tags_json": "[\"codex\",\"plugin\",\"skill\"]",
         "title": "Codex 插件集成",
-        "updated_at": "2026-09-07T16:14:11.650Z"
+        "updated_at": "2026-09-08T11:42:32.358Z"
       },
       {
         "architecture_layer": "client",
@@ -392,7 +392,7 @@
         "summary": "macOS App 目标包含可验证的可执行文件、Info.plist 和完整多分辨率图标集；当前公开交付以 MIT License、中文 GitHub README、功能 GIF 和多张真实界面截图为准。",
         "tags_json": "[\"macos\",\"icon\",\"package\"]",
         "title": "原生 App 打包与图标",
-        "updated_at": "2026-09-07T16:14:08.968Z"
+        "updated_at": "2026-09-08T11:42:15.765Z"
       },
       {
         "architecture_layer": "client",
@@ -644,7 +644,7 @@
         "summary": "MCP、图谱、Canvas、覆盖、生命周期和可访问性契约已记录；GitHub 公开页的媒体与文案复核仍开放。",
         "tags_json": "[\"test\",\"e2e\",\"qa\"]",
         "title": "跨层验证套件",
-        "updated_at": "2026-09-07T16:14:18.119Z"
+        "updated_at": "2026-09-08T11:42:51.083Z"
       },
       {
         "architecture_layer": "client",
@@ -1588,7 +1588,7 @@
         "created_at": "2026-09-08T09:57:17.172Z",
         "current_revision": 2,
         "delivery_state": "complete",
-        "health_state": "unknown",
+        "health_state": "healthy",
         "id": "chain-context-os",
         "input_contract": "",
         "intent": "从 AST 门面切片、虚实物化到终端脱敏与桌面控制台的全链路",
@@ -1597,7 +1597,7 @@
         "project_id": "mdflow",
         "purpose": "feature",
         "title": "AI Context 操作系统生命周期流",
-        "updated_at": "2026-09-08T09:57:17.187Z"
+        "updated_at": "2026-09-08T11:44:54.797Z"
       },
       {
         "archived": 0,
@@ -2042,6 +2042,22 @@
       },
       {
         "archived": 0,
+        "contract": "Runs scalability benchmarks on full graph and deep chains",
+        "created_at": "2026-09-08T10:25:13.012Z",
+        "current_revision": 1,
+        "health_state": "healthy",
+        "id": "benchmark-verification-link",
+        "kind": "verifies",
+        "label": "benchmarks scalability",
+        "project_id": "mdflow",
+        "source_id": "verification-suite",
+        "source_type": "block",
+        "target_id": "large-system-benchmark",
+        "target_type": "block",
+        "updated_at": "2026-09-08T10:25:13.012Z"
+      },
+      {
+        "archived": 0,
         "contract": "Selecting a building opens the single complete entity view.",
         "created_at": "2026-09-04T08:45:21.413Z",
         "current_revision": 1,
@@ -2138,6 +2154,22 @@
       },
       {
         "archived": 0,
+        "contract": "Feeds task-scoped context queries into AST symbol extraction",
+        "created_at": "2026-09-08T10:25:13.012Z",
+        "current_revision": 1,
+        "health_state": "healthy",
+        "id": "context-ast-facade",
+        "kind": "flows_to",
+        "label": "queries AST symbol facades",
+        "project_id": "mdflow",
+        "source_id": "context-retrieval",
+        "source_type": "block",
+        "target_id": "ast-facade-engine",
+        "target_type": "block",
+        "updated_at": "2026-09-08T10:25:13.012Z"
+      },
+      {
+        "archived": 0,
         "contract": "The plugin receives Markdown plus stable entity refs.",
         "created_at": "2026-09-04T08:45:21.411Z",
         "current_revision": 1,
@@ -2151,6 +2183,38 @@
         "target_id": "codex-plugin",
         "target_type": "block",
         "updated_at": "2026-09-04T08:45:21.411Z"
+      },
+      {
+        "archived": 0,
+        "contract": "Integrates context operating console and live code stream into macOS detail inspector",
+        "created_at": "2026-09-08T10:25:13.012Z",
+        "current_revision": 1,
+        "health_state": "healthy",
+        "id": "context-console-inspector",
+        "kind": "integrates_with",
+        "label": "embeds context console",
+        "project_id": "mdflow",
+        "source_id": "desktop-context-console",
+        "source_type": "block",
+        "target_id": "detail-inspector",
+        "target_type": "block",
+        "updated_at": "2026-09-08T10:25:13.012Z"
+      },
+      {
+        "archived": 0,
+        "contract": "Verifies that all blocks and chains satisfy checkpoint coverage integrity",
+        "created_at": "2026-09-08T10:25:13.012Z",
+        "current_revision": 1,
+        "health_state": "healthy",
+        "id": "coverage-verification-link",
+        "kind": "constrains",
+        "label": "verifies checkpoint coverage",
+        "project_id": "mdflow",
+        "source_id": "verification-suite",
+        "source_type": "block",
+        "target_id": "coverage-integrity",
+        "target_type": "block",
+        "updated_at": "2026-09-08T10:25:13.012Z"
       },
       {
         "archived": 0,
@@ -2298,6 +2362,22 @@
       },
       {
         "archived": 0,
+        "contract": "Feeds verified AST diffs and virtual blueprint definitions into atomic mutation",
+        "created_at": "2026-09-08T10:25:13.012Z",
+        "current_revision": 1,
+        "health_state": "healthy",
+        "id": "materializer-atomic-mutation",
+        "kind": "flows_to",
+        "label": "feeds materialized diffs",
+        "project_id": "mdflow",
+        "source_id": "progressive-materializer",
+        "source_type": "block",
+        "target_id": "atomic-mutation",
+        "target_type": "block",
+        "updated_at": "2026-09-08T10:25:13.012Z"
+      },
+      {
+        "archived": 0,
         "contract": "A successful call advances the graph revision once.",
         "created_at": "2026-09-04T08:45:21.411Z",
         "current_revision": 1,
@@ -2346,6 +2426,22 @@
       },
       {
         "archived": 0,
+        "contract": "Automatically orchestrates initial foundation plans during bootstrap",
+        "created_at": "2026-09-08T10:25:13.012Z",
+        "current_revision": 1,
+        "health_state": "healthy",
+        "id": "plan-foundation-link",
+        "kind": "flows_to",
+        "label": "bootstraps foundation plans",
+        "project_id": "mdflow",
+        "source_id": "plan-workflow",
+        "source_type": "block",
+        "target_id": "foundation-plan-bootstrap",
+        "target_type": "block",
+        "updated_at": "2026-09-08T10:25:13.012Z"
+      },
+      {
+        "archived": 0,
         "contract": "The app action uses the same validated plugin identity and version.",
         "created_at": "2026-09-04T08:45:21.414Z",
         "current_revision": 1,
@@ -2391,6 +2487,22 @@
         "target_id": "verification-suite",
         "target_type": "block",
         "updated_at": "2026-09-04T08:45:21.411Z"
+      },
+      {
+        "archived": 0,
+        "contract": "Governs project initialization and migration rules to enforce living architecture truth",
+        "created_at": "2026-09-08T10:25:13.012Z",
+        "current_revision": 1,
+        "health_state": "healthy",
+        "id": "registration-contract-link",
+        "kind": "constrains",
+        "label": "governs architecture contracts",
+        "project_id": "mdflow",
+        "source_id": "project-registration",
+        "source_type": "block",
+        "target_id": "product-contract",
+        "target_type": "block",
+        "updated_at": "2026-09-08T10:25:13.012Z"
       },
       {
         "archived": 0,
@@ -2535,118 +2647,6 @@
         "target_id": "project-registration",
         "target_type": "block",
         "updated_at": "2026-09-04T08:45:21.411Z"
-      },
-      {
-        "id": "context-ast-facade",
-        "project_id": "mdflow",
-        "source_id": "context-retrieval",
-        "source_type": "block",
-        "target_id": "ast-facade-engine",
-        "target_type": "block",
-        "kind": "flows_to",
-        "label": "queries AST symbol facades",
-        "contract": "Feeds task-scoped context queries into AST symbol extraction",
-        "health_state": "healthy",
-        "archived": 0,
-        "current_revision": 1,
-        "created_at": "2026-09-08T10:25:13.012Z",
-        "updated_at": "2026-09-08T10:25:13.012Z"
-      },
-      {
-        "id": "materializer-atomic-mutation",
-        "project_id": "mdflow",
-        "source_id": "progressive-materializer",
-        "source_type": "block",
-        "target_id": "atomic-mutation",
-        "target_type": "block",
-        "kind": "flows_to",
-        "label": "feeds materialized diffs",
-        "contract": "Feeds verified AST diffs and virtual blueprint definitions into atomic mutation",
-        "health_state": "healthy",
-        "archived": 0,
-        "current_revision": 1,
-        "created_at": "2026-09-08T10:25:13.012Z",
-        "updated_at": "2026-09-08T10:25:13.012Z"
-      },
-      {
-        "id": "context-console-inspector",
-        "project_id": "mdflow",
-        "source_id": "desktop-context-console",
-        "source_type": "block",
-        "target_id": "detail-inspector",
-        "target_type": "block",
-        "kind": "integrates_with",
-        "label": "embeds context console",
-        "contract": "Integrates context operating console and live code stream into macOS detail inspector",
-        "health_state": "healthy",
-        "archived": 0,
-        "current_revision": 1,
-        "created_at": "2026-09-08T10:25:13.012Z",
-        "updated_at": "2026-09-08T10:25:13.012Z"
-      },
-      {
-        "id": "coverage-verification-link",
-        "project_id": "mdflow",
-        "source_id": "verification-suite",
-        "source_type": "block",
-        "target_id": "coverage-integrity",
-        "target_type": "block",
-        "kind": "constrains",
-        "label": "verifies checkpoint coverage",
-        "contract": "Verifies that all blocks and chains satisfy checkpoint coverage integrity",
-        "health_state": "healthy",
-        "archived": 0,
-        "current_revision": 1,
-        "created_at": "2026-09-08T10:25:13.012Z",
-        "updated_at": "2026-09-08T10:25:13.012Z"
-      },
-      {
-        "id": "benchmark-verification-link",
-        "project_id": "mdflow",
-        "source_id": "verification-suite",
-        "source_type": "block",
-        "target_id": "large-system-benchmark",
-        "target_type": "block",
-        "kind": "verifies",
-        "label": "benchmarks scalability",
-        "contract": "Runs scalability benchmarks on full graph and deep chains",
-        "health_state": "healthy",
-        "archived": 0,
-        "current_revision": 1,
-        "created_at": "2026-09-08T10:25:13.012Z",
-        "updated_at": "2026-09-08T10:25:13.012Z"
-      },
-      {
-        "id": "plan-foundation-link",
-        "project_id": "mdflow",
-        "source_id": "plan-workflow",
-        "source_type": "block",
-        "target_id": "foundation-plan-bootstrap",
-        "target_type": "block",
-        "kind": "flows_to",
-        "label": "bootstraps foundation plans",
-        "contract": "Automatically orchestrates initial foundation plans during bootstrap",
-        "health_state": "healthy",
-        "archived": 0,
-        "current_revision": 1,
-        "created_at": "2026-09-08T10:25:13.012Z",
-        "updated_at": "2026-09-08T10:25:13.012Z"
-      },
-      {
-        "id": "registration-contract-link",
-        "project_id": "mdflow",
-        "source_id": "project-registration",
-        "source_type": "block",
-        "target_id": "product-contract",
-        "target_type": "block",
-        "kind": "constrains",
-        "label": "governs architecture contracts",
-        "contract": "Governs project initialization and migration rules to enforce living architecture truth",
-        "health_state": "healthy",
-        "archived": 0,
-        "current_revision": 1,
-        "created_at": "2026-09-08T10:25:13.012Z",
-        "updated_at": "2026-09-08T10:25:13.012Z"
       }
     ],
     "background_scopes": [
@@ -2665,7 +2665,7 @@
         "completed_at": null,
         "completion_policy_json": "{}",
         "created_at": "2026-09-08T09:57:17.172Z",
-        "current_revision": 1,
+        "current_revision": 3,
         "goal": "彻底解决 Codex 等 Agent 运行中的 Token 洪流消耗与粒度脱节问题",
         "id": "context-os-evolution",
         "invalidated_at": null,
@@ -2680,7 +2680,7 @@
         "status_reason": "",
         "summary": "升级 mdflow 为全生命周期 AI Context 操作系统，包含 AST 门面、终端脱敏、虚实物化与桌面控制台",
         "title": "Context 操作系统演进：AST 门面与全生命周期压缩",
-        "updated_at": "2026-09-08T09:57:17.172Z"
+        "updated_at": "2026-09-08T11:44:22.876Z"
       },
       {
         "archived": 0,
@@ -2757,11 +2757,11 @@
         "completed_at": null,
         "completion_policy_json": "{\"requireAllSteps\":true,\"requireAllRequiredCheckpoints\":true,\"requiredEvidenceLevel\":\"real_target\"}",
         "created_at": "2026-09-06T09:18:13.810Z",
-        "current_revision": 43,
+        "current_revision": 47,
         "goal": "以真实 App 操作、多张界面截图和清晰的核心模型说明让用户与开发者理解 mdflow：看清项目全局，给 AI 读取任务所需的最小上下文，并在每次修改后保留可回看的变更与验证依据。公开交付只保留 MIT License、中文 README、GIF、真实功能截图和可运行源码；不再提供需要单独下载的 MOV 或宣传海报。",
         "id": "release-benchmark",
         "invalidated_at": null,
-        "next_action": "推送最新中文 README、GIF、功能截图、MIT License、源码与 .mdflow 图谱到已配置的 GitHub remote，并人工复核公开页面的图片和动画渲染。",
+        "next_action": "等待 TensorBlock PR #2243 与 Glama 审核结果；收集首批大型仓库用户反馈并发布可复现实例。",
         "phase": "delivery",
         "plan_order": 3,
         "priority": "critical",
@@ -2769,13 +2769,18 @@
         "proposed_delta_json": "[\"主项目保留一条清晰的 GitHub 发布入口，开发架构事实仍以 .mdflow 为准。\",\"真实 GitHub 项目样本与受控对比数据保留可复核来源。\",\"公开页以中文 README 解释 Project configuration、Block、Link、Chain、Plan、Checkpoint、History 和项目规则。\",\"公开页内嵌用户提供的 GIF 与五张真实功能截图，采用 MIT License，不保留单独下载视频或宣传海报。\"]",
         "started_at": null,
         "status": "complete",
-        "status_reason": "中文 README 已改为完整产品与开发者说明：首屏 GIF、三大痛点、多张真实截图、核心模型、自动 MCP 启动方式、AI 工作闭环和 MIT License。GitHub origin 已配置，尚待推送和公开页面人工复核。",
-        "summary": "中文 GitHub 功能展示页：用真实 GIF 与多张界面截图，按全局可见、MCP 精准上下文、开发过程不漂移三个痛点演示 mdflow。",
+        "status_reason": "v0.3.0 已公开发布并完成本地、CI、官网和目录入口验证；视频已从发布方案移除，公开展示只使用 README 的真实 GIF 与截图。",
+        "summary": "v0.3.0 Context OS 已完成双语 GitHub 包装、真实产品展示、可复现实测、正式 Release、官网同步与目录冷启动。",
         "title": "发布：真实项目对比与开源交付",
-        "updated_at": "2026-09-08T07:53:31.893Z"
+        "updated_at": "2026-09-08T11:41:55.750Z"
       }
     ],
     "plan_chain_refs": [
+      {
+        "chain_id": "chain-context-os",
+        "plan_id": "context-os-evolution",
+        "position": 0
+      },
       {
         "chain_id": "agent-feedback-loop",
         "plan_id": "mdflow-native-migration",
@@ -3263,6 +3268,26 @@
     ],
     "plan_chain_scopes": [
       {
+        "chain_id": "chain-context-os",
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "current_revision": 1,
+        "end_block_id": "desktop-context-console",
+        "expected_delta_json": "[]",
+        "id": "context-os-evolution-lifecycle",
+        "link_ids_json": "[\"link-ast-to-materializer\",\"link-materializer-to-sanitizer\",\"link-sanitizer-to-console\"]",
+        "localizations_json": "{}",
+        "node_ids_json": "[\"ast-facade-engine\",\"progressive-materializer\",\"terminal-sanitizer\",\"desktop-context-console\"]",
+        "plan_id": "context-os-evolution",
+        "position": 0,
+        "prohibitions_json": "[]",
+        "rationale": "四个能力必须以同一条可验证 Chain 交付。",
+        "start_block_id": "ast-facade-engine",
+        "status": "complete",
+        "summary": "AST 门面 → 虚实物化 → 日志脱敏 → 桌面控制台的完整交付路径。",
+        "title": "AI Context 操作系统生命周期集成",
+        "updated_at": "2026-09-08T11:44:22.874Z"
+      },
+      {
         "chain_id": "agent-feedback-loop",
         "created_at": "2026-09-05T05:53:53.610Z",
         "current_revision": 1,
@@ -3364,6 +3389,86 @@
       }
     ],
     "plan_changes": [
+      {
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "current_behavior": "chain_code_stream 已支持四模块跨文件 AST 切片并通过测试与真实基准。",
+        "current_revision": 1,
+        "entity_id": "ast-facade-engine",
+        "entity_type": "block",
+        "expected_effects_json": "[]",
+        "id": "context-os-evolution-ast-facade",
+        "localizations_json": "{}",
+        "plan_id": "context-os-evolution",
+        "position": 0,
+        "prohibitions_json": "[]",
+        "proposed_behavior": "Agent 只读取参与任务的函数、类与契约。",
+        "rationale": "降低整文件扫描带来的上下文开销。",
+        "source_refs_json": "[]",
+        "status": "complete",
+        "summary": "按符号边界提取跨文件执行链代码。",
+        "title": "实现 AST 门面与链代码流",
+        "updated_at": "2026-09-08T11:44:22.874Z"
+      },
+      {
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "current_behavior": "虚拟与实体 Block 状态机、代码门面和测试已经完成。",
+        "current_revision": 1,
+        "entity_id": "progressive-materializer",
+        "entity_type": "block",
+        "expected_effects_json": "[]",
+        "id": "context-os-evolution-progressive",
+        "localizations_json": "{}",
+        "plan_id": "context-os-evolution",
+        "position": 1,
+        "prohibitions_json": "[]",
+        "proposed_behavior": "架构对象从规划连续演进到真实代码。",
+        "rationale": "避免规划阶段伪造物理文件绑定。",
+        "source_refs_json": "[]",
+        "status": "complete",
+        "summary": "让 Ghost Blueprint 随代码落地成为 AST 绑定的 Solid Anchor。",
+        "title": "实现虚实渐进物化",
+        "updated_at": "2026-09-08T11:44:22.874Z"
+      },
+      {
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "current_behavior": "log_sanitize 已通过控制符、成功折叠和失败堆栈测试；真实基准减少 94.8% tokens。",
+        "current_revision": 1,
+        "entity_id": "terminal-sanitizer",
+        "entity_type": "block",
+        "expected_effects_json": "[]",
+        "id": "context-os-evolution-sanitizer",
+        "localizations_json": "{}",
+        "plan_id": "context-os-evolution",
+        "position": 2,
+        "prohibitions_json": "[]",
+        "proposed_behavior": "Agent 获得短而可诊断的构建与测试证据。",
+        "rationale": "防止终端输出淹没任务上下文。",
+        "source_refs_json": "[]",
+        "status": "complete",
+        "summary": "保留失败证据并折叠终端噪声。",
+        "title": "实现终端日志智能压缩",
+        "updated_at": "2026-09-08T11:44:22.874Z"
+      },
+      {
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "current_behavior": "原生 macOS Context Console 已构建通过并随 v0.3.0 DMG 发布。",
+        "current_revision": 1,
+        "entity_id": "desktop-context-console",
+        "entity_type": "block",
+        "expected_effects_json": "[]",
+        "id": "context-os-evolution-console",
+        "localizations_json": "{}",
+        "plan_id": "context-os-evolution",
+        "position": 3,
+        "prohibitions_json": "[]",
+        "proposed_behavior": "开发者在一个界面掌控架构、代码上下文和验证闭环。",
+        "rationale": "让 Context OS 对人类保持可见、可审查。",
+        "source_refs_json": "[]",
+        "status": "complete",
+        "summary": "在 Canvas Inspector 中统一展示虚实状态、AST 代码流和验证证据。",
+        "title": "交付桌面 Context 操作控制台",
+        "updated_at": "2026-09-08T11:44:22.874Z"
+      },
       {
         "created_at": "2026-09-07T15:38:44.838Z",
         "current_behavior": "只存在单一二进制 mdflow.sqlite 直接由 Git 追踪，在 GitHub Desktop 撤回时无 diff 且容易报冲突",
@@ -3986,8 +4091,8 @@
       },
       {
         "created_at": "2026-09-06T09:18:13.810Z",
-        "current_behavior": "新版中文发布站已部署到 https://dashend.cn，生产构建 READY；首页已显示 v0.2.0、graph.json 真理源、MCP 任务切片、真实界面和双场景基准，robots.txt 与 sitemap.xml 均返回 200。",
-        "current_revision": 8,
+        "current_behavior": "中英文 README 已重构为结果优先的产品首页；dashend.cn 已部署 v0.3.0 Context OS 定位，生产 HTML 确认包含 98.9% 任务切片、99.2% AST 代码链和 94.8% 日志压缩实测。GitHub 分享预览图已生成并随仓库发布。",
+        "current_revision": 9,
         "entity_id": "native-app-package",
         "entity_type": "block",
         "expected_effects_json": "[\"图文资产可直接用于 README/Release\",\"公开文案与开发架构事实分离\",\"用户可从 GIF 和截图理解完整操作路径\",\"新开发者知道无需手动运行 npm run mcp\"]",
@@ -4000,14 +4105,14 @@
         "rationale": "功能演示需要让读者看到真实操作、数据边界和开发闭环，单张静态海报或可下载视频无法解释完整工作方式。",
         "source_refs_json": "[]",
         "status": "complete",
-        "summary": "用 GIF 与多张真实 App 截图展示三大痛点，并解释核心模型和自动 MCP 使用方式。",
+        "summary": "GitHub 与官网均以真实 GIF/截图展示 Context OS、AST 代码流、验证后修改和自动回滚。",
         "title": "完善中文产品与开发者说明",
-        "updated_at": "2026-09-08T07:09:47.018Z"
+        "updated_at": "2026-09-08T11:41:55.750Z"
       },
       {
         "created_at": "2026-09-06T09:18:13.810Z",
-        "current_behavior": "v0.2.0 标签已公开推送，Build and Release #34199613509 成功；稳定 Release 已发布并包含 mdflow-macos.dmg、mdflow-mcp.mjs 与 SHA256SUMS。冷启动已提交 3 个公开精选列表 PR，并生成 30 秒横版宣传视频与 3 张竖版海报。",
-        "current_revision": 8,
+        "current_behavior": "v0.3.0 标签与 commit d5cea40 已公开推送；Build and Release #34220499512 成功，稳定 Release 包含 mdflow-macos.dmg、mdflow-mcp.mjs 与 SHA256SUMS。GitHub Discussions #1 已发布技术公告；TensorBlock issue #2242 通过自动字段审核并生成目录 PR #2243。旧视频不再作为交付内容。",
+        "current_revision": 9,
         "entity_id": "codex-plugin",
         "entity_type": "block",
         "expected_effects_json": "[\"公开仓库可直接阅读和二次开发\",\"页面打开即可看到功能演示\",\"样本 .mdflow 与 README 对应同一版本\"]",
@@ -4020,9 +4125,9 @@
         "rationale": "用户需要能读取架构并进行二次开发。",
         "source_refs_json": "[]",
         "status": "complete",
-        "summary": "公开仓库只保留可审查源码、.mdflow 图谱、中文 README、GIF、多张真实截图和 MIT License。",
+        "summary": "v0.3.0 已公开发布，GitHub 包装、官网、技术公告与目录冷启动入口完整。",
         "title": "交付 MIT 开源仓库与内嵌功能演示",
-        "updated_at": "2026-09-08T07:53:09.731Z"
+        "updated_at": "2026-09-08T11:41:55.750Z"
       },
       {
         "created_at": "2026-09-06T09:56:46.140Z",
@@ -4046,8 +4151,8 @@
       },
       {
         "created_at": "2026-09-06T09:56:46.140Z",
-        "current_behavior": "本地 7/7 测试、插件 bundle、benchmark 与 Next.js production build 已通过；Vercel 生产站 dashend.cn READY；GitHub tag workflow #34199613509 成功，v0.2.0 Release 为稳定版且 3 个资产齐全；3 个精选列表 PR 均为 open/mergeable；30 秒 1920×1080 H.264/AAC 视频与 3 张 1080×1440 海报已完成视觉抽帧检查。",
-        "current_revision": 6,
+        "current_behavior": "npm test 17/17 通过；npm run benchmark 复现 98.9% 任务上下文、99.2% AST 代码链、94.8% 日志压缩；plugin:build 与 desktop:build 通过；Next.js production build 通过；Vercel 部署 dpl_9DR2Rz4G25Vs3De2pxDWq6bXp5k7 READY 并绑定 dashend.cn；GitHub tag workflow #34220499512 成功。三个旧精选列表 PR 已被无说明关闭，未误报为有效入口。",
+        "current_revision": 7,
         "entity_id": "verification-suite",
         "entity_type": "block",
         "expected_effects_json": "[\"验收状态与证据一致\",\"公开页不隐藏限制\",\"普通用户无需手动启动 MCP 的流程可复现\"]",
@@ -4060,9 +4165,9 @@
         "rationale": "发布不能把 partial_pass 误写成 complete。",
         "source_refs_json": "[]",
         "status": "complete",
-        "summary": "确定性回归已收口，外部真实模型与发布门禁保持显式未完成。",
+        "summary": "v0.3.0 代码、MCP bundle、基准、macOS App、Next.js 官网、Release 与目录入口均有实证。",
         "title": "完成发布前验证收口",
-        "updated_at": "2026-09-08T07:53:31.892Z"
+        "updated_at": "2026-09-08T11:41:55.750Z"
       }
     ],
     "plan_chain_change_refs": [
@@ -4184,7 +4289,7 @@
         "coverage": "complete",
         "created_at": "2026-09-08T09:57:17.172Z",
         "criteria": "支持 TS/JS/Python/Swift 符号提取与精准切片",
-        "current_revision": 1,
+        "current_revision": 2,
         "eligible_after_children": 0,
         "evidence_json": "\"packages/mcp/src/ast.mjs implemented, 5 unit tests pass, commit 02337d0\"",
         "evidence_level": "static",
@@ -4196,7 +4301,7 @@
         "target_id": "ast-facade-engine",
         "target_type": "block",
         "title": "AST 门面与多语言符号切片",
-        "updated_at": "2026-09-08T09:57:17.172Z"
+        "updated_at": "2026-09-08T11:46:18.386Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -4320,6 +4425,26 @@
       },
       {
         "aggregation_policy_json": "{}",
+        "checkpoint_kind": "integration",
+        "coverage": "complete",
+        "created_at": "2026-09-08T11:44:54.797Z",
+        "criteria": "AST 门面、虚实物化、日志脱敏和桌面控制台按同一 Chain 完成测试、构建、基准与公开发布。",
+        "current_revision": 1,
+        "eligible_after_children": 0,
+        "evidence_json": "[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"17/17 passed, including AST slicing, progressive materialization, sanitizer, storage and rollback.\"},{\"kind\":\"benchmark\",\"command\":\"npm run benchmark\",\"result\":\"99.2% AST chain token reduction and 94.8% terminal log reduction on the current repository.\"},{\"kind\":\"command\",\"command\":\"npm run desktop:build\",\"result\":\"Native Context Console compiled successfully.\"},{\"kind\":\"release\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.0\",\"result\":\"v0.3.0 stable release published by successful tag workflow.\"}]",
+        "evidence_level": "real_target",
+        "id": "context-os-chain-integration",
+        "invalidated_at": null,
+        "project_id": "mdflow",
+        "required_evidence_level": "integration",
+        "status": "passed",
+        "target_id": "chain-context-os",
+        "target_type": "chain",
+        "title": "Context OS 四阶段集成验证",
+        "updated_at": "2026-09-08T11:44:54.797Z"
+      },
+      {
+        "aggregation_policy_json": "{}",
         "checkpoint_kind": "atomic",
         "coverage": "complete",
         "created_at": "2026-09-07T15:38:44.838Z",
@@ -4404,7 +4529,7 @@
         "coverage": "complete",
         "created_at": "2026-09-08T09:57:17.172Z",
         "criteria": "CanvasScene Ghost cards dashed borders, DetailView AST Facade & Token Economy meter",
-        "current_revision": 1,
+        "current_revision": 2,
         "eligible_after_children": 0,
         "evidence_json": "\"CanvasScene and DetailView updated, xcodebuild succeeded, commit 9fdabcf\"",
         "evidence_level": "static",
@@ -4416,7 +4541,7 @@
         "target_id": "desktop-context-console",
         "target_type": "block",
         "title": "macOS 桌面控制台虚实渲染与代码流检视",
-        "updated_at": "2026-09-08T09:57:17.172Z"
+        "updated_at": "2026-09-08T11:46:18.387Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -4684,7 +4809,7 @@
         "coverage": "complete",
         "created_at": "2026-09-08T09:57:17.172Z",
         "criteria": "无缝统合 Ghost 虚拟规划蓝图与 Solid 实体落地代码门面",
-        "current_revision": 1,
+        "current_revision": 2,
         "eligible_after_children": 0,
         "evidence_json": "\"auto-resolution for path:symbol, Ghost vs Solid separation in context retrieval, commit b7b0db4\"",
         "evidence_level": "static",
@@ -4696,7 +4821,7 @@
         "target_id": "progressive-materializer",
         "target_type": "block",
         "title": "渐进式物化与虚拟蓝图状态机",
-        "updated_at": "2026-09-08T09:57:17.172Z"
+        "updated_at": "2026-09-08T11:46:18.386Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -5384,9 +5509,9 @@
         "coverage": "complete",
         "created_at": "2026-09-06T09:55:23.595Z",
         "criteria": "",
-        "current_revision": 3,
+        "current_revision": 4,
         "eligible_after_children": 0,
-        "evidence_json": "[{\"summary\":\"Zero-install npx runner, bin entry point, multi-editor configurations (Cursor, Claude Desktop, Antigravity, VS Code, Codex), and GitHub Actions Release CI workflow delivered and verified.\"}]",
+        "evidence_json": "[{\"kind\":\"release\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.0\",\"workflowRun\":\"34220499512\",\"result\":\"GitHub Actions success；稳定 Release 包含 DMG、MCP bundle 与 SHA256SUMS。\"},{\"kind\":\"discussion\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/discussions/1\",\"result\":\"v0.3.0 技术公告已公开。\"},{\"kind\":\"directory\",\"url\":\"https://github.com/TensorBlock/awesome-mcp-servers/issues/2242\",\"result\":\"自动审核标记 ready-for-pr 并生成 PR #2243。\"}]",
         "evidence_level": "real_target",
         "id": "release-benchmark-proof-delivery",
         "invalidated_at": null,
@@ -5396,7 +5521,7 @@
         "target_id": "codex-plugin",
         "target_type": "block",
         "title": "公开样本与安装交付",
-        "updated_at": "2026-09-07T16:14:11.650Z"
+        "updated_at": "2026-09-08T11:42:32.358Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -5424,10 +5549,10 @@
         "coverage": "complete",
         "created_at": "2026-09-06T09:56:46.140Z",
         "criteria": "",
-        "current_revision": 3,
+        "current_revision": 4,
         "eligible_after_children": 0,
-        "evidence_json": "[{\"summary\":\"Automated unit/integration tests (7/7 passed), Swift desktop compilation (success), esbuild bundle (success), and graph_validate (valid, 0 errors, 0 warnings) fully verified.\"}]",
-        "evidence_level": "human_review",
+        "evidence_json": "[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"17/17 passed on v0.3.0.\"},{\"kind\":\"command\",\"command\":\"npm run benchmark\",\"result\":\"98.9% task context reduction; 99.2% AST chain reduction; 94.8% terminal log reduction.\"},{\"kind\":\"command\",\"command\":\"npm run plugin:build\",\"result\":\"Bundled MCP server built successfully and reports v0.3.0.\"},{\"kind\":\"command\",\"command\":\"npm run desktop:build\",\"result\":\"Swift macOS build completed successfully.\"},{\"kind\":\"command\",\"command\":\"npm run build\",\"cwd\":\"mdflow-site\",\"result\":\"Next.js production build and TypeScript checks passed.\"},{\"kind\":\"ci\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/actions/runs/34220499512\",\"result\":\"Tag workflow completed successfully.\"}]",
+        "evidence_level": "real_target",
         "id": "release-benchmark-proof-validation",
         "invalidated_at": null,
         "project_id": "mdflow",
@@ -5436,7 +5561,7 @@
         "target_id": "verification-suite",
         "target_type": "block",
         "title": "发布前验证收口",
-        "updated_at": "2026-09-07T16:14:18.119Z"
+        "updated_at": "2026-09-08T11:42:51.083Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -5444,9 +5569,9 @@
         "coverage": "complete",
         "created_at": "2026-09-06T09:55:23.595Z",
         "criteria": "",
-        "current_revision": 7,
+        "current_revision": 8,
         "eligible_after_children": 0,
-        "evidence_json": "[{\"summary\":\"README.md (English) and README_zh.md (Chinese) completed with embedded demo GIF, screenshots, zero-drift storage architecture, quickstart, and benchmark comparisons.\"}]",
+        "evidence_json": "[{\"kind\":\"artifact\",\"path\":\"README.md\",\"result\":\"英文首页改为 Context OS 定位，真实 GIF、三条快速命令、闭环图、实测表与项目状态完整。\"},{\"kind\":\"artifact\",\"path\":\"README_zh.md\",\"result\":\"中文首页与英文信息架构一致，避免绝对营销承诺。\"},{\"kind\":\"deployment\",\"url\":\"https://dashend.cn\",\"deploymentId\":\"dpl_9DR2Rz4G25Vs3De2pxDWq6bXp5k7\",\"result\":\"生产 READY；v0.3.0 与三组最新基准字段均已在 HTML 验证。\"},{\"kind\":\"artifact\",\"path\":\"assets/github-social-preview.png\",\"result\":\"1280×640 GitHub 分享预览图已生成并提交。\"}]",
         "evidence_level": "human_review",
         "id": "release-benchmark-proof-visual",
         "invalidated_at": null,
@@ -5456,7 +5581,7 @@
         "target_id": "native-app-package",
         "target_type": "block",
         "title": "GitHub 中文产品与开发者说明",
-        "updated_at": "2026-09-07T16:14:08.968Z"
+        "updated_at": "2026-09-08T11:42:15.765Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -5504,7 +5629,7 @@
         "coverage": "complete",
         "created_at": "2026-09-08T09:57:17.172Z",
         "criteria": "剥离 ANSI 控制符与编译噪音，保留错误堆栈，压缩率 >80%",
-        "current_revision": 1,
+        "current_revision": 2,
         "eligible_after_children": 0,
         "evidence_json": "\"packages/mcp/src/sanitizer.mjs implemented, 3 unit tests pass, commit ad60fff\"",
         "evidence_level": "static",
@@ -5516,7 +5641,7 @@
         "target_id": "terminal-sanitizer",
         "target_type": "block",
         "title": "终端输出智能脱敏压缩",
-        "updated_at": "2026-09-08T09:57:17.172Z"
+        "updated_at": "2026-09-08T11:46:18.387Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -5597,6 +5722,14 @@
         "subject_type": "plan_change"
       },
       {
+        "checkpoint_id": "ast-facade-slicing",
+        "position": 0,
+        "required": 1,
+        "role": "acceptance",
+        "subject_id": "context-os-evolution-ast-facade",
+        "subject_type": "plan_change"
+      },
+      {
         "checkpoint_id": "bilingual-acceptance",
         "position": 0,
         "required": 1,
@@ -5658,6 +5791,14 @@
         "required": 1,
         "role": "verification",
         "subject_id": "change-sqlite-graph-store",
+        "subject_type": "plan_change"
+      },
+      {
+        "checkpoint_id": "desktop-context-console",
+        "position": 0,
+        "required": 1,
+        "role": "acceptance",
+        "subject_id": "context-os-evolution-console",
         "subject_type": "plan_change"
       },
       {
@@ -5778,6 +5919,14 @@
         "required": 1,
         "role": "coverage",
         "subject_id": "mdflow-native-migration-change-context",
+        "subject_type": "plan_change"
+      },
+      {
+        "checkpoint_id": "progressive-materialization",
+        "position": 0,
+        "required": 1,
+        "role": "acceptance",
+        "subject_id": "context-os-evolution-progressive",
         "subject_type": "plan_change"
       },
       {
@@ -6010,6 +6159,14 @@
         "required": 1,
         "role": "acceptance",
         "subject_id": "mdflow-native-migration-change-stable-view-state",
+        "subject_type": "plan_change"
+      },
+      {
+        "checkpoint_id": "terminal-log-sanitizer",
+        "position": 0,
+        "required": 1,
+        "role": "acceptance",
+        "subject_id": "context-os-evolution-sanitizer",
         "subject_type": "plan_change"
       },
       {
@@ -7150,69 +7307,6 @@
     "change_sets": [
       {
         "actor": "codex",
-        "created_at": "2026-09-06T11:17:33.196Z",
-        "git_head": null,
-        "id": "change_63a4bb45-69e5-41fe-9ce2-2fd8eab5fea5",
-        "project_id": "mdflow",
-        "reason": "删除已移除的脚本、基准和测试后，清理 mdflow 中指向这些文件的失效 source refs。",
-        "task": "prune-deleted-artifacts"
-      },
-      {
-        "actor": "codex",
-        "created_at": "2026-09-06T11:18:06.277Z",
-        "git_head": null,
-        "id": "change_fe19d5bf-a3ab-4ed2-bc98-4e7cab1f9024",
-        "project_id": "mdflow",
-        "reason": "继续清理删除文件对应的失效 source refs。",
-        "task": "prune-deleted-artifacts"
-      },
-      {
-        "actor": "codex",
-        "created_at": "2026-09-06T11:22:11.927Z",
-        "git_head": null,
-        "id": "change_ee52b7ce-36fa-469b-8fef-0fcac851d028",
-        "project_id": "mdflow",
-        "reason": "删除 MCP 测试目录后，移除 mdflow 中所有指向已删除测试文件的 source refs。",
-        "task": "prune-deleted-tests"
-      },
-      {
-        "actor": "codex",
-        "created_at": "2026-09-06T11:26:38.228Z",
-        "git_head": null,
-        "id": "change_cb834254-035d-4ff9-bb25-894467126d43",
-        "project_id": "mdflow",
-        "reason": "同步删除测试、基准、发布脚本后的 mdflow 描述，避免 AI 继续看到不存在的入口或证据。",
-        "task": "sync-cleanup-progress"
-      },
-      {
-        "actor": "codex",
-        "created_at": "2026-09-06T13:06:26.560Z",
-        "git_head": "9251569",
-        "id": "change_da42b995-d446-4a6e-ae34-9581295f21c5",
-        "project_id": "mdflow",
-        "reason": "Replace stale GIF/App Store wording with the actual single high-resolution poster, original demo video, public README, and GitHub-only release scope.",
-        "task": "Synchronize the release plan with the approved GitHub-only publication scope and final public assets."
-      },
-      {
-        "actor": "codex",
-        "created_at": "2026-09-06T13:07:16.442Z",
-        "git_head": "9251569",
-        "id": "change_85067795-47ed-4dc1-8750-81c75411edd7",
-        "project_id": "mdflow",
-        "reason": "The approved public release uses one 2880×1800 poster and the original MOV; no GIF or App Store upload is in scope.",
-        "task": "Remove stale GIF/App Store language from the release plan steps and reflect the GitHub-only release sequence."
-      },
-      {
-        "actor": "codex",
-        "created_at": "2026-09-06T13:07:35.955Z",
-        "git_head": null,
-        "id": "change_16e4f8f0-4de1-4af2-991e-f7513dc1156b",
-        "project_id": "mdflow",
-        "reason": "Checkpoint: GitHub 发布视觉资产",
-        "task": "GitHub 发布视觉资产"
-      },
-      {
-        "actor": "codex",
         "created_at": "2026-09-06T13:08:14.782Z",
         "git_head": "9251569",
         "id": "change_d1c4a0fd-6cb9-4c99-a011-e14afea25e81",
@@ -7597,6 +7691,69 @@
         "project_id": "mdflow",
         "reason": "Evolve mdflow into full AI Context Operating System with AST facade, terminal sanitizer and ghost cards",
         "task": ""
+      },
+      {
+        "actor": "Codex",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "git_head": "d5cea40fdd55ada7f753bedca9c2ced3f316fb20",
+        "id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "project_id": "mdflow",
+        "reason": "将发布图谱同步到已公开验证的 v0.3.0 状态",
+        "task": "重新包装并发布 mdflow Context OS v0.3.0，更新 GitHub、官网与冷启动入口"
+      },
+      {
+        "actor": "Codex",
+        "created_at": "2026-09-08T11:42:15.765Z",
+        "git_head": "d5cea40fdd55ada7f753bedca9c2ced3f316fb20",
+        "id": "change_49c63c63-38f2-438c-a8a5-6c3dfd8f1e18",
+        "project_id": "mdflow",
+        "reason": "Checkpoint: GitHub 中文产品与开发者说明",
+        "task": "GitHub 中文产品与开发者说明"
+      },
+      {
+        "actor": "Codex",
+        "created_at": "2026-09-08T11:42:32.358Z",
+        "git_head": "d5cea40fdd55ada7f753bedca9c2ced3f316fb20",
+        "id": "change_e11efb22-9b54-4189-aaa9-82a0ab9033bb",
+        "project_id": "mdflow",
+        "reason": "Checkpoint: 公开样本与安装交付",
+        "task": "公开样本与安装交付"
+      },
+      {
+        "actor": "Codex",
+        "created_at": "2026-09-08T11:42:51.083Z",
+        "git_head": "d5cea40fdd55ada7f753bedca9c2ced3f316fb20",
+        "id": "change_53014a0a-4134-4c51-b236-12cb99b93f38",
+        "project_id": "mdflow",
+        "reason": "Checkpoint: 发布前验证收口",
+        "task": "发布前验证收口"
+      },
+      {
+        "actor": "Codex",
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "git_head": "d5cea40fdd55ada7f753bedca9c2ced3f316fb20",
+        "id": "change_cbc59996-c18a-4a88-ac02-d257506dbe40",
+        "project_id": "mdflow",
+        "reason": "消除已完成 Context OS 能力未纳入 Plan 和 Chain 集成门禁的校验警告",
+        "task": "补齐 Context OS 演进计划的四个核心实现对象与 Chain 覆盖"
+      },
+      {
+        "actor": "Codex",
+        "created_at": "2026-09-08T11:44:54.797Z",
+        "git_head": "d5cea40fdd55ada7f753bedca9c2ced3f316fb20",
+        "id": "change_b0135604-72d9-4bd1-a419-bdf44f834a72",
+        "project_id": "mdflow",
+        "reason": "Checkpoint: Context OS 四阶段集成验证",
+        "task": "Context OS 四阶段集成验证"
+      },
+      {
+        "actor": "Codex",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "git_head": "d5cea40fdd55ada7f753bedca9c2ced3f316fb20",
+        "id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "project_id": "mdflow",
+        "reason": "让完成状态由精确实现变更和既有验证证据支撑",
+        "task": "将四个 Context OS Block 的已通过 Checkpoint 精确绑定到对应 PlanChange"
       }
     ],
     "history": [
@@ -7854,6 +8011,244 @@
         "plan_id": null,
         "revision": 1,
         "summary": "端到端自举图谱闭环与真实基准验证"
+      },
+      {
+        "action": "plan-change-updated",
+        "affected_refs_json": "[\"plan:release-benchmark\",\"plan_change:release-benchmark-change-visual\"]",
+        "after_json": "{\"id\":\"release-benchmark-change-visual\",\"planId\":\"release-benchmark\",\"entityType\":\"block\",\"entityId\":\"native-app-package\",\"position\":2,\"title\":\"完善中文产品与开发者说明\",\"summary\":\"GitHub 与官网均以真实 GIF/截图展示 Context OS、AST 代码流、验证后修改和自动回滚。\",\"currentBehavior\":\"中英文 README 已重构为结果优先的产品首页；dashend.cn 已部署 v0.3.0 Context OS 定位，生产 HTML 确认包含 98.9% 任务切片、99.2% AST 代码链和 94.8% 日志压缩实测。GitHub 分享预览图已生成并随仓库发布。\",\"proposedBehavior\":\"围绕“看清项目全局、AI 精准读取上下文、开发过程保持项目保真”组织中文 README；首屏播放 GIF，随后按痛点展示多张截图、核心模型（Project configuration/Block/Link/Chain/Plan/Checkpoint/History/Rules）、自动 MCP 启动流程和可复核 token 对比；MIT License 随仓库发布。\",\"rationale\":\"功能演示需要让读者看到真实操作、数据边界和开发闭环，单张静态海报或可下载视频无法解释完整工作方式。\",\"prohibitions\":[],\"expectedEffects\":[\"图文资产可直接用于 README/Release\",\"公开文案与开发架构事实分离\",\"用户可从 GIF 和截图理解完整操作路径\",\"新开发者知道无需手动运行 npm run mcp\"],\"sourceRefs\":[],\"localizations\":{},\"status\":\"complete\",\"currentRevision\":9,\"updatedAt\":\"2026-09-08T11:41:55.750Z\"}",
+        "before_json": "{\"id\":\"release-benchmark-change-visual\",\"planId\":\"release-benchmark\",\"entityType\":\"block\",\"entityId\":\"native-app-package\",\"position\":2,\"title\":\"完善中文产品与开发者说明\",\"summary\":\"用 GIF 与多张真实 App 截图展示三大痛点，并解释核心模型和自动 MCP 使用方式。\",\"currentBehavior\":\"新版中文发布站已部署到 https://dashend.cn，生产构建 READY；首页已显示 v0.2.0、graph.json 真理源、MCP 任务切片、真实界面和双场景基准，robots.txt 与 sitemap.xml 均返回 200。\",\"proposedBehavior\":\"围绕“看清项目全局、AI 精准读取上下文、开发过程保持项目保真”组织中文 README；首屏播放 GIF，随后按痛点展示多张截图、核心模型（Project configuration/Block/Link/Chain/Plan/Checkpoint/History/Rules）、自动 MCP 启动流程和可复核 token 对比；MIT License 随仓库发布。\",\"rationale\":\"功能演示需要让读者看到真实操作、数据边界和开发闭环，单张静态海报或可下载视频无法解释完整工作方式。\",\"prohibitions\":[],\"expectedEffects\":[\"图文资产可直接用于 README/Release\",\"公开文案与开发架构事实分离\",\"用户可从 GIF 和截图理解完整操作路径\",\"新开发者知道无需手动运行 npm run mcp\"],\"sourceRefs\":[],\"localizations\":{},\"status\":\"complete\",\"currentRevision\":8,\"updatedAt\":\"2026-09-08T07:09:47.018Z\"}",
+        "chain_scope_id": null,
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "changed_fields_json": "[\"summary\",\"currentBehavior\"]",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 1446,
+        "plan_id": "release-benchmark",
+        "revision": 44,
+        "summary": "Updated plan_change:release-benchmark-change-visual"
+      },
+      {
+        "action": "plan-change-updated",
+        "affected_refs_json": "[\"plan:release-benchmark\",\"plan_change:release-benchmark-change-delivery\"]",
+        "after_json": "{\"id\":\"release-benchmark-change-delivery\",\"planId\":\"release-benchmark\",\"entityType\":\"block\",\"entityId\":\"codex-plugin\",\"position\":3,\"title\":\"交付 MIT 开源仓库与内嵌功能演示\",\"summary\":\"v0.3.0 已公开发布，GitHub 包装、官网、技术公告与目录冷启动入口完整。\",\"currentBehavior\":\"v0.3.0 标签与 commit d5cea40 已公开推送；Build and Release #34220499512 成功，稳定 Release 包含 mdflow-macos.dmg、mdflow-mcp.mjs 与 SHA256SUMS。GitHub Discussions #1 已发布技术公告；TensorBlock issue #2242 通过自动字段审核并生成目录 PR #2243。旧视频不再作为交付内容。\",\"proposedBehavior\":\"GitHub 仓库公开可验证源码、MIT License、中文产品/开发者说明、内嵌 GIF/截图和脱敏样本 .mdflow，不要求用户另行下载宣传素材或视频。\",\"rationale\":\"用户需要能读取架构并进行二次开发。\",\"prohibitions\":[],\"expectedEffects\":[\"公开仓库可直接阅读和二次开发\",\"页面打开即可看到功能演示\",\"样本 .mdflow 与 README 对应同一版本\"],\"sourceRefs\":[],\"localizations\":{},\"status\":\"complete\",\"currentRevision\":9,\"updatedAt\":\"2026-09-08T11:41:55.750Z\"}",
+        "before_json": "{\"id\":\"release-benchmark-change-delivery\",\"planId\":\"release-benchmark\",\"entityType\":\"block\",\"entityId\":\"codex-plugin\",\"position\":3,\"title\":\"交付 MIT 开源仓库与内嵌功能演示\",\"summary\":\"公开仓库只保留可审查源码、.mdflow 图谱、中文 README、GIF、多张真实截图和 MIT License。\",\"currentBehavior\":\"v0.2.0 标签已公开推送，Build and Release #34199613509 成功；稳定 Release 已发布并包含 mdflow-macos.dmg、mdflow-mcp.mjs 与 SHA256SUMS。冷启动已提交 3 个公开精选列表 PR，并生成 30 秒横版宣传视频与 3 张竖版海报。\",\"proposedBehavior\":\"GitHub 仓库公开可验证源码、MIT License、中文产品/开发者说明、内嵌 GIF/截图和脱敏样本 .mdflow，不要求用户另行下载宣传素材或视频。\",\"rationale\":\"用户需要能读取架构并进行二次开发。\",\"prohibitions\":[],\"expectedEffects\":[\"公开仓库可直接阅读和二次开发\",\"页面打开即可看到功能演示\",\"样本 .mdflow 与 README 对应同一版本\"],\"sourceRefs\":[],\"localizations\":{},\"status\":\"complete\",\"currentRevision\":8,\"updatedAt\":\"2026-09-08T07:53:09.731Z\"}",
+        "chain_scope_id": null,
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "changed_fields_json": "[\"summary\",\"currentBehavior\"]",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 1447,
+        "plan_id": "release-benchmark",
+        "revision": 45,
+        "summary": "Updated plan_change:release-benchmark-change-delivery"
+      },
+      {
+        "action": "plan-change-updated",
+        "affected_refs_json": "[\"plan:release-benchmark\",\"plan_change:release-benchmark-change-validation\"]",
+        "after_json": "{\"id\":\"release-benchmark-change-validation\",\"planId\":\"release-benchmark\",\"entityType\":\"block\",\"entityId\":\"verification-suite\",\"position\":5,\"title\":\"完成发布前验证收口\",\"summary\":\"v0.3.0 代码、MCP bundle、基准、macOS App、Next.js 官网、Release 与目录入口均有实证。\",\"currentBehavior\":\"npm test 17/17 通过；npm run benchmark 复现 98.9% 任务上下文、99.2% AST 代码链、94.8% 日志压缩；plugin:build 与 desktop:build 通过；Next.js production build 通过；Vercel 部署 dpl_9DR2Rz4G25Vs3De2pxDWq6bXp5k7 READY 并绑定 dashend.cn；GitHub tag workflow #34220499512 成功。三个旧精选列表 PR 已被无说明关闭，未误报为有效入口。\",\"proposedBehavior\":\"发布前逐项回读 Plan、Checkpoint、README、LICENSE、GIF、五张截图、样本 .mdflow 和 Git 变更；在 GitHub 页面确认动画、图片、License 和安装说明均正确显示，并明确未完成项。\",\"rationale\":\"发布不能把 partial_pass 误写成 complete。\",\"prohibitions\":[],\"expectedEffects\":[\"验收状态与证据一致\",\"公开页不隐藏限制\",\"普通用户无需手动启动 MCP 的流程可复现\"],\"sourceRefs\":[],\"localizations\":{},\"status\":\"complete\",\"currentRevision\":7,\"updatedAt\":\"2026-09-08T11:41:55.750Z\"}",
+        "before_json": "{\"id\":\"release-benchmark-change-validation\",\"planId\":\"release-benchmark\",\"entityType\":\"block\",\"entityId\":\"verification-suite\",\"position\":5,\"title\":\"完成发布前验证收口\",\"summary\":\"确定性回归已收口，外部真实模型与发布门禁保持显式未完成。\",\"currentBehavior\":\"本地 7/7 测试、插件 bundle、benchmark 与 Next.js production build 已通过；Vercel 生产站 dashend.cn READY；GitHub tag workflow #34199613509 成功，v0.2.0 Release 为稳定版且 3 个资产齐全；3 个精选列表 PR 均为 open/mergeable；30 秒 1920×1080 H.264/AAC 视频与 3 张 1080×1440 海报已完成视觉抽帧检查。\",\"proposedBehavior\":\"发布前逐项回读 Plan、Checkpoint、README、LICENSE、GIF、五张截图、样本 .mdflow 和 Git 变更；在 GitHub 页面确认动画、图片、License 和安装说明均正确显示，并明确未完成项。\",\"rationale\":\"发布不能把 partial_pass 误写成 complete。\",\"prohibitions\":[],\"expectedEffects\":[\"验收状态与证据一致\",\"公开页不隐藏限制\",\"普通用户无需手动启动 MCP 的流程可复现\"],\"sourceRefs\":[],\"localizations\":{},\"status\":\"complete\",\"currentRevision\":6,\"updatedAt\":\"2026-09-08T07:53:31.892Z\"}",
+        "chain_scope_id": null,
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "changed_fields_json": "[\"summary\",\"currentBehavior\"]",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 1448,
+        "plan_id": "release-benchmark",
+        "revision": 46,
+        "summary": "Updated plan_change:release-benchmark-change-validation"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"plan:release-benchmark\"]",
+        "after_json": "{\"id\":\"release-benchmark\",\"title\":\"发布：真实项目对比与开源交付\",\"summary\":\"v0.3.0 Context OS 已完成双语 GitHub 包装、真实产品展示、可复现实测、正式 Release、官网同步与目录冷启动。\",\"goal\":\"以真实 App 操作、多张界面截图和清晰的核心模型说明让用户与开发者理解 mdflow：看清项目全局，给 AI 读取任务所需的最小上下文，并在每次修改后保留可回看的变更与验证依据。公开交付只保留 MIT License、中文 README、GIF、真实功能截图和可运行源码；不再提供需要单独下载的 MOV 或宣传海报。\",\"status\":\"complete\",\"priority\":\"critical\",\"phase\":\"delivery\",\"planOrder\":3,\"proposedDelta\":[\"主项目保留一条清晰的 GitHub 发布入口，开发架构事实仍以 .mdflow 为准。\",\"真实 GitHub 项目样本与受控对比数据保留可复核来源。\",\"公开页以中文 README 解释 Project configuration、Block、Link、Chain、Plan、Checkpoint、History 和项目规则。\",\"公开页内嵌用户提供的 GIF 与五张真实功能截图，采用 MIT License，不保留单独下载视频或宣传海报。\"],\"completionPolicy\":{\"requireAllSteps\":true,\"requireAllRequiredCheckpoints\":true,\"requiredEvidenceLevel\":\"real_target\"},\"nextAction\":\"等待 TensorBlock PR #2243 与 Glama 审核结果；收集首批大型仓库用户反馈并发布可复现实例。\",\"blockers\":[],\"statusReason\":\"v0.3.0 已公开发布并完成本地、CI、官网和目录入口验证；视频已从发布方案移除，公开展示只使用 README 的真实 GIF 与截图。\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":47,\"archived\":false,\"updatedAt\":\"2026-09-08T11:41:55.750Z\",\"chainScopeIds\":[],\"changeIds\":[\"release-benchmark-change-context\",\"release-benchmark-change-sample\",\"release-benchmark-change-visual\",\"release-benchmark-change-delivery\",\"release-benchmark-change-cleanup\",\"release-benchmark-change-validation\"]}",
+        "before_json": "{\"id\":\"release-benchmark\",\"title\":\"发布：真实项目对比与开源交付\",\"summary\":\"中文 GitHub 功能展示页：用真实 GIF 与多张界面截图，按全局可见、MCP 精准上下文、开发过程不漂移三个痛点演示 mdflow。\",\"goal\":\"以真实 App 操作、多张界面截图和清晰的核心模型说明让用户与开发者理解 mdflow：看清项目全局，给 AI 读取任务所需的最小上下文，并在每次修改后保留可回看的变更与验证依据。公开交付只保留 MIT License、中文 README、GIF、真实功能截图和可运行源码；不再提供需要单独下载的 MOV 或宣传海报。\",\"status\":\"complete\",\"priority\":\"critical\",\"phase\":\"delivery\",\"planOrder\":3,\"proposedDelta\":[\"主项目保留一条清晰的 GitHub 发布入口，开发架构事实仍以 .mdflow 为准。\",\"真实 GitHub 项目样本与受控对比数据保留可复核来源。\",\"公开页以中文 README 解释 Project configuration、Block、Link、Chain、Plan、Checkpoint、History 和项目规则。\",\"公开页内嵌用户提供的 GIF 与五张真实功能截图，采用 MIT License，不保留单独下载视频或宣传海报。\"],\"completionPolicy\":{\"requireAllSteps\":true,\"requireAllRequiredCheckpoints\":true,\"requiredEvidenceLevel\":\"real_target\"},\"nextAction\":\"推送最新中文 README、GIF、功能截图、MIT License、源码与 .mdflow 图谱到已配置的 GitHub remote，并人工复核公开页面的图片和动画渲染。\",\"blockers\":[],\"statusReason\":\"中文 README 已改为完整产品与开发者说明：首屏 GIF、三大痛点、多张真实截图、核心模型、自动 MCP 启动方式、AI 工作闭环和 MIT License。GitHub origin 已配置，尚待推送和公开页面人工复核。\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":46,\"archived\":false,\"updatedAt\":\"2026-09-08T11:41:55.754Z\",\"chainScopeIds\":[],\"changeIds\":[\"release-benchmark-change-context\",\"release-benchmark-change-sample\",\"release-benchmark-change-visual\",\"release-benchmark-change-delivery\",\"release-benchmark-change-cleanup\",\"release-benchmark-change-validation\"]}",
+        "chain_scope_id": null,
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "changed_fields_json": "[\"summary\",\"statusReason\",\"nextAction\"]",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 1449,
+        "plan_id": "release-benchmark",
+        "revision": 47,
+        "summary": "发布：真实项目对比与开源交付"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"checkpoint:release-benchmark-proof-visual\",\"block:native-app-package\",\"plan:release-benchmark\"]",
+        "after_json": "{\"id\":\"release-benchmark-proof-visual\",\"targetType\":\"block\",\"targetId\":\"native-app-package\",\"title\":\"GitHub 中文产品与开发者说明\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"human_review\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"artifact\",\"path\":\"README.md\",\"result\":\"英文首页改为 Context OS 定位，真实 GIF、三条快速命令、闭环图、实测表与项目状态完整。\"},{\"kind\":\"artifact\",\"path\":\"README_zh.md\",\"result\":\"中文首页与英文信息架构一致，避免绝对营销承诺。\"},{\"kind\":\"deployment\",\"url\":\"https://dashend.cn\",\"deploymentId\":\"dpl_9DR2Rz4G25Vs3De2pxDWq6bXp5k7\",\"result\":\"生产 READY；v0.3.0 与三组最新基准字段均已在 HTML 验证。\"},{\"kind\":\"artifact\",\"path\":\"assets/github-social-preview.png\",\"result\":\"1280×640 GitHub 分享预览图已生成并提交。\"}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"release-benchmark-change-visual\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":8}",
+        "before_json": "{\"id\":\"release-benchmark-proof-visual\",\"targetType\":\"block\",\"targetId\":\"native-app-package\",\"title\":\"GitHub 中文产品与开发者说明\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"human_review\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"summary\":\"README.md (English) and README_zh.md (Chinese) completed with embedded demo GIF, screenshots, zero-drift storage architecture, quickstart, and benchmark comparisons.\"}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"release-benchmark-change-visual\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":7}",
+        "chain_scope_id": null,
+        "change_set_id": "change_49c63c63-38f2-438c-a8a5-6c3dfd8f1e18",
+        "changed_fields_json": "[\"evidence\"]",
+        "created_at": "2026-09-08T11:42:15.765Z",
+        "entity_id": "release-benchmark-proof-visual",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[\"README.md\",\"README_zh.md\",\"https://dashend.cn\",\"assets/github-social-preview.png\"]",
+        "id": 1450,
+        "plan_id": "release-benchmark",
+        "revision": 8,
+        "summary": "passed: GitHub 中文产品与开发者说明"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"checkpoint:release-benchmark-proof-delivery\",\"block:codex-plugin\",\"plan:release-benchmark\"]",
+        "after_json": "{\"id\":\"release-benchmark-proof-delivery\",\"targetType\":\"block\",\"targetId\":\"codex-plugin\",\"title\":\"公开样本与安装交付\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"real_target\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"release\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.0\",\"workflowRun\":\"34220499512\",\"result\":\"GitHub Actions success；稳定 Release 包含 DMG、MCP bundle 与 SHA256SUMS。\"},{\"kind\":\"discussion\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/discussions/1\",\"result\":\"v0.3.0 技术公告已公开。\"},{\"kind\":\"directory\",\"url\":\"https://github.com/TensorBlock/awesome-mcp-servers/issues/2242\",\"result\":\"自动审核标记 ready-for-pr 并生成 PR #2243。\"}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"release-benchmark-change-delivery\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":4}",
+        "before_json": "{\"id\":\"release-benchmark-proof-delivery\",\"targetType\":\"block\",\"targetId\":\"codex-plugin\",\"title\":\"公开样本与安装交付\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"real_target\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"summary\":\"Zero-install npx runner, bin entry point, multi-editor configurations (Cursor, Claude Desktop, Antigravity, VS Code, Codex), and GitHub Actions Release CI workflow delivered and verified.\"}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"release-benchmark-change-delivery\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":3}",
+        "chain_scope_id": null,
+        "change_set_id": "change_e11efb22-9b54-4189-aaa9-82a0ab9033bb",
+        "changed_fields_json": "[\"evidence\"]",
+        "created_at": "2026-09-08T11:42:32.358Z",
+        "entity_id": "release-benchmark-proof-delivery",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[\"https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.0\",\"https://github.com/yubinbin32-ops/Mdflow-Canvas/discussions/1\",\"https://github.com/TensorBlock/awesome-mcp-servers/issues/2242\"]",
+        "id": 1451,
+        "plan_id": "release-benchmark",
+        "revision": 4,
+        "summary": "passed: 公开样本与安装交付"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"checkpoint:release-benchmark-proof-validation\",\"block:verification-suite\",\"plan:release-benchmark\"]",
+        "after_json": "{\"id\":\"release-benchmark-proof-validation\",\"targetType\":\"block\",\"targetId\":\"verification-suite\",\"title\":\"发布前验证收口\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"real_target\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"17/17 passed on v0.3.0.\"},{\"kind\":\"command\",\"command\":\"npm run benchmark\",\"result\":\"98.9% task context reduction; 99.2% AST chain reduction; 94.8% terminal log reduction.\"},{\"kind\":\"command\",\"command\":\"npm run plugin:build\",\"result\":\"Bundled MCP server built successfully and reports v0.3.0.\"},{\"kind\":\"command\",\"command\":\"npm run desktop:build\",\"result\":\"Swift macOS build completed successfully.\"},{\"kind\":\"command\",\"command\":\"npm run build\",\"cwd\":\"mdflow-site\",\"result\":\"Next.js production build and TypeScript checks passed.\"},{\"kind\":\"ci\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/actions/runs/34220499512\",\"result\":\"Tag workflow completed successfully.\"}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"release-benchmark-change-validation\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":4}",
+        "before_json": "{\"id\":\"release-benchmark-proof-validation\",\"targetType\":\"block\",\"targetId\":\"verification-suite\",\"title\":\"发布前验证收口\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"human_review\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"summary\":\"Automated unit/integration tests (7/7 passed), Swift desktop compilation (success), esbuild bundle (success), and graph_validate (valid, 0 errors, 0 warnings) fully verified.\"}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"release-benchmark-change-validation\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":3}",
+        "chain_scope_id": null,
+        "change_set_id": "change_53014a0a-4134-4c51-b236-12cb99b93f38",
+        "changed_fields_json": "[\"evidenceLevel\",\"evidence\"]",
+        "created_at": "2026-09-08T11:42:51.083Z",
+        "entity_id": "release-benchmark-proof-validation",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[\"npm test\",\"npm run benchmark\",\"npm run plugin:build\",\"npm run desktop:build\",\"npm run build\",\"https://github.com/yubinbin32-ops/Mdflow-Canvas/actions/runs/34220499512\"]",
+        "id": 1452,
+        "plan_id": "release-benchmark",
+        "revision": 4,
+        "summary": "passed: 发布前验证收口"
+      },
+      {
+        "action": "changes-set",
+        "affected_refs_json": "[\"plan:context-os-evolution\",\"block:ast-facade-engine\",\"block:progressive-materializer\",\"block:terminal-sanitizer\",\"block:desktop-context-console\"]",
+        "after_json": "{\"id\":\"context-os-evolution\",\"title\":\"Context 操作系统演进：AST 门面与全生命周期压缩\",\"summary\":\"升级 mdflow 为全生命周期 AI Context 操作系统，包含 AST 门面、终端脱敏、虚实物化与桌面控制台\",\"goal\":\"彻底解决 Codex 等 Agent 运行中的 Token 洪流消耗与粒度脱节问题\",\"status\":\"complete\",\"priority\":\"critical\",\"phase\":\"milestone-evolution\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"\",\"blockers\":[],\"statusReason\":\"\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-08T11:44:22.875Z\",\"chainScopeIds\":[],\"changeIds\":[\"context-os-evolution-ast-facade\",\"context-os-evolution-progressive\",\"context-os-evolution-sanitizer\",\"context-os-evolution-console\"]}",
+        "before_json": "{\"id\":\"context-os-evolution\",\"title\":\"Context 操作系统演进：AST 门面与全生命周期压缩\",\"summary\":\"升级 mdflow 为全生命周期 AI Context 操作系统，包含 AST 门面、终端脱敏、虚实物化与桌面控制台\",\"goal\":\"彻底解决 Codex 等 Agent 运行中的 Token 洪流消耗与粒度脱节问题\",\"status\":\"complete\",\"priority\":\"critical\",\"phase\":\"milestone-evolution\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"\",\"blockers\":[],\"statusReason\":\"\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":1,\"archived\":false,\"updatedAt\":\"2026-09-08T09:57:17.172Z\",\"chainScopeIds\":[],\"changeIds\":[]}",
+        "chain_scope_id": null,
+        "change_set_id": "change_cbc59996-c18a-4a88-ac02-d257506dbe40",
+        "changed_fields_json": "[]",
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "entity_id": "context-os-evolution",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 1453,
+        "plan_id": "context-os-evolution",
+        "revision": 2,
+        "summary": "4 canonical entity change(s)"
+      },
+      {
+        "action": "chain-scopes-set",
+        "affected_refs_json": "[\"plan:context-os-evolution\",\"chain:chain-context-os\"]",
+        "after_json": "{\"id\":\"context-os-evolution\",\"title\":\"Context 操作系统演进：AST 门面与全生命周期压缩\",\"summary\":\"升级 mdflow 为全生命周期 AI Context 操作系统，包含 AST 门面、终端脱敏、虚实物化与桌面控制台\",\"goal\":\"彻底解决 Codex 等 Agent 运行中的 Token 洪流消耗与粒度脱节问题\",\"status\":\"complete\",\"priority\":\"critical\",\"phase\":\"milestone-evolution\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"\",\"blockers\":[],\"statusReason\":\"\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-08T11:44:22.876Z\",\"chainScopeIds\":[\"context-os-evolution-lifecycle\"],\"changeIds\":[\"context-os-evolution-ast-facade\",\"context-os-evolution-progressive\",\"context-os-evolution-sanitizer\",\"context-os-evolution-console\"]}",
+        "before_json": "{\"id\":\"context-os-evolution\",\"title\":\"Context 操作系统演进：AST 门面与全生命周期压缩\",\"summary\":\"升级 mdflow 为全生命周期 AI Context 操作系统，包含 AST 门面、终端脱敏、虚实物化与桌面控制台\",\"goal\":\"彻底解决 Codex 等 Agent 运行中的 Token 洪流消耗与粒度脱节问题\",\"status\":\"complete\",\"priority\":\"critical\",\"phase\":\"milestone-evolution\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"\",\"blockers\":[],\"statusReason\":\"\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-08T11:44:22.875Z\",\"chainScopeIds\":[],\"changeIds\":[\"context-os-evolution-ast-facade\",\"context-os-evolution-progressive\",\"context-os-evolution-sanitizer\",\"context-os-evolution-console\"]}",
+        "chain_scope_id": null,
+        "change_set_id": "change_cbc59996-c18a-4a88-ac02-d257506dbe40",
+        "changed_fields_json": "[]",
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "entity_id": "context-os-evolution",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 1454,
+        "plan_id": "context-os-evolution",
+        "revision": 3,
+        "summary": "1 detailed Chain scope(s)"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"checkpoint:context-os-chain-integration\",\"chain:chain-context-os\",\"plan:context-os-evolution\",\"plan_chain_scope:context-os-evolution-lifecycle\"]",
+        "after_json": "{\"id\":\"context-os-chain-integration\",\"targetType\":\"chain\",\"targetId\":\"chain-context-os\",\"title\":\"Context OS 四阶段集成验证\",\"criteria\":\"AST 门面、虚实物化、日志脱敏和桌面控制台按同一 Chain 完成测试、构建、基准与公开发布。\",\"status\":\"passed\",\"checkpointKind\":\"integration\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"real_target\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"17/17 passed, including AST slicing, progressive materialization, sanitizer, storage and rollback.\"},{\"kind\":\"benchmark\",\"command\":\"npm run benchmark\",\"result\":\"99.2% AST chain token reduction and 94.8% terminal log reduction on the current repository.\"},{\"kind\":\"command\",\"command\":\"npm run desktop:build\",\"result\":\"Native Context Console compiled successfully.\"},{\"kind\":\"release\",\"url\":\"https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.0\",\"result\":\"v0.3.0 stable release published by successful tag workflow.\"}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "before_json": "{}",
+        "chain_scope_id": "context-os-evolution-lifecycle",
+        "change_set_id": "change_b0135604-72d9-4bd1-a419-bdf44f834a72",
+        "changed_fields_json": "[\"title\",\"criteria\",\"status\",\"checkpointKind\",\"aggregationPolicy\",\"eligibleAfterChildren\",\"evidenceLevel\",\"requiredEvidenceLevel\",\"coverage\",\"evidence\"]",
+        "created_at": "2026-09-08T11:44:54.797Z",
+        "entity_id": "context-os-chain-integration",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[\"npm test\",\"npm run benchmark\",\"npm run desktop:build\",\"https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.0\"]",
+        "id": 1455,
+        "plan_id": "context-os-evolution",
+        "revision": 1,
+        "summary": "passed: Context OS 四阶段集成验证"
+      },
+      {
+        "action": "bindings-set",
+        "affected_refs_json": "[\"checkpoint:ast-facade-slicing\",\"plan_change:context-os-evolution-ast-facade\",\"plan:context-os-evolution\"]",
+        "after_json": "{\"id\":\"ast-facade-slicing\",\"targetType\":\"block\",\"targetId\":\"ast-facade-engine\",\"title\":\"AST 门面与多语言符号切片\",\"criteria\":\"支持 TS/JS/Python/Swift 符号提取与精准切片\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"packages/mcp/src/ast.mjs implemented, 5 unit tests pass, commit 02337d0\",\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"context-os-evolution-ast-facade\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":2}",
+        "before_json": "{\"id\":\"ast-facade-slicing\",\"targetType\":\"block\",\"targetId\":\"ast-facade-engine\",\"title\":\"AST 门面与多语言符号切片\",\"criteria\":\"支持 TS/JS/Python/Swift 符号提取与精准切片\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"packages/mcp/src/ast.mjs implemented, 5 unit tests pass, commit 02337d0\",\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "chain_scope_id": null,
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "changed_fields_json": "[\"bindings\"]",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "ast-facade-slicing",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[]",
+        "id": 1456,
+        "plan_id": "context-os-evolution",
+        "revision": 2,
+        "summary": "1 subject binding(s)"
+      },
+      {
+        "action": "bindings-set",
+        "affected_refs_json": "[\"checkpoint:progressive-materialization\",\"plan_change:context-os-evolution-progressive\",\"plan:context-os-evolution\"]",
+        "after_json": "{\"id\":\"progressive-materialization\",\"targetType\":\"block\",\"targetId\":\"progressive-materializer\",\"title\":\"渐进式物化与虚拟蓝图状态机\",\"criteria\":\"无缝统合 Ghost 虚拟规划蓝图与 Solid 实体落地代码门面\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"auto-resolution for path:symbol, Ghost vs Solid separation in context retrieval, commit b7b0db4\",\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"context-os-evolution-progressive\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":2}",
+        "before_json": "{\"id\":\"progressive-materialization\",\"targetType\":\"block\",\"targetId\":\"progressive-materializer\",\"title\":\"渐进式物化与虚拟蓝图状态机\",\"criteria\":\"无缝统合 Ghost 虚拟规划蓝图与 Solid 实体落地代码门面\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"auto-resolution for path:symbol, Ghost vs Solid separation in context retrieval, commit b7b0db4\",\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "chain_scope_id": null,
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "changed_fields_json": "[\"bindings\"]",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "progressive-materialization",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[]",
+        "id": 1457,
+        "plan_id": "context-os-evolution",
+        "revision": 2,
+        "summary": "1 subject binding(s)"
+      },
+      {
+        "action": "bindings-set",
+        "affected_refs_json": "[\"checkpoint:terminal-log-sanitizer\",\"plan_change:context-os-evolution-sanitizer\",\"plan:context-os-evolution\"]",
+        "after_json": "{\"id\":\"terminal-log-sanitizer\",\"targetType\":\"block\",\"targetId\":\"terminal-sanitizer\",\"title\":\"终端输出智能脱敏压缩\",\"criteria\":\"剥离 ANSI 控制符与编译噪音，保留错误堆栈，压缩率 >80%\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"packages/mcp/src/sanitizer.mjs implemented, 3 unit tests pass, commit ad60fff\",\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"context-os-evolution-sanitizer\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":2}",
+        "before_json": "{\"id\":\"terminal-log-sanitizer\",\"targetType\":\"block\",\"targetId\":\"terminal-sanitizer\",\"title\":\"终端输出智能脱敏压缩\",\"criteria\":\"剥离 ANSI 控制符与编译噪音，保留错误堆栈，压缩率 >80%\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"packages/mcp/src/sanitizer.mjs implemented, 3 unit tests pass, commit ad60fff\",\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "chain_scope_id": null,
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "changed_fields_json": "[\"bindings\"]",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "terminal-log-sanitizer",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[]",
+        "id": 1458,
+        "plan_id": "context-os-evolution",
+        "revision": 2,
+        "summary": "1 subject binding(s)"
+      },
+      {
+        "action": "bindings-set",
+        "affected_refs_json": "[\"checkpoint:desktop-context-console\",\"plan_change:context-os-evolution-console\",\"plan:context-os-evolution\"]",
+        "after_json": "{\"id\":\"desktop-context-console\",\"targetType\":\"block\",\"targetId\":\"desktop-context-console\",\"title\":\"macOS 桌面控制台虚实渲染与代码流检视\",\"criteria\":\"CanvasScene Ghost cards dashed borders, DetailView AST Facade & Token Economy meter\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"CanvasScene and DetailView updated, xcodebuild succeeded, commit 9fdabcf\",\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"context-os-evolution-console\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":2}",
+        "before_json": "{\"id\":\"desktop-context-console\",\"targetType\":\"block\",\"targetId\":\"desktop-context-console\",\"title\":\"macOS 桌面控制台虚实渲染与代码流检视\",\"criteria\":\"CanvasScene Ghost cards dashed borders, DetailView AST Facade & Token Economy meter\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":\"CanvasScene and DetailView updated, xcodebuild succeeded, commit 9fdabcf\",\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "chain_scope_id": null,
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "changed_fields_json": "[\"bindings\"]",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "desktop-context-console",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[]",
+        "id": 1459,
+        "plan_id": "context-os-evolution",
+        "revision": 2,
+        "summary": "1 subject binding(s)"
       }
     ],
     "change_feed": [
@@ -8036,6 +8431,132 @@
         "entity_type": "checkpoint",
         "project_id": "mdflow",
         "sequence": 1445
+      },
+      {
+        "action": "plan-change-updated",
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "project_id": "mdflow",
+        "sequence": 1446
+      },
+      {
+        "action": "plan-change-updated",
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "project_id": "mdflow",
+        "sequence": 1447
+      },
+      {
+        "action": "plan-change-updated",
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "project_id": "mdflow",
+        "sequence": 1448
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_6a8c1d3e-d4df-4b8e-8942-7f94e706c45c",
+        "created_at": "2026-09-08T11:41:55.750Z",
+        "entity_id": "release-benchmark",
+        "entity_type": "plan",
+        "project_id": "mdflow",
+        "sequence": 1449
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_49c63c63-38f2-438c-a8a5-6c3dfd8f1e18",
+        "created_at": "2026-09-08T11:42:15.765Z",
+        "entity_id": "release-benchmark-proof-visual",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1450
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_e11efb22-9b54-4189-aaa9-82a0ab9033bb",
+        "created_at": "2026-09-08T11:42:32.358Z",
+        "entity_id": "release-benchmark-proof-delivery",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1451
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_53014a0a-4134-4c51-b236-12cb99b93f38",
+        "created_at": "2026-09-08T11:42:51.083Z",
+        "entity_id": "release-benchmark-proof-validation",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1452
+      },
+      {
+        "action": "changes-set",
+        "change_set_id": "change_cbc59996-c18a-4a88-ac02-d257506dbe40",
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "entity_id": "context-os-evolution",
+        "entity_type": "plan",
+        "project_id": "mdflow",
+        "sequence": 1453
+      },
+      {
+        "action": "chain-scopes-set",
+        "change_set_id": "change_cbc59996-c18a-4a88-ac02-d257506dbe40",
+        "created_at": "2026-09-08T11:44:22.874Z",
+        "entity_id": "context-os-evolution",
+        "entity_type": "plan",
+        "project_id": "mdflow",
+        "sequence": 1454
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_b0135604-72d9-4bd1-a419-bdf44f834a72",
+        "created_at": "2026-09-08T11:44:54.797Z",
+        "entity_id": "context-os-chain-integration",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1455
+      },
+      {
+        "action": "bindings-set",
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "ast-facade-slicing",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1456
+      },
+      {
+        "action": "bindings-set",
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "progressive-materialization",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1457
+      },
+      {
+        "action": "bindings-set",
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "terminal-log-sanitizer",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1458
+      },
+      {
+        "action": "bindings-set",
+        "change_set_id": "change_bcff02d1-c6c4-4c59-98dc-dde4e6436429",
+        "created_at": "2026-09-08T11:46:18.385Z",
+        "entity_id": "desktop-context-console",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1459
       }
     ]
   }
