@@ -1,0 +1,62 @@
+name: Publish MCP Registry package
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Build OCI image and publish metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push mdflow image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/yubinbin32-ops/mdflow:${{ github.ref_name }}
+          labels: |
+            io.modelcontextprotocol.server.name=io.github.yubinbin32-ops/mdflow
+            org.opencontainers.image.source=https://github.com/yubinbin32-ops/Mdflow-Canvas
+            org.opencontainers.image.version=${{ github.ref_name }}
+
+      - name: Resolve release version in server metadata
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          image="ghcr.io/yubinbin32-ops/mdflow:${version}"
+          jq --arg version "$version" --arg image "$image" \
+            '.version = $version | .packages[0].version = $version | .packages[0].identifier = $image' \
+            server.json > server.release.json
+          mv server.release.json server.json
+
+      - name: Install MCP Publisher
+        shell: bash
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish mdflow metadata
+        run: ./mcp-publisher publish
