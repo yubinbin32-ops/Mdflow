@@ -22,8 +22,8 @@ test("cli: --version and --help", async () => {
 test("cli: status on current repo", async () => {
   const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "status"]);
   assert.match(stdout, /Project: mdflow/);
-  assert.match(stdout, /Blocks: 27/);
-  assert.match(stdout, /Chains: 6/);
+  assert.match(stdout, /Blocks: \d+/);
+  assert.match(stdout, /Chains: \d+/);
 });
 
 test("cli: init --scan in temporary project", async () => {

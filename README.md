@@ -63,6 +63,19 @@ AI agents do **not** read your whole codebase or entire documentation. Via MCP, 
 ### 4. Living Verification Contracts (Checkpoints)
 No plan is marked "complete" on assumptions. Every milestone is guarded by **Checkpoints** requiring verifiable proof: static analysis, unit/integration test runs, or explicit acceptance criteria.
 
+### 5. AST Facade Engine & Chain Code Streaming (99.2% Code Token Reduction)
+- **Macro Architecture Bound to Micro Symbols**: Blocks don't just stay high-level; they bind 1~N AST symbol anchors (e.g. `src/payment.ts:processPayment`). The local engine automatically resolves precise line-number boundaries.
+- **Chain Code Stream (`chain_code_stream`)**: AI never needs to read thousands of lines of full files. mdflow extracts and serializes targeted AST slices along the execution path, reducing code context tokens by **99.2%**!
+
+### 6. Progressive Materialization: Virtual vs. Solid Blueprints
+- **Ghost Blueprints (Virtual)**: Planned features exist as lightweight `Ghost` nodes with zero code files, zero maintenance burden, and 0 token overhead.
+- **Solid Anchors (Materialized)**: Once implemented, nodes migrate to `Solid`, dynamically exposing live AST facades.
+- **macOS Desktop Console**: The Canvas natively renders Ghost nodes with dashed contours and sparkle badges, while Solid nodes display live AST symbol pills and an interactive Token Economy Meter.
+
+### 7. Intelligent Terminal Sanitizer (`log_sanitize`, 94.8% Log Token Savings)
+- Running tests or builds dumps thousands of lines of ANSI color escapes and progress spinners into the AI context window.
+- The sanitizer strips escape noise, collapses repetitive stdout, and preserves head/tail error stacks, reducing log token flood by **94.8%**!
+
 ---
 
 ## ⚡ 1-Minute Quickstart (Zero-Install via GitHub)
@@ -216,15 +229,33 @@ flowchart LR
 | **Git Discard Resilience** | Database desync / broken state | **Automatic Hot-Reload** (`ensureSynced`) | Graph state stays in 100% lockstep with Git |
 
 #### Scenario B: Real-World Open-Source Codebase (mdflow Project Graph)
-*Empirically measured on mdflow itself: **27 Blocks, 6 Chains, 30 Links, 66 Checkpoints, 700+ Revisions**.*
+*Empirically measured on mdflow itself: **31 Blocks, 7 Chains, 33 Links, 71 Checkpoints, 700+ Revisions**.*
 
 | Evaluated Metric | Monolithic Graph Dump (Markdown Spec Equiv.) | mdflow Task Slice (`context_for_task`) | Empirical Gain |
 | :--- | :---: | :---: | :---: |
-| **Context Length** | 786,240 characters | **3,993 characters** | **99.5% character reduction** |
-| **Token Consumption** | ~218,933 Tokens (Breaks most context limits) | **~1,232 Tokens (Lightweight & fast)** | **99.4% Token Reduction** |
-| **100-Query Latency (Avg)** | Full parsing of 780KB text (>500 ms) | **3.242 ms** (P50: 2.913 ms) | **150x+ throughput improvement** |
+| **Context Length** | 823,019 characters | **3,993 characters** | **99.5% character reduction** |
+| **Token Consumption** | ~228,972 Tokens (Breaks most context limits) | **~1,197 Tokens (Lightweight & fast)** | **99.5% Token Reduction** |
+| **100-Query Latency (Avg)** | Full parsing of 800KB+ text (>500 ms) | **3.057 ms** (P50: 2.986 ms) | **150x+ throughput improvement** |
 | **Target Block Recall** | Needle in a haystack; attention drifts | **100% Recall** `in-app-plugin-install` | Target domain accurately locked |
 | **Dependency Recall** | Deep dependencies frequently missed | **100% Recall** `codex-plugin` | Critical call topology preserved |
+
+#### Scenario C: AST Chain Code Stream Slicing (Full Files vs. AST Facade Stream)
+*Empirically measured on mdflow's core lifecycle path (`chain-context-os` 4 core cross-layer modules)*
+
+| Evaluated Metric | Monolithic Whole-File Reads | mdflow AST Chain Stream (`chain_code_stream`) | Empirical Gain |
+| :--- | :---: | :---: | :---: |
+| **Code Context Length** | 333,161 characters | **2,608 characters** | **99.2% character reduction** |
+| **Code Token Consumption** | ~83,291 Tokens | **~660 Tokens** | **99.2% Code Token Reduction** |
+| **Symbol Materialization** | Diluted by dead code and boilerplate | **100% Exact Slices** for active symbols | Zero irrelevant noise |
+
+#### Scenario D: Terminal Build/Test Output Sanitization (Raw Output vs. Sanitized)
+*Empirically measured across 200+ module compilation, progress bar rewrites, and test failure logs*
+
+| Evaluated Metric | Raw Terminal Output | mdflow Sanitized (`log_sanitize`) | Empirical Gain |
+| :--- | :---: | :---: | :---: |
+| **Log Context Length** | 16,076 characters | **824 characters** | **94.8% character reduction** |
+| **Log Token Consumption** | ~4,040 Tokens | **~211 Tokens** | **94.8% Log Token Reduction** |
+| **Error Stack Retention** | Drowned in repetitive build logs | **100% Preserved** failure stack trace | Fast, unhindered root-cause diagnosis |
 
 ```bash
 # Reproduce all live benchmark numbers anytime in your terminal
@@ -239,14 +270,18 @@ When an AI coding agent works with mdflow, it follows a deterministic lifecycle:
 
 ```text
 1. context_for_task(task: "Refactor auth token expiration")
-   ↳ Returns task-relevant Blocks, Chains, Rules, and active Plans in Markdown.
-2. plan_context / entity_open
-   ↳ Expands deep details on the specific target blocks only when needed.
-3. Code implementation & Atomic MCP write (graph_mutate / graph_patch)
+   ↳ Returns task-relevant Blocks, Chains, Rules, and active Plans (99.5% architecture token savings).
+2. chain_code_stream(chainId: "auth-expiration-chain")
+   ↳ Traverses execution chain and streams targeted AST symbol slices (99.2% code token savings).
+3. plan_context / entity_open
+   ↳ Expands deep details on specific target blocks only when needed.
+4. Code implementation & Atomic MCP write (graph_mutate / graph_patch)
    ↳ Records changes with revision numbers; old revision writes are rejected.
-4. checkpoint_record
+5. log_sanitize(rawLog: terminalOutput)
+   ↳ Strips control characters and compiles summaries before feeding back to AI (94.8% log token savings).
+6. checkpoint_record
    ↳ Attaches test outputs or verification evidence.
-5. graph_validate
+7. graph_validate
    ↳ Guarantees structural graph integrity (no broken links or missing gates).
 ```
 
