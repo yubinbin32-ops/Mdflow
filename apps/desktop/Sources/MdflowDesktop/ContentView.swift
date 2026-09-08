@@ -573,9 +573,9 @@ private struct EditorPlatformRow: View {
 
     private func iconName(for id: String) -> String {
         switch id {
-        case "claude": return "sparkles"
+        case "claude": return "bubble.left.and.text.bubble.right"
         case "cursor": return "chevron.left.forwardslash.chevron.right"
-        case "vscode": return "curlybraces.square"
+        case "antigravity": return "sparkles"
         case "opencode": return "cube.transparent"
         case "codex": return "terminal"
         default: return "cpu"
