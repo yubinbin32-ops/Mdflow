@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import * as z from "zod/v4";
 import { ProjectServiceRouter } from "./project-router.mjs";
 import { runCli } from "./cli.mjs";
+import { sanitizeTerminalOutput } from "./sanitizer.mjs";
 
 const router = new ProjectServiceRouter();
 const server = new McpServer(
@@ -147,6 +148,35 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.chainCodeStream(payload));
     return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "log_sanitize",
+  {
+    description: "Sanitize build, test, or terminal command outputs. Strips ANSI noise, collapses routine compiler stdout, and isolates actionable failure stack traces to protect context window from token flooding.",
+    inputSchema: {
+      rawOutput: z.string().min(1),
+      exitCode: z.number().int().optional(),
+      maxChars: z.number().int().min(100).max(10000).optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = sanitizeTerminalOutput(input.rawOutput, {
+      exitCode: input.exitCode,
+      maxChars: input.maxChars,
+    });
+    const markdown = [
+      `# Sanitized Output (${data.reductionRatio} noise reduced)`,
+      `- Original: ${data.originalLength} chars | Cleaned: ${data.sanitizedLength} chars`,
+      `- State: ${data.hasErrors ? "Failures detected" : "Clean routine output"}`,
+      "",
+      "```text",
+      data.text,
+      "```",
+    ].join("\n");
+    return readResult(data, markdown, input.includeStructured);
   },
 );
 

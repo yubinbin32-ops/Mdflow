@@ -24488,6 +24488,106 @@ ${body}
   return sections.join("\n");
 }
 
+// packages/mcp/src/sanitizer.mjs
+var ANSI_REGEX = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+var PROGRESS_REGEX = /(?:\[[=>\-\s]+\]|\b\d{1,3}%\b|[\u2580-\u259F]+|\r\s*)/g;
+var FAILURE_MARKERS = [
+  /\b(?:error|fatal|fail(?:ed|ure)?|exception|panic)\b/i,
+  /\bassert(?:ion)?\s*(?:error|failed)?\b/i,
+  /^\s*(?:not ok|\bFAIL\b|×|\u2717)/i,
+  /\b(?:NullPointer|Undefined|TypeError|ReferenceError|SyntaxError)\b/
+];
+function cleanControlCharacters(text = "") {
+  return text.replace(ANSI_REGEX, "").replace(/\r+/g, "\n").replace(PROGRESS_REGEX, "");
+}
+function isFailureLine(line = "") {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return FAILURE_MARKERS.some((regex) => regex.test(trimmed));
+}
+function sanitizeTerminalOutput(rawOutput = "", options = {}) {
+  const {
+    maxChars = 3e3,
+    headLines = 5,
+    tailLines = 15,
+    errorContextLines = 3,
+    exitCode = null
+  } = options;
+  const originalLength = rawOutput.length;
+  if (!rawOutput.trim()) {
+    return {
+      text: "(No output)",
+      originalLength: 0,
+      sanitizedLength: 0,
+      reductionRatio: "0%",
+      hasErrors: false
+    };
+  }
+  const cleaned = cleanControlCharacters(rawOutput);
+  const lines = cleaned.split("\n").map((l) => l.trimEnd()).filter((l, idx, arr) => {
+    return l.length > 0 || idx > 0 && arr[idx - 1].length > 0;
+  });
+  const errorIndices = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (isFailureLine(lines[i])) {
+      errorIndices.push(i);
+    }
+  }
+  const hasErrors = errorIndices.length > 0 || exitCode !== null && exitCode !== 0;
+  if (!hasErrors && lines.length > 25) {
+    const summaryHead = lines.slice(0, 3).join("\n");
+    const summaryTail = lines.slice(-5).join("\n");
+    const collapsedCount = lines.length - 8;
+    const text2 = `${summaryHead}
+... [${collapsedCount} lines routine build output collapsed] ...
+${summaryTail}`;
+    return {
+      text: text2,
+      originalLength,
+      sanitizedLength: text2.length,
+      reductionRatio: `${((1 - text2.length / originalLength) * 100).toFixed(1)}%`,
+      hasErrors: false
+    };
+  }
+  const keptIndices = /* @__PURE__ */ new Set();
+  for (let i = 0; i < Math.min(headLines, lines.length); i++) {
+    keptIndices.add(i);
+  }
+  for (let i = Math.max(0, lines.length - tailLines); i < lines.length; i++) {
+    keptIndices.add(i);
+  }
+  for (const idx of errorIndices) {
+    const start = Math.max(0, idx - errorContextLines);
+    const end = Math.min(lines.length - 1, idx + errorContextLines);
+    for (let j = start; j <= end; j++) {
+      keptIndices.add(j);
+    }
+  }
+  const sortedIndices = [...keptIndices].sort((a, b) => a - b);
+  const resultLines = [];
+  let lastIndex = -1;
+  for (const idx of sortedIndices) {
+    if (lastIndex !== -1 && idx > lastIndex + 1) {
+      const skipped = idx - lastIndex - 1;
+      resultLines.push(`... [${skipped} lines non-error output collapsed] ...`);
+    }
+    resultLines.push(lines[idx]);
+    lastIndex = idx;
+  }
+  let text = resultLines.join("\n");
+  if (text.length > maxChars) {
+    text = `${text.slice(0, maxChars - 80)}
+... [truncated for context limit]`;
+  }
+  return {
+    text,
+    originalLength,
+    sanitizedLength: text.length,
+    reductionRatio: `${((1 - text.length / originalLength) * 100).toFixed(1)}%`,
+    hasErrors
+  };
+}
+
 // packages/mcp/src/service.mjs
 var BLOCK_KINDS = /* @__PURE__ */ new Set([
   "principle",
@@ -25533,6 +25633,9 @@ var MdflowService = class {
         codeStream
       ].join("\n")
     };
+  }
+  sanitizeLog({ rawOutput, maxChars = 3e3, exitCode = null } = {}) {
+    return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode });
   }
   projectMap({ locale = "en" } = {}) {
     const snapshot = this.snapshot();
@@ -29334,6 +29437,34 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.chainCodeStream(payload));
     return readResult(data, data.markdown, input.includeStructured);
+  }
+);
+server.registerTool(
+  "log_sanitize",
+  {
+    description: "Sanitize build, test, or terminal command outputs. Strips ANSI noise, collapses routine compiler stdout, and isolates actionable failure stack traces to protect context window from token flooding.",
+    inputSchema: {
+      rawOutput: string2().min(1),
+      exitCode: number2().int().optional(),
+      maxChars: number2().int().min(100).max(1e4).optional(),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = sanitizeTerminalOutput(input.rawOutput, {
+      exitCode: input.exitCode,
+      maxChars: input.maxChars
+    });
+    const markdown = [
+      `# Sanitized Output (${data.reductionRatio} noise reduced)`,
+      `- Original: ${data.originalLength} chars | Cleaned: ${data.sanitizedLength} chars`,
+      `- State: ${data.hasErrors ? "Failures detected" : "Clean routine output"}`,
+      "",
+      "```text",
+      data.text,
+      "```"
+    ].join("\n");
+    return readResult(data, markdown, input.includeStructured);
   }
 );
 server.registerTool(

@@ -5,6 +5,7 @@ import { openDatabase, transaction, exportGraphToJson, importGraphFromJson, getS
 import { resolveProjectPaths } from "./paths.mjs";
 import { parseGraphPatch } from "./patch.mjs";
 import { extractSymbolSlice, buildChainCodeStream } from "./ast.mjs";
+import { sanitizeTerminalOutput } from "./sanitizer.mjs";
 
 const BLOCK_KINDS = new Set([
   "principle",
@@ -1161,6 +1162,10 @@ export class MdflowService {
         codeStream,
       ].join("\n"),
     };
+  }
+
+  sanitizeLog({ rawOutput, maxChars = 3000, exitCode = null } = {}) {
+    return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode });
   }
 
   projectMap({ locale = "en" } = {}) {
