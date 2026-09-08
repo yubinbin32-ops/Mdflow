@@ -66,7 +66,7 @@ jobs:
           version="${{ steps.release.outputs.version }}"
           image="ghcr.io/yubinbin32-ops/mdflow:${version}"
           jq --arg version "$version" --arg image "$image" \
-            '.version = $version | .packages[0].version = $version | .packages[0].identifier = $image' \
+            '.version = $version | del(.packages[0].version) | .packages[0].identifier = $image' \
             server.json > server.release.json
           mv server.release.json server.json
 

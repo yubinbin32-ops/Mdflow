@@ -12,7 +12,6 @@
     {
       "registryType": "oci",
       "identifier": "ghcr.io/yubinbin32-ops/mdflow:0.3.1",
-      "version": "0.3.1",
       "transport": {
         "type": "stdio"
       },
