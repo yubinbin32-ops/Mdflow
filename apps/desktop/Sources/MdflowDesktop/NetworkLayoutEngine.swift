@@ -30,8 +30,8 @@ enum NetworkLayoutEngine {
     // Streets include room for Link lanes and nested Chain enclosures on both
     // neighboring Blocks. These values keep the current three-membership
     // project readable without turning the overview into a sparse wall.
-    static let horizontalStreetWidth: CGFloat = 54
-    static let verticalStreetWidth: CGFloat = 46
+    static let horizontalStreetWidth: CGFloat = 70
+    static let verticalStreetWidth: CGFloat = 60
 
     /// Creates one stable project map. `focusPaths` contains every ordered Chain,
     /// not merely the selected one: Chain topology owns the primary roads.
