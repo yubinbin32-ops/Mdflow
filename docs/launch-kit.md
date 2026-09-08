@@ -32,7 +32,7 @@
 ### 第二层：可持续搜索
 
 - GitHub 仓库保持英文首屏、中文入口、`mcp` / `ai-coding` / `context-engineering` 等主题和 Social Preview。
-- 官网保留可抓取的文字内容、OG 图片、canonical、sitemap 和 JSON-LD；后续增加三个独立落地页：`/quickstart`、`/mcp`、`/benchmark`。
+- 官网保留可抓取的文字内容、OG 图片、canonical、sitemap 和 JSON-LD；`/quickstart`、`/mcp`、`/benchmark` 三个独立落地页已上线。
 - 每次 release 同时更新一篇可搜索的变更说明，标题使用问题词：`How to stop coding agents from scanning the whole repository`。
 - 用 GitHub Discussions 收集真实案例；每个案例只回答一个具体问题，并链接回 README 的可复现命令。
 
