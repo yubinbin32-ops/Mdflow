@@ -28,21 +28,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Resolve release version
+        id: release
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push mdflow image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ghcr.io/yubinbin32-ops/mdflow:${{ github.ref_name }}
+          tags: ghcr.io/yubinbin32-ops/mdflow:${{ steps.release.outputs.version }}
           labels: |
             io.modelcontextprotocol.server.name=io.github.yubinbin32-ops/mdflow
             org.opencontainers.image.source=https://github.com/yubinbin32-ops/Mdflow-Canvas
-            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
 
       - name: Resolve release version in server metadata
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${{ steps.release.outputs.version }}"
           image="ghcr.io/yubinbin32-ops/mdflow:${version}"
           jq --arg version "$version" --arg image "$image" \
             '.version = $version | .packages[0].version = $version | .packages[0].identifier = $image' \
