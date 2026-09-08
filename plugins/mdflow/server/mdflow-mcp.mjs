@@ -28884,7 +28884,7 @@ function setupEditors() {
     cursorConfig.mcpServers = cursorConfig.mcpServers || {};
     cursorConfig.mcpServers.mdflow = {
       command: "npx",
-      args: ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     };
     fs5.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
     console.log(`\u2713 Configured Cursor: ${cursorMcpFile}`);
@@ -28904,7 +28904,7 @@ function setupEditors() {
       claudeConfig.mcpServers = claudeConfig.mcpServers || {};
       claudeConfig.mcpServers.mdflow = {
         command: "npx",
-        args: ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+        args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
       };
       fs5.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
       console.log(`\u2713 Configured Claude Desktop: ${claudeConfigPath}`);
@@ -28916,7 +28916,7 @@ function setupEditors() {
   console.log(JSON.stringify({
     mdflow: {
       command: "npx",
-      args: ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
   }, null, 2));
 }

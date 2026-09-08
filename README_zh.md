@@ -72,18 +72,18 @@ mdflow 内置 MCP。AI 不再全盘扫描几百行长文档，而是通过 `cont
 ### 1. 初始化项目（自动扫描现有代码）
 在任意项目根目录执行：
 ```bash
-npx github:yubinbin32-ops/Mdflow init --scan
+npx github:yubinbin32-ops/Mdflow-Canvas init --scan
 ```
 *该命令会自动扫描代码目录（如 `src`、`api`、`tests`），自动生成 `.mdflow/project.json` 及初始架构块与基线链路。*
 
 ### 2. 查看项目状态与图谱
 ```bash
-npx github:yubinbin32-ops/Mdflow status
+npx github:yubinbin32-ops/Mdflow-Canvas status
 ```
 
 ### 3. 自动生成多编辑器 MCP 配置
 ```bash
-npx github:yubinbin32-ops/Mdflow setup
+npx github:yubinbin32-ops/Mdflow-Canvas setup
 ```
 
 ---
@@ -99,7 +99,7 @@ mdflow 基于通用标准 MCP（Model Context Protocol）协议，支持各大�
   "mcpServers": {
     "mdflow": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
   }
 }
@@ -112,7 +112,7 @@ mdflow 基于通用标准 MCP（Model Context Protocol）协议，支持各大�
   "mcpServers": {
     "mdflow": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
   }
 }
@@ -125,7 +125,7 @@ mdflow 基于通用标准 MCP（Model Context Protocol）协议，支持各大�
   "mcpServers": {
     "mdflow": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
   }
 }
@@ -135,7 +135,7 @@ mdflow 基于通用标准 MCP（Model Context Protocol）协议，支持各大�
 可通过 MCP 插件体系自动发现或注册。
 
 ### macOS 原生桌面 App
-从 [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow/releases) 下载原生 macOS 客户端：
+从 [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases) 下载原生 macOS 客户端：
 - 支持 GPU 硬件加速的交互式 Canvas 画布
 - 支持一键安装 Claude Desktop 和 Codex CLI 插件
 - 实时可视化查看 AI 提交的变更和 Checkpoint 证据
@@ -255,26 +255,26 @@ AI 助手在项目中工作时，遵循严谨的确定性闭环：
 
 ```bash
 # 查看帮助和版本信息
-npx github:yubinbin32-ops/Mdflow --help
-npx github:yubinbin32-ops/Mdflow --version
+npx github:yubinbin32-ops/Mdflow-Canvas --help
+npx github:yubinbin32-ops/Mdflow-Canvas --version
 
 # 查看当前项目图谱概览（Block、Chain、Active Plans 数量）
-npx github:yubinbin32-ops/Mdflow status
+npx github:yubinbin32-ops/Mdflow-Canvas status
 
 # 在当前目录初始化项目（带自动代码扫描）
-npx github:yubinbin32-ops/Mdflow init --scan
+npx github:yubinbin32-ops/Mdflow-Canvas init --scan
 
 # 将本地缓存导出为 Git 追踪的 graph.json
-npx github:yubinbin32-ops/Mdflow export
+npx github:yubinbin32-ops/Mdflow-Canvas export
 
 # 从 graph.json 恢复/同步本地缓存（用于 git pull 或切换分支后）
-npx github:yubinbin32-ops/Mdflow import
+npx github:yubinbin32-ops/Mdflow-Canvas import
 
 # 查看各编辑器 MCP 配置模板
-npx github:yubinbin32-ops/Mdflow setup
+npx github:yubinbin32-ops/Mdflow-Canvas setup
 
 # 以 stdio 模式启动 MCP 服务
-npx github:yubinbin32-ops/Mdflow serve
+npx github:yubinbin32-ops/Mdflow-Canvas serve
 ```
 
 ---
@@ -283,8 +283,8 @@ npx github:yubinbin32-ops/Mdflow serve
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yubinbin32-ops/Mdflow.git
-cd Mdflow
+git clone https://github.com/yubinbin32-ops/Mdflow-Canvas.git
+cd Mdflow-Canvas
 
 # 安装依赖
 npm install

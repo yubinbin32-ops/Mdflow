@@ -72,20 +72,20 @@ You don't need to install anything from npm registry. Run directly via GitHub us
 ### 1. Initialize Your Project
 Scan your repository structure and bootstrap an initial architecture graph:
 ```bash
-npx github:yubinbin32-ops/Mdflow init --scan
+npx github:yubinbin32-ops/Mdflow-Canvas init --scan
 ```
 *This creates `.mdflow/project.json` and `.mdflow/graph.json` with initial domain blocks discovered from your project folders.*
 
 ### 2. Check Project Status
 Inspect graph revision, blocks, chains, and active plans:
 ```bash
-npx github:yubinbin32-ops/Mdflow status
+npx github:yubinbin32-ops/Mdflow-Canvas status
 ```
 
 ### 3. Setup MCP in Your Editors
 Automatically print or configure MCP configurations for your favorite AI tools:
 ```bash
-npx github:yubinbin32-ops/Mdflow setup
+npx github:yubinbin32-ops/Mdflow-Canvas setup
 ```
 
 ---
@@ -101,7 +101,7 @@ Add to your project root or user configuration:
   "mcpServers": {
     "mdflow": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
   }
 }
@@ -114,7 +114,7 @@ On macOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
   "mcpServers": {
     "mdflow": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
   }
 }
@@ -126,7 +126,7 @@ On macOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
   "mcpServers": {
     "mdflow": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
   }
 }
@@ -136,7 +136,7 @@ On macOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 Configured via MCP server list or project sidecar.
 
 ### macOS Native Desktop App
-Download the native macOS app from [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow/releases). The app includes:
+Download the native macOS app from [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases). The app includes:
 - Hardware-accelerated interactive Canvas
 - One-click MCP installer for Claude Desktop and Codex CLI
 - Real-time live inspection of graph mutations and checkpoints
@@ -256,26 +256,26 @@ When an AI coding agent works with mdflow, it follows a deterministic lifecycle:
 
 ```bash
 # Display help and version
-npx github:yubinbin32-ops/Mdflow --help
-npx github:yubinbin32-ops/Mdflow --version
+npx github:yubinbin32-ops/Mdflow-Canvas --help
+npx github:yubinbin32-ops/Mdflow-Canvas --version
 
 # View current project status
-npx github:yubinbin32-ops/Mdflow status
+npx github:yubinbin32-ops/Mdflow-Canvas status
 
 # Initialize mdflow in current directory (with automatic code scan)
-npx github:yubinbin32-ops/Mdflow init --scan
+npx github:yubinbin32-ops/Mdflow-Canvas init --scan
 
 # Export text truth from local SQLite cache
-npx github:yubinbin32-ops/Mdflow export
+npx github:yubinbin32-ops/Mdflow-Canvas export
 
 # Import text truth into local SQLite cache (e.g. after git pull)
-npx github:yubinbin32-ops/Mdflow import
+npx github:yubinbin32-ops/Mdflow-Canvas import
 
 # Generate editor MCP configurations
-npx github:yubinbin32-ops/Mdflow setup
+npx github:yubinbin32-ops/Mdflow-Canvas setup
 
 # Start MCP server manually
-npx github:yubinbin32-ops/Mdflow serve
+npx github:yubinbin32-ops/Mdflow-Canvas serve
 ```
 
 ---
@@ -286,8 +286,8 @@ To run and build mdflow locally:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yubinbin32-ops/Mdflow.git
-cd Mdflow
+git clone https://github.com/yubinbin32-ops/Mdflow-Canvas.git
+cd Mdflow-Canvas
 
 # Install dependencies
 npm install
