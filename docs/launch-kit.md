@@ -13,11 +13,11 @@
 | 入口 | 作用 | 状态 | 链接 |
 | --- | --- | --- | --- |
 | GitHub 仓库 | 源码、Issue、Star、Fork | 已上线 | https://github.com/yubinbin32-ops/Mdflow-Canvas |
-| GitHub Release | macOS 下载与 MCP bundle | v0.3.0 已上线 | https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.0 |
+| GitHub Release | macOS 下载与 MCP bundle | v0.3.1 已上线 | https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/tag/v0.3.1 |
 | 官网 | 搜索落地页与快速开始 | 已上线 | https://dashend.cn |
 | Glama | MCP 目录搜索与安装入口 | 已收录，资料待完善 | https://glama.ai/mcp/servers/yubinbin32-ops/Mdflow-Canvas |
 | TensorBlock | Awesome MCP Servers 社区目录 | PR #2243 草稿，等待审核 | https://github.com/TensorBlock/awesome-mcp-servers/pull/2243 |
-| 官方 MCP Registry | MCP 客户端和下游目录的规范元数据 | 已配置，待 v0.3.1 标签触发发布 | https://registry.modelcontextprotocol.io/ |
+| 官方 MCP Registry | MCP 客户端和下游目录的规范元数据 | 工作流已验证，待 GHCR 包设为 Public 后重跑 | https://registry.modelcontextprotocol.io/ |
 
 ## 渠道优先级
 
@@ -134,7 +134,7 @@ npx -y github:yubinbin32-ops/Mdflow-Canvas init --scan
 
 - [ ] `npm test`、`npm run benchmark`、`npm run plugin:build`、`npm run desktop:build` 通过。
 - [ ] `server.json` 的版本、GHCR tag、OCI ownership label 一致。
-- [ ] v0.3.1 tag 触发 MCP Registry workflow，并确认 GHCR 包设为 Public。
+- [ ] GHCR 包设为 Public 后重跑 v0.3.1 的 MCP Registry workflow。
 - [ ] Glama profile 使用 `mdflow — Context OS for AI Coding` 和 Code Analysis 分类。
 - [ ] TensorBlock PR #2243 没有过期链接或未解释的安装路径。
 - [ ] 每个社区链接使用独立 UTM 参数，方便判断真实来源。
