@@ -1,235 +1,158 @@
 <div align="center">
-  <img src="assets/logo.png" width="96" alt="mdflow logo" />
+  <img src="assets/logo.png" width="92" alt="mdflow logo" />
   <h1>mdflow</h1>
-  <p><strong>The living architecture graph & Context OS for AI coding.</strong></p>
-  <p>Centered on a native macOS desktop app, mdflow replaces rotting Markdown specs with task-scoped, verified context—cutting AI token consumption by 98.1% with closed-loop AST code mutations.</p>
+  <p><strong>A context operating system for AI coding agents.</strong></p>
+  <p>Map the system for humans. Stream only the relevant code to agents.<br />Let agents change code through verified, rollback-safe boundaries.</p>
   <p>
-    <a href="README_zh.md"><strong>🇨🇳 中文说明</strong></a>&nbsp;&nbsp;·&nbsp;&nbsp;
-    <code>macOS 14+ (Native App)</code>&nbsp;&nbsp;·&nbsp;&nbsp;
-    <code>Windows / Linux / CI (Headless npx)</code>&nbsp;&nbsp;·&nbsp;&nbsp;
-    <code>Node.js 22+</code>&nbsp;&nbsp;·&nbsp;&nbsp;
-    <code>MIT License</code>&nbsp;&nbsp;·&nbsp;&nbsp;
-    <code>v0.2.0</code>
+    <a href="README_zh.md">中文</a> ·
+    <a href="https://dashend.cn">Website</a> ·
+    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest">Download for macOS</a>
+  </p>
+  <p>
+    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/yubinbin32-ops/Mdflow-Canvas?style=flat-square&color=111111" /></a>
+    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/yubinbin32-ops/Mdflow-Canvas/release.yml?style=flat-square&label=build" /></a>
+    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/yubinbin32-ops/Mdflow-Canvas?style=flat-square" /></a>
+    <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-43853d?style=flat-square" />
+    <img alt="MCP compatible" src="https://img.shields.io/badge/MCP-compatible-7c3aed?style=flat-square" />
   </p>
 </div>
 
----
-
-> **mdflow** bridges the gap between human intuition and AI coding agents.  
-> **For Humans**: Gain total architectural command on an immersive, native macOS Canvas with urban orthogonal streets, virtual-to-solid blueprints, and live checkpoint proof.  
-> **For AI Agents**: Access task-scoped minimal context, AST facade code streams, terminal log sanitization, and bidirectional code mutations through the standard Model Context Protocol (MCP).
-
 <p align="center">
-  <img src="assets/mdflow-demo.gif" alt="mdflow demo: filtering, canvas layout, path traversal, and checkpoint verification" width="100%" />
+  <img src="assets/mdflow-demo.gif" alt="mdflow filters an architecture graph, rearranges the Canvas, follows an impact path, and opens checkpoint evidence" width="100%" />
 </p>
 
-<p align="center"><sub>Urban orthogonal streets → Dynamic component clustering → Ghost/Solid blueprint state machine → AST symbol facades & Checkpoint evidence.</sub></p>
+<p align="center"><sub>Filter the architecture → follow an impact path → inspect the exact code and verification evidence.</sub></p>
 
----
+## The problem
 
-## ⚡ Empirical Benchmark: Traditional AI vs mdflow Context OS
+Coding agents repeatedly scan the same repository, read entire files to understand one function, consume raw terminal noise, and lose architectural decisions between sessions. Markdown specs help at first, then drift away from the code they describe.
 
-Live end-to-end benchmark on an identical development task within a real-world repository:
+mdflow keeps a Git-tracked architecture graph beside the source. Its MCP server turns that graph into a narrow, verified working context for each task—and can apply symbol-level code changes with tests and automatic rollback.
 
-| Metric | Traditional AI (Full-File Reads & Raw Terminal) | mdflow MCP (Task Slice + AST Stream + Sanitizer) | Real Benefit |
-| :--- | :--- | :--- | :--- |
-| **Code Reading Volume** | 333,161 chars (92,545 Tokens) | 2,712 chars (753 Tokens) | **99.2% Token Saved** |
-| **Terminal Build/Test Logs** | 3,705 chars (1,029 Tokens) | 716 chars (199 Tokens) | **80.7% Token Saved** |
-| **Single-Task Context Footprint** | **336,866 chars (93,574 Tokens)** | **6,383 chars (1,773 Tokens)** | **98.1% Net Token Reduction** |
-| **Context Retrieval Latency** | 1,020.48 ms (Repeated scans & giant file reads) | 27.94 ms (Structured in-memory retrieval) | **36.5x Speedup** |
-| **Attention Noise Ratio** | > 98% irrelevant code (thousands of lines) | 0% noise (only targeted contracts & facades) | **Near-Zero Hallucination** |
-| **Code Modification Loop** | Blind regex or full-file search | **`block_code_mutate` atomic replacement + auto-rollback** | **100% Safe Closed Loop** |
+| For developers | For AI agents |
+| --- | --- |
+| A native Canvas for architecture, dependencies, plans, progress, and evidence | Task-scoped context instead of repository-wide scanning |
+| Ghost blueprints for planned work and solid anchors for implemented code | AST symbol slices across a complete execution chain |
+| Impact paths before a change reaches the codebase | Atomic symbol mutation with verification and rollback |
+| Git-native history: code and architecture move together | Sanitized terminal output that preserves useful failures |
 
----
+## Try it on a repository
 
-## 🖥️ The Native Desktop Experience: mdflow.app (Recommended)
+Requires Node.js 22 or later. No global install is needed.
 
-We recommend using the native **`mdflow.app`** on macOS for optimal visual command and one-click agent orchestration:
-
-<p align="center">
-  <img src="assets/canvas-overview.png" alt="mdflow Canvas Overview" width="100%" />
-</p>
-
-### 1. Urban Orthogonal Canvas
-- **Aspect-Ratio Balanced Layout**: Replaces tangled spiderwebs and infinite downward poles with an aspect-ratio-aware 2D urban street grid.
-- **Orthogonal Turn Routing**: Multi-turn obstacle avoidance, dedicated lane offsets, and non-overlapping road corridors.
-- **Semantic Focus**: Double-click any Block to illuminate its 1-hop upstream/downstream dependencies and parent Chains.
-
-### 2. Context Operating Console
-- **Ghost Blueprints (Virtual)**: Planned features appear as elegant dashed purple cards with 0 source files, 0 maintenance friction, and 0 token cost.
-- **Solid Anchors (Materialized)**: Implemented modules display bound AST symbol badges, live line counts, and a Token Economy Meter.
-- **Live Code Stream Inspector**: Select any execution Chain to preview unified AST symbol facades right inside the macOS detail panel.
-
-### 3. One-Click AI Integration
-Open the Settings dialog in the app to inspect and automatically sync MCP configurations with your favorite AI coding assistants—no manual JSON editing needed:
-- 🌟 **Google Antigravity** (`~/.gemini/config/mcp_config.json` or `.agents/mcp_config.json`)
-- 🚀 **Cursor** (`.cursor/mcp.json`)
-- 🤖 **Claude Desktop** (`claude_desktop_config.json`)
-- 📦 **OpenCode** (`~/.config/opencode/mcp.json`)
-- 💻 **Codex CLI** (Native marketplace injection)
-
-### 📥 Desktop Installation
-- **Direct Download**: Grab the latest DMG release from [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases).
-- **Build from Source (Swift / Xcode)**:
-  ```bash
-  npm run desktop:build   # Compile native macOS client
-  npm run desktop:run     # Launch mdflow.app
-  ```
-
----
-
-## 🛠️ Headless & Cross-Platform: Professional npx Workflow (Windows / Linux / CI / Terminal)
-
-For developers on Linux, Windows, remote SSH servers, or those who prefer a purely terminal-driven workflow without a graphical UI, mdflow offers a first-class **zero-install `npx` pipeline**:
-
-### 1. Architecture Reverse-Scanning & Init
-Run directly in any project root (no prior global install required):
 ```bash
-npx github:yubinbin32-ops/Mdflow-Canvas init --scan
-```
-*Scans your codebase directories (`src`, `packages`, `apps`, `tests`) and generates the plain-text `.mdflow/graph.json` architecture truth in milliseconds.*
-
-### 2. Inspect Architecture Health & Verification Status
-```bash
-npx github:yubinbin32-ops/Mdflow-Canvas status
-```
-*Displays total Blocks, Chain connectivity, Checkpoint verification coverage, and active plans right in your shell.*
-
-### 3. Run In-Situ Empirical Benchmarks
-```bash
-npx github:yubinbin32-ops/Mdflow-Canvas benchmark
-```
-*Runs 100 live semantic retrievals against your actual repository and reports Token reduction percentages.*
-
----
-
-## 🔌 Headless / Manual MCP Setup
-
-If you are not using the macOS App's one-click sync, you can manually configure MCP in your respective environment:
-
-### Google Antigravity
-Add to `~/.gemini/config/mcp_config.json` or `.agents/mcp_config.json`:
-```json
-{
-  "mcpServers": {
-    "mdflow": {
-      "command": "node",
-      "args": ["--no-warnings=ExperimentalWarning", "/absolute/path/to/mdflow/plugins/mdflow/server/mdflow-mcp.mjs"],
-      "env": {
-        "MDFLOW_PROJECT_ROOT": "${workspaceFolder}"
-      }
-    }
-  }
-}
+cd your-project
+npx -y github:yubinbin32-ops/Mdflow-Canvas init --scan
+npx -y github:yubinbin32-ops/Mdflow-Canvas status
+npx -y github:yubinbin32-ops/Mdflow-Canvas setup
 ```
 
-### Cursor
-Create `.cursor/mcp.json` in your workspace root:
-```json
-{
-  "mcpServers": {
-    "mdflow": {
-      "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
-    }
-  }
-}
-```
+On macOS 14+, download the native app from [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest) to explore the graph, focus dependencies, inspect code streams, and configure supported agents visually. The CLI and MCP server also run headlessly on Windows, Linux, CI, and remote machines.
 
-### Claude Desktop
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "mdflow": {
-      "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
-    }
-  }
-}
-```
-
-### OpenCode
-Add to `~/.config/opencode/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "mdflow": {
-      "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
-    }
-  }
-}
-```
-
----
-
-## 💎 Key Architectural Innovations
-
-### 1. AST Facade Extraction & Chain Code Streaming (99.2% Token Saved)
-- Blocks bind directly to AST symbol identifiers (functions, classes, methods).
-- `chain_code_stream` walks execution chains and slices ONLY the necessary function bodies (~50 lines instead of 5,000 lines).
-
-### 2. Bidirectional Code Mutation with Auto-Rollback (`block_code_mutate`)
-- AI agents submit updated code blocks through MCP.
-- mdflow locates the exact physical source lines via AST, atomically swaps the implementation, and executes your test suite.
-- **Safety Guard**: If tests fail, mdflow **automatically rolls back** physical files to their original pristine state.
-
-### 3. Intelligent Terminal Sanitizer (`log_sanitize`, 94.8% Token Saved)
-- Strips ANSI colors, terminal control escapes, and spinner overwrites.
-- Collapses routine build noise while preserving error stack traces.
-
-### 4. Zero-Drift Git Storage: Seamless Rollbacks
-- **Tracked in Git**: `.mdflow/graph.json` (deterministic plain-text single source of truth).
-- **Git-Ignored Local Cache**: `.mdflow/mdflow.sqlite` (high-speed SQLite cache for desktop and MCP).
-- When you click **Discard Changes** in GitHub Desktop or run `git checkout .`, your code and architectural graph revert together atomically.
-
-### 5. Living Verification Contracts (Checkpoints)
-- No feature is assumed complete without proof. Checkpoints mandate unit tests, static checks, or verification receipts before gates unlock.
-
----
-
-## Architecture
+## One closed loop
 
 ```mermaid
-flowchart TD
-  subgraph UserInterface["User Interface Layer"]
-    Desktop["🖥️ Native macOS App (mdflow.app)\nUrban Orthogonal Canvas / Context Console"]
-    CLI["⌨️ Cross-Platform CLI / npx mdflow\n(Windows / Linux / CI / SSH)"]
-  end
-
-  subgraph TruthLayer["Version-Controlled Single Source of Truth"]
-    GraphJson[".mdflow/graph.json\nPlain-text Git-Tracked Truth (Zero-Drift Rollback)"]
-    SourceCode["Physical Source Files (*.ts, *.swift, *.py, *.go, *.rs)"]
-  end
-
-  subgraph EngineLayer["Local Engine & Cache"]
-    SQLite[".mdflow/mdflow.sqlite\nMillisecond Local Runtime Cache"]
-    ASTEngine["AST Facade Slicing & Atomic Mutation (ast.mjs)"]
-    Sanitizer["Terminal Log Sanitizer (sanitizer.mjs)"]
-  end
-
-  subgraph MCPService["MCP Protocol Service"]
-    MCPServer["⚡ mdflow MCP Server (stdio)\n(context_for_task / chain_code_stream / block_code_mutate)"]
-  end
-
-  subgraph AIAgents["AI Coding Ecosystem"]
-    Antigravity["Google Antigravity"]
-    Cursor["Cursor"]
-    Claude["Claude Desktop"]
-    OpenCode["OpenCode"]
-    Codex["Codex CLI"]
-  end
-
-  Desktop <--> SQLite
-  CLI <--> SQLite
-  SQLite <--> GraphJson
-  ASTEngine <--> SourceCode
-  EngineLayer <--> MCPServer
-  MCPServer <--> AIAgents
+flowchart LR
+  Human["Developer\nCanvas + plans"] --> Graph[".mdflow/graph.json\nGit-tracked truth"]
+  Graph --> Context["Task slice\ncontracts + impact path"]
+  Context --> Agent["AI coding agent\nvia MCP"]
+  Agent --> Mutation["AST symbol mutation"]
+  Mutation --> Verify{"Tests pass?"}
+  Verify -->|yes| Graph
+  Verify -->|no| Rollback["Automatic rollback"]
+  Rollback --> Agent
 ```
 
----
+The runtime uses a local SQLite cache for fast reads. The durable source of truth is deterministic plain-text JSON, so a Git checkout or discard restores code and architecture together.
+
+## Measured on mdflow itself
+
+Run `npm run benchmark` to reproduce the measurements locally. Results vary by repository and task; these numbers come from the current mdflow codebase.
+
+| Operation | Baseline | mdflow | Reduction / speed |
+| --- | ---: | ---: | ---: |
+| Task context | 112,738 tokens | 1,197 tokens | **98.9% fewer tokens** |
+| Four-module code chain | 84,227 tokens | 654 tokens | **99.2% fewer tokens** |
+| Build and test log | 4,042 tokens | 212 tokens | **94.8% fewer tokens** |
+| Structured context retrieval | repeated file scans | 3.11 ms P50 | local indexed lookup |
+
+The benchmark also checks target-module recall, related-topology capture, irrelevant-module isolation, checkpoint persistence, change-set reversal, and Git graph synchronization.
+
+## What makes it different
+
+### Architecture that can start before code
+
+Planned features live as **Ghost Blueprints** without fake file bindings. As implementation lands, blocks become **Solid Anchors** connected to real AST symbols. The same object moves from intent to code to evidence.
+
+### Code context at symbol boundaries
+
+`chain_code_stream` follows an execution path across files and returns the relevant functions, classes, and contracts. Agents see the code that participates in the task instead of every line in every file.
+
+### Code changes with a verification boundary
+
+`block_code_mutate` locates a bound symbol, replaces it atomically, runs the configured verification command, and restores the original file when verification fails.
+
+### Evidence as part of architecture
+
+Plans and blocks can require Checkpoints backed by tests, static checks, or review receipts. Completion is tied to evidence rather than a chat claim.
+
+### Terminal output built for agent context
+
+`log_sanitize` removes ANSI control sequences, spinner rewrites, and repetitive successful output while keeping failure summaries and stack context.
+
+## Native macOS Canvas
+
+<p align="center">
+  <img src="assets/canvas-overview.png" alt="Native mdflow Canvas showing architecture blocks, orthogonal dependency paths, project groups, and the inspector" width="100%" />
+</p>
+
+- Compact orthogonal routing keeps large dependency graphs readable.
+- Double-click focus reveals one-hop dependencies and related Chains.
+- The Inspector shows AST bindings, code streams, plans, progress, and Checkpoint evidence.
+- Settings can configure Google Antigravity, Cursor, Claude Desktop, OpenCode, and Codex workflows.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/path-impact.png" alt="Selected impact path" /></td>
+    <td width="50%"><img src="assets/checkpoint-detail.png" alt="Checkpoint evidence" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Trace the impact path before editing.</sub></td>
+    <td align="center"><sub>Inspect the evidence behind completion.</sub></td>
+  </tr>
+</table>
+
+## Connect an MCP client
+
+The desktop app can write supported configurations for you. For manual setup, point your client at the bundled server:
+
+```json
+{
+  "mcpServers": {
+    "mdflow": {
+      "command": "npx",
+      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
+    }
+  }
+}
+```
+
+This standard shape works with Cursor, Claude Desktop, OpenCode, and other stdio MCP clients. Google Antigravity can use the bundled server path with `MDFLOW_PROJECT_ROOT` set to the workspace.
+
+## Develop locally
+
+```bash
+npm ci
+npm test                 # 17 tests
+npm run benchmark        # reproducible context/AST/log benchmark
+npm run plugin:build     # rebuild the bundled MCP server
+npm run desktop:build    # build the Swift macOS app
+```
+
+## Project status
+
+mdflow is early-stage open-source software and its graph format and MCP surface may evolve. The project currently targets macOS 14+ for the native app and Node.js 22+ for the cross-platform CLI/server. Issues, reproducible benchmark results, and focused pull requests are welcome.
 
 ## License
-Open-sourced under the [MIT License](LICENSE). Contributions, issues, and PRs are welcome!
+
+[MIT](LICENSE) © mdflow contributors
