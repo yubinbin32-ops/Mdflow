@@ -23210,6 +23210,7 @@ import fs4 from "node:fs";
 import crypto3 from "node:crypto";
 import fs3 from "node:fs";
 import path4 from "node:path";
+import { execSync } from "node:child_process";
 
 // packages/mcp/src/database.mjs
 import crypto from "node:crypto";
@@ -24278,6 +24279,9 @@ function detectLanguage(filePath = "") {
       return "go";
     case ".rs":
       return "rust";
+    case ".kt":
+    case ".kts":
+      return "kotlin";
     default:
       return "text";
   }
@@ -24486,6 +24490,26 @@ ${body}
     currentChars += section.length;
   }
   return sections.join("\n");
+}
+function replaceSymbolSlice(sourceCode, { symbol, newCode, language = null }) {
+  const symbols = extractSymbols(sourceCode, { language: language || "typescript" });
+  const matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
+  if (!matched) {
+    throw new Error(`Symbol "${symbol}" not found in source code`);
+  }
+  const lines = sourceCode.split(/\r?\n/);
+  const before = lines.slice(0, matched.startLine - 1);
+  const after = lines.slice(matched.endLine);
+  const newLines = newCode.split(/\r?\n/);
+  return {
+    updatedCode: [...before, ...newLines, ...after].join("\n"),
+    replacedLines: {
+      startLine: matched.startLine,
+      oldEndLine: matched.endLine,
+      newEndLine: matched.startLine + newLines.length - 1
+    },
+    symbol: matched.name
+  };
 }
 
 // packages/mcp/src/sanitizer.mjs
@@ -25636,6 +25660,78 @@ var MdflowService = class {
   }
   sanitizeLog({ rawOutput, maxChars = 3e3, exitCode = null } = {}) {
     return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode });
+  }
+  mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    if (!symbol?.trim()) throw new Error("symbol is required");
+    if (typeof newCode !== "string") throw new Error("newCode is required");
+    this.ensureSynced();
+    const snapshot = this.snapshot();
+    const block = snapshot.blocks.find((b) => b.id === blockId);
+    if (!block) throw new Error(`Block not found: ${blockId}`);
+    const sourceRefs = snapshot.sourceRefs.filter((ref2) => ref2.blockId === block.id);
+    if (!sourceRefs.length) {
+      throw new Error(`Block "${blockId}" has no bound source files (virtual blueprint)`);
+    }
+    const ref = sourceRefs.find((r) => r.symbol === symbol) || sourceRefs[0];
+    const filePath = ref.path;
+    const fullPath = path4.isAbsolute(filePath) ? filePath : path4.resolve(this.paths.projectRoot, filePath);
+    if (!fs3.existsSync(fullPath)) {
+      throw new Error(`Source file not found at ${fullPath}`);
+    }
+    const originalCode = fs3.readFileSync(fullPath, "utf8");
+    const lang = detectLanguage(fullPath);
+    const { updatedCode, replacedLines } = replaceSymbolSlice(originalCode, {
+      symbol,
+      newCode,
+      language: lang
+    });
+    fs3.writeFileSync(fullPath, updatedCode, "utf8");
+    if (verifyCommand) {
+      try {
+        const rawOutput = execSync(verifyCommand, {
+          cwd: this.paths.projectRoot,
+          encoding: "utf8",
+          stdio: "pipe"
+        });
+        const sanitized = sanitizeTerminalOutput(rawOutput);
+        return {
+          success: true,
+          blockId,
+          symbol,
+          filePath,
+          replacedLines,
+          verification: {
+            passed: true,
+            command: verifyCommand,
+            output: sanitized.text
+          }
+        };
+      } catch (err) {
+        fs3.writeFileSync(fullPath, originalCode, "utf8");
+        const rawError = (err.stdout || "") + "\n" + (err.stderr || "") + "\n" + err.message;
+        const sanitized = sanitizeTerminalOutput(rawError);
+        return {
+          success: false,
+          blockId,
+          symbol,
+          filePath,
+          error: "Verification test failed. Source code automatically rolled back.",
+          verification: {
+            passed: false,
+            command: verifyCommand,
+            output: sanitized.text
+          }
+        };
+      }
+    }
+    return {
+      success: true,
+      blockId,
+      symbol,
+      filePath,
+      replacedLines
+    };
   }
   projectMap({ locale = "en" } = {}) {
     const snapshot = this.snapshot();
@@ -29497,6 +29593,40 @@ server.registerTool(
       "```"
     ].join("\n");
     return readResult(data, markdown, input.includeStructured);
+  }
+);
+server.registerTool(
+  "block_code_mutate",
+  {
+    description: "Atomically mutate a specific AST symbol's implementation bound to an architecture Block. Replaces only the targeted symbol body, runs automated verification with terminal log sanitization, and automatically rolls back if tests fail.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: string2().min(1),
+      symbol: string2().min(1),
+      newCode: string2().min(1),
+      verifyCommand: string2().optional(),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.mutateBlockCode(payload));
+    const status = data.success ? "Successfully updated" : "Failed to update (rolled back)";
+    const md = [
+      `# Block Code Mutation: ${status}`,
+      `- Block: ${data.blockId}`,
+      `- Symbol: ${data.symbol}`,
+      `- File: ${data.filePath ?? "?"}`,
+      ...data.replacedLines ? [`- Lines: ${data.replacedLines.startLine} - ${data.replacedLines.newEndLine}`] : [],
+      ...data.error ? [`
+## Error
+${data.error}`] : [],
+      ...data.verification ? [`
+## Verification (${data.verification.passed ? "PASSED" : "FAILED"})
+\`\`\`text
+${data.verification.output}
+\`\`\``] : []
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured);
   }
 );
 server.registerTool(

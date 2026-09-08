@@ -23,6 +23,9 @@ export function detectLanguage(filePath = "") {
       return "go";
     case ".rs":
       return "rust";
+    case ".kt":
+    case ".kts":
+      return "kotlin";
     default:
       return "text";
   }
@@ -280,4 +283,30 @@ export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000 } =
   }
 
   return sections.join("\n");
+}
+
+/**
+ * Replace a specific symbol's implementation in source code using AST boundary detection
+ */
+export function replaceSymbolSlice(sourceCode, { symbol, newCode, language = null }) {
+  const symbols = extractSymbols(sourceCode, { language: language || "typescript" });
+  const matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
+  if (!matched) {
+    throw new Error(`Symbol "${symbol}" not found in source code`);
+  }
+
+  const lines = sourceCode.split(/\r?\n/);
+  const before = lines.slice(0, matched.startLine - 1);
+  const after = lines.slice(matched.endLine);
+  const newLines = newCode.split(/\r?\n/);
+
+  return {
+    updatedCode: [...before, ...newLines, ...after].join("\n"),
+    replacedLines: {
+      startLine: matched.startLine,
+      oldEndLine: matched.endLine,
+      newEndLine: matched.startLine + newLines.length - 1,
+    },
+    symbol: matched.name,
+  };
 }

@@ -181,6 +181,36 @@ server.registerTool(
 );
 
 server.registerTool(
+  "block_code_mutate",
+  {
+    description:
+      "Atomically mutate a specific AST symbol's implementation bound to an architecture Block. Replaces only the targeted symbol body, runs automated verification with terminal log sanitization, and automatically rolls back if tests fail.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: z.string().min(1),
+      symbol: z.string().min(1),
+      newCode: z.string().min(1),
+      verifyCommand: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.mutateBlockCode(payload));
+    const status = data.success ? "Successfully updated" : "Failed to update (rolled back)";
+    const md = [
+      `# Block Code Mutation: ${status}`,
+      `- Block: ${data.blockId}`,
+      `- Symbol: ${data.symbol}`,
+      `- File: ${data.filePath ?? "?"}`,
+      ...(data.replacedLines ? [`- Lines: ${data.replacedLines.startLine} - ${data.replacedLines.newEndLine}`] : []),
+      ...(data.error ? [`\n## Error\n${data.error}`] : []),
+      ...(data.verification ? [`\n## Verification (${data.verification.passed ? "PASSED" : "FAILED"})\n\`\`\`text\n${data.verification.output}\n\`\`\``] : []),
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured);
+  },
+);
+
+server.registerTool(
   "foundation_plan_create",
   {
     description:

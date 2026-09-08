@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractSymbols, extractSymbolSlice, buildChainCodeStream, detectLanguage } from "../src/ast.mjs";
+import { extractSymbols, extractSymbolSlice, buildChainCodeStream, replaceSymbolSlice, detectLanguage } from "../src/ast.mjs";
 
 test("ast: detectLanguage detects extensions correctly", () => {
   assert.equal(detectLanguage("src/service.ts"), "typescript");
@@ -111,4 +111,34 @@ test("ast: buildChainCodeStream produces unified code stream across materialized
   assert.ok(stream.includes("[Node: risk-evaluator]"));
   assert.ok(stream.includes("Planned Contract"));
   assert.ok(stream.includes("evaluateRisk"));
+});
+
+test("ast: replaceSymbolSlice replaces targeted function and preserves surrounding code", () => {
+  const original = `import { foo } from "./foo.js";
+
+export function calculateTax(amount) {
+  return amount * 0.1;
+}
+
+export function processOrder(orderId) {
+  return "order_" + orderId;
+}
+`;
+
+  const newTaxFn = `export function calculateTax(amount) {
+  // Upgraded tax logic
+  return amount * 0.15;
+}`;
+
+  const { updatedCode, replacedLines } = replaceSymbolSlice(original, {
+    symbol: "calculateTax",
+    newCode: newTaxFn,
+    language: "javascript",
+  });
+
+  assert.ok(updatedCode.includes("Upgraded tax logic"));
+  assert.ok(updatedCode.includes("amount * 0.15"));
+  assert.ok(updatedCode.includes("processOrder(orderId)"));
+  assert.ok(updatedCode.includes('import { foo } from "./foo.js";'));
+  assert.equal(replacedLines.startLine, 3);
 });
