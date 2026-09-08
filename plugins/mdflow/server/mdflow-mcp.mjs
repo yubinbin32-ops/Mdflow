@@ -26779,7 +26779,14 @@ ${JSON.stringify(decision.consequences)}`;
         const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
         const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
         const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
-        lines.push(`${index + 1}. [block:${block.id}] ${title} \u2014 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
+        const isGhost = block.deliveryState === "proposed" || block.deliveryState === "planned";
+        const stateTag = isGhost ? "Ghost (Virtual Blueprint)" : "Solid (Anchored)";
+        lines.push(`${index + 1}. [block:${block.id}] ${title} \u2014 ${stateTag} \xB7 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
+        const sources = snapshot.sourceRefs?.filter((s) => s.blockId === block.id) ?? [];
+        if (sources.length > 0) {
+          const primary = sources[0];
+          lines.push(`  Facade: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` (L${primary.startLine}-L${primary.endLine})` : ""}`);
+        }
         if (summary && (selectedPlanIds.size === 0 || explicitBlockFocusIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
         if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
@@ -28654,16 +28661,41 @@ ${JSON.stringify(decision.consequences)}`;
     }
     if (!fields.path?.trim()) throw new Error("add_source_ref requires fields.path");
     const sourceId = fields.sourceId ?? identifier("source");
+    let resolvedPath = fields.path.trim();
+    let resolvedSymbol = fields.symbol ?? null;
+    if (resolvedPath.includes(":") && !resolvedSymbol) {
+      const parts = resolvedPath.split(":");
+      resolvedPath = parts[0];
+      resolvedSymbol = parts[1];
+    }
+    let startLine = fields.startLine ?? null;
+    let endLine = fields.endLine ?? null;
+    if ((!startLine || !endLine) && this.paths?.projectRoot) {
+      const fullPath = path4.isAbsolute(resolvedPath) ? resolvedPath : path4.resolve(this.paths.projectRoot, resolvedPath);
+      try {
+        if (fs3.existsSync(fullPath)) {
+          const content = fs3.readFileSync(fullPath, "utf8");
+          const symbols = extractSymbols(content, { filePath: resolvedPath });
+          const matched = resolvedSymbol ? symbols.find((s) => s.name === resolvedSymbol || s.name.endsWith(`.${resolvedSymbol}`)) : symbols[0];
+          if (matched) {
+            startLine = matched.startLine;
+            endLine = matched.endLine;
+            if (!resolvedSymbol) resolvedSymbol = matched.name;
+          }
+        }
+      } catch {
+      }
+    }
     this.database.prepare(
       `INSERT INTO source_refs(id, block_id, path, start_line, end_line, symbol, role, git_commit, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       sourceId,
       operation.id,
-      fields.path,
-      fields.startLine ?? null,
-      fields.endLine ?? null,
-      fields.symbol ?? null,
+      resolvedPath,
+      startLine,
+      endLine,
+      resolvedSymbol,
       fields.role ?? "implementation",
       fields.gitCommit ?? null,
       timestamp
