@@ -22,8 +22,9 @@ struct CanvasScene: Equatable {
 
     static func compile(snapshot: GraphSnapshot, lenses: Set<ViewLens>, topInset: CGFloat = 70) -> CanvasScene {
         let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
+        let excludedKinds: Set<String> = ["decision", "test", "checkpoint"]
         let allCanvasBlocks = snapshot.blocks.filter {
-            !backgroundRuleIDs.contains($0.id) && $0.kind.lowercased() != "decision"
+            !backgroundRuleIDs.contains($0.id) && !excludedKinds.contains($0.kind.lowercased())
         }
         let visibleIDs = Set(allCanvasBlocks.filter { block in
             lenses.contains { $0.includes(block: block) }

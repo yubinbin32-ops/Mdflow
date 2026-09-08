@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS projects (
   repo_root TEXT NOT NULL,
   graph_revision INTEGER NOT NULL DEFAULT 0,
   schema_version INTEGER NOT NULL DEFAULT 1,
+  handoff_json TEXT NOT NULL DEFAULT '{}',
+  timeline_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -449,6 +451,8 @@ function addColumnIfMissing(database, table, column, definition) {
 }
 
 function migratePlanWorkflow(database) {
+  addColumnIfMissing(database, "projects", "handoff_json", "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(database, "projects", "timeline_json", "TEXT NOT NULL DEFAULT '{}'");
   addColumnIfMissing(database, "plans", "phase", "TEXT NOT NULL DEFAULT 'implementation'");
   addColumnIfMissing(database, "plans", "plan_order", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(database, "plans", "completion_policy_json", "TEXT NOT NULL DEFAULT '{}'");

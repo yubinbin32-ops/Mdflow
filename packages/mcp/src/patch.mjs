@@ -1,5 +1,5 @@
 const HEADER_PATTERN = /^mdflow\/(\d+)(?:\s+(.*))?$/;
-const TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
+const TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_step|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
 
 function tokenize(input, lineNumber) {
   const tokens = [];
@@ -160,6 +160,17 @@ export function parseGraphPatch(input) {
     if (!line || line.startsWith("#")) continue;
     if (line === "end") {
       flush();
+      continue;
+    }
+    if (/^flow[:\s]/.test(line)) {
+      flush();
+      const flowExpr = line.replace(/^flow[:\s]+/, "").trim();
+      if (!flowExpr) throw new Error(`Compact patch line ${index + 1} has an empty flow expression`);
+      operations.push({
+        action: "flow",
+        flow: flowExpr,
+        line: index + 1,
+      });
       continue;
     }
     if (/^(create|update|checkpoint|source)\s/.test(line)) {

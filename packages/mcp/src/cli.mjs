@@ -43,9 +43,16 @@ export async function runCli(args, router) {
     try {
       const service = router.serviceFor({ projectRoot });
       const snap = service.snapshot();
+      const timeline = service.getTimeline();
       console.log(`Project: ${snap.project.name} (${snap.project.id})`);
       console.log(`Graph Revision: ${snap.project.graphRevision}`);
       console.log(`Blocks: ${snap.blocks.length} | Chains: ${snap.chains.length} | Plans: ${snap.plans.length} | Checkpoints: ${snap.checkpoints.length}`);
+      if (timeline?.activeCursor?.nowDoing) {
+        console.log(`Timeline Focus: ${timeline.activeCursor.nowDoing}`);
+        if (timeline.activeCursor.nextUp) {
+          console.log(`Next Up: ${timeline.activeCursor.nextUp}`);
+        }
+      }
       const activePlans = snap.plans.filter((p) => p.status === "active");
       if (activePlans.length > 0) {
         console.log(`Active Plans (${activePlans.length}):`);

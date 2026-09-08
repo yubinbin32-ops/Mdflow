@@ -274,6 +274,77 @@ server.registerTool(
 );
 
 server.registerTool(
+  "timeline_view",
+  {
+    description:
+      "Read the unified project Timeline: execution phases, ordered plans (P0 > P1 > P2), and current active cursor (nowDoing, nextUp, lastFinished).",
+    inputSchema: { ...projectRootInput, includeStructured: z.boolean().default(false) },
+  },
+  async (input) => {
+    const data = withProject(input, (service) => service.getTimeline());
+    return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "timeline_sync",
+  {
+    description:
+      "Synchronize development cursor and active focus across conversations. Updates nowDoing, nextUp, and active step in the timeline.",
+    inputSchema: {
+      ...projectRootInput,
+      planId: z.string().optional(),
+      stepId: z.string().optional(),
+      nowDoing: z.string().optional(),
+      nextUp: z.string().optional(),
+      lastFinished: z.string().optional(),
+      touchedFiles: z.array(z.string()).optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.syncTimeline(payload));
+    const md = [
+      "# Timeline Synchronized",
+      `- Plan: \`plan:${data.activePlanId ?? "none"}\``,
+      ...(data.activeStepId ? [`- Step: \`${data.activeStepId}\``] : []),
+      `- Now Doing: ${data.nowDoing}`,
+      ...(data.nextUp ? [`- Next Up: ${data.nextUp}`] : []),
+      ...(data.lastFinished ? [`- Last Finished: ${data.lastFinished}`] : []),
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "step_advance",
+  {
+    description:
+      "Advance the active step of a Plan to complete, automatically updating progress and pointing nowDoing to the next step.",
+    inputSchema: {
+      ...projectRootInput,
+      planId: z.string().optional(),
+      stepId: z.string().optional(),
+      status: z.enum(["complete", "active", "skipped", "failed"]).default("complete"),
+      summary: z.string().optional(),
+      nextStepId: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.advanceStep(payload));
+    const md = [
+      "# Step Advanced",
+      `- Plan: \`plan:${data.activePlanId ?? "none"}\``,
+      `- Finished: ${data.lastFinished}`,
+      `- Now Doing: ${data.nowDoing}`,
+      ...(data.nextUp ? [`- Next Up: ${data.nextUp}`] : []),
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured);
+  },
+);
+
+server.registerTool(
   "changes_since",
   {
     description:
@@ -460,6 +531,90 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.graphPatch(payload));
     return writeResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "graph_flow",
+  {
+    description:
+      "Declare architectural flows and pipelines using natural arrow expressions like 'block:A -> block:B -> block:C' or 'A -[calls]-> B'. Automatically creates or updates links without complex JSON crafting.",
+    inputSchema: {
+      ...projectRootInput,
+      flow: z.string().min(1),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) =>
+      service.applyArrowFlow(payload.flow, { actor: payload.actor, reason: payload.reason }),
+    );
+    const md = [
+      "# Flow Applied",
+      `- Flow: \`${data.flow}\``,
+      `- Links modified: ${data.links?.length ?? 0}`,
+      `- Graph revision: ${data.graphRevision}`,
+      ...(Array.isArray(data.links) && data.links.length
+        ? ["", "## Links", ...data.links.map((l) => `- \`block:${l.sourceId}\` -[${l.kind}]-> \`block:${l.targetId}\` (${l.updated ? "updated" : "created"})`)]
+        : []),
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "architecture_link_suggest",
+  {
+    description:
+      "Suggest high-confidence architectural links for an architecture Block based on AST source imports and layered conventions.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: z.string().min(1),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.suggestLinks(payload.blockId));
+    const suggestions = Array.isArray(data) ? data : [];
+    const md = [
+      `# Link Suggestions for block:${input.blockId}`,
+      `- Found: ${suggestions.length} suggestion(s)`,
+      ...(suggestions.length
+        ? ["", ...suggestions.map((s) => `- \`block:${s.sourceId}\` -[${s.kind}]-> \`block:${s.targetId}\` (${s.confidence} confidence): ${s.reason}`)]
+        : ["- No new link suggestions found."]),
+    ].join("\n");
+    return readResult(data, md, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "architecture_connect",
+  {
+    description:
+      "Connect two architecture Blocks with a validated Link in one simple call without crafting manual operations.",
+    inputSchema: {
+      ...projectRootInput,
+      sourceId: z.string().min(1),
+      targetId: z.string().min(1),
+      kind: z.enum(["flows_to", "calls", "reads", "writes", "depends_on", "implements", "validates", "constrains", "supersedes"]).default("calls"),
+      label: z.string().optional(),
+      contract: z.string().optional(),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.connectBlocks(payload));
+    const md = [
+      "# Architecture Connected",
+      `- Link: \`block:${input.sourceId}\` -[${input.kind}]-> \`block:${input.targetId}\``,
+      `- Graph revision: ${data.graphRevision}`,
+      `- ChangeSet: ${data.changeSetId}`,
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured);
   },
 );
 

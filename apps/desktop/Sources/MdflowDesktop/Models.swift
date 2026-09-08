@@ -418,8 +418,8 @@ struct GraphSelection: Equatable, Hashable {
 }
 
 enum ViewLens: String, CaseIterable, Identifiable {
-    // Canvas filters are a projection of the canonical Block.kind values.
-    // Plans and QA are not kinds, so they must not appear as competing lenses.
+    // Canvas filters are a projection of the canonical architectural Block.kind values.
+    // Tests belong to Plans/Checkpoints and are not architectural blocks.
     case principle = "Principle"
     case product = "Product"
     case requirement = "Requirement"
@@ -432,8 +432,6 @@ enum ViewLens: String, CaseIterable, Identifiable {
     case data = "Data"
     case database = "Database"
     case risk = "Risk"
-    case test = "Test"
-    case checkpoint = "Checkpoint"
 
     var id: String { rawValue }
 

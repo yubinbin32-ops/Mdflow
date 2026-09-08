@@ -229,7 +229,29 @@ final class GraphStore: ObservableObject {
     }
 
     var plans: [PlanItem] {
-        snapshot.plans
+        snapshot.plans.sorted { a, b in
+            let phaseA = a.phase.lowercased()
+            let phaseB = b.phase.lowercased()
+            if phaseA != phaseB {
+                return phaseA < phaseB
+            }
+            let rankA = Self.priorityRank(a.priority)
+            let rankB = Self.priorityRank(b.priority)
+            if rankA != rankB {
+                return rankA < rankB
+            }
+            return a.order < b.order
+        }
+    }
+
+    static func priorityRank(_ priority: String) -> Int {
+        switch priority.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "p0", "critical": return 0
+        case "p1", "high": return 1
+        case "p2", "normal": return 2
+        case "p3", "low": return 3
+        default: return 2
+        }
     }
 
     var architectureCoverage: ArchitectureCoverage {
@@ -343,7 +365,8 @@ final class GraphStore: ObservableObject {
     /// This keeps the toolbar semantic and avoids empty or overlapping lenses.
     var availableLenses: [ViewLens] {
         let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
-        let kinds = Set(snapshot.blocks.filter { !backgroundRuleIDs.contains($0.id) && $0.kind.lowercased() != "decision" }.map { $0.kind.lowercased() })
+        let excludedKinds: Set<String> = ["decision", "test", "checkpoint"]
+        let kinds = Set(snapshot.blocks.filter { !backgroundRuleIDs.contains($0.id) && !excludedKinds.contains($0.kind.lowercased()) }.map { $0.kind.lowercased() })
         return ViewLens.allCases.filter { kinds.contains($0.rawValue.lowercased()) }
     }
 
@@ -388,10 +411,9 @@ final class GraphStore: ObservableObject {
     var visibleBlocks: [BlockItem] {
         guard !enabledLenses.isEmpty else { return [] }
         let backgroundRuleIDs = Set(snapshot.backgroundScopes.map(\.blockId))
+        let excludedKinds: Set<String> = ["decision", "test", "checkpoint"]
         return snapshot.blocks.filter { block in
-            // Legacy decision Blocks are deliberately not a Canvas projection.
-            // New decisions are loaded from the independent Decision entity.
-            block.kind.lowercased() != "decision" && enabledLenses.contains { $0.includes(block: block) }
+            !excludedKinds.contains(block.kind.lowercased()) && enabledLenses.contains { $0.includes(block: block) }
         }
             .filter { !backgroundRuleIDs.contains($0.id) }
     }
@@ -824,7 +846,7 @@ final class GraphStore: ObservableObject {
         case .principle: text("principle"); case .product: text("product"); case .requirement: text("requirement")
         case .flow: text("flow"); case .ui: text("ui"); case .service: text("service")
         case .function: text("function"); case .api: text("api"); case .integration: text("integration"); case .data: text("data")
-        case .database: text("database"); case .risk: text("risk"); case .test: text("test"); case .checkpoint: text("checkpoint")
+        case .database: text("database"); case .risk: text("risk")
         }
     }
 

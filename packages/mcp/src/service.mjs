@@ -7,6 +7,9 @@ import { resolveProjectPaths } from "./paths.mjs";
 import { parseGraphPatch } from "./patch.mjs";
 import { extractSymbols, extractSymbolSlice, buildChainCodeStream, replaceSymbolSlice, detectLanguage } from "./ast.mjs";
 import { sanitizeTerminalOutput } from "./sanitizer.mjs";
+import { getTimelineState, syncTimeline, advanceStep } from "./timeline.mjs";
+import { applyArrowFlow, expandArrowFlowOperations } from "./flow.mjs";
+import { suggestLinksForBlock, connectBlocks } from "./architecture-link.mjs";
 
 const BLOCK_KINDS = new Set([
   "principle",
@@ -20,14 +23,13 @@ const BLOCK_KINDS = new Set([
   "data",
   "database",
   "risk",
-  "test",
-  "checkpoint",
 ]);
 
-// `decision` was briefly accepted as a Block kind in the migration-era
-// schema. Keep it readable for old graphs, but never create or mutate one:
-// durable architecture decisions now live in the scoped `decisions` table.
-const LEGACY_BLOCK_KINDS = new Set([...BLOCK_KINDS, "decision"]);
+// `decision`, `test`, and `checkpoint` were accepted as Block kinds in earlier
+// schemas. Keep them readable for legacy graphs, but never create or mutate one:
+// durable architecture decisions live in the scoped `decisions` table, and
+// testing/verification belongs to Plans and Checkpoints.
+const LEGACY_BLOCK_KINDS = new Set([...BLOCK_KINDS, "decision", "test", "checkpoint"]);
 
 const DELIVERY_STATES = new Set([
   "proposed",
@@ -642,10 +644,10 @@ function derivePlanState(
   } else {
     const incompleteDependencies = ownDependencies.filter((item) => {
       const dependency = allPlans.find((candidate) => candidate.id === item.dependsOnPlanId);
-      return dependency?.status !== "complete";
+      return dependency?.derivedStatus !== "complete" && dependency?.status !== "complete";
     });
     if (incompleteDependencies.length) {
-      derivedStatus = "ready";
+      derivedStatus = "blocked";
       derivedReason ||= `Waiting for ${incompleteDependencies.length} prerequisite plan(s).`;
     } else if (totalWork > 0 && progress.completedSteps === totalWork &&
         requiredCheckpoints.length > 0 && completedGates === requiredCheckpoints.length) {
@@ -753,9 +755,15 @@ function foundationBlockGroups(snapshot, blocks) {
   const remaining = new Map(blocks.map((block) => [block.id, block]));
   const dependencyIds = new Map(blocks.map((block) => [block.id, new Set()]));
   for (const link of snapshot.links) {
-    if (link.kind !== "depends_on" || link.sourceType !== "block" || link.targetType !== "block") continue;
-    if (dependencyIds.has(link.sourceId) && dependencyIds.has(link.targetId)) {
-      dependencyIds.get(link.sourceId).add(link.targetId);
+    if (link.sourceType !== "block" || link.targetType !== "block") continue;
+    if (["depends_on", "calls", "reads", "writes"].includes(link.kind)) {
+      if (dependencyIds.has(link.sourceId) && dependencyIds.has(link.targetId)) {
+        dependencyIds.get(link.sourceId).add(link.targetId);
+      }
+    } else if (link.kind === "flows_to") {
+      if (dependencyIds.has(link.targetId) && dependencyIds.has(link.sourceId)) {
+        dependencyIds.get(link.targetId).add(link.sourceId);
+      }
     }
   }
   const layerRank = new Map(FOUNDATION_LAYER_ORDER.map((layer, index) => [layer, index]));
@@ -2180,6 +2188,30 @@ export class MdflowService {
     });
   }
 
+  getTimeline() {
+    return getTimelineState(this);
+  }
+
+  syncTimeline(payload = {}) {
+    return syncTimeline(this, payload);
+  }
+
+  advanceStep(payload = {}) {
+    return advanceStep(this, payload);
+  }
+
+  applyArrowFlow(flowExpression, options = {}) {
+    return applyArrowFlow(this, flowExpression, options);
+  }
+
+  suggestLinks(blockId) {
+    return suggestLinksForBlock(this, blockId);
+  }
+
+  connectBlocks(payload = {}) {
+    return connectBlocks(this, payload);
+  }
+
   contextForTask({ task, focusRefs = [], maxChars = 6000, locale = "en" }) {
     const snapshot = this.snapshot();
     const coverage = architectureCoverage(snapshot);
@@ -2248,7 +2280,23 @@ export class MdflowService {
       .filter((entry) => entry.focused || entry.semanticScore >= 3 || (taskMentionsPlan && entry.semanticScore >= 1))
       .sort((a, b) => b.score - a.score);
 
-    if (scoredBlocks.length === 0 && scoredChains.length === 0 && scoredPlans.length === 0) {
+    const timeline = this.getTimeline();
+    const activeCursor = timeline.activeCursor;
+    const continuationSignals = new Set(["继续", "开发", "下一步", "推进", "恢复", "接手", "开始", "continue", "next", "resume", "status", "start"]);
+    const isContinuation = terms.some((term) => continuationSignals.has(term)) || terms.length === 0;
+
+    if (activeCursor.activePlanId) {
+      const activeEntry = scoredPlans.find((e) => e.plan.id === activeCursor.activePlanId);
+      if (activeEntry) {
+        activeEntry.score += isContinuation ? 200 : 50;
+      } else {
+        const p = snapshot.plans.find((plan) => plan.id === activeCursor.activePlanId);
+        if (p) scoredPlans.unshift({ plan: p, semanticScore: 10, score: isContinuation ? 200 : 50, focused: false });
+      }
+      scoredPlans.sort((a, b) => b.score - a.score);
+    }
+
+    if (scoredPlans.length === 0) {
       for (const plan of snapshot.plans.filter((item) => ["active", "ready", "blocked"].includes(item.status)).slice(0, 3)) {
         scoredPlans.push({ plan, score: 1 });
       }
@@ -2378,6 +2426,26 @@ export class MdflowService {
       .sort(checkpointOrder);
 
     const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, ""];
+
+    // 📍 Timeline & Active Development Cursor
+    lines.push("## 📍 Timeline & Current Focus");
+    lines.push(`- Phase: ${activeCursor.activePhase} · Priority: ${activeCursor.priority}`);
+    if (activeCursor.activePlanId) {
+      lines.push(`- Active Plan: [plan:${activeCursor.activePlanId}] ${activeCursor.activePlanTitle || ""} (${activeCursor.activeStepIndex}/${activeCursor.totalSteps} steps)`);
+    }
+    if (activeCursor.activeStepTitle) {
+      lines.push(`- Active Step: ${activeCursor.activeStepTitle}`);
+    }
+    lines.push(`- Now Doing: ${activeCursor.nowDoing}`);
+    lines.push(`- Next Up: ${activeCursor.nextUp}`);
+    if (activeCursor.lastFinished) {
+      lines.push(`- Last Finished: ${activeCursor.lastFinished}`);
+    }
+    if (activeCursor.touchedFiles.length > 0) {
+      lines.push(`- Working Files: ${activeCursor.touchedFiles.join(", ")}`);
+    }
+    lines.push("");
+
     lines.push("## Architecture coverage");
     lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
     lines.push(`- ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone · ${coverage.verificationCovered}/${coverage.totalBlocks} covered by bound or passed verification · ${coverage.failingIds.length} failing`);
@@ -2535,6 +2603,18 @@ export class MdflowService {
         if (sources.length > 0) {
           const primary = sources[0];
           lines.push(`  Facade: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` (L${primary.startLine}-L${primary.endLine})` : ""}`);
+        }
+        const incoming = snapshot.links.filter((l) => l.targetType === "block" && l.targetId === block.id);
+        const outgoing = snapshot.links.filter((l) => l.sourceType === "block" && l.sourceId === block.id);
+        if (incoming.length > 0 || outgoing.length > 0) {
+          const flowParts = [];
+          if (incoming.length > 0) {
+            flowParts.push(`Upstream: ${incoming.map((l) => `[${l.sourceId}] -[${l.kind}]->`).join(", ")}`);
+          }
+          if (outgoing.length > 0) {
+            flowParts.push(`Downstream: ${outgoing.map((l) => `-[${l.kind}]-> [${l.targetId}]`).join(", ")}`);
+          }
+          lines.push(`  Flow: ${flowParts.join(" | ")}`);
         }
         if (summary && (selectedPlanIds.size === 0 || explicitBlockFocusIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
         if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
@@ -2881,6 +2961,7 @@ export class MdflowService {
       checkpoint: before.checkpoints,
       plan_change: before.planChanges,
       plan_scope: before.planChainScopes,
+      plan_step: before.planSteps,
     };
     const findEntity = (type, id) => collections[type]?.find((item) => item.id === id) ?? null;
     const requireEntity = (type, id) => {
@@ -2924,6 +3005,14 @@ export class MdflowService {
     const operations = [];
     const autoPlanEntries = [];
     for (const item of parsed.operations) {
+      if (item.action === "flow") {
+        const extraBlocks = operations
+          .filter((op) => op.action === "create_block")
+          .map((op) => ({ id: op.id, title: op.fields?.title || op.id, kind: op.fields?.kind || "service" }));
+        const flowExpansion = expandArrowFlowOperations(before, item.flow, extraBlocks);
+        operations.push(...flowExpansion.operations);
+        continue;
+      }
       const fields = normalizeFields(item.fields);
       const targetType = item.targetType;
       const targetId = item.targetId;
@@ -2976,6 +3065,18 @@ export class MdflowService {
           id: plan.id,
           expectedRevision: item.expectedRevision ?? plan.currentRevision,
           fields: { scopeId: targetId, patch: fields },
+        });
+        continue;
+      }
+      if (targetType === "plan_step") {
+        if (item.action !== "update") throw new Error("plan_step supports update only");
+        const step = requireEntity("plan_step", targetId);
+        const plan = resolvedPlanId ? requireEntity("plan", resolvedPlanId) : requireEntity("plan", step.planId);
+        operations.push({
+          action: "update_plan_step",
+          id: plan.id,
+          expectedRevision: item.expectedRevision ?? plan.currentRevision,
+          fields: { stepId: targetId, patch: fields },
         });
         continue;
       }
@@ -3332,6 +3433,8 @@ export class MdflowService {
         return this.setPlanDependencies(operation, context);
       case "set_plan_steps":
         return this.setPlanSteps(operation, context);
+      case "update_plan_step":
+        return this.updatePlanStep(operation, context);
       case "set_plan_checkpoints":
         return this.setPlanCheckpoints(operation, context);
       case "set_plan_chain_scopes":
@@ -3586,6 +3689,28 @@ export class MdflowService {
       JSON.stringify(step.targetRefs ?? []), JSON.stringify(step.proposedDelta ?? []), timestamp, timestamp,
     ));
     return this.finishPlanRelationMutation(plan, operation, "steps-set", `${steps.length} ordered step(s)`);
+  }
+
+  updatePlanStep(operation, { timestamp }) {
+    const plan = this.planForMutation(operation, "update_plan_step");
+    const stepId = operation.fields?.stepId;
+    const patch = operation.fields?.patch;
+    if (!stepId || !patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new Error("update_plan_step requires fields.stepId and fields.patch");
+    }
+    const row = this.database.prepare("SELECT * FROM plan_steps WHERE plan_id = ? AND id = ?").get(operation.id, stepId);
+    if (!row) throw new Error(`plan_step:${stepId} not found in plan:${operation.id}`);
+    const nextStatus = patch.status ?? row.status;
+    assertAllowed(nextStatus, PLAN_STEP_STATUSES, "plan step status");
+    const title = patch.title?.trim() ?? row.title;
+    const action = patch.action ?? row.action;
+    const targetRefs = patch.targetRefs ? JSON.stringify(patch.targetRefs) : row.target_refs_json;
+    const proposedDelta = patch.proposedDelta ? JSON.stringify(patch.proposedDelta) : row.proposed_delta_json;
+    this.database.prepare(
+      `UPDATE plan_steps SET title = ?, action = ?, status = ?, target_refs_json = ?, proposed_delta_json = ?, updated_at = ?
+       WHERE plan_id = ? AND id = ?`,
+    ).run(title, action, nextStatus, targetRefs, proposedDelta, timestamp, operation.id, stepId);
+    return this.finishPlanRelationMutation(plan, operation, "plan-step-updated", `Updated plan_step:${stepId}`);
   }
 
   setPlanCheckpoints(operation) {
@@ -4000,7 +4125,7 @@ export class MdflowService {
     if (fields.kind === "decision") {
       throw new Error("Decision records are not Canvas Blocks; use create_decision with project/lens/chain/repo scopes");
     }
-    assertAllowed(fields.kind, BLOCK_KINDS, "block kind");
+    assertAllowed(fields.kind, LEGACY_BLOCK_KINDS, "block kind");
     assertAllowed(fields.architectureLayer ?? "unspecified", ARCHITECTURE_LAYERS, "architecture layer");
     assertAllowed(fields.deliveryState ?? "proposed", DELIVERY_STATES, "delivery state");
     assertAllowed(fields.healthState ?? "unknown", HEALTH_STATES, "health state");
@@ -4181,7 +4306,47 @@ export class MdflowService {
         .prepare(`UPDATE ${targetTable} SET health_state = ?, updated_at = ? WHERE id = ?`)
         .run(healthState, timestamp, fields.targetId);
     }
-    return { entityType: "checkpoint", id, action: "created", revision: 1, summary: fields.title.trim() };
+
+    if (status === "passed") {
+      // 1. Advance bound plan_changes to complete
+      const bindings = this.database
+        .prepare("SELECT * FROM checkpoint_bindings WHERE checkpoint_id = ?")
+        .all(id);
+      for (const binding of bindings) {
+        if (binding.subject_type === "plan_change") {
+          this.database
+            .prepare("UPDATE plan_changes SET status = 'complete', updated_at = ? WHERE id = ?")
+            .run(timestamp, binding.subject_id);
+        }
+      }
+
+      // 2. If bound to a block and block is implementing/verifying, update delivery_state to complete
+      if (fields.targetType === "block") {
+        this.database
+          .prepare("UPDATE blocks SET delivery_state = 'complete', updated_at = ? WHERE id = ? AND delivery_state IN ('implementing', 'verifying')")
+          .run(timestamp, fields.targetId);
+      }
+
+      // 3. If referenced by a plan_step in plan_checkpoint_refs, check if all required checkpoints for that step have passed
+      const stepRefs = this.database
+        .prepare("SELECT plan_id, step_id FROM plan_checkpoint_refs WHERE checkpoint_id = ? AND step_id IS NOT NULL")
+        .all(id);
+      for (const ref of stepRefs) {
+        const requiredChecks = this.database
+          .prepare(`SELECT c.status FROM plan_checkpoint_refs r
+                    JOIN checkpoints c ON c.id = r.checkpoint_id
+                    WHERE r.plan_id = ? AND r.step_id = ? AND r.required = 1`)
+          .all(ref.plan_id, ref.step_id);
+        const allPassed = requiredChecks.every((c) => c.status === "passed");
+        if (allPassed && requiredChecks.length > 0) {
+          this.database
+            .prepare("UPDATE plan_steps SET status = 'complete', updated_at = ? WHERE plan_id = ? AND id = ?")
+            .run(timestamp, ref.plan_id, ref.step_id);
+        }
+      }
+    }
+
+    return { entityType: "checkpoint", id, action: existing ? "updated" : "created", revision, summary: fields.title.trim() };
   }
 
   deleteCheckpoint(operation, { timestamp }) {
@@ -4317,7 +4482,7 @@ export class MdflowService {
         if (rawValue === "decision") {
           throw new Error("Decision records are not Canvas Blocks; use update_decision or create_decision");
         }
-        assertAllowed(rawValue, BLOCK_KINDS, "block kind");
+        assertAllowed(rawValue, LEGACY_BLOCK_KINDS, "block kind");
       }
       if (field === "kind" && type === "link") assertAllowed(rawValue, LINK_KINDS, "link kind");
       if (field === "architectureLayer") assertAllowed(rawValue, ARCHITECTURE_LAYERS, "architecture layer");
@@ -4695,6 +4860,9 @@ export class MdflowService {
       } else if (block.kind === "decision") {
         warnings.push(`Legacy decision Block is not a Decision record and is excluded from the Canvas; migrate block:${block.id} to decision:<id>`);
         continue;
+      } else if (block.kind === "test" || block.kind === "checkpoint") {
+        warnings.push(`Block block:${block.id} uses kind '${block.kind}'. Testing and verification criteria belong in Checkpoints and Plan gates.`);
+        continue;
       }
       if (block.deliveryState === "complete") {
         const passed = snapshot.checkpoints.some(
@@ -4702,6 +4870,23 @@ export class MdflowService {
         );
         if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
       }
+    }
+    const connectedBlockIds = new Set();
+    for (const link of snapshot.links) {
+      if (link.sourceType === "block") connectedBlockIds.add(link.sourceId);
+      if (link.targetType === "block") connectedBlockIds.add(link.targetId);
+    }
+    for (const node of snapshot.chainNodes) {
+      connectedBlockIds.add(node.blockId);
+    }
+    const ruleBlockIds = new Set(snapshot.backgroundScopes.map((s) => s.blockId));
+    const isolatedFlowBlocks = snapshot.blocks.filter((block) =>
+      !connectedBlockIds.has(block.id) &&
+      !ruleBlockIds.has(block.id) &&
+      !["principle", "decision", "risk", "test", "checkpoint"].includes(block.kind)
+    );
+    if (isolatedFlowBlocks.length > 0) {
+      warnings.push(`${isolatedFlowBlocks.length} architecture Block(s) have no Link or Chain connections (independent or awaiting flow): ${isolatedFlowBlocks.slice(0, 10).map((b) => `block:${b.id}`).join(", ")}${isolatedFlowBlocks.length > 10 ? " …" : ""}. Use graph_flow ("A -> B") if they belong to a sequence.`);
     }
     const unspecifiedBlocks = snapshot.blocks.filter((block) => block.architectureLayer === "unspecified");
     if (unspecifiedBlocks.length > 0) {
