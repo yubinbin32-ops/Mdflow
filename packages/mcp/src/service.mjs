@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import { openDatabase, transaction, exportGraphToJson, importGraphFromJson, getSyncMeta, setSyncMeta } from "./database.mjs";
 import { resolveProjectPaths } from "./paths.mjs";
 import { parseGraphPatch } from "./patch.mjs";
+import { extractSymbolSlice, buildChainCodeStream } from "./ast.mjs";
 
 const BLOCK_KINDS = new Set([
   "principle",
@@ -1085,6 +1087,79 @@ export class MdflowService {
       checkpointBindings,
       checkpointDependencies,
       localizations,
+    };
+  }
+
+  chainCodeStream({ chainId, maxTotalChars = 4000 } = {}) {
+    if (!chainId?.trim()) throw new Error("chainId is required");
+    this.ensureSynced();
+    const snapshot = this.snapshot();
+    const chain = snapshot.chains.find((c) => c.id === chainId);
+    if (!chain) throw new Error(`Chain not found: ${chainId}`);
+
+    const nodeIds = snapshot.chainNodes
+      .filter((node) => node.chainId === chain.id)
+      .sort((a, b) => a.position - b.position)
+      .map((node) => node.blockId);
+
+    const streamNodes = [];
+    for (const blockId of nodeIds) {
+      const block = snapshot.blocks.find((b) => b.id === blockId);
+      if (!block) continue;
+
+      const sourceRefs = this.database
+        .prepare("SELECT path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id")
+        .all(block.id);
+
+      let code = null;
+      let filePath = null;
+      let symbol = null;
+
+      if (sourceRefs.length > 0) {
+        const ref = sourceRefs[0];
+        filePath = ref.path;
+        symbol = ref.symbol;
+        const fullPath = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(this.paths.projectRoot, filePath);
+        try {
+          if (fs.existsSync(fullPath)) {
+            const content = fs.readFileSync(fullPath, "utf8");
+            const slice = extractSymbolSlice(content, {
+              symbol: ref.symbol,
+              startLine: ref.start_line,
+              endLine: ref.end_line,
+              maxLines: 40,
+            });
+            code = slice.code;
+          }
+        } catch {
+          code = null;
+        }
+      }
+
+      streamNodes.push({
+        blockId: block.id,
+        title: block.title,
+        filePath,
+        symbol,
+        code,
+        contract: block.contract || block.summary,
+      });
+    }
+
+    const codeStream = buildChainCodeStream(streamNodes, { maxTotalChars });
+    return {
+      chainId: chain.id,
+      title: chain.title,
+      nodes: streamNodes,
+      codeStream,
+      markdown: [
+        `# Chain Code Stream: ${chain.title} (${chain.id})`,
+        `Nodes: ${streamNodes.length} · Sliced from AST symbol facades`,
+        "",
+        codeStream,
+      ].join("\n"),
     };
   }
 

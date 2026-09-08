@@ -3258,8 +3258,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path5) {
-      let input = path5;
+    function removeDotSegments(path7) {
+      let input = path7;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3668,8 +3668,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path5 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
+        const path7 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7568,8 +7568,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path5, errorMaps, issueData } = params;
-  const fullPath = [...path5, ...issueData.path || []];
+  const { data, path: path7, errorMaps, issueData } = params;
+  const fullPath = [...path7, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7684,11 +7684,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path5, key) {
+  constructor(parent, value, path7, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path5;
+    this._path = path7;
     this._key = key;
   }
   get path() {
@@ -11270,10 +11270,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path5) {
-  if (!path5)
+function getElementAtPath(obj, path7) {
+  if (!path7)
     return obj;
-  return path5.reduce((acc, key) => acc?.[key], obj);
+  return path7.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11685,11 +11685,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path5, issues) {
+function prefixIssues(path7, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path5);
+    iss.path.unshift(path7);
     return iss;
   });
 }
@@ -12118,16 +12118,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path5 = []) => {
+  const processError = (error3, path7 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path5, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path5, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
       } else {
-        const fullpath = [...path5, ...issue2.path];
+        const fullpath = [...path7, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -16632,11 +16632,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path5) {
-  if (path5.length === 0) {
+function getDotPath(path7) {
+  if (path7.length === 0) {
     return "object root";
   }
-  return path5.reduce((acc, seg, index) => {
+  return path7.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23203,12 +23203,13 @@ var StdioServerTransport = class {
 };
 
 // packages/mcp/src/project-router.mjs
-import path3 from "node:path";
+import path5 from "node:path";
 import fs4 from "node:fs";
 
 // packages/mcp/src/service.mjs
 import crypto3 from "node:crypto";
 import fs3 from "node:fs";
+import path4 from "node:path";
 
 // packages/mcp/src/database.mjs
 import crypto from "node:crypto";
@@ -24256,6 +24257,237 @@ function parseGraphPatch(input) {
   return { ...header, operations };
 }
 
+// packages/mcp/src/ast.mjs
+import path3 from "node:path";
+function detectLanguage(filePath = "") {
+  const ext = path3.extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".ts":
+    case ".tsx":
+      return "typescript";
+    case ".js":
+    case ".jsx":
+    case ".mjs":
+    case ".cjs":
+      return "javascript";
+    case ".swift":
+      return "swift";
+    case ".py":
+      return "python";
+    case ".go":
+      return "go";
+    case ".rs":
+      return "rust";
+    default:
+      return "text";
+  }
+}
+function extractSymbols(sourceCode, { language = "typescript", filePath = "" } = {}) {
+  const lines = sourceCode.split(/\r?\n/);
+  const symbols = [];
+  const lang = language === "text" && filePath ? detectLanguage(filePath) : language;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNum = i + 1;
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*")) {
+      continue;
+    }
+    if (lang === "typescript" || lang === "javascript") {
+      const fnMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*(\([^{]*\))/);
+      if (fnMatch) {
+        symbols.push({
+          name: fnMatch[1],
+          kind: "function",
+          signature: `${fnMatch[1]}${fnMatch[2]}`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const arrowMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(\([^{=]*\)\s*(?::\s*[^=]+)?)\s*=>/);
+      if (arrowMatch) {
+        symbols.push({
+          name: arrowMatch[1],
+          kind: "function",
+          signature: `${arrowMatch[1]} = ${arrowMatch[2]} =>`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const classMatch = trimmed.match(/^(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_$]+)(?:\s+extends\s+[^{]+)?(?:\s+implements\s+[^{]+)?/);
+      if (classMatch) {
+        symbols.push({
+          name: classMatch[1],
+          kind: "class",
+          signature: classMatch[0].replace(/^export\s+/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const ifaceMatch = trimmed.match(/^(?:export\s+)?interface\s+([A-Za-z0-9_$]+)/);
+      if (ifaceMatch) {
+        symbols.push({
+          name: ifaceMatch[1],
+          kind: "interface",
+          signature: ifaceMatch[0].replace(/^export\s+/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const typeMatch = trimmed.match(/^(?:export\s+)?type\s+([A-Za-z0-9_$]+)\s*=/);
+      if (typeMatch) {
+        symbols.push({
+          name: typeMatch[1],
+          kind: "type",
+          signature: trimmed.replace(/;$/, ""),
+          startLine: lineNum,
+          endLine: lineNum
+        });
+        continue;
+      }
+    } else if (lang === "swift") {
+      const swiftFuncMatch = trimmed.match(/^(?:public\s+|private\s+|fileprivate\s+|internal\s+|open\s+)?(?:static\s+|class\s+)?(?:mutating\s+)?func\s+([A-Za-z0-9_]+)\s*(\([^{]*\))/);
+      if (swiftFuncMatch) {
+        symbols.push({
+          name: swiftFuncMatch[1],
+          kind: "function",
+          signature: `${swiftFuncMatch[1]}${swiftFuncMatch[2]}`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const swiftTypeMatch = trimmed.match(/^(?:public\s+|private\s+|fileprivate\s+|internal\s+|open\s+)?(?:final\s+)?(struct|class|enum|protocol)\s+([A-Za-z0-9_]+)/);
+      if (swiftTypeMatch) {
+        symbols.push({
+          name: swiftTypeMatch[2],
+          kind: swiftTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+    } else if (lang === "python") {
+      const pyFuncMatch = trimmed.match(/^(?:async\s+)?def\s+([A-Za-z0-9_]+)\s*(\([^)]*\)(?:\s*->\s*[^:]+)?:)/);
+      if (pyFuncMatch) {
+        symbols.push({
+          name: pyFuncMatch[1],
+          kind: "function",
+          signature: `def ${pyFuncMatch[1]}${pyFuncMatch[2]}`,
+          startLine: lineNum,
+          endLine: findPythonBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const pyClassMatch = trimmed.match(/^class\s+([A-Za-z0-9_]+)(?:\([^)]*\))?:/);
+      if (pyClassMatch) {
+        symbols.push({
+          name: pyClassMatch[1],
+          kind: "class",
+          signature: pyClassMatch[0],
+          startLine: lineNum,
+          endLine: findPythonBlockEnd(lines, i)
+        });
+        continue;
+      }
+    }
+  }
+  return symbols;
+}
+function findBlockEnd(lines, startIdx) {
+  let openBraces = 0;
+  let started = false;
+  for (let i = startIdx; i < lines.length; i++) {
+    const line = lines[i];
+    for (const char of line) {
+      if (char === "{") {
+        openBraces++;
+        started = true;
+      } else if (char === "}") {
+        openBraces--;
+      }
+    }
+    if (started && openBraces <= 0) {
+      return i + 1;
+    }
+  }
+  return Math.min(lines.length, startIdx + 30);
+}
+function findPythonBlockEnd(lines, startIdx) {
+  const startIndent = lines[startIdx].search(/\S|$/);
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+    const currentIndent = line.search(/\S|$/);
+    if (currentIndent <= startIndent) {
+      return i;
+    }
+  }
+  return lines.length;
+}
+function extractSymbolSlice(sourceCode, { symbol = null, startLine = null, endLine = null, maxLines = 50 } = {}) {
+  const lines = sourceCode.split(/\r?\n/);
+  let targetStart = startLine;
+  let targetEnd = endLine;
+  if (symbol && (!targetStart || !targetEnd)) {
+    const symbols = extractSymbols(sourceCode);
+    const matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
+    if (matched) {
+      targetStart = matched.startLine;
+      targetEnd = matched.endLine;
+    }
+  }
+  if (!targetStart) targetStart = 1;
+  if (!targetEnd) targetEnd = Math.min(lines.length, targetStart + maxLines - 1);
+  const totalLines = targetEnd - targetStart + 1;
+  const sliceLines = lines.slice(targetStart - 1, Math.min(targetEnd, targetStart + maxLines - 1));
+  let result = sliceLines.join("\n");
+  if (totalLines > maxLines) {
+    result += `
+... [${totalLines - maxLines} lines collapsed; use entity_open or editor for full body]`;
+  }
+  return {
+    startLine: targetStart,
+    endLine: targetEnd,
+    totalLines,
+    code: result
+  };
+}
+function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4e3 } = {}) {
+  const sections = [];
+  let currentChars = 0;
+  for (const node2 of chainNodes) {
+    const { blockId, title, filePath, symbol, code, contract } = node2;
+    const header = `// -------------------------------------------------------------
+// [Node: ${blockId}] ${title} ${filePath ? `(${filePath}${symbol ? ` :: ${symbol}` : ""})` : ""}
+// -------------------------------------------------------------`;
+    let body = "";
+    if (code) {
+      body = code;
+    } else if (contract) {
+      body = `// Planned Contract (Unmaterialized Facade):
+// ${contract}`;
+    } else {
+      body = `// Planned Block (No code facade yet)`;
+    }
+    const section = `${header}
+${body}
+`;
+    if (currentChars + section.length > maxTotalChars && sections.length > 0) {
+      sections.push(`// ... [Remaining nodes truncated for context budget]`);
+      break;
+    }
+    sections.push(section);
+    currentChars += section.length;
+  }
+  return sections.join("\n");
+}
+
 // packages/mcp/src/service.mjs
 var BLOCK_KINDS = /* @__PURE__ */ new Set([
   "principle",
@@ -25244,6 +25476,64 @@ var MdflowService = class {
       localizations
     };
   }
+  chainCodeStream({ chainId, maxTotalChars = 4e3 } = {}) {
+    if (!chainId?.trim()) throw new Error("chainId is required");
+    this.ensureSynced();
+    const snapshot = this.snapshot();
+    const chain = snapshot.chains.find((c) => c.id === chainId);
+    if (!chain) throw new Error(`Chain not found: ${chainId}`);
+    const nodeIds = snapshot.chainNodes.filter((node2) => node2.chainId === chain.id).sort((a, b) => a.position - b.position).map((node2) => node2.blockId);
+    const streamNodes = [];
+    for (const blockId of nodeIds) {
+      const block = snapshot.blocks.find((b) => b.id === blockId);
+      if (!block) continue;
+      const sourceRefs = this.database.prepare("SELECT path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id").all(block.id);
+      let code = null;
+      let filePath = null;
+      let symbol = null;
+      if (sourceRefs.length > 0) {
+        const ref = sourceRefs[0];
+        filePath = ref.path;
+        symbol = ref.symbol;
+        const fullPath = path4.isAbsolute(filePath) ? filePath : path4.resolve(this.paths.projectRoot, filePath);
+        try {
+          if (fs3.existsSync(fullPath)) {
+            const content = fs3.readFileSync(fullPath, "utf8");
+            const slice = extractSymbolSlice(content, {
+              symbol: ref.symbol,
+              startLine: ref.start_line,
+              endLine: ref.end_line,
+              maxLines: 40
+            });
+            code = slice.code;
+          }
+        } catch {
+          code = null;
+        }
+      }
+      streamNodes.push({
+        blockId: block.id,
+        title: block.title,
+        filePath,
+        symbol,
+        code,
+        contract: block.contract || block.summary
+      });
+    }
+    const codeStream = buildChainCodeStream(streamNodes, { maxTotalChars });
+    return {
+      chainId: chain.id,
+      title: chain.title,
+      nodes: streamNodes,
+      codeStream,
+      markdown: [
+        `# Chain Code Stream: ${chain.title} (${chain.id})`,
+        `Nodes: ${streamNodes.length} \xB7 Sliced from AST symbol facades`,
+        "",
+        codeStream
+      ].join("\n")
+    };
+  }
   projectMap({ locale = "en" } = {}) {
     const snapshot = this.snapshot();
     const coverage = architectureCoverage(snapshot);
@@ -26221,15 +26511,15 @@ ${JSON.stringify(decision.consequences)}`;
       if (selectedPlanIds.has(scope.planId)) selectedChainIds.add(scope.chainId);
     }
     for (const chainId of selectedChainIds) {
-      const path5 = snapshot.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
+      const path7 = snapshot.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
       if (focusRefs.includes(`chain:${chainId}`)) {
-        for (const blockId of path5.slice(0, 10)) selectedBlockIds.add(blockId);
+        for (const blockId of path7.slice(0, 10)) selectedBlockIds.add(blockId);
         continue;
       }
-      const matchingPositions = path5.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
+      const matchingPositions = path7.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
       for (const position of matchingPositions) {
         for (const index of [position - 1, position, position + 1]) {
-          if (path5[index]) selectedBlockIds.add(path5[index]);
+          if (path7[index]) selectedBlockIds.add(path7[index]);
         }
       }
     }
@@ -26360,8 +26650,8 @@ ${JSON.stringify(decision.consequences)}`;
       lines.push("## Target chains");
       for (const chain of relevantChains) {
         const title = localizedValue(translations, "chain", chain.id, locale, "title", chain.title);
-        const path5 = snapshot.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
-        lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path5 ? ` \xB7 path ${path5}` : ""}`);
+        const path7 = snapshot.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
+        lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path7 ? ` \xB7 path ${path7}` : ""}`);
         const intent = localizedValue(translations, "chain", chain.id, locale, "intent", chain.intent);
         if (intent && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  ${intent}`);
       }
@@ -28638,7 +28928,7 @@ var ProjectServiceRouter = class {
   }
   serviceFor(input = {}) {
     const paths = resolveProjectPaths({ projectRoot: this.projectRoot(input), dataRoot: this.dataRoot });
-    const key = path3.resolve(paths.projectRoot);
+    const key = path5.resolve(paths.projectRoot);
     this.activeProjectRoot = key;
     const cached2 = this.services.get(key);
     if (cached2) {
@@ -28681,7 +28971,7 @@ var ProjectServiceRouter = class {
 // packages/mcp/src/cli.mjs
 import fs5 from "node:fs";
 import os from "node:os";
-import path4 from "node:path";
+import path6 from "node:path";
 var VERSION = "0.2.0";
 var HELP = `
 Mdflow v${VERSION}: The living architecture graph for AI coding.
@@ -28736,7 +29026,7 @@ async function runCli(args, router2) {
     const projectRoot = process.cwd();
     const shouldScan = args.includes("--scan") || args.includes("-s");
     try {
-      const reg = registerProject({ projectRoot, name: path4.basename(projectRoot) });
+      const reg = registerProject({ projectRoot, name: path6.basename(projectRoot) });
       console.log(`\u2713 ${reg.created ? "Initialized new" : "Opened existing"} mdflow project at ${projectRoot}`);
       const service = router2.serviceFor({ projectRoot });
       if (shouldScan && reg.created) {
@@ -28789,7 +29079,7 @@ async function runCli(args, router2) {
 }
 function bootstrapProject(service, projectRoot) {
   const operations = [];
-  const pkgPath = path4.join(projectRoot, "package.json");
+  const pkgPath = path6.join(projectRoot, "package.json");
   let pkg = {};
   if (fs5.existsSync(pkgPath)) {
     try {
@@ -28797,7 +29087,7 @@ function bootstrapProject(service, projectRoot) {
     } catch {
     }
   }
-  const projectName = pkg.name || path4.basename(projectRoot);
+  const projectName = pkg.name || path6.basename(projectRoot);
   const coreBlockId = "core-application";
   operations.push({
     action: "create_block",
@@ -28870,8 +29160,8 @@ function bootstrapProject(service, projectRoot) {
 function setupEditors() {
   const cwd = process.cwd();
   console.log("=== Setting up Mdflow MCP Server ===");
-  const cursorDir = path4.join(cwd, ".cursor");
-  const cursorMcpFile = path4.join(cursorDir, "mcp.json");
+  const cursorDir = path6.join(cwd, ".cursor");
+  const cursorMcpFile = path6.join(cursorDir, "mcp.json");
   try {
     fs5.mkdirSync(cursorDir, { recursive: true });
     let cursorConfig = { mcpServers: {} };
@@ -28891,9 +29181,9 @@ function setupEditors() {
   } catch (err) {
     console.log(`- Cursor setup skipped: ${err.message}`);
   }
-  const claudeConfigPath = path4.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
+  const claudeConfigPath = path6.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
   try {
-    if (fs5.existsSync(path4.dirname(claudeConfigPath))) {
+    if (fs5.existsSync(path6.dirname(claudeConfigPath))) {
       let claudeConfig = { mcpServers: {} };
       if (fs5.existsSync(claudeConfigPath)) {
         try {
@@ -29027,6 +29317,22 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.entityOpen({ ...payload, type: "decision" }));
+    return readResult(data, data.markdown, input.includeStructured);
+  }
+);
+server.registerTool(
+  "chain_code_stream",
+  {
+    description: "Extract an end-to-end code stream along an architectural Chain. Returns only targeted AST symbol slices and interfaces for each node, saving ~90% tokens compared to full file reads.",
+    inputSchema: {
+      ...projectRootInput,
+      chainId: string2().min(1),
+      maxTotalChars: number2().int().min(100).max(2e4).optional(),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.chainCodeStream(payload));
     return readResult(data, data.markdown, input.includeStructured);
   }
 );

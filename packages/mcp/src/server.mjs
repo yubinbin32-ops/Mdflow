@@ -134,6 +134,23 @@ server.registerTool(
 );
 
 server.registerTool(
+  "chain_code_stream",
+  {
+    description: "Extract an end-to-end code stream along an architectural Chain. Returns only targeted AST symbol slices and interfaces for each node, saving ~90% tokens compared to full file reads.",
+    inputSchema: {
+      ...projectRootInput,
+      chainId: z.string().min(1),
+      maxTotalChars: z.number().int().min(100).max(20000).optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.chainCodeStream(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
   "foundation_plan_create",
   {
     description:
