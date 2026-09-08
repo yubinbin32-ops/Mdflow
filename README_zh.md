@@ -6,6 +6,7 @@
   <p>
     <a href="README.md">English</a> ·
     <a href="https://dashend.cn">官方网站</a> ·
+    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/Mdflow-Canvas">MCP 目录</a> ·
     <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest">下载 macOS 客户端</a>
   </p>
   <p>
