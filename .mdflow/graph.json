@@ -1,20 +1,20 @@
 {
   "version": 1,
   "projectId": "mdflow",
-  "graphRevision": 839,
-  "exportedAt": "2026-09-09T15:50:12.921Z",
+  "graphRevision": 842,
+  "exportedAt": "2026-09-09T16:32:20.612Z",
   "data": {
     "projects": [
       {
         "created_at": "2026-09-04T08:35:14.191Z",
-        "graph_revision": 839,
+        "graph_revision": 842,
         "handoff_json": "{\"activePlanId\":\"mdflow-core-repair\",\"activeStepId\":\"mdflow-core-repair-step-8\",\"nowDoing\":\"已完成 SourceBinding 同文件 symbol 实时同步、Chain contract/slice 安全边界、Checkpoint v2 身份、UI 冗余收口、App/插件版本与 bundle fingerprint 门禁及最终跨层回归；当前 99/99 源码绑定 fresh。\",\"nextUp\":\"扩展尚未支持语言的 AST adapter；发布前由 Settings 检查并同步匹配 App/插件版本与 bundle fingerprint。\",\"lastFinished\":\"通过 33/33 npm tests、plugin:verify、Swift build、benchmark；最终 P0 Block/Chain Checkpoint 已按当前 bundle 重录，graph projection 已导出。\",\"touchedFiles\":[\"packages/mcp/src/source-binding.mjs\",\"packages/mcp/src/ast.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/checkpoint-freshness.mjs\",\"packages/mcp/src/checkpoint-engine.mjs\",\"packages/mcp/src/context-engine.mjs\",\"packages/mcp/src/query-engine.mjs\",\"packages/mcp/src/schema.mjs\",\"packages/mcp/src/server.mjs\",\"apps/desktop/Sources/MdflowDesktop/DetailView.swift\",\"apps/desktop/Sources/MdflowDesktop/GraphStore.swift\",\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"plugins/mdflow/skills/mdflow/SKILL.md\",\"plugins/mdflow/.codex-plugin/plugin.json\",\"scripts/plugin-smoke.mjs\"],\"cursorUpdatedAt\":\"2026-09-09T15:04:51.545Z\"}",
         "id": "mdflow",
         "name": "mdflow",
         "repo_root": ".",
         "schema_version": 1,
         "timeline_json": "{\"activePlanId\":\"mdflow-core-repair\",\"activeStepId\":\"mdflow-core-repair-step-8\",\"nowDoing\":\"已完成 SourceBinding 同文件 symbol 实时同步、Chain contract/slice 安全边界、Checkpoint v2 身份、UI 冗余收口、App/插件版本与 bundle fingerprint 门禁及最终跨层回归；当前 99/99 源码绑定 fresh。\",\"nextUp\":\"扩展尚未支持语言的 AST adapter；发布前由 Settings 检查并同步匹配 App/插件版本与 bundle fingerprint。\",\"lastFinished\":\"通过 33/33 npm tests、plugin:verify、Swift build、benchmark；最终 P0 Block/Chain Checkpoint 已按当前 bundle 重录，graph projection 已导出。\",\"touchedFiles\":[\"packages/mcp/src/source-binding.mjs\",\"packages/mcp/src/ast.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/checkpoint-freshness.mjs\",\"packages/mcp/src/checkpoint-engine.mjs\",\"packages/mcp/src/context-engine.mjs\",\"packages/mcp/src/query-engine.mjs\",\"packages/mcp/src/schema.mjs\",\"packages/mcp/src/server.mjs\",\"apps/desktop/Sources/MdflowDesktop/DetailView.swift\",\"apps/desktop/Sources/MdflowDesktop/GraphStore.swift\",\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"plugins/mdflow/skills/mdflow/SKILL.md\",\"plugins/mdflow/.codex-plugin/plugin.json\",\"scripts/plugin-smoke.mjs\"],\"cursorUpdatedAt\":\"2026-09-09T15:04:51.545Z\"}",
-        "updated_at": "2026-09-09T15:50:12.921Z"
+        "updated_at": "2026-09-09T16:32:20.612Z"
       }
     ],
     "blocks": [
@@ -79,7 +79,7 @@
         "summary": "多语言 AST 符号提取与精准切片，消除全量代码文件带来的巨大 Token 冗余",
         "tags_json": "[]",
         "title": "AST 门面切片引擎",
-        "updated_at": "2026-09-09T15:50:12.921Z"
+        "updated_at": "2026-09-09T16:32:20.527Z"
       },
       {
         "architecture_layer": "application",
@@ -247,7 +247,7 @@
         "summary": "新 AI 先获取覆盖摘要和适用规则索引，再按任务需要展开唯一的 PlanChange、规则、实体和源码；所有 MCP 工具默认返回有界 Markdown，完整 JSON 仅在显式 includeStructured=true 时返回。",
         "tags_json": "[\"context\",\"markdown\",\"retrieval\"]",
         "title": "预算化上下文读取",
-        "updated_at": "2026-09-09T15:27:13.691Z"
+        "updated_at": "2026-09-09T16:32:20.612Z"
       },
       {
         "architecture_layer": "quality",
@@ -3732,6 +3732,21 @@
         "alternatives_json": "[]",
         "archived": 0,
         "consequences_json": "[]",
+        "created_at": "2026-09-09T16:31:23.588Z",
+        "current_revision": 1,
+        "id": "decision:macos-standalone-zip-distribution",
+        "project_id": "mdflow",
+        "rationale": "",
+        "status": "active",
+        "summary": "macOS 平台禁止使用 .dmg 分发。只读 DMG 挂载后启动 ad-hoc 签名应用会触发 Gatekeeper App Translocation 隔离机制，导致文件只读、动态外观与主题色彩计算失效。所有客户端必须通过 zip -r -y 打包为独立免安装包 (mdflow-macos.zip)，解压即用。",
+        "supersedes_decision_id": null,
+        "title": "macOS 发布分发规范：强制使用原生独立 App (.zip) 并全面废弃 DMG 磁盘镜像",
+        "updated_at": "2026-09-09T16:31:23.588Z"
+      },
+      {
+        "alternatives_json": "[]",
+        "archived": 0,
+        "consequences_json": "[]",
         "created_at": "2026-09-09T10:29:10.508Z",
         "current_revision": 1,
         "id": "multi-editor-sync-policy",
@@ -4082,10 +4097,10 @@
         "coverage": "complete",
         "created_at": "2026-09-09T15:50:12.921Z",
         "criteria": "",
-        "current_revision": 1,
+        "current_revision": 2,
         "eligible_after_children": 0,
-        "evidence_json": "[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"34/34 tests passed, including Go, Rust, Java, TS, Swift, Python symbol and slice testing\"},{\"kind\":\"command\",\"command\":\"npm run plugin:build\",\"result\":\"Single-file bundle built with zero external npm/native dependencies\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"054ebfcff7db0ad8ea0639e98405eda9d7d63d15\",\"files\":[{\"path\":\"packages/mcp/src/ast.mjs\",\"hash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\"}],\"bindings\":[{\"id\":\"source_af9f0248-4e1f-4786-ae7a-b7e75ec67bbc\",\"blockId\":\"ast-facade-engine\",\"path\":\"packages/mcp/src/ast.mjs\",\"symbol\":\"extractSymbols\",\"language\":\"javascript\",\"signature\":\"export function extractSymbols(sourceCode, { language = null, filePath = \\\"\\\" } = {})\",\"fileHash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\",\"nodeHash\":\"92ac8dda859475ee7dcb752837e97cd2b3175987457809d10ce3a114584ec9d8\",\"signatureHash\":\"79de85b13d5fd1891b6b3bc58c714863ab1ffefb7a51bb500b3331fe077338ae\",\"startLine\":46,\"endLine\":75,\"bindingStatus\":\"fresh\"}]}]",
-        "evidence_level": "integration",
+        "evidence_json": "[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"40/40 tests passed\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"9dd66379af5712248a9ffacc452e29385bb625f2\",\"files\":[{\"path\":\"packages/mcp/src/ast.mjs\",\"hash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\"}],\"bindings\":[{\"id\":\"source_af9f0248-4e1f-4786-ae7a-b7e75ec67bbc\",\"blockId\":\"ast-facade-engine\",\"path\":\"packages/mcp/src/ast.mjs\",\"symbol\":\"extractSymbols\",\"language\":\"javascript\",\"signature\":\"export function extractSymbols(sourceCode, { language = null, filePath = \\\"\\\" } = {})\",\"fileHash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\",\"nodeHash\":\"92ac8dda859475ee7dcb752837e97cd2b3175987457809d10ce3a114584ec9d8\",\"signatureHash\":\"79de85b13d5fd1891b6b3bc58c714863ab1ffefb7a51bb500b3331fe077338ae\",\"startLine\":46,\"endLine\":75,\"bindingStatus\":\"fresh\"}]}]",
+        "evidence_level": "static",
         "id": "checkpoint_5b82892d-2b47-46e1-95e0-54d773627715",
         "invalidated_at": null,
         "project_id": "mdflow",
@@ -4094,7 +4109,7 @@
         "target_id": "ast-facade-engine",
         "target_type": "block",
         "title": "AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)",
-        "updated_at": "2026-09-09T15:50:12.921Z"
+        "updated_at": "2026-09-09T16:32:20.527Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -4102,10 +4117,10 @@
         "coverage": "complete",
         "created_at": "2026-09-09T15:27:13.691Z",
         "criteria": "",
-        "current_revision": 1,
+        "current_revision": 2,
         "eligible_after_children": 0,
-        "evidence_json": "[{\"kind\":\"command\",\"command\":\"node --test packages/mcp/test/context-retrieval.test.mjs\",\"result\":\"Context retrieval tests passed: CJK tokens and field-weighted relevance ranking\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"054ebfcff7db0ad8ea0639e98405eda9d7d63d15\",\"files\":[{\"path\":\"packages/mcp/src/patch.mjs\",\"hash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\"},{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"893c47d173ce1fa50fc93f0cffab36ab620274a639f2e429c294c8fb946234af\"},{\"path\":\"packages/mcp/src/service.mjs\",\"hash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\"},{\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"hash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\"}],\"bindings\":[{\"id\":\"source_00ee2058-6891-489b-ab8c-f56f0860ba57\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/patch.mjs\",\"symbol\":\"parseGraphPatch\",\"language\":\"javascript\",\"signature\":\"export function parseGraphPatch(input)\",\"fileHash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\",\"nodeHash\":\"4e80bfcba9c2743a149065381149b44277c9d8272995de2324e730c4eaacffc2\",\"signatureHash\":\"2bdb209be7114f8579d3d88482cc2ac39af6627ed3f0855fc9f3e3b68d7b61b3\",\"startLine\":139,\"endLine\":202,\"bindingStatus\":\"fresh\"},{\"id\":\"src-server-read-projections\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"readResult\",\"language\":\"javascript\",\"signature\":\"function readResult(data, markdown, includeStructured = false)\",\"fileHash\":\"893c47d173ce1fa50fc93f0cffab36ab620274a639f2e429c294c8fb946234af\",\"nodeHash\":\"a3069cd533364799bf06773d3d9f94ffc01165977301afdd8699ff6f4ecbe1ca\",\"signatureHash\":\"acb832cf7c57977128eafa7cc2c47686013b696905ef45916ca017941ae8f50c\",\"startLine\":33,\"endLine\":41,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-mcp-markdown-first\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"writeResult\",\"language\":\"javascript\",\"signature\":\"function writeResult(data, markdown, includeStructured = false)\",\"fileHash\":\"893c47d173ce1fa50fc93f0cffab36ab620274a639f2e429c294c8fb946234af\",\"nodeHash\":\"340350da05bec1eaae2b4f3d0361b9020968337104516620bfd774d185531f68\",\"signatureHash\":\"5efd87b32612e7eb45e9b208eca433659c6845a1ce5bd65e43b8cea71cc29fa3\",\"startLine\":43,\"endLine\":52,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-retrieval\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/service.mjs\",\"symbol\":\"contextForTask\",\"language\":\"javascript\",\"signature\":\"contextForTask(options = {})\",\"fileHash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\",\"nodeHash\":\"57a949d0022e346be2a6fe12e00c9b0e364492ea55394b21727f0f902966213f\",\"signatureHash\":\"74265bea0fe4122b4f2bcbf0c8575fe9c183e8973cdfe6e0fd37512b3b260adc\",\"startLine\":818,\"endLine\":820,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-projection-contract\",\"blockId\":\"context-retrieval\",\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"symbol\":null,\"language\":\"text\",\"signature\":null,\"fileHash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\",\"nodeHash\":\"fb185f7aefa7e8d4a971c6c41e8089864b20b7b1171ce52f5613f903da1340c1\",\"signatureHash\":null,\"startLine\":1,\"endLine\":158,\"bindingStatus\":\"fresh\"}]}]",
-        "evidence_level": "integration",
+        "evidence_json": "[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"40/40 tests passed\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"9dd66379af5712248a9ffacc452e29385bb625f2\",\"files\":[{\"path\":\"packages/mcp/src/patch.mjs\",\"hash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\"},{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"6af8731919be0d304c7fbf047bc2ffe0106106ee2bc3a04e51c273d57bce69ea\"},{\"path\":\"packages/mcp/src/service.mjs\",\"hash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\"},{\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"hash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\"}],\"bindings\":[{\"id\":\"source_00ee2058-6891-489b-ab8c-f56f0860ba57\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/patch.mjs\",\"symbol\":\"parseGraphPatch\",\"language\":\"javascript\",\"signature\":\"export function parseGraphPatch(input)\",\"fileHash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\",\"nodeHash\":\"4e80bfcba9c2743a149065381149b44277c9d8272995de2324e730c4eaacffc2\",\"signatureHash\":\"2bdb209be7114f8579d3d88482cc2ac39af6627ed3f0855fc9f3e3b68d7b61b3\",\"startLine\":139,\"endLine\":202,\"bindingStatus\":\"fresh\"},{\"id\":\"src-server-read-projections\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"readResult\",\"language\":\"javascript\",\"signature\":\"function readResult(data, markdown, includeStructured = false)\",\"fileHash\":\"6af8731919be0d304c7fbf047bc2ffe0106106ee2bc3a04e51c273d57bce69ea\",\"nodeHash\":\"a3069cd533364799bf06773d3d9f94ffc01165977301afdd8699ff6f4ecbe1ca\",\"signatureHash\":\"acb832cf7c57977128eafa7cc2c47686013b696905ef45916ca017941ae8f50c\",\"startLine\":33,\"endLine\":41,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-mcp-markdown-first\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"writeResult\",\"language\":\"javascript\",\"signature\":\"function writeResult(data, markdown, includeStructured = false)\",\"fileHash\":\"6af8731919be0d304c7fbf047bc2ffe0106106ee2bc3a04e51c273d57bce69ea\",\"nodeHash\":\"340350da05bec1eaae2b4f3d0361b9020968337104516620bfd774d185531f68\",\"signatureHash\":\"5efd87b32612e7eb45e9b208eca433659c6845a1ce5bd65e43b8cea71cc29fa3\",\"startLine\":43,\"endLine\":52,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-retrieval\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/service.mjs\",\"symbol\":\"contextForTask\",\"language\":\"javascript\",\"signature\":\"contextForTask(options = {})\",\"fileHash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\",\"nodeHash\":\"57a949d0022e346be2a6fe12e00c9b0e364492ea55394b21727f0f902966213f\",\"signatureHash\":\"74265bea0fe4122b4f2bcbf0c8575fe9c183e8973cdfe6e0fd37512b3b260adc\",\"startLine\":818,\"endLine\":820,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-projection-contract\",\"blockId\":\"context-retrieval\",\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"symbol\":null,\"language\":\"text\",\"signature\":null,\"fileHash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\",\"nodeHash\":\"fb185f7aefa7e8d4a971c6c41e8089864b20b7b1171ce52f5613f903da1340c1\",\"signatureHash\":null,\"startLine\":1,\"endLine\":158,\"bindingStatus\":\"fresh\"}]}]",
+        "evidence_level": "static",
         "id": "checkpoint_e4b5b6f7-4290-4854-b604-d5f568f0e554",
         "invalidated_at": null,
         "project_id": "mdflow",
@@ -4114,7 +4129,7 @@
         "target_id": "context-retrieval",
         "target_type": "block",
         "title": "任务级上下文预算与检索验证",
-        "updated_at": "2026-09-09T15:27:13.691Z"
+        "updated_at": "2026-09-09T16:32:20.612Z"
       }
     ],
     "checkpoint_bindings": [],
@@ -5132,33 +5147,6 @@
     "change_sets": [
       {
         "actor": "agent",
-        "created_at": "2026-09-09T12:16:26.433Z",
-        "git_head": null,
-        "id": "change_bbe2ba53-ad81-4dc2-8f2d-18f7166eeafd",
-        "project_id": "mdflow",
-        "reason": "Checkpoint: 当前日志脱敏与预算边界",
-        "task": "当前日志脱敏与预算边界"
-      },
-      {
-        "actor": "agent",
-        "created_at": "2026-09-09T12:16:26.455Z",
-        "git_head": null,
-        "id": "change_c4e6c0ab-922b-4071-8224-1efec858507a",
-        "project_id": "mdflow",
-        "reason": "Checkpoint: 当前命令网关与 MCP 工具面",
-        "task": "当前命令网关与 MCP 工具面"
-      },
-      {
-        "actor": "agent",
-        "created_at": "2026-09-09T12:16:26.471Z",
-        "git_head": null,
-        "id": "change_da59edd0-4037-45b2-8365-5503dc6163e6",
-        "project_id": "mdflow",
-        "reason": "Checkpoint: 当前插件 bundle 与安装链路",
-        "task": "当前插件 bundle 与安装链路"
-      },
-      {
-        "actor": "agent",
         "created_at": "2026-09-09T12:16:26.489Z",
         "git_head": null,
         "id": "change_558761fe-7bb3-470a-9715-aba77f2bff5b",
@@ -5579,60 +5567,36 @@
         "project_id": "mdflow",
         "reason": "Checkpoint: AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)",
         "task": "AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)"
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T16:31:23.588Z",
+        "git_head": null,
+        "id": "change_db8c501e-9609-423c-be6f-eedf43cf192d",
+        "project_id": "mdflow",
+        "reason": "record architecture decision to prohibit dmg and enforce standalone zip",
+        "task": ""
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T16:32:20.527Z",
+        "git_head": null,
+        "id": "change_9897963b-8035-46af-b1d1-b2b2fd27a5e0",
+        "project_id": "mdflow",
+        "reason": "Checkpoint: AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)",
+        "task": "AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)"
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T16:32:20.612Z",
+        "git_head": null,
+        "id": "change_315536c7-e772-405c-86f8-f78870e831fc",
+        "project_id": "mdflow",
+        "reason": "Checkpoint: 任务级上下文预算与检索验证",
+        "task": "任务级上下文预算与检索验证"
       }
     ],
     "history": [
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"checkpoint:mdflow-core-repair-terminal\",\"block:terminal-sanitizer\"]",
-        "after_json": "{\"id\":\"mdflow-core-repair-terminal\",\"targetType\":\"block\",\"targetId\":\"terminal-sanitizer\",\"title\":\"当前日志脱敏与预算边界\",\"criteria\":\"当前实现、源码身份与对应验证命令一致\",\"status\":\"passed\",\"checkpointKind\":\"integration\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"integration_test\",\"command\":\"npm test && npm run plugin:verify\",\"result\":\"pass\",\"files\":[\"packages/mcp/src/sanitizer.mjs\",\"packages/mcp/src/server.mjs\"]},{\"kind\":\"mdflow-identity\",\"version\":1,\"gitHead\":\"8b5b48867da0d65ff78d05b7c24d14ea2d576566\",\"files\":[{\"path\":\"packages/mcp/src/sanitizer.mjs\",\"hash\":\"3a1bf972010554bd4c34824caef35964ab3ae5e975e88c98726d1cb3467a7e33\"},{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"fc3941c0cb5d5c7308c1e8473972179ff58ecf5a74dc908e7cbdb2465e2d3404\"}]}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"mdflow-core-repair-change-terminal-sanitizer\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":4}",
-        "before_json": "{\"id\":\"mdflow-core-repair-terminal\",\"targetType\":\"block\",\"targetId\":\"terminal-sanitizer\",\"title\":\"当前日志脱敏与预算边界\",\"criteria\":\"当前实现、源码身份与对应验证命令一致\",\"status\":\"passed\",\"checkpointKind\":\"integration\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"integration_test\",\"command\":\"npm test\",\"result\":\"pass\",\"files\":[\"packages/mcp/src/sanitizer.mjs\",\"packages/mcp/src/server.mjs\"]},{\"kind\":\"mdflow-identity\",\"version\":1,\"gitHead\":\"8b5b48867da0d65ff78d05b7c24d14ea2d576566\",\"files\":[{\"path\":\"packages/mcp/src/sanitizer.mjs\",\"hash\":\"3a1bf972010554bd4c34824caef35964ab3ae5e975e88c98726d1cb3467a7e33\"},{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"15006677ab4e4f9a1462ac66a34365147847b4497a9ad526bcfdab8d978d5522\"}]}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"mdflow-core-repair-change-terminal-sanitizer\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":3}",
-        "chain_scope_id": null,
-        "change_set_id": "change_bbe2ba53-ad81-4dc2-8f2d-18f7166eeafd",
-        "changed_fields_json": "[\"evidence\"]",
-        "created_at": "2026-09-09T12:16:26.433Z",
-        "entity_id": "mdflow-core-repair-terminal",
-        "entity_type": "checkpoint",
-        "evidence_refs_json": "[\"npm test && npm run plugin:verify\"]",
-        "id": 1617,
-        "plan_id": null,
-        "revision": 4,
-        "summary": "passed: 当前日志脱敏与预算边界"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"checkpoint:mdflow-core-repair-mcp-protocol\",\"block:mcp-protocol-server\"]",
-        "after_json": "{\"id\":\"mdflow-core-repair-mcp-protocol\",\"targetType\":\"block\",\"targetId\":\"mcp-protocol-server\",\"title\":\"当前命令网关与 MCP 工具面\",\"criteria\":\"当前实现、源码身份与对应验证命令一致\",\"status\":\"passed\",\"checkpointKind\":\"integration\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"integration_test\",\"command\":\"npm test && npm run plugin:verify\",\"result\":\"pass\",\"files\":[\"packages/mcp/src/server.mjs\",\"packages/mcp/src/service.mjs\"]},{\"kind\":\"mdflow-identity\",\"version\":1,\"gitHead\":\"8b5b48867da0d65ff78d05b7c24d14ea2d576566\",\"files\":[{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"fc3941c0cb5d5c7308c1e8473972179ff58ecf5a74dc908e7cbdb2465e2d3404\"},{\"path\":\"packages/mcp/src/service.mjs\",\"hash\":\"ba3e7abb9c7206a19650f02d4ffcf9ab6ebe394f1cc2bb2e13b19f0ea2a55154\"}]}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"mdflow-core-repair-change-mcp-protocol\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":4}",
-        "before_json": "{\"id\":\"mdflow-core-repair-mcp-protocol\",\"targetType\":\"block\",\"targetId\":\"mcp-protocol-server\",\"title\":\"当前命令网关与 MCP 工具面\",\"criteria\":\"当前实现、源码身份与对应验证命令一致\",\"status\":\"passed\",\"checkpointKind\":\"integration\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"integration_test\",\"command\":\"npm test\",\"result\":\"pass\",\"files\":[\"packages/mcp/src/server.mjs\",\"packages/mcp/src/service.mjs\"]},{\"kind\":\"mdflow-identity\",\"version\":1,\"gitHead\":\"8b5b48867da0d65ff78d05b7c24d14ea2d576566\",\"files\":[{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"15006677ab4e4f9a1462ac66a34365147847b4497a9ad526bcfdab8d978d5522\"},{\"path\":\"packages/mcp/src/service.mjs\",\"hash\":\"ba3e7abb9c7206a19650f02d4ffcf9ab6ebe394f1cc2bb2e13b19f0ea2a55154\"}]}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"mdflow-core-repair-change-mcp-protocol\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":3}",
-        "chain_scope_id": null,
-        "change_set_id": "change_c4e6c0ab-922b-4071-8224-1efec858507a",
-        "changed_fields_json": "[\"evidence\"]",
-        "created_at": "2026-09-09T12:16:26.455Z",
-        "entity_id": "mdflow-core-repair-mcp-protocol",
-        "entity_type": "checkpoint",
-        "evidence_refs_json": "[\"npm test && npm run plugin:verify\"]",
-        "id": 1618,
-        "plan_id": null,
-        "revision": 4,
-        "summary": "passed: 当前命令网关与 MCP 工具面"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"checkpoint:mdflow-core-repair-plugin\",\"block:codex-plugin\"]",
-        "after_json": "{\"id\":\"mdflow-core-repair-plugin\",\"targetType\":\"block\",\"targetId\":\"codex-plugin\",\"title\":\"当前插件 bundle 与安装链路\",\"criteria\":\"当前实现、源码身份与对应验证命令一致\",\"status\":\"passed\",\"checkpointKind\":\"integration\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"integration_test\",\"command\":\"npm test && npm run plugin:verify\",\"result\":\"pass\",\"files\":[\"plugins/mdflow/.codex-plugin/plugin.json\",\"plugins/mdflow/skills/mdflow/SKILL.md\",\"plugins/mdflow/server/mdflow-mcp.mjs\",\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"scripts/plugin-smoke.mjs\"]},{\"kind\":\"mdflow-identity\",\"version\":1,\"gitHead\":\"8b5b48867da0d65ff78d05b7c24d14ea2d576566\",\"files\":[{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"fc3941c0cb5d5c7308c1e8473972179ff58ecf5a74dc908e7cbdb2465e2d3404\"},{\"path\":\"plugins/mdflow/.codex-plugin/plugin.json\",\"hash\":\"8dbd2dbe698aa402ffc793d93f2a992dd46185dfbff204db02b78a3c24b09057\"},{\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"hash\":\"166378b8990aa610c668e105546ffbd47db0a8b1326bd670eb81300f43463eb0\"},{\"path\":\"plugins/mdflow/server/mdflow-mcp.mjs\",\"hash\":\"ae71c9fd2f7aed82f1ddee1fb04694d86ab521ed6d4a8ff8a84985343e5273c0\"},{\"path\":\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"hash\":\"4404c9ec0a38872e16a5c44bc4e4f0b827f92c8520d38791a83f914782f60e91\"},{\"path\":\"scripts/plugin-smoke.mjs\",\"hash\":\"99398da65c017e965a2afeb55f1f3f1c6c5448184da69a2676e3912d7afde3c5\"}]}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"mdflow-core-repair-change-plugin\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":4}",
-        "before_json": "{\"id\":\"mdflow-core-repair-plugin\",\"targetType\":\"block\",\"targetId\":\"codex-plugin\",\"title\":\"当前插件 bundle 与安装链路\",\"criteria\":\"当前实现、源码身份与对应验证命令一致\",\"status\":\"passed\",\"checkpointKind\":\"integration\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"integration_test\",\"command\":\"npm test\",\"result\":\"pass\",\"files\":[\"plugins/mdflow/.codex-plugin/plugin.json\",\"plugins/mdflow/skills/mdflow/SKILL.md\",\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"scripts/plugin-smoke.mjs\"]},{\"kind\":\"mdflow-identity\",\"version\":1,\"gitHead\":\"8b5b48867da0d65ff78d05b7c24d14ea2d576566\",\"files\":[{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"15006677ab4e4f9a1462ac66a34365147847b4497a9ad526bcfdab8d978d5522\"},{\"path\":\"plugins/mdflow/.codex-plugin/plugin.json\",\"hash\":\"52a3b4b2d0d901a363e9b11af01e41ca7b47c863f0d17ed4997012c46cc0d127\"},{\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"hash\":\"ba2fbe20f642031aa627b0114931ed0a6e0f90ea8d33cec5a95762e7ad114e8d\"},{\"path\":\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"hash\":\"4404c9ec0a38872e16a5c44bc4e4f0b827f92c8520d38791a83f914782f60e91\"},{\"path\":\"scripts/plugin-smoke.mjs\",\"hash\":\"5deed0557d312452242791ebfb62e39d4a7b853e52bc6bff71c43362b21d9f5c\"}]}],\"invalidatedAt\":null,\"bindings\":[{\"subject_type\":\"plan_change\",\"subject_id\":\"mdflow-core-repair-change-plugin\",\"role\":\"acceptance\",\"required\":1}],\"children\":[],\"currentRevision\":3}",
-        "chain_scope_id": null,
-        "change_set_id": "change_da59edd0-4037-45b2-8365-5503dc6163e6",
-        "changed_fields_json": "[\"evidence\"]",
-        "created_at": "2026-09-09T12:16:26.471Z",
-        "entity_id": "mdflow-core-repair-plugin",
-        "entity_type": "checkpoint",
-        "evidence_refs_json": "[\"npm test && npm run plugin:verify\"]",
-        "id": 1619,
-        "plan_id": null,
-        "revision": 4,
-        "summary": "passed: 当前插件 bundle 与安装链路"
-      },
       {
         "action": "updated",
         "affected_refs_json": "[\"checkpoint:mdflow-core-repair-verification\",\"block:verification-suite\"]",
@@ -7859,36 +7823,60 @@
         "plan_id": null,
         "revision": 1,
         "summary": "passed: AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"decision:decision:macos-standalone-zip-distribution\"]",
+        "after_json": "{\"id\":\"decision:macos-standalone-zip-distribution\",\"title\":\"macOS 发布分发规范：强制使用原生独立 App (.zip) 并全面废弃 DMG 磁盘镜像\",\"summary\":\"macOS 平台禁止使用 .dmg 分发。只读 DMG 挂载后启动 ad-hoc 签名应用会触发 Gatekeeper App Translocation 隔离机制，导致文件只读、动态外观与主题色彩计算失效。所有客户端必须通过 zip -r -y 打包为独立免安装包 (mdflow-macos.zip)，解压即用。\",\"rationale\":\"\",\"alternatives\":[],\"consequences\":[],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":1,\"archived\":false,\"createdAt\":\"2026-09-09T16:31:23.588Z\",\"updatedAt\":\"2026-09-09T16:31:23.588Z\",\"scopes\":[]}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_db8c501e-9609-423c-be6f-eedf43cf192d",
+        "changed_fields_json": "[\"title\",\"summary\",\"status\"]",
+        "created_at": "2026-09-09T16:31:23.588Z",
+        "entity_id": "decision:macos-standalone-zip-distribution",
+        "entity_type": "decision",
+        "evidence_refs_json": "[]",
+        "id": 1751,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "macOS 发布分发规范：强制使用原生独立 App (.zip) 并全面废弃 DMG 磁盘镜像"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"checkpoint:checkpoint_5b82892d-2b47-46e1-95e0-54d773627715\",\"block:ast-facade-engine\"]",
+        "after_json": "{\"id\":\"checkpoint_5b82892d-2b47-46e1-95e0-54d773627715\",\"targetType\":\"block\",\"targetId\":\"ast-facade-engine\",\"title\":\"AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"40/40 tests passed\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"9dd66379af5712248a9ffacc452e29385bb625f2\",\"files\":[{\"path\":\"packages/mcp/src/ast.mjs\",\"hash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\"}],\"bindings\":[{\"id\":\"source_af9f0248-4e1f-4786-ae7a-b7e75ec67bbc\",\"blockId\":\"ast-facade-engine\",\"path\":\"packages/mcp/src/ast.mjs\",\"symbol\":\"extractSymbols\",\"language\":\"javascript\",\"signature\":\"export function extractSymbols(sourceCode, { language = null, filePath = \\\"\\\" } = {})\",\"fileHash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\",\"nodeHash\":\"92ac8dda859475ee7dcb752837e97cd2b3175987457809d10ce3a114584ec9d8\",\"signatureHash\":\"79de85b13d5fd1891b6b3bc58c714863ab1ffefb7a51bb500b3331fe077338ae\",\"startLine\":46,\"endLine\":75,\"bindingStatus\":\"fresh\"}]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":2}",
+        "before_json": "{\"id\":\"checkpoint_5b82892d-2b47-46e1-95e0-54d773627715\",\"targetType\":\"block\",\"targetId\":\"ast-facade-engine\",\"title\":\"AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"34/34 tests passed, including Go, Rust, Java, TS, Swift, Python symbol and slice testing\"},{\"kind\":\"command\",\"command\":\"npm run plugin:build\",\"result\":\"Single-file bundle built with zero external npm/native dependencies\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"054ebfcff7db0ad8ea0639e98405eda9d7d63d15\",\"files\":[{\"path\":\"packages/mcp/src/ast.mjs\",\"hash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\"}],\"bindings\":[{\"id\":\"source_af9f0248-4e1f-4786-ae7a-b7e75ec67bbc\",\"blockId\":\"ast-facade-engine\",\"path\":\"packages/mcp/src/ast.mjs\",\"symbol\":\"extractSymbols\",\"language\":\"javascript\",\"signature\":\"export function extractSymbols(sourceCode, { language = null, filePath = \\\"\\\" } = {})\",\"fileHash\":\"eef615fa4724be6c35d56b0297a6b07c3150231ed0b77d48094960c2889a5879\",\"nodeHash\":\"92ac8dda859475ee7dcb752837e97cd2b3175987457809d10ce3a114584ec9d8\",\"signatureHash\":\"79de85b13d5fd1891b6b3bc58c714863ab1ffefb7a51bb500b3331fe077338ae\",\"startLine\":46,\"endLine\":75,\"bindingStatus\":\"fresh\"}]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "chain_scope_id": null,
+        "change_set_id": "change_9897963b-8035-46af-b1d1-b2b2fd27a5e0",
+        "changed_fields_json": "[\"evidenceLevel\",\"evidence\"]",
+        "created_at": "2026-09-09T16:32:20.527Z",
+        "entity_id": "checkpoint_5b82892d-2b47-46e1-95e0-54d773627715",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[\"npm test\"]",
+        "id": 1752,
+        "plan_id": null,
+        "revision": 2,
+        "summary": "passed: AST 多语言原生支持 (Go/Rust/Java/TS/Swift/Python)"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"checkpoint:checkpoint_e4b5b6f7-4290-4854-b604-d5f568f0e554\",\"block:context-retrieval\"]",
+        "after_json": "{\"id\":\"checkpoint_e4b5b6f7-4290-4854-b604-d5f568f0e554\",\"targetType\":\"block\",\"targetId\":\"context-retrieval\",\"title\":\"任务级上下文预算与检索验证\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"static\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"command\",\"command\":\"npm test\",\"result\":\"40/40 tests passed\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"9dd66379af5712248a9ffacc452e29385bb625f2\",\"files\":[{\"path\":\"packages/mcp/src/patch.mjs\",\"hash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\"},{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"6af8731919be0d304c7fbf047bc2ffe0106106ee2bc3a04e51c273d57bce69ea\"},{\"path\":\"packages/mcp/src/service.mjs\",\"hash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\"},{\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"hash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\"}],\"bindings\":[{\"id\":\"source_00ee2058-6891-489b-ab8c-f56f0860ba57\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/patch.mjs\",\"symbol\":\"parseGraphPatch\",\"language\":\"javascript\",\"signature\":\"export function parseGraphPatch(input)\",\"fileHash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\",\"nodeHash\":\"4e80bfcba9c2743a149065381149b44277c9d8272995de2324e730c4eaacffc2\",\"signatureHash\":\"2bdb209be7114f8579d3d88482cc2ac39af6627ed3f0855fc9f3e3b68d7b61b3\",\"startLine\":139,\"endLine\":202,\"bindingStatus\":\"fresh\"},{\"id\":\"src-server-read-projections\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"readResult\",\"language\":\"javascript\",\"signature\":\"function readResult(data, markdown, includeStructured = false)\",\"fileHash\":\"6af8731919be0d304c7fbf047bc2ffe0106106ee2bc3a04e51c273d57bce69ea\",\"nodeHash\":\"a3069cd533364799bf06773d3d9f94ffc01165977301afdd8699ff6f4ecbe1ca\",\"signatureHash\":\"acb832cf7c57977128eafa7cc2c47686013b696905ef45916ca017941ae8f50c\",\"startLine\":33,\"endLine\":41,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-mcp-markdown-first\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"writeResult\",\"language\":\"javascript\",\"signature\":\"function writeResult(data, markdown, includeStructured = false)\",\"fileHash\":\"6af8731919be0d304c7fbf047bc2ffe0106106ee2bc3a04e51c273d57bce69ea\",\"nodeHash\":\"340350da05bec1eaae2b4f3d0361b9020968337104516620bfd774d185531f68\",\"signatureHash\":\"5efd87b32612e7eb45e9b208eca433659c6845a1ce5bd65e43b8cea71cc29fa3\",\"startLine\":43,\"endLine\":52,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-retrieval\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/service.mjs\",\"symbol\":\"contextForTask\",\"language\":\"javascript\",\"signature\":\"contextForTask(options = {})\",\"fileHash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\",\"nodeHash\":\"57a949d0022e346be2a6fe12e00c9b0e364492ea55394b21727f0f902966213f\",\"signatureHash\":\"74265bea0fe4122b4f2bcbf0c8575fe9c183e8973cdfe6e0fd37512b3b260adc\",\"startLine\":818,\"endLine\":820,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-projection-contract\",\"blockId\":\"context-retrieval\",\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"symbol\":null,\"language\":\"text\",\"signature\":null,\"fileHash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\",\"nodeHash\":\"fb185f7aefa7e8d4a971c6c41e8089864b20b7b1171ce52f5613f903da1340c1\",\"signatureHash\":null,\"startLine\":1,\"endLine\":158,\"bindingStatus\":\"fresh\"}]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":2}",
+        "before_json": "{\"id\":\"checkpoint_e4b5b6f7-4290-4854-b604-d5f568f0e554\",\"targetType\":\"block\",\"targetId\":\"context-retrieval\",\"title\":\"任务级上下文预算与检索验证\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"command\",\"command\":\"node --test packages/mcp/test/context-retrieval.test.mjs\",\"result\":\"Context retrieval tests passed: CJK tokens and field-weighted relevance ranking\"},{\"kind\":\"mdflow-identity\",\"version\":2,\"gitHead\":\"054ebfcff7db0ad8ea0639e98405eda9d7d63d15\",\"files\":[{\"path\":\"packages/mcp/src/patch.mjs\",\"hash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\"},{\"path\":\"packages/mcp/src/server.mjs\",\"hash\":\"893c47d173ce1fa50fc93f0cffab36ab620274a639f2e429c294c8fb946234af\"},{\"path\":\"packages/mcp/src/service.mjs\",\"hash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\"},{\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"hash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\"}],\"bindings\":[{\"id\":\"source_00ee2058-6891-489b-ab8c-f56f0860ba57\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/patch.mjs\",\"symbol\":\"parseGraphPatch\",\"language\":\"javascript\",\"signature\":\"export function parseGraphPatch(input)\",\"fileHash\":\"dcc3ab1770a2ce0d5ece1841723c9e975e1f34c7e5d7d1ba0ea6c68e2b2fc81b\",\"nodeHash\":\"4e80bfcba9c2743a149065381149b44277c9d8272995de2324e730c4eaacffc2\",\"signatureHash\":\"2bdb209be7114f8579d3d88482cc2ac39af6627ed3f0855fc9f3e3b68d7b61b3\",\"startLine\":139,\"endLine\":202,\"bindingStatus\":\"fresh\"},{\"id\":\"src-server-read-projections\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"readResult\",\"language\":\"javascript\",\"signature\":\"function readResult(data, markdown, includeStructured = false)\",\"fileHash\":\"893c47d173ce1fa50fc93f0cffab36ab620274a639f2e429c294c8fb946234af\",\"nodeHash\":\"a3069cd533364799bf06773d3d9f94ffc01165977301afdd8699ff6f4ecbe1ca\",\"signatureHash\":\"acb832cf7c57977128eafa7cc2c47686013b696905ef45916ca017941ae8f50c\",\"startLine\":33,\"endLine\":41,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-mcp-markdown-first\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/server.mjs\",\"symbol\":\"writeResult\",\"language\":\"javascript\",\"signature\":\"function writeResult(data, markdown, includeStructured = false)\",\"fileHash\":\"893c47d173ce1fa50fc93f0cffab36ab620274a639f2e429c294c8fb946234af\",\"nodeHash\":\"340350da05bec1eaae2b4f3d0361b9020968337104516620bfd774d185531f68\",\"signatureHash\":\"5efd87b32612e7eb45e9b208eca433659c6845a1ce5bd65e43b8cea71cc29fa3\",\"startLine\":43,\"endLine\":52,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-retrieval\",\"blockId\":\"context-retrieval\",\"path\":\"packages/mcp/src/service.mjs\",\"symbol\":\"contextForTask\",\"language\":\"javascript\",\"signature\":\"contextForTask(options = {})\",\"fileHash\":\"9e9f3d8e43553eb7fb8ca3ff3cbd4983f7f563a7db6ac68e098a13416e7088a3\",\"nodeHash\":\"57a949d0022e346be2a6fe12e00c9b0e364492ea55394b21727f0f902966213f\",\"signatureHash\":\"74265bea0fe4122b4f2bcbf0c8575fe9c183e8973cdfe6e0fd37512b3b260adc\",\"startLine\":818,\"endLine\":820,\"bindingStatus\":\"fresh\"},{\"id\":\"src-context-projection-contract\",\"blockId\":\"context-retrieval\",\"path\":\"plugins/mdflow/skills/mdflow/SKILL.md\",\"symbol\":null,\"language\":\"text\",\"signature\":null,\"fileHash\":\"f89f73a14a877ed1f4d8a5f4f97556096ce2de7899f1471aae28878fa12ddbaf\",\"nodeHash\":\"fb185f7aefa7e8d4a971c6c41e8089864b20b7b1171ce52f5613f903da1340c1\",\"signatureHash\":null,\"startLine\":1,\"endLine\":158,\"bindingStatus\":\"fresh\"}]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "chain_scope_id": null,
+        "change_set_id": "change_315536c7-e772-405c-86f8-f78870e831fc",
+        "changed_fields_json": "[\"evidenceLevel\",\"evidence\"]",
+        "created_at": "2026-09-09T16:32:20.612Z",
+        "entity_id": "checkpoint_e4b5b6f7-4290-4854-b604-d5f568f0e554",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[\"npm test\"]",
+        "id": 1753,
+        "plan_id": null,
+        "revision": 2,
+        "summary": "passed: 任务级上下文预算与检索验证"
       }
     ],
     "change_feed": [
-      {
-        "action": "updated",
-        "change_set_id": "change_bbe2ba53-ad81-4dc2-8f2d-18f7166eeafd",
-        "created_at": "2026-09-09T12:16:26.433Z",
-        "entity_id": "mdflow-core-repair-terminal",
-        "entity_type": "checkpoint",
-        "project_id": "mdflow",
-        "sequence": 1617
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_c4e6c0ab-922b-4071-8224-1efec858507a",
-        "created_at": "2026-09-09T12:16:26.455Z",
-        "entity_id": "mdflow-core-repair-mcp-protocol",
-        "entity_type": "checkpoint",
-        "project_id": "mdflow",
-        "sequence": 1618
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_da59edd0-4037-45b2-8365-5503dc6163e6",
-        "created_at": "2026-09-09T12:16:26.471Z",
-        "entity_id": "mdflow-core-repair-plugin",
-        "entity_type": "checkpoint",
-        "project_id": "mdflow",
-        "sequence": 1619
-      },
       {
         "action": "updated",
         "change_set_id": "change_558761fe-7bb3-470a-9715-aba77f2bff5b",
@@ -9067,6 +9055,33 @@
         "entity_type": "checkpoint",
         "project_id": "mdflow",
         "sequence": 1750
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_db8c501e-9609-423c-be6f-eedf43cf192d",
+        "created_at": "2026-09-09T16:31:23.588Z",
+        "entity_id": "decision:macos-standalone-zip-distribution",
+        "entity_type": "decision",
+        "project_id": "mdflow",
+        "sequence": 1751
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_9897963b-8035-46af-b1d1-b2b2fd27a5e0",
+        "created_at": "2026-09-09T16:32:20.527Z",
+        "entity_id": "checkpoint_5b82892d-2b47-46e1-95e0-54d773627715",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1752
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_315536c7-e772-405c-86f8-f78870e831fc",
+        "created_at": "2026-09-09T16:32:20.612Z",
+        "entity_id": "checkpoint_e4b5b6f7-4290-4854-b604-d5f568f0e554",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1753
       }
     ]
   }

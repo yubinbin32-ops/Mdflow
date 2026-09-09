@@ -68,13 +68,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-assets
-          hdiutil create -volname "mdflow" \
-            -srcfolder dist/build/Build/Products/Release/mdflow.app \
-            -ov -format UDZO \
-            release-assets/mdflow-macos.dmg
+          (cd dist/build/Build/Products/Release && zip -r -y -q "$GITHUB_WORKSPACE/release-assets/mdflow-macos.zip" mdflow.app)
           cp plugins/mdflow/server/mdflow-mcp.mjs release-assets/mdflow-mcp.mjs
           cd release-assets
-          shasum -a 256 mdflow-macos.dmg mdflow-mcp.mjs > SHA256SUMS
+          shasum -a 256 mdflow-macos.zip mdflow-mcp.mjs > SHA256SUMS
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -107,7 +104,7 @@ jobs:
 
             ### Get started
 
-            - **macOS 14+ app:** download `mdflow-macos.dmg`
+            - **macOS 14+ app:** download `mdflow-macos.zip` (unzip and run `mdflow.app`)
             - **MCP / CLI:** `npx -y github:yubinbin32-ops/Mdflow-Canvas@${{ github.ref_name }} init --scan`
             - **Integrity:** compare your downloads with `SHA256SUMS`
 

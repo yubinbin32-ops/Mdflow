@@ -48,7 +48,7 @@ npx -y github:yubinbin32-ops/Mdflow-Canvas status
 npx -y github:yubinbin32-ops/Mdflow-Canvas setup
 ```
 
-macOS 14+ 用户可以从 [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest) 下载原生客户端，在图形界面中探索架构、聚焦依赖、检查代码流并配置 Agent。CLI 与 MCP 服务也支持 Windows、Linux、CI 和远程服务器。
+macOS 14+ 用户可以从 [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest) 下载原生客户端免安装包（`mdflow-macos.zip`，解压即得 `mdflow.app`），在图形界面中探索架构、聚焦依赖、检查代码流并配置 Agent。CLI 与 MCP 服务也支持 Windows、Linux、CI 和远程服务器。
 
 ## 一个完整闭环
 

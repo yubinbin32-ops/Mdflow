@@ -48,7 +48,7 @@ npx -y github:yubinbin32-ops/Mdflow-Canvas status
 npx -y github:yubinbin32-ops/Mdflow-Canvas setup
 ```
 
-On macOS 14+, download the native app from [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest) to explore the graph, focus dependencies, inspect code streams, and configure supported agents visually. The CLI and MCP server also run headlessly on Windows, Linux, CI, and remote machines.
+On macOS 14+, download the native app (`mdflow-macos.zip`) from [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest) (unzip to get `mdflow.app`) to explore the graph, focus dependencies, inspect code streams, and configure supported agents visually. The CLI and MCP server also run headlessly on Windows, Linux, CI, and remote machines.
 
 ## One closed loop
 

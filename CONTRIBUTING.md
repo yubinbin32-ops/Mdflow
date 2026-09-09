@@ -29,6 +29,11 @@ The macOS app can be compiled with:
 npm run desktop:build
 ```
 
+### macOS Packaging & Distribution Policy (No DMG)
+
+- **Mandatory Packaging**: Always package `mdflow.app` directly into a `.zip` archive (`mdflow-macos.zip`) using `zip -r -y -q release-assets/mdflow-macos.zip mdflow.app`. The `-y` flag is required to preserve symlinks within the app bundle.
+- **Strictly Prohibit `.dmg`**: Do **not** use DMG disk images for distributing `mdflow`. On modern macOS, launching ad-hoc signed apps from mounted read-only DMG volumes triggers macOS Gatekeeper App Translocation (`/private/var/folders/.../AppTranslocation`), causing read-only volume errors, theme and appearance rendering abnormalities, and runtime cache initialization failures. Direct `.zip` distribution extracts a clean, standard, writable `mdflow.app` that runs without translocation anomalies.
+
 ## Pull requests
 
 - Keep the change focused and explain the concrete trigger and resulting behavior.
