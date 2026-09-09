@@ -153,55 +153,61 @@ struct ContentView: View {
     }
 
     private var projectHeader: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .center, spacing: 8) {
                 Text(store.snapshot.project.name)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(MdflowTheme.ink).lineLimit(1)
-
-                let totalCps = store.totalCheckpointsCount
-                let passedCps = store.passedCheckpointsCount
-                let pct = store.checkpointPassPercentage
-
-                if totalCps > 0 {
-                    HStack(spacing: 7) {
-                        ProgressView(value: Double(passedCps), total: Double(totalCps))
-                            .progressViewStyle(.linear)
-                            .frame(width: 70)
-                        Text("\(passedCps)/\(totalCps) \(store.text("checkpointsPassed")) (\(pct)%)")
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundStyle(pct == 100 ? MdflowTheme.success : (pct >= 80 ? MdflowTheme.focus : MdflowTheme.pending))
-                    }
-                    .padding(.top, 2)
-                } else {
-                    HStack(spacing: 5) {
-                        Circle().fill(MdflowTheme.muted.opacity(0.4)).frame(width: 5, height: 5)
-                        Text(store.text("noCheckpoints"))
-                            .font(.system(size: 8, weight: .medium, design: .monospaced))
-                            .foregroundStyle(MdflowTheme.muted)
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            Spacer()
-            Menu {
-                if !store.recentProjects.isEmpty {
-                    Section(store.text("recentProjects")) {
-                        ForEach(store.recentProjects) { project in
-                            Button { store.openProject(project) } label: {
-                                project.path == store.projectRoot ? Label(project.name, systemImage: "checkmark") : Label(project.name, systemImage: "folder")
+                    .foregroundStyle(MdflowTheme.ink)
+                    .lineLimit(1)
+                Spacer()
+                Menu {
+                    if !store.recentProjects.isEmpty {
+                        Section(store.text("recentProjects")) {
+                            ForEach(store.recentProjects) { project in
+                                Button { store.openProject(project) } label: {
+                                    project.path == store.projectRoot ? Label(project.name, systemImage: "checkmark") : Label(project.name, systemImage: "folder")
+                                }
                             }
                         }
+                        Divider()
                     }
-                    Divider()
+                    Button(store.text("openProject")) { store.chooseProject() }
+                } label: {
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10, weight: .semibold)).foregroundStyle(MdflowTheme.muted)
+                        .frame(width: 24, height: 24)
                 }
-                Button(store.text("openProject")) { store.chooseProject() }
-            } label: {
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(MdflowTheme.muted)
-                    .frame(width: 28, height: 30)
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden)
+
+            let totalCps = store.totalCheckpointsCount
+            let passedCps = store.passedCheckpointsCount
+            let pct = store.checkpointPassPercentage
+
+            if totalCps > 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("\(passedCps)/\(totalCps) \(store.text("checkpointsPassed"))")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(pct == 100 ? MdflowTheme.success : (pct >= 80 ? MdflowTheme.focus : MdflowTheme.pending))
+                            .lineLimit(1)
+                        Spacer()
+                        Text("\(pct)%")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(pct == 100 ? MdflowTheme.success : (pct >= 80 ? MdflowTheme.focus : MdflowTheme.pending))
+                    }
+                    ProgressView(value: Double(passedCps), total: Double(totalCps))
+                        .progressViewStyle(.linear)
+                        .tint(pct == 100 ? MdflowTheme.success : (pct >= 80 ? MdflowTheme.focus : MdflowTheme.pending))
+                }
+            } else {
+                HStack(spacing: 5) {
+                    Circle().fill(MdflowTheme.muted.opacity(0.4)).frame(width: 5, height: 5)
+                    Text(store.text("noCheckpoints"))
+                        .font(.system(size: 8.5, weight: .medium, design: .monospaced))
+                        .foregroundStyle(MdflowTheme.muted)
+                }
+            }
         }
         .padding(18)
     }
