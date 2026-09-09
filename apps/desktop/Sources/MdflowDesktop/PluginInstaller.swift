@@ -38,7 +38,7 @@ enum PluginInstaller {
         var errorDescription: String? { output }
     }
 
-    static let fallbackVersion = "0.3.2"
+    static let fallbackVersion = "0.3.3"
 
     private static let buildFiles = [
         ".codex-plugin/plugin.json",

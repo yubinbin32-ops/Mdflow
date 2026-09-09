@@ -158,30 +158,30 @@ struct ContentView: View {
                 Text(store.snapshot.project.name)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(MdflowTheme.ink).lineLimit(1)
-                HStack(spacing: 6) {
-                    Text("\(store.snapshot.blocks.count) BLOCKS")
-                    Text("·")
-                    Text("\(store.snapshot.chains.count) CHAINS")
-                    if !store.snapshot.decisions.isEmpty {
-                        Text("·")
-                        Text("\(store.snapshot.decisions.count) DECISIONS")
-                    }
-                }
-                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                .tracking(0.6)
-                .foregroundStyle(MdflowTheme.muted)
 
-                let coverage = store.architectureCoverage
-                let pct = coverage.totalBlocks > 0 ? Int(Double(coverage.verifiedBlocks) / Double(coverage.totalBlocks) * 100) : 0
-                HStack(spacing: 7) {
-                    ProgressView(value: Double(coverage.verifiedBlocks), total: Double(max(1, coverage.totalBlocks)))
-                        .progressViewStyle(.linear)
-                        .frame(width: 70)
-                    Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified")) (\(pct)%)")
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .foregroundStyle(pct >= 80 ? MdflowTheme.success : MdflowTheme.pending)
+                let totalCps = store.totalCheckpointsCount
+                let passedCps = store.passedCheckpointsCount
+                let pct = store.checkpointPassPercentage
+
+                if totalCps > 0 {
+                    HStack(spacing: 7) {
+                        ProgressView(value: Double(passedCps), total: Double(totalCps))
+                            .progressViewStyle(.linear)
+                            .frame(width: 70)
+                        Text("\(passedCps)/\(totalCps) \(store.text("checkpointsPassed")) (\(pct)%)")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundStyle(pct == 100 ? MdflowTheme.success : (pct >= 80 ? MdflowTheme.focus : MdflowTheme.pending))
+                    }
+                    .padding(.top, 2)
+                } else {
+                    HStack(spacing: 5) {
+                        Circle().fill(MdflowTheme.muted.opacity(0.4)).frame(width: 5, height: 5)
+                        Text(store.text("noCheckpoints"))
+                            .font(.system(size: 8, weight: .medium, design: .monospaced))
+                            .foregroundStyle(MdflowTheme.muted)
+                    }
+                    .padding(.top, 2)
                 }
-                .padding(.top, 2)
             }
             Spacer()
             Menu {

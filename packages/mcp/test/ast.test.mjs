@@ -180,3 +180,58 @@ export function processOrder(orderId) {
   assert.ok(updatedCode.includes('import { foo } from "./foo.js";'));
   assert.equal(replacedLines.startLine, 3);
 });
+
+test("ast: extractSymbols from Go, Rust, Java handles functions, structs and methods with 0 dependencies", () => {
+  // 1. Go
+  const goCode = `package main
+type User struct {
+    ID string
+}
+type Repository interface {
+    Get(id string) (*User, error)
+}
+func NewUser(id string) *User {
+    return &User{ID: id}
+}
+func (u *User) Save() error {
+    return nil
+}
+`;
+  const goSymbols = extractSymbols(goCode, { language: "go" });
+  assert.equal(goSymbols.length, 4);
+  assert.ok(goSymbols.find(s => s.name === "User" && s.kind === "struct"));
+  assert.ok(goSymbols.find(s => s.name === "Repository" && s.kind === "interface"));
+  assert.ok(goSymbols.find(s => s.name === "NewUser" && s.kind === "function"));
+  assert.ok(goSymbols.find(s => s.name === "Save" && s.kind === "method"));
+
+  // 2. Rust
+  const rustCode = `pub struct Order {
+    pub id: u64,
+}
+pub trait OrderService {
+    fn process(&self);
+}
+pub async fn execute_order(order: Order) -> bool {
+    true
+}
+`;
+  const rustSymbols = extractSymbols(rustCode, { language: "rust" });
+  assert.equal(rustSymbols.length, 4);
+  assert.ok(rustSymbols.find(s => s.name === "Order" && s.kind === "struct"));
+  assert.ok(rustSymbols.find(s => s.name === "OrderService" && s.kind === "trait"));
+  assert.ok(rustSymbols.find(s => s.name === "process"));
+  assert.ok(rustSymbols.find(s => s.name === "execute_order" && s.kind === "function"));
+
+  // 3. Java
+  const javaCode = `public class PaymentService {
+    public static PaymentResult processPayment(PaymentRequest req) {
+        return new PaymentResult();
+    }
+}
+`;
+  const javaSymbols = extractSymbols(javaCode, { language: "java" });
+  assert.equal(javaSymbols.length, 2);
+  assert.ok(javaSymbols.find(s => s.name === "PaymentService" && s.kind === "class"));
+  assert.ok(javaSymbols.find(s => s.name === "processPayment" && s.kind === "method"));
+});
+

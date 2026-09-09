@@ -7,11 +7,11 @@
     "url": "https://github.com/yubinbin32-ops/Mdflow-Canvas",
     "source": "github"
   },
-  "version": "0.3.2",
+  "version": "0.3.3",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/yubinbin32-ops/mdflow:0.3.2",
+      "identifier": "ghcr.io/yubinbin32-ops/mdflow:0.3.3",
       "transport": {
         "type": "stdio"
       },

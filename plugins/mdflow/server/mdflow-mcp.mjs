@@ -24126,6 +24126,15 @@ function detectLanguage(filePath = "") {
     case ".kt":
     case ".kts":
       return "kotlin";
+    case ".java":
+      return "java";
+    case ".c":
+    case ".h":
+    case ".cpp":
+    case ".cc":
+    case ".cxx":
+    case ".hpp":
+      return "cpp";
     default:
       return "text";
   }
@@ -24294,11 +24303,102 @@ function extractSymbols(sourceCode, { language = null, filePath = "" } = {}) {
         });
         continue;
       }
+    } else if (lang === "go") {
+      const goFuncMatch = trimmed.match(/^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)\s*\(/);
+      if (goFuncMatch) {
+        symbols.push({
+          name: goFuncMatch[1],
+          kind: trimmed.startsWith("func (") ? "method" : "function",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const goStructMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+struct\b/);
+      if (goStructMatch) {
+        symbols.push({
+          name: goStructMatch[1],
+          kind: "struct",
+          signature: `type ${goStructMatch[1]} struct`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const goIfaceMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+interface\b/);
+      if (goIfaceMatch) {
+        symbols.push({
+          name: goIfaceMatch[1],
+          kind: "interface",
+          signature: `type ${goIfaceMatch[1]} interface`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+    } else if (lang === "rust") {
+      const rustFnMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?(?:unsafe\s+)?(?:const\s+)?fn\s+([A-Za-z0-9_]+)/);
+      if (rustFnMatch) {
+        symbols.push({
+          name: rustFnMatch[1],
+          kind: "function",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const rustTypeMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(struct|enum|trait|union)\s+([A-Za-z0-9_]+)/);
+      if (rustTypeMatch) {
+        symbols.push({
+          name: rustTypeMatch[2],
+          kind: rustTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: trimmed.includes(";") ? lineNum : findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const rustImplMatch = trimmed.match(/^impl(?:<[^>]+>)?\s+(?:[A-Za-z0-9_:]+\s+for\s+)?([A-Za-z0-9_]+)/);
+      if (rustImplMatch) {
+        symbols.push({
+          name: rustImplMatch[1],
+          kind: "impl",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+    } else if (lang === "java" || lang === "kotlin") {
+      const javaTypeMatch = trimmed.match(/^(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+|static\s+)?(class|interface|enum|record)\s+([A-Za-z0-9_$]+)/);
+      if (javaTypeMatch) {
+        symbols.push({
+          name: javaTypeMatch[2],
+          kind: javaTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const javaMethodMatch = trimmed.match(/^(?:(?:public|private|protected|static|final|abstract|synchronized|native|default|fun)\s+)+([A-Za-z0-9_$<>\[\],\s]+)\s+([A-Za-z0-9_$]+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{/);
+      if (javaMethodMatch && !(/* @__PURE__ */ new Set(["if", "for", "while", "switch", "catch"])).has(javaMethodMatch[2])) {
+        symbols.push({
+          name: javaMethodMatch[2],
+          kind: "method",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
     }
   }
-  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol"].includes(item.kind));
+  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind));
   return symbols.map((item) => {
-    if (["class", "struct", "enum", "protocol"].includes(item.kind)) return item;
+    if (["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind)) return item;
     const owner = typeSymbols.filter((type) => type.startLine < item.startLine && type.endLine >= item.endLine).sort((left, right) => left.endLine - left.startLine - (right.endLine - right.startLine))[0];
     return owner ? { ...item, qualifiedName: `${owner.name}.${item.name}` } : item;
   });
@@ -30971,7 +31071,7 @@ var ProjectServiceRouter = class {
 import fs9 from "node:fs";
 import os from "node:os";
 import path10 from "node:path";
-var VERSION = "0.3.2";
+var VERSION = "0.3.3";
 var HELP = `
 mdflow v${VERSION}: A context operating system for AI coding agents.
 
@@ -31314,7 +31414,7 @@ function boundTaskResponse({ taskContextId, markdown, data, includeStructured = 
 // packages/mcp/src/server.mjs
 var router = new ProjectServiceRouter();
 var server = new McpServer(
-  { name: "mdflow", version: "0.3.2" },
+  { name: "mdflow", version: "0.3.3" },
   {
     instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next mdflow boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }

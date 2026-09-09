@@ -26,6 +26,15 @@ export function detectLanguage(filePath = "") {
     case ".kt":
     case ".kts":
       return "kotlin";
+    case ".java":
+      return "java";
+    case ".c":
+    case ".h":
+    case ".cpp":
+    case ".cc":
+    case ".cxx":
+    case ".hpp":
+      return "cpp";
     default:
       return "text";
   }
@@ -237,6 +246,110 @@ export function extractSymbols(sourceCode, { language = null, filePath = "" } = 
         });
         continue;
       }
+    } else if (lang === "go") {
+      // Go func / method
+      const goFuncMatch = trimmed.match(/^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)\s*\(/);
+      if (goFuncMatch) {
+        symbols.push({
+          name: goFuncMatch[1],
+          kind: trimmed.startsWith("func (") ? "method" : "function",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
+      // Go struct
+      const goStructMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+struct\b/);
+      if (goStructMatch) {
+        symbols.push({
+          name: goStructMatch[1],
+          kind: "struct",
+          signature: `type ${goStructMatch[1]} struct`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
+      // Go interface
+      const goIfaceMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+interface\b/);
+      if (goIfaceMatch) {
+        symbols.push({
+          name: goIfaceMatch[1],
+          kind: "interface",
+          signature: `type ${goIfaceMatch[1]} interface`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+    } else if (lang === "rust") {
+      // Rust fn / async fn
+      const rustFnMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?(?:unsafe\s+)?(?:const\s+)?fn\s+([A-Za-z0-9_]+)/);
+      if (rustFnMatch) {
+        symbols.push({
+          name: rustFnMatch[1],
+          kind: "function",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
+      // Rust struct / enum / trait / union
+      const rustTypeMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(struct|enum|trait|union)\s+([A-Za-z0-9_]+)/);
+      if (rustTypeMatch) {
+        symbols.push({
+          name: rustTypeMatch[2],
+          kind: rustTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: trimmed.includes(";") ? lineNum : findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
+      // Rust impl
+      const rustImplMatch = trimmed.match(/^impl(?:<[^>]+>)?\s+(?:[A-Za-z0-9_:]+\s+for\s+)?([A-Za-z0-9_]+)/);
+      if (rustImplMatch) {
+        symbols.push({
+          name: rustImplMatch[1],
+          kind: "impl",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+    } else if (lang === "java" || lang === "kotlin") {
+      // Java/Kotlin class / interface / enum / record
+      const javaTypeMatch = trimmed.match(/^(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+|static\s+)?(class|interface|enum|record)\s+([A-Za-z0-9_$]+)/);
+      if (javaTypeMatch) {
+        symbols.push({
+          name: javaTypeMatch[2],
+          kind: javaTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
+      // Java/Kotlin method
+      const javaMethodMatch = trimmed.match(/^(?:(?:public|private|protected|static|final|abstract|synchronized|native|default|fun)\s+)+([A-Za-z0-9_$<>\[\],\s]+)\s+([A-Za-z0-9_$]+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{/);
+      if (javaMethodMatch && !new Set(["if", "for", "while", "switch", "catch"]).has(javaMethodMatch[2])) {
+        symbols.push({
+          name: javaMethodMatch[2],
+          kind: "method",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
     }
   }
 
@@ -244,9 +357,9 @@ export function extractSymbols(sourceCode, { language = null, filePath = "" } = 
   // types remain addressable even when a file contains repeated names such as
   // SwiftUI's `body`. The original short `name` is preserved for editor
   // search and backwards-compatible callers.
-  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol"].includes(item.kind));
+  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind));
   return symbols.map((item) => {
-    if (["class", "struct", "enum", "protocol"].includes(item.kind)) return item;
+    if (["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind)) return item;
     const owner = typeSymbols
       .filter((type) => type.startLine < item.startLine && type.endLine >= item.endLine)
       .sort((left, right) => (left.endLine - left.startLine) - (right.endLine - right.startLine))[0];
