@@ -30447,7 +30447,7 @@ function setupEditors() {
 // packages/mcp/src/server.mjs
 var router = new ProjectServiceRouter();
 var server = new McpServer(
-  { name: "mdflow", version: "0.3.1" },
+  { name: "mdflow", version: "0.3.2" },
   {
     instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block does not need to belong to a Chain or have a checkpoint until a requirement, Plan, Chain gate, or explicit verification request requires one. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }
