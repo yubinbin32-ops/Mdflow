@@ -168,3 +168,30 @@ test("service: revertChangeSet rolls back created entities", async () => {
   service.close();
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
+
+test("router: serviceFor auto-registers uninitialized project on cold start", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-test-autoreg-"));
+  // Note: NO .mdflow directory created!
+  const { ProjectServiceRouter } = await import("../src/project-router.mjs");
+  const router = new ProjectServiceRouter();
+
+  // serviceFor should automatically create .mdflow/project.json and initialize
+  const service = router.serviceFor({ projectRoot: tmpDir });
+  assert.ok(service);
+
+  // Check project.json was created
+  const projectJson = JSON.parse(await fs.readFile(path.join(tmpDir, ".mdflow", "project.json"), "utf8"));
+  assert.ok(projectJson.id);
+  assert.ok(projectJson.name);
+
+  // Check graph.json was created
+  assert.ok(await fs.stat(path.join(tmpDir, ".mdflow", "graph.json")));
+
+  // Check context_for_task runs smoothly
+  const context = service.contextForTask({ task: "Initial development" });
+  assert.ok(context.markdown.includes("# Task Context"));
+
+  router.close();
+  await fs.rm(tmpDir, { recursive: true, force: true });
+});
+

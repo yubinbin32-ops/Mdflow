@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createService } from "./service.mjs";
-import { registerProject, resolveProjectPaths } from "./paths.mjs";
+import { registerProject, resolveProjectPaths, findTargetProjectRoot } from "./paths.mjs";
 
 function databaseFileIdentity(databasePath) {
   try {
@@ -30,7 +30,19 @@ export class ProjectServiceRouter {
   }
 
   serviceFor(input = {}) {
-    const paths = resolveProjectPaths({ projectRoot: this.projectRoot(input), dataRoot: this.dataRoot });
+    const rawRoot = this.projectRoot(input);
+    let paths;
+    try {
+      paths = resolveProjectPaths({ projectRoot: rawRoot, dataRoot: this.dataRoot });
+    } catch (err) {
+      if (input.autoRegister !== false && err.message?.includes("No .mdflow/project.json found")) {
+        const rootToRegister = findTargetProjectRoot(rawRoot);
+        registerProject({ projectRoot: rootToRegister });
+        paths = resolveProjectPaths({ projectRoot: rootToRegister, dataRoot: this.dataRoot });
+      } else {
+        throw err;
+      }
+    }
     const key = path.resolve(paths.projectRoot);
     this.activeProjectRoot = key;
     const cached = this.services.get(key);
@@ -66,6 +78,10 @@ export class ProjectServiceRouter {
   register(input = {}) {
     const registered = registerProject(input);
     this.activeProjectRoot = registered.projectRoot;
+    const service = this.serviceFor({ projectRoot: registered.projectRoot });
+    if (!fs.existsSync(service.paths.graphJsonPath)) {
+      service.ensureSynced();
+    }
     return registered;
   }
 

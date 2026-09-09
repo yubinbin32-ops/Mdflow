@@ -33,6 +33,23 @@ export function findProjectRoot(startDirectory = process.cwd()) {
   }
 }
 
+export function findTargetProjectRoot(startDirectory = process.cwd()) {
+  let current = path.resolve(startDirectory);
+  let gitRoot = null;
+  while (true) {
+    if (fs.existsSync(path.join(current, ".mdflow", "project.json"))) {
+      return current;
+    }
+    if (!gitRoot && fs.existsSync(path.join(current, ".git"))) {
+      gitRoot = current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return gitRoot ?? path.resolve(startDirectory);
+}
+
 export function readProjectDescriptor(projectRoot) {
   const descriptorPath = path.join(projectRoot, ".mdflow", "project.json");
   const descriptor = JSON.parse(fs.readFileSync(descriptorPath, "utf8"));

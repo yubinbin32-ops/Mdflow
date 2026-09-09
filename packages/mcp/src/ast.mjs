@@ -52,12 +52,12 @@ export function extractSymbols(sourceCode, { language = "typescript", filePath =
 
     if (lang === "typescript" || lang === "javascript") {
       // Functions
-      const fnMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*(\([^{]*\))/);
+      const fnMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?function(?:\s*\*|\s+)\s*([A-Za-z0-9_$]+)\s*\(/);
       if (fnMatch) {
         symbols.push({
           name: fnMatch[1],
           kind: "function",
-          signature: `${fnMatch[1]}${fnMatch[2]}`,
+          signature: trimmed.replace(/\{$/, "").trim(),
           startLine: lineNum,
           endLine: findBlockEnd(lines, i),
         });
@@ -65,12 +65,12 @@ export function extractSymbols(sourceCode, { language = "typescript", filePath =
       }
 
       // Const arrow functions
-      const arrowMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(\([^{=]*\)\s*(?::\s*[^=]+)?)\s*=>/);
+      const arrowMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\((?:[\s\S]*?)\)|[A-Za-z0-9_$]+)\s*(?::\s*[^=]+)?\s*=>/);
       if (arrowMatch) {
         symbols.push({
           name: arrowMatch[1],
           kind: "function",
-          signature: `${arrowMatch[1]} = ${arrowMatch[2]} =>`,
+          signature: `${arrowMatch[1]} = ${arrowMatch[0].replace(/^(?:export\s+)?const\s+[A-Za-z0-9_$]+\s*=\s*/, "")}`,
           startLine: lineNum,
           endLine: findBlockEnd(lines, i),
         });

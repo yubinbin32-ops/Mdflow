@@ -51,7 +51,8 @@ function extractImports(sourceCode, filePath = "") {
 /**
  * Suggest architectural links for a specific Block
  */
-export function suggestLinksForBlock(service, blockId) {
+export function suggestLinksForBlock(service, target) {
+  const blockId = typeof target === "object" && target !== null ? target.blockId : target;
   const snapshot = service.snapshot();
   const block = snapshot.blocks.find((b) => b.id === blockId);
   if (!block) {

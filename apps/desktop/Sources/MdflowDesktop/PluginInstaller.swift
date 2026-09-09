@@ -134,6 +134,9 @@ enum PluginInstaller {
         let serverScript = marketplaceRoot
             .appending(path: "plugins/mdflow/server/mdflow-mcp.mjs")
             .standardizedFileURL.path
+        let skillSource = marketplaceRoot
+            .appending(path: "plugins/mdflow/skills/mdflow")
+            .standardizedFileURL
 
         switch id {
         case "claude":
@@ -148,10 +151,14 @@ enum PluginInstaller {
                 try? FileManager.default.createDirectory(at: cursorDir, withIntermediateDirectories: true)
                 let cursorConfig = cursorDir.appending(path: "mcp.json")
                 _ = configureJsonMcp(at: cursorConfig, serverScript: serverScript)
+                let projectCursorSkills = root.appending(path: ".cursor/skills/mdflow")
+                syncDirectory(from: skillSource, to: projectCursorSkills)
             }
             let userCursorDir = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".cursor")
             try? FileManager.default.createDirectory(at: userCursorDir, withIntermediateDirectories: true)
             _ = configureJsonMcp(at: userCursorDir.appending(path: "mcp.json"), serverScript: serverScript)
+            let userCursorSkills = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".cursor/skills/mdflow")
+            syncDirectory(from: skillSource, to: userCursorSkills)
 
         case "antigravity":
             if let root = projectRoot {
@@ -159,11 +166,15 @@ enum PluginInstaller {
                 try? FileManager.default.createDirectory(at: agentsDir, withIntermediateDirectories: true)
                 let agentsConfig = agentsDir.appending(path: "mcp_config.json")
                 _ = configureJsonMcp(at: agentsConfig, serverScript: serverScript)
+                let projectSkills = root.appending(path: ".agents/skills/mdflow")
+                syncDirectory(from: skillSource, to: projectSkills)
             }
             let geminiConfigDir = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".gemini/config")
             try? FileManager.default.createDirectory(at: geminiConfigDir, withIntermediateDirectories: true)
             let userConfig = geminiConfigDir.appending(path: "mcp_config.json")
             _ = configureJsonMcp(at: userConfig, serverScript: serverScript)
+            let geminiSkills = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".gemini/config/skills/mdflow")
+            syncDirectory(from: skillSource, to: geminiSkills)
 
         case "opencode":
             if let root = projectRoot {
@@ -171,10 +182,14 @@ enum PluginInstaller {
                 try? FileManager.default.createDirectory(at: opencodeDir, withIntermediateDirectories: true)
                 let opencodeConfig = opencodeDir.appending(path: "mcp.json")
                 _ = configureJsonMcp(at: opencodeConfig, serverScript: serverScript)
+                let projectOpencodeSkills = root.appending(path: ".opencode/skills/mdflow")
+                syncDirectory(from: skillSource, to: projectOpencodeSkills)
             }
             let userOpencodeDir = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".config/opencode")
             try? FileManager.default.createDirectory(at: userOpencodeDir, withIntermediateDirectories: true)
             _ = configureJsonMcp(at: userOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript)
+            let userOpencodeSkills = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".config/opencode/skills/mdflow")
+            syncDirectory(from: skillSource, to: userOpencodeSkills)
 
         case "codex":
             if let executable = try? codexExecutable() {
@@ -267,5 +282,15 @@ enum PluginInstaller {
         process.waitUntilExit()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return (process.terminationStatus, String(decoding: data, as: UTF8.self))
+    }
+
+    private static func syncDirectory(from sourceURL: URL, to destURL: URL) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: sourceURL.path) else { return }
+        try? fm.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if fm.fileExists(atPath: destURL.path) {
+            try? fm.removeItem(at: destURL)
+        }
+        try? fm.copyItem(at: sourceURL, to: destURL)
     }
 }

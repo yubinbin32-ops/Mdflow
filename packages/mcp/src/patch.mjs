@@ -93,7 +93,7 @@ function parseCommand(line, lineNumber) {
   const tokens = tokenize(line, lineNumber);
   if (tokens.length < 2) throw new Error(`Compact patch line ${lineNumber} requires an action and target`);
   const action = tokens.shift();
-  if (!["create", "update", "checkpoint", "source"].includes(action)) {
+  if (!["create", "update", "checkpoint", "source", "delete"].includes(action)) {
     throw new Error(`Compact patch line ${lineNumber} has unsupported action ${action}`);
   }
   const target = parseTarget(tokens.shift(), lineNumber);
@@ -147,7 +147,7 @@ export function parseGraphPatch(input) {
   let current = null;
   const flush = () => {
     if (!current) return;
-    if (Object.keys(current.fields).length === 0 && current.action !== "source") {
+    if (Object.keys(current.fields).length === 0 && current.action !== "source" && current.action !== "delete") {
       throw new Error(`Compact patch line ${current.line} has no fields; add key=value or end the operation`);
     }
     operations.push(current);
@@ -173,7 +173,7 @@ export function parseGraphPatch(input) {
       });
       continue;
     }
-    if (/^(create|update|checkpoint|source)\s/.test(line)) {
+    if (/^(create|update|checkpoint|source|delete)\s/.test(line)) {
       flush();
       current = parseCommand(line, index + 1);
       continue;

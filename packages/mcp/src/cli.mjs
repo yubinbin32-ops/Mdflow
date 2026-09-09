@@ -41,7 +41,7 @@ export async function runCli(args, router) {
   if (command === "status") {
     const projectRoot = process.cwd();
     try {
-      const service = router.serviceFor({ projectRoot });
+      const service = router.serviceFor({ projectRoot, autoRegister: false });
       const snap = service.snapshot();
       const timeline = service.getTimeline();
       console.log(`Project: ${snap.project.name} (${snap.project.id})`);
