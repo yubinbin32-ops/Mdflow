@@ -64,6 +64,21 @@ export function extractSymbols(sourceCode, { language = "typescript", filePath =
         continue;
       }
 
+      // Class/object methods. Keeping method symbols explicit is important for
+      // AST-bound edits: a source reference such as `Service.process` must not
+      // fall back to the containing class or to the first source reference.
+      const methodMatch = trimmed.match(/^(?:(?:public|private|protected|static|async|override|abstract|get|set)\s+)*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(([^)]*)\)(?:\s*:\s*[^\{]+)?\s*\{/);
+      if (methodMatch && !new Set(["if", "for", "while", "switch", "catch", "function"]).has(methodMatch[1])) {
+        symbols.push({
+          name: methodMatch[1],
+          kind: "method",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
       // Const arrow functions
       const arrowMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\((?:[\s\S]*?)\)|[A-Za-z0-9_$]+)\s*(?::\s*[^=]+)?\s*=>/);
       if (arrowMatch) {
@@ -216,19 +231,44 @@ function findPythonBlockEnd(lines, startIdx) {
 /**
  * Extract a concise code slice for a specific symbol or line range
  */
-export function extractSymbolSlice(sourceCode, { symbol = null, startLine = null, endLine = null, maxLines = 50 } = {}) {
+export function extractSymbolSlice(sourceCode, {
+  symbol = null,
+  startLine = null,
+  endLine = null,
+  maxLines = 50,
+  language = null,
+  filePath = "",
+} = {}) {
   const lines = sourceCode.split(/\r?\n/);
 
   let targetStart = startLine;
   let targetEnd = endLine;
+  let matched = null;
 
   if (symbol && (!targetStart || !targetEnd)) {
-    const symbols = extractSymbols(sourceCode);
-    const matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
+    const symbols = extractSymbols(sourceCode, {
+      language: language || (filePath ? detectLanguage(filePath) : "typescript"),
+      filePath,
+    });
+    matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
     if (matched) {
       targetStart = matched.startLine;
       targetEnd = matched.endLine;
     }
+  }
+
+  // A stale symbol reference must be visible to the caller, not silently
+  // converted into an unrelated line-range slice.
+  if (symbol && !matched) {
+    return {
+      found: false,
+      symbol,
+      signature: null,
+      startLine: null,
+      endLine: null,
+      totalLines: 0,
+      code: "",
+    };
   }
 
   if (!targetStart) targetStart = 1;
@@ -243,6 +283,9 @@ export function extractSymbolSlice(sourceCode, { symbol = null, startLine = null
   }
 
   return {
+    found: Boolean(matched || startLine || endLine),
+    symbol: matched?.name ?? symbol,
+    signature: matched?.signature ?? null,
     startLine: targetStart,
     endLine: targetEnd,
     totalLines,
@@ -253,26 +296,27 @@ export function extractSymbolSlice(sourceCode, { symbol = null, startLine = null
 /**
  * Generate a clean, unified Code Stream across a Chain of nodes
  */
-export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000 } = {}) {
+export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000, mode = "contract" } = {}) {
   const sections = [];
   let currentChars = 0;
+  const includeCode = mode === "slice";
 
   for (const node of chainNodes) {
-    const { blockId, title, filePath, symbol, code, contract } = node;
+    const { blockId, title, filePath, symbol, code, contract, signature, sourceStatus, startLine, endLine } = node;
     const header = `// -------------------------------------------------------------
 // [Node: ${blockId}] ${title} ${filePath ? `(${filePath}${symbol ? ` :: ${symbol}` : ""})` : ""}
 // -------------------------------------------------------------`;
 
-    let body = "";
-    if (code) {
-      body = code;
-    } else if (contract) {
-      body = `// Planned Contract (Unmaterialized Facade):\n// ${contract}`;
-    } else {
-      body = `// Planned Block (No code facade yet)`;
-    }
+    const bodyLines = [
+      `// Source status: ${sourceStatus ?? (filePath ? "anchored" : "virtual")}`,
+      `// Symbol: ${symbol || "—"}${signature ? ` · ${signature}` : ""}`,
+      `// Lines: ${startLine && endLine ? `${startLine}-${endLine}` : "—"}`,
+      `// Contract: ${contract || "(not declared)"}`,
+    ];
+    if (includeCode && code) bodyLines.push("", code);
+    if (includeCode && !code && sourceStatus === "missing") bodyLines.push("", "// No source slice available");
 
-    const section = `${header}\n${body}\n`;
+    const section = `${header}\n${bodyLines.join("\n")}\n`;
     if (currentChars + section.length > maxTotalChars && sections.length > 0) {
       sections.push(`// ... [Remaining nodes truncated for context budget]`);
       break;

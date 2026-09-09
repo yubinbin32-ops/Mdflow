@@ -5,6 +5,7 @@ import * as z from "zod/v4";
 import { ProjectServiceRouter } from "./project-router.mjs";
 import { runCli } from "./cli.mjs";
 import { sanitizeTerminalOutput } from "./sanitizer.mjs";
+import { boundTaskResponse, startTaskBudget } from "./task-budget.mjs";
 
 const router = new ProjectServiceRouter();
 const server = new McpServer(
@@ -14,21 +15,40 @@ const server = new McpServer(
       "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block does not need to belong to a Chain or have a checkpoint until a requirement, Plan, Chain gate, or explicit verification request requires one. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
   },
 );
-const projectRootInput = { projectRoot: z.string().min(1).optional() };
+const projectRootInput = {
+  projectRoot: z.string().min(1).optional(),
+  taskContextId: z.string().min(1).optional(),
+};
 
 function withProject(input, callback) {
   const service = router.serviceFor(input);
   const { projectRoot: _projectRoot, ...payload } = input;
-  return callback(service, payload);
+  const data = callback(service, payload);
+  if (data && typeof data === "object" && input.taskContextId) {
+    Object.defineProperty(data, "__taskContextId", { value: input.taskContextId, enumerable: false });
+  }
+  return data;
 }
 
 function readResult(data, markdown, includeStructured = false) {
-  return response(data, markdown, includeStructured ? data : undefined);
+  const bounded = boundTaskResponse({
+    taskContextId: data?.__taskContextId,
+    markdown,
+    data,
+    includeStructured,
+  });
+  return response(data, bounded.markdown, bounded.structured);
 }
 
 function writeResult(data, markdown, includeStructured = false) {
   const text = markdown ?? data?.markdown ?? writeReceiptMarkdown(data);
-  return response(data, text, includeStructured ? data : undefined);
+  const bounded = boundTaskResponse({
+    taskContextId: data?.__taskContextId,
+    markdown: text,
+    data,
+    includeStructured,
+  });
+  return response(data, bounded.markdown, bounded.structured);
 }
 
 function writeReceiptMarkdown(data = {}) {
@@ -137,11 +157,13 @@ server.registerTool(
 server.registerTool(
   "chain_code_stream",
   {
-    description: "Extract an end-to-end code stream along an architectural Chain. Returns only targeted AST symbol slices and interfaces for each node, saving ~90% tokens compared to full file reads.",
+    description: "Extract a contract-first stream along an architectural Chain. The default returns symbols, signatures, source status, line ranges, and contracts; use mode=slice only for an explicit bounded implementation slice.",
     inputSchema: {
       ...projectRootInput,
       chainId: z.string().min(1),
       maxTotalChars: z.number().int().min(100).max(20000).optional(),
+      mode: z.enum(["contract", "slice"]).default("contract"),
+      maxLinesPerSymbol: z.number().int().min(4).max(40).optional(),
       includeStructured: z.boolean().default(false),
     },
   },
@@ -152,10 +174,40 @@ server.registerTool(
 );
 
 server.registerTool(
+  "run_command",
+  {
+    description:
+      "Run one project-local command and return only a redacted, compressed terminal summary. Raw stdout/stderr never enters the MCP response; use this gateway for tests, builds, and mutation verification.",
+    inputSchema: {
+      ...projectRootInput,
+      command: z.string().min(1),
+      cwd: z.string().min(1).optional(),
+      timeoutMs: z.number().int().min(100).max(120000).optional(),
+      maxChars: z.number().int().min(100).max(10000).optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.runCommand(payload));
+    const markdown = [
+      `# Command Result: ${data.success ? "PASSED" : "FAILED"}`,
+      `- Command: \`${data.command}\``,
+      `- Exit code: ${data.exitCode} · Output: ${data.originalChars} → ${data.finalChars} chars · Redactions: ${data.redactions}`,
+      "",
+      "```text",
+      data.output,
+      "```",
+    ].join("\n");
+    return readResult(data, markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
   "log_sanitize",
   {
     description: "Sanitize build, test, or terminal command outputs. Strips ANSI noise, collapses routine compiler stdout, and isolates actionable failure stack traces to protect context window from token flooding.",
     inputSchema: {
+      ...projectRootInput,
       rawOutput: z.string().min(1),
       exitCode: z.number().int().optional(),
       maxChars: z.number().int().min(100).max(10000).optional(),
@@ -163,10 +215,12 @@ server.registerTool(
     },
   },
   async (input) => {
-    const data = sanitizeTerminalOutput(input.rawOutput, {
-      exitCode: input.exitCode,
-      maxChars: input.maxChars,
-    });
+    const data = input.projectRoot
+      ? withProject(input, (service, payload) => service.sanitizeLog(payload))
+      : sanitizeTerminalOutput(input.rawOutput, {
+        exitCode: input.exitCode,
+        maxChars: input.maxChars,
+      });
     const markdown = [
       `# Sanitized Output (${data.reductionRatio} noise reduced)`,
       `- Original: ${data.originalLength} chars | Cleaned: ${data.sanitizedLength} chars`,
@@ -190,7 +244,8 @@ server.registerTool(
       blockId: z.string().min(1),
       symbol: z.string().min(1),
       newCode: z.string().min(1),
-      verifyCommand: z.string().optional(),
+      verifyCommand: z.string().min(1),
+      expectedSourceHash: z.string().length(64).optional(),
       includeStructured: z.boolean().default(false),
     },
   },
@@ -244,13 +299,25 @@ server.registerTool(
       task: z.string().min(1),
       focusRefs: z.array(z.string()).max(20).optional(),
       maxChars: z.number().int().min(1000).max(24000).default(6000),
+      budgetChars: z.number().int().min(4000).max(48000).default(12000),
       locale: z.enum(["en", "zh-Hans"]).optional(),
       includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
-    const data = withProject(input, (service, payload) => service.contextForTask(payload));
-    return readResult(data, data.markdown, input.includeStructured);
+    const budget = startTaskBudget({
+      projectRoot: input.projectRoot,
+      taskContextId: input.taskContextId,
+      budgetChars: input.budgetChars,
+    });
+    const data = withProject(
+      { ...input, taskContextId: budget.taskContextId },
+      (service, payload) => service.contextForTask(payload),
+    );
+    data.taskContextId = budget.taskContextId;
+    data.taskBudget = budget;
+    const budgetLine = `\n\n## Task budget\n- Context ID: ${budget.taskContextId} · Total: ${budget.budgetChars} chars · Shared across focused reads.`;
+    return readResult(data, `${data.markdown}${budgetLine}`, input.includeStructured);
   },
 );
 

@@ -270,14 +270,18 @@ enum PluginInstaller {
 
             // 4. Install plugin via official codex plugin add mdflow@personal
             if let executable = try? codexExecutable() {
-                _ = try? run(executable, arguments: ["plugin", "add", "mdflow@personal", "--json"])
+                let installResult = try? run(executable, arguments: ["plugin", "add", "mdflow@personal", "--json"])
+                if installResult?.status != 0 {
+                    configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion)
+                }
             }
 
-            // 5. Also configure standard MCP server so both Codex native plugin and CLI/MCP work
-            if let executable = try? codexExecutable() {
-                _ = try? run(executable, arguments: ["mcp", "remove", "mdflow"])
-                _ = try? run(executable, arguments: ["mcp", "add", "mdflow", "--env", "MDFLOW_VERSION=\(targetVersion)", "--", "node", "--no-warnings=ExperimentalWarning", serverScript])
-            } else {
+            // 5. The plugin manifest owns its MCP server. Registering the same
+            // server again with `codex mcp add` creates duplicate tool surfaces
+            // and makes the agent choose between stale and current instances.
+            // Keep the legacy TOML fallback only when the Codex executable is
+            // unavailable and the native plugin cannot be installed.
+            if (try? codexExecutable()) == nil {
                 configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion)
             }
 
@@ -380,10 +384,18 @@ enum PluginInstaller {
         let fm = FileManager.default
         guard fm.fileExists(atPath: sourceURL.path) else { return }
         try? fm.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if fm.fileExists(atPath: destURL.path) {
-            try? fm.removeItem(at: destURL)
+        let temporaryURL = destURL.deletingLastPathComponent()
+            .appending(path: ".\(destURL.lastPathComponent).tmp-\(UUID().uuidString)")
+        do {
+            try? fm.removeItem(at: temporaryURL)
+            try fm.copyItem(at: sourceURL, to: temporaryURL)
+            if fm.fileExists(atPath: destURL.path) {
+                try fm.removeItem(at: destURL)
+            }
+            try fm.moveItem(at: temporaryURL, to: destURL)
+        } catch {
+            try? fm.removeItem(at: temporaryURL)
         }
-        try? fm.copyItem(at: sourceURL, to: destURL)
     }
 
     private static func readCodexStatus(targetVersion: String) -> (isInstalled: Bool, isSynced: Bool, isOutdated: Bool, version: String?) {

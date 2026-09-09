@@ -36,6 +36,8 @@ stateDiagram-v2
   1. **Call `context_for_task(task="...")`**:
      - Locks in the relevant architecture Blocks, execution Chains, and active Plan within a tight token budget.
      - Automatically initializes `.mdflow` if the project is brand new.
+     - Save the returned `taskContextId`; pass it to `chain_code_stream`, `plan_context`, `entity_open`, `checkpoint_list`, and `changes_since` so focused reads consume one shared task budget instead of several independent responses.
+     - Use the default shared budget first; increase `budgetChars` only when the task genuinely needs more context. `includeStructured=true` is an explicit expansion and is capped by the same task budget.
      - **Rule**: Before knowing which Block and Chain the task belongs to, DO NOT open arbitrary source files.
   2. **Call `timeline_sync(nowDoing="...")`**:
      - Anchor your current working cursor immediately so other agents and future prompts have zero ambiguity about the active focus.
@@ -67,9 +69,12 @@ stateDiagram-v2
 ### ⚡ Trigger 3: When Tracing Multi-Module Execution Chains
 * **Your Natural Habit (WRONG)**: Reading 3–5 full source files (1,000–3,000 lines), wasting 80% of your context window on boilerplate imports, formatting, and unrelated helpers.
 * **The mdflow Reflex (MANDATORY)**:
-  - **Trigger**: Call `chain_code_stream(chainId="...")`:
-    - Traverses the chain and streams **only the targeted AST symbol bodies** (functions, structs, classes) bound to the blocks.
-    - Slashes token consumption by ~90%, keeping context sharp and hallucination-free.
+  - **Trigger**: Call `chain_code_stream(chainId="...", mode="contract")`:
+    - The default stream is **contract-first**: symbol, signature, source status, line range, and declared contract only.
+    - Request `mode="slice"` only for the smallest implementation body needed for a concrete edit; never use it as a substitute for a full-file dump.
+    - Treat `sourceStatus="stale"|"missing"|"unreadable"` as a stop signal instead of guessing from adjacent code.
+    - This keeps the normal trace small and makes the token budget observable rather than claiming a fixed percentage.
+    - Pass the `taskContextId` returned by `context_for_task` so Chain expansion shares the task budget; omitting it is an explicit unbounded escape hatch.
 
 ---
 
@@ -77,11 +82,13 @@ stateDiagram-v2
 * **Your Natural Habit (WRONG)**: Performing raw regex or string replacements across large files; if the build fails, leaving broken code behind.
 * **The mdflow Reflex (MANDATORY)**:
   1. **AST-bounded mutation**:
-     - Call `block_code_mutate(blockId="...", symbol="...", newCode="...", verifyCommand="...")`:
+     - Call `block_code_mutate(blockId="...", symbol="...", newCode="...", verifyCommand="...", expectedSourceHash="...")`:
        - Accurately replaces only the target symbol's AST node.
-       - Automatically runs `verifyCommand`. If the command fails, **mdflow rolls back the file automatically**, ensuring zero broken intermediate states.
-  2. **Compiler log compression**:
-     - If a build or test produces massive terminal output, use `log_sanitize(rawOutput="...")` to isolate actionable error traces.
+       - `verifyCommand` is required. If the command fails, **mdflow rolls back the file automatically**, ensuring zero broken intermediate states.
+       - When editing a file that may have changed since it was read, request the latest Chain stream with `includeStructured=true` and pass its full `sourceHash` as `expectedSourceHash`.
+  2. **Command output gateway**:
+     - Use `run_command(command="...")` for tests and builds. It captures stdout/stderr, redacts credentials and local paths, compresses routine output, and returns no raw terminal stream.
+     - Use `log_sanitize(rawOutput="...")` only for output already supplied by an external tool; it is not the normal command runner.
 
 ---
 
@@ -89,8 +96,9 @@ stateDiagram-v2
 * **Your Natural Habit (WRONG)**: Saying "I'm done" in chat without leaving verifiable artifacts or moving the timeline.
 * **The mdflow Reflex (MANDATORY)**:
   1. **Seal verification proof**:
-     - Call `checkpoint_record(targetId="...", status="passed", evidenceLevel="integration"|"real_target", summary="...")`.
+     - Call `checkpoint_record(targetId="...", status="passed", evidenceLevel="integration"|"real_target", title="...", criteria="...")`.
      - An assertion without objective evidence is invalid.
+     - Checkpoint freshness is enforced: mdflow records Git/source identity and rechecks it on read. If a bound source changes, the checkpoint becomes `retest_required`; historical checkpoints without identity do not satisfy a gate.
   2. **Advance progress cursor**:
      - Call `step_advance(summary="...")` to mark the plan step as completed and push the project cursor forward.
   3. **Sync timeline**:
@@ -111,16 +119,17 @@ stateDiagram-v2
 
 | Category | Tool | Mandatory Trigger Moment (WHEN) | Key Arguments |
 |---|---|---|---|
-| **Orientation** | `context_for_task` | **Task start** — before touching any files. | `task`, `projectRoot`, `focusRefs` |
+| **Orientation** | `context_for_task` | **Task start** — before touching any files. Returns a shared `taskContextId`. | `task`, `projectRoot`, `focusRefs`, `budgetChars` |
 | | `entity_open` | Deep-diving into a specific Block, Chain, or Plan contract. | `type`, `id` |
 | | `graph_search` | Locating existing architecture elements without loading whole files. | `query`, `kinds` |
 | **Architecture** | `graph_patch` | **Design phase** — before adding or modifying code modules. | `patch`, `projectRoot` |
 | | `graph_flow` | Connecting pipeline stages via arrow syntax (`A -> B -> C`). | `flow`, `projectRoot` |
 | | `graph_mutate` | Fine-grained programmatic operations (e.g. creating decisions). | `operations`, `reason` |
 | | `graph_validate` | Verifying architecture integrity after any graph mutation. | `projectRoot` |
-| **AST Code** | `chain_code_stream` | **Logic tracing** — inspecting execution flow across files. | `chainId`, `maxTotalChars` |
-| | `block_code_mutate` | **Implementation phase** — atomic symbol mutation + auto-rollback. | `blockId`, `symbol`, `newCode`, `verifyCommand` |
-| | `log_sanitize` | Processing large compiler/test outputs. | `rawOutput`, `exitCode` |
+| **AST Code** | `chain_code_stream` | **Logic tracing** — contract-first flow; expand one slice only when needed. | `chainId`, `mode`, `maxTotalChars` |
+| | `block_code_mutate` | **Implementation phase** — exact symbol mutation + source-drift check + auto-rollback. | `blockId`, `symbol`, `newCode`, `verifyCommand`, `expectedSourceHash` |
+| | `run_command` | **Normal test/build gateway** — execute inside the project and return sanitized output only. | `command`, `cwd`, `timeoutMs`, `maxChars` |
+| | `log_sanitize` | Processing large external compiler/test outputs. | `rawOutput`, `exitCode` |
 | **Milestones** | `checkpoint_record` | **Verification phase** — recording objective test/build evidence. | `targetId`, `status`, `evidenceLevel` |
 | | `step_advance` | **Completion phase** — moving the active plan step cursor forward. | `summary` |
 | | `timeline_sync` | **Handoff / Pause** — updating `nowDoing` and `nextUp`. | `nowDoing`, `nextUp` |

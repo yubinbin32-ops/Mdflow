@@ -86,14 +86,6 @@ struct DetailView: View {
                         .background(MdflowTheme.success.opacity(0.12), in: Capsule())
                     }
                 }
-                if let coverage = store.architectureCoverage.blocks.first(where: { $0.blockID == block.id }) {
-                    let coverageText = store.activeLocale == "zh-Hans"
-                        ? "检查点 \(coverage.hasCheckpoint ? "有" : "无") · \(coverage.checkpointRequired ? "需要" : "暂不需要") · Plan \(coverage.isCoveredByPlan ? "有" : "无") · Chain \(coverage.isCoveredByChain ? "有" : "无") · 验证 \(coverage.isCoveredByAnyVerification ? "有" : "无")"
-                        : "CHECKPOINT \(coverage.hasCheckpoint ? "YES" : "NO") · \(coverage.checkpointRequired ? "REQUIRED" : "OPTIONAL") · PLAN \(coverage.isCoveredByPlan ? "YES" : "NO") · CHAIN \(coverage.isCoveredByChain ? "YES" : "NO") · VERIFICATION \(coverage.isCoveredByAnyVerification ? "YES" : "NO")"
-                    Text(coverageText)
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(coverage.missingRequiredCheckpoint ? MdflowTheme.failure : MdflowTheme.muted)
-                }
                 section(store.text("summary").uppercased(), text: store.blockText(block, field: "summary"))
                 section(store.text("details").uppercased(), text: store.blockText(block, field: "body"))
                 section(store.text("contract").uppercased(), text: store.blockText(block, field: "contract"))
@@ -112,11 +104,6 @@ struct DetailView: View {
                     metadataSeparator
                     metadataLabel(store.decisionScopeLabel(decision.id))
                 }
-                Text(store.activeLocale == "zh-Hans"
-                     ? "项目记忆 · 不进入 Canvas、Block 覆盖或 checkpoint"
-                     : "Project memory · excluded from Canvas, Block coverage, and checkpoints")
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(MdflowTheme.muted)
                 section(store.text("summary").uppercased(), text: decision.summary)
                 section(store.activeLocale == "zh-Hans" ? "决策理由" : "RATIONALE", text: decision.rationale)
                 structuredList(store.activeLocale == "zh-Hans" ? "备选方案" : "ALTERNATIVES", value: decision.alternatives)
@@ -836,7 +823,7 @@ struct DetailView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    sectionLabel(store.activeLocale == "zh-Hans" ? "代码流切片与 TOKEN 经济" : "CODE STREAM & TOKEN ECONOMY")
+                    sectionLabel(store.activeLocale == "zh-Hans" ? "契约流与 TOKEN 预算" : "CONTRACT STREAM & TOKEN BUDGET")
                     Spacer()
                     if stats.savingsPercent > 0 {
                         Text("\(stats.savingsPercent)% SAVED")
@@ -868,8 +855,8 @@ struct DetailView: View {
                             .font(.system(size: 10))
                             .foregroundStyle(MdflowTheme.focus)
                         Text(store.activeLocale == "zh-Hans"
-                             ? "AST 门面切片: ~\(stats.sliceTokens) tokens (全量文件约 ~\(stats.fullTokens) tokens)"
-                             : "AST Facade Stream: ~\(stats.sliceTokens) tokens (vs ~\(stats.fullTokens) tokens full-files)")
+                             ? "AST 契约流: ~\(stats.streamTokens) tokens (全量文件约 ~\(stats.fullTokens) tokens)"
+                             : "AST Contract Stream: ~\(stats.streamTokens) tokens (vs ~\(stats.fullTokens) tokens full-files)")
                             .font(.system(size: 9.5, weight: .medium, design: .monospaced))
                             .foregroundStyle(MdflowTheme.muted)
                     }
@@ -894,8 +881,8 @@ struct DetailView: View {
                         HStack(spacing: 5) {
                             Image(systemName: copiedStreamChainID == chain.id ? "checkmark" : "doc.on.doc")
                             Text(copiedStreamChainID == chain.id
-                                 ? (store.activeLocale == "zh-Hans" ? "已复制切片流" : "Copied Stream")
-                                 : (store.activeLocale == "zh-Hans" ? "复制链切片流" : "Copy Code Stream"))
+                                 ? (store.activeLocale == "zh-Hans" ? "已复制契约流" : "Copied Contract Stream")
+                                 : (store.activeLocale == "zh-Hans" ? "复制链契约流" : "Copy Contract Stream"))
                         }
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(copiedStreamChainID == chain.id ? MdflowTheme.success : MdflowTheme.ink)
@@ -913,8 +900,8 @@ struct DetailView: View {
                         HStack(spacing: 4) {
                             Image(systemName: showCodeStream ? "chevron.up" : "chevron.down")
                             Text(showCodeStream
-                                 ? (store.activeLocale == "zh-Hans" ? "收起流预览" : "Hide Stream")
-                                 : (store.activeLocale == "zh-Hans" ? "预览流内容" : "Preview Stream"))
+                                 ? (store.activeLocale == "zh-Hans" ? "收起契约流" : "Hide Contract Stream")
+                                 : (store.activeLocale == "zh-Hans" ? "预览契约流" : "Preview Contract Stream"))
                         }
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(MdflowTheme.focus)
@@ -967,24 +954,9 @@ struct DetailView: View {
             } else {
                 for source in sources {
                     lines.append("// Source: \(source.path)\(source.symbol.map { " :: \($0)" } ?? "")\(source.startLine.map { " (L\($0)-L\(source.endLine ?? $0))" } ?? "")")
-                    if let start = source.startLine, let end = source.endLine, !store.snapshot.project.root.isEmpty {
-                        let fullPath = URL(fileURLWithPath: store.snapshot.project.root).appendingPathComponent(source.path).path
-                        if let fileContent = try? String(contentsOfFile: fullPath, encoding: .utf8) {
-                            let fileLines = fileContent.components(separatedBy: "\n")
-                            let startIdx = max(0, start - 1)
-                            let endIdx = min(fileLines.count, end)
-                            if startIdx < endIdx {
-                                let slice = fileLines[startIdx..<endIdx].joined(separator: "\n")
-                                lines.append("```")
-                                lines.append(slice)
-                                lines.append("```")
-                                continue
-                            }
-                        }
-                    }
-                    lines.append("```")
-                    lines.append("// Facade: \(source.symbol ?? source.path)")
-                    lines.append("```")
+                    lines.append("// Source status: \(source.symbol == nil ? "bound-path" : (source.startLine == nil ? "refresh-required" : "anchored"))")
+                    lines.append("// Contract-first facade: implementation bodies are intentionally omitted.")
+                    lines.append("// Use MCP chain_code_stream(mode=\"slice\") for one bounded implementation slice.")
                 }
             }
             lines.append("")
@@ -993,39 +965,39 @@ struct DetailView: View {
     }
 
     private struct TokenEconomyStats {
-        let sliceTokens: Int
+        let streamTokens: Int
         let fullTokens: Int
         let savingsPercent: Int
     }
 
     private func calculateTokenStats(for blocks: [BlockItem]) -> TokenEconomyStats {
-        var sliceTokens = 0
+        var streamTokens = 0
         var fullTokens = 0
         for block in blocks {
+            let contractBudget = max(24, (block.title.count + block.contract.count + 64) / 4)
             if block.isGhost {
-                sliceTokens += 15
-                fullTokens += 15
+                streamTokens += contractBudget
+                fullTokens += contractBudget
             } else {
                 let sources = store.sourceReferences(for: block.id)
                 if sources.isEmpty {
-                    sliceTokens += 30
-                    fullTokens += 30
+                    streamTokens += contractBudget + 8
+                    fullTokens += max(250, contractBudget + 8)
                 } else {
                     for source in sources {
+                        streamTokens += contractBudget + 12 + (source.symbol?.count ?? 0) / 4
                         if let start = source.startLine, let end = source.endLine {
                             let lines = max(1, end - start + 1)
-                            sliceTokens += lines * 7
                             fullTokens += max(250, lines * 15) * 7
                         } else {
-                            sliceTokens += 50
                             fullTokens += 2000
                         }
                     }
                 }
             }
         }
-        let savingsPercent = fullTokens > sliceTokens ? Int(Double(fullTokens - sliceTokens) / Double(fullTokens) * 100.0) : 0
-        return TokenEconomyStats(sliceTokens: sliceTokens, fullTokens: fullTokens, savingsPercent: savingsPercent)
+        let savingsPercent = fullTokens > streamTokens ? Int(Double(fullTokens - streamTokens) / Double(fullTokens) * 100.0) : 0
+        return TokenEconomyStats(streamTokens: streamTokens, fullTokens: fullTokens, savingsPercent: savingsPercent)
     }
 
     @ViewBuilder

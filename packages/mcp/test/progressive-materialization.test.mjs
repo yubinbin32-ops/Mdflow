@@ -96,11 +96,55 @@ export class PaymentService {
   assert.ok(taskRes.markdown.includes("src/payment.ts :: processPayment"));
 
   // 3. Verify chainCodeStream produces stream across solid (real code) and ghost (planned contract)
-  const streamRes = service.chainCodeStream({ chainId: "checkout-chain" });
+  const contractStreamRes = service.chainCodeStream({ chainId: "checkout-chain" });
+  assert.equal(contractStreamRes.mode, "contract");
+  assert.ok(contractStreamRes.codeStream.includes("processPayment"));
+  assert.ok(!contractStreamRes.codeStream.includes('return { status: "success"'));
+  assert.ok(contractStreamRes.codeStream.includes("evaluate(tx) -> RiskScore"));
+
+  const streamRes = service.chainCodeStream({ chainId: "checkout-chain", mode: "slice" });
   assert.equal(streamRes.nodes.length, 2);
-  assert.ok(streamRes.codeStream.includes("PaymentService"));
-  assert.ok(streamRes.codeStream.includes("Planned Contract"));
+  assert.ok(streamRes.codeStream.includes("processPayment"));
+  assert.ok(streamRes.codeStream.includes("Contract:"));
   assert.ok(streamRes.codeStream.includes("evaluate(tx) -> RiskScore"));
+
+  const commandResult = service.runCommand({
+    command: "printf 'OPENAI_API_KEY=sk-test-secret\\n%s\\n' \"$PWD/src/payment.ts\"",
+    maxChars: 500,
+  });
+  assert.equal(commandResult.success, true);
+  assert.ok(!commandResult.output.includes("sk-test-secret"));
+  assert.ok(!commandResult.output.includes(tmpDir));
+  assert.ok(commandResult.output.includes("[REDACTED]"));
+
+  const failedCommand = service.runCommand({
+    command: "printf 'Error: verification failed\\n' 1>&2; exit 2",
+    maxChars: 500,
+  });
+  assert.equal(failedCommand.success, false);
+  assert.equal(failedCommand.exitCode, 2);
+  assert.equal(failedCommand.hasErrors, true);
+  assert.ok(failedCommand.output.includes("verification failed"));
+
+  const mutation = service.mutateBlockCode({
+    blockId: "payment-service",
+    symbol: "processPayment",
+    newCode: `  async processPayment(amount: number) {
+    return { status: "updated", txId: "tx_999" };
+  }`,
+    verifyCommand: "node -e \"process.exit(0)\"",
+  });
+  assert.equal(mutation.success, true);
+  assert.equal(mutation.verification.passed, true);
+  assert.throws(
+    () => service.mutateBlockCode({
+      blockId: "payment-service",
+      symbol: "notTheBoundSymbol",
+      newCode: "return null;",
+      verifyCommand: "true",
+    }),
+    /exact source reference/,
+  );
 
   service.close();
   await fs.rm(tmpDir, { recursive: true, force: true });

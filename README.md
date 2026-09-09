@@ -72,10 +72,12 @@ Run `npm run benchmark` to reproduce the measurements locally. Results vary by r
 
 | Operation | Baseline | mdflow | Reduction / speed |
 | --- | ---: | ---: | ---: |
-| Task context | 112,738 tokens | 1,197 tokens | **98.9% fewer tokens** |
-| Four-module code chain | 84,227 tokens | 654 tokens | **99.2% fewer tokens** |
-| Build and test log | 4,042 tokens | 212 tokens | **94.8% fewer tokens** |
-| Structured context retrieval | repeated file scans | 3.11 ms P50 | local indexed lookup |
+| Task context | 173,095 tokens | 1,111 tokens | **99.4% fewer tokens** |
+| Four-module Chain (contract mode) | 28,514 tokens | 498 tokens | **98.3% fewer tokens** |
+| Build and test log | 4,042 tokens | 211 tokens | **94.8% fewer tokens** |
+| Structured context retrieval | repeated file scans | 5.15 ms P50 | local indexed lookup |
+
+These are measurements from the current repository run, not fixed guarantees. Use `npm run benchmark` after changing the graph, source bindings, or stream policy.
 
 The benchmark also checks target-module recall, related-topology capture, irrelevant-module isolation, checkpoint persistence, change-set reversal, and Git graph synchronization.
 
@@ -87,19 +89,23 @@ Planned features live as **Ghost Blueprints** without fake file bindings. As imp
 
 ### Code context at symbol boundaries
 
-`chain_code_stream` follows an execution path across files and returns the relevant functions, classes, and contracts. Agents see the code that participates in the task instead of every line in every file.
+`chain_code_stream` follows an execution path across files. Its default `mode="contract"` returns only symbols, signatures, source status, line ranges, and contracts; an explicit `mode="slice"` is required before bounded implementation bodies are returned.
 
 ### Code changes with a verification boundary
 
-`block_code_mutate` locates a bound symbol, replaces it atomically, runs the configured verification command, and restores the original file when verification fails.
+`block_code_mutate` locates an exact bound symbol, checks an optional source hash, replaces it atomically, requires a verification command, and restores the original file when verification fails.
 
 ### Evidence as part of architecture
 
 Plans and blocks can require Checkpoints backed by tests, static checks, or review receipts. Completion is tied to evidence rather than a chat claim.
 
+Checkpoints also store a source identity snapshot (Git HEAD plus bound AST-file hashes). mdflow recomputes that identity when loading the graph; a changed source or commit turns an old `passed` checkpoint into `retest_required`, so it cannot satisfy a Plan or Chain gate. Historical checkpoints without an identity snapshot remain history, not current proof.
+
 ### Terminal output built for agent context
 
-`log_sanitize` removes ANSI control sequences, spinner rewrites, and repetitive successful output while keeping failure summaries and stack context.
+`run_command` is the normal project-local test/build gateway: it captures stdout/stderr, redacts credentials and local paths, compresses routine output, and never returns the raw terminal stream. `log_sanitize` remains available for output received from an external tool.
+
+`context_for_task` returns a `taskContextId` and a shared character budget. Passing that ID to `chain_code_stream`, `plan_context`, `entity_open`, `checkpoint_list`, and `changes_since` makes focused reads consume one budget; oversized structured projections degrade to a small receipt. Omitting the ID is the explicit unbounded expansion escape hatch.
 
 ## Native macOS Canvas
 
@@ -144,9 +150,10 @@ This standard shape works with Cursor, Claude Desktop, OpenCode, and other stdio
 
 ```bash
 npm ci
-npm test                 # 17 tests
+npm test                 # 27 tests
 npm run benchmark        # reproducible context/AST/log benchmark
 npm run plugin:build     # rebuild the bundled MCP server
+npm run plugin:verify    # MCP surface, redaction, and contract-stream smoke test
 npm run desktop:build    # build the Swift macOS app
 ```
 

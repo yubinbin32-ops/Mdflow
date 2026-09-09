@@ -37,6 +37,7 @@
     "test": "node --test packages/mcp/test/*.test.mjs",
     "benchmark": "node scripts/benchmark.mjs",
     "plugin:build": "esbuild packages/mcp/src/server.mjs --bundle --platform=node --format=esm --target=node22 --outfile=plugins/mdflow/server/mdflow-mcp.mjs",
+    "plugin:verify": "npm run plugin:build && node scripts/plugin-smoke.mjs",
     "desktop:build": "swift build --package-path apps/desktop",
     "desktop:run": "swift run --package-path apps/desktop mdflow-desktop"
   },

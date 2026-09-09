@@ -72,10 +72,12 @@ flowchart LR
 
 | 操作 | 传统方式 | mdflow | 实测结果 |
 | --- | ---: | ---: | ---: |
-| 单任务上下文 | 112,738 tokens | 1,197 tokens | **减少 98.9%** |
-| 四模块跨文件代码链 | 84,227 tokens | 654 tokens | **减少 99.2%** |
-| 构建与测试日志 | 4,042 tokens | 212 tokens | **减少 94.8%** |
-| 结构化上下文检索 | 反复扫描文件 | P50 3.11 ms | 本地索引查询 |
+| 单任务上下文 | 173,095 tokens | 1,111 tokens | **减少 99.4%** |
+| 四模块 Chain（contract 模式） | 28,514 tokens | 498 tokens | **减少 98.3%** |
+| 构建与测试日志 | 4,042 tokens | 211 tokens | **减少 94.8%** |
+| 结构化上下文检索 | 反复扫描文件 | P50 5.15 ms | 本地索引查询 |
+
+以上是当前仓库的一次本地实测，不是固定保证。修改图谱、源引用或切片策略后，请重新运行 `npm run benchmark`。
 
 基准还会检查目标模块命中、关联拓扑捕获、无关模块隔离、Checkpoint 固化、Change Set 撤回和 Git 图谱同步。
 
@@ -87,19 +89,23 @@ flowchart LR
 
 ### 在符号边界提供代码上下文
 
-`chain_code_stream` 沿执行路径跨文件提取相关函数、类和契约。Agent 看到参与当前任务的代码，无需读取每个文件的每一行。
+`chain_code_stream` 沿执行路径跨文件读取上下文。默认 `mode="contract"` 只返回符号、签名、源状态、行号范围和契约；只有显式使用 `mode="slice"` 才会返回受限的实现函数体。
 
 ### 在验证边界内修改代码
 
-`block_code_mutate` 定位 Block 绑定的符号，原子替换实现，运行配置好的验证命令，并在验证失败时恢复原文件。
+`block_code_mutate` 只定位精确绑定的符号，可检查源文件哈希，原子替换实现，强制运行验证命令，并在验证失败时恢复原文件。
 
 ### 让证据成为架构的一部分
 
 Plan 和 Block 可以要求由测试、静态检查或评审回执支持的 Checkpoint。完成状态由证据推动，而不是依赖聊天中的口头声明。
 
+Checkpoint 还会保存绑定源码的身份快照（Git HEAD 与 AST 源文件哈希）。读取图谱时会重新计算身份；源码或提交发生变化后，旧的 `passed` 会自动变成 `retest_required`，不能继续满足 Plan/Chain gate。没有身份快照的历史 checkpoint 只作为历史记录，不作为当前通过证据。
+
 ### 为 Agent 压缩终端上下文
 
-`log_sanitize` 去除 ANSI 控制符、进度动画重写和重复的成功输出，同时保留失败摘要与关键堆栈。
+`run_command` 是项目内测试/构建的默认入口：捕获 stdout/stderr，脱敏凭据和本机路径，压缩常规输出，并且不返回原始终端流。`log_sanitize` 仍用于外部工具已经提供的日志。
+
+`context_for_task` 会返回 `taskContextId` 和共享字符预算。后续 `chain_code_stream`、`plan_context`、`entity_open`、`checkpoint_list`、`changes_since` 传回这个 ID 时，共用同一预算；结构化输出超过剩余额度会退化为短回执。没有 ID 才是明确的无限扩展入口。
 
 ## 原生 macOS Canvas
 
@@ -144,9 +150,10 @@ Cursor、Claude Desktop、OpenCode 以及其他 stdio MCP 客户端都使用这�
 
 ```bash
 npm ci
-npm test                 # 17 项测试
+npm test                 # 27 项测试
 npm run benchmark        # 可复现的 Context / AST / 日志基准
 npm run plugin:build     # 重新打包 MCP 服务
+npm run plugin:verify    # MCP 工具面、脱敏和契约流冒烟测试
 npm run desktop:build    # 构建 Swift macOS App
 ```
 

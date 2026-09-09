@@ -31,7 +31,7 @@ export async function verifySession(token: string) {
 `;
 
   const symbols = extractSymbols(tsCode, { language: "typescript" });
-  assert.equal(symbols.length, 4);
+  assert.equal(symbols.length, 5);
 
   const iface = symbols.find((s) => s.name === "UserPayload");
   assert.ok(iface);
@@ -50,6 +50,7 @@ export async function verifySession(token: string) {
   assert.equal(fn.kind, "function");
   assert.ok(fn.startLine > 0);
   assert.ok(fn.endLine >= fn.startLine);
+  assert.ok(symbols.find((s) => s.name === "login" && s.kind === "method"));
 });
 
 test("ast: extractSymbols from Swift and Python handles methods and classes", () => {
@@ -77,6 +78,14 @@ class InventoryService:
   const pySymbols = extractSymbols(pyCode, { language: "python" });
   assert.ok(pySymbols.find((s) => s.name === "InventoryService" && s.kind === "class"));
   assert.ok(pySymbols.find((s) => s.name === "check_stock" && s.kind === "function"));
+
+  const swiftSlice = extractSymbolSlice(swiftCode, {
+    symbol: "processPayment",
+    filePath: "main.swift",
+    maxLines: 10,
+  });
+  assert.equal(swiftSlice.found, true);
+  assert.ok(swiftSlice.signature.includes("processPayment"));
 });
 
 test("ast: extractSymbolSlice extracts targeted slice with collapse", () => {
@@ -91,26 +100,34 @@ test("ast: extractSymbolSlice extracts targeted slice with collapse", () => {
 });
 
 test("ast: buildChainCodeStream produces unified code stream across materialized and virtual nodes", () => {
-  const stream = buildChainCodeStream([
+  const nodes = [
     {
       blockId: "auth-service",
       title: "用户鉴权",
       filePath: "src/auth.ts",
       symbol: "login",
       code: "export async function login() { return 'ok'; }",
+      signature: "export async function login()",
+      sourceStatus: "anchored",
     },
     {
       blockId: "risk-evaluator",
       title: "待规划风控评估",
       contract: "evaluateRisk(userId, amount) -> RiskLevel",
+      sourceStatus: "virtual",
     },
-  ]);
+  ];
+  const stream = buildChainCodeStream(nodes);
 
   assert.ok(stream.includes("[Node: auth-service]"));
-  assert.ok(stream.includes("export async function login"));
+  assert.ok(stream.includes("Source status: anchored"));
+  assert.ok(!stream.includes("return 'ok'"));
   assert.ok(stream.includes("[Node: risk-evaluator]"));
-  assert.ok(stream.includes("Planned Contract"));
+  assert.ok(stream.includes("Contract:"));
   assert.ok(stream.includes("evaluateRisk"));
+
+  const sliceStream = buildChainCodeStream(nodes, { mode: "slice" });
+  assert.ok(sliceStream.includes("export async function login"));
 });
 
 test("ast: replaceSymbolSlice replaces targeted function and preserves surrounding code", () => {

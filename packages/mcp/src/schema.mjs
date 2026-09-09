@@ -364,7 +364,10 @@ export function normalizePlanChange(row) {
 }
 
 export function deriveCheckpointStates(checkpoints, dependencies) {
-  const byId = new Map(checkpoints.map((checkpoint) => [checkpoint.id, { ...checkpoint, recordedStatus: checkpoint.status }]));
+  const byId = new Map(checkpoints.map((checkpoint) => [checkpoint.id, {
+    ...checkpoint,
+    recordedStatus: checkpoint.recordedStatus ?? checkpoint.status,
+  }]));
   const childrenByParent = new Map();
   for (const dependency of dependencies) {
     const values = childrenByParent.get(dependency.parentCheckpointId) ?? [];
@@ -423,7 +426,8 @@ export function deriveCheckpointStates(checkpoints, dependencies) {
 export function checkpointSatisfiesGate(checkpoint) {
   return checkpoint?.status === "passed" && checkpoint.coverage === "complete" &&
     (EVIDENCE_LEVEL_RANK.get(checkpoint.evidenceLevel) ?? 0) >=
-      (EVIDENCE_LEVEL_RANK.get(checkpoint.requiredEvidenceLevel) ?? 0) && !checkpoint.invalidatedAt;
+      (EVIDENCE_LEVEL_RANK.get(checkpoint.requiredEvidenceLevel) ?? 0) && !checkpoint.invalidatedAt &&
+    checkpoint.freshness?.status === "fresh";
 }
 
 export function architectureCoverage(snapshot, planId = null) {

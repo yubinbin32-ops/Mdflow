@@ -597,7 +597,7 @@ export function validateGraph(service) {
     }
     if (block.deliveryState === "complete") {
       const passed = snapshot.checkpoints.some(
-        (checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpoint.status === "passed",
+        (checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpointSatisfiesGate(checkpoint),
       );
       if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
     }
@@ -635,10 +635,22 @@ export function validateGraph(service) {
   if (coverage.chainGateMissingIds.length) {
     warnings.push(`${coverage.chainGateMissingIds.length} Block(s) belong to Chains without an integration gate: ${coverage.chainGateMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 20 ? " …" : ""}`);
   }
+  const staleCheckpoints = snapshot.checkpoints.filter((checkpoint) =>
+    checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "stale",
+  );
+  if (staleCheckpoints.length) {
+    errors.push(`${staleCheckpoints.length} checkpoint(s) require retest because bound source identity is stale`);
+  }
+  const unknownCheckpoints = snapshot.checkpoints.filter((checkpoint) =>
+    checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "unknown",
+  );
+  if (unknownCheckpoints.length) {
+    warnings.push(`${unknownCheckpoints.length} historical checkpoint(s) lack source identity and cannot satisfy a gate until re-recorded`);
+  }
   for (const chain of snapshot.chains) {
     if (chain.deliveryState === "complete") {
       const passed = snapshot.checkpoints.some(
-        (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chain.id && checkpoint.status === "passed",
+        (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chain.id && checkpointSatisfiesGate(checkpoint),
       );
       if (!passed) warnings.push(`Complete Chain has no passed checkpoint: chain:${chain.id}`);
     }

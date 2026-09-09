@@ -1,14 +1,25 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { openDatabase, exportGraphToJson, importGraphFromJson, getSyncMeta, setSyncMeta } from "./database.mjs";
 import { resolveProjectPaths } from "./paths.mjs";
 import { extractSymbolSlice, buildChainCodeStream, replaceSymbolSlice, detectLanguage } from "./ast.mjs";
-import { sanitizeTerminalOutput } from "./sanitizer.mjs";
+import { redactSensitiveText, sanitizeTerminalOutput } from "./sanitizer.mjs";
 import { getTimelineState, syncTimeline, advanceStep } from "./timeline.mjs";
 import { applyArrowFlow } from "./flow.mjs";
 import { suggestLinksForBlock, connectBlocks } from "./architecture-link.mjs";
+
+function writeFileAtomically(filePath, content) {
+  const temporaryPath = `${filePath}.mdflow-tmp-${process.pid}-${crypto.randomUUID()}`;
+  fs.writeFileSync(temporaryPath, content, "utf8");
+  try {
+    fs.renameSync(temporaryPath, filePath);
+  } catch (error) {
+    try { fs.rmSync(temporaryPath, { force: true }); } catch { /* best effort cleanup */ }
+    throw error;
+  }
+}
 
 import {
   now,
@@ -29,6 +40,12 @@ import {
 import { buildContextForTask } from "./context-engine.mjs";
 import { renderPlanContext, createFoundationPlan } from "./plan-engine.mjs";
 import { listCheckpoints, recordCheckpoint } from "./checkpoint-engine.mjs";
+import {
+  createCheckpointFreshnessContext,
+  evaluateCheckpointFreshness,
+  extractCheckpointIdentity,
+  stripCheckpointIdentity,
+} from "./checkpoint-freshness.mjs";
 import {
   renderProjectMap,
   listDecisions,
@@ -264,25 +281,33 @@ export class MdflowService {
       }));
     const rawCheckpoints = this.database
       .prepare("SELECT * FROM checkpoints WHERE project_id = ? ORDER BY updated_at DESC, id ASC")
-      .all(projectId)
-      .map((row) => ({
-        id: row.id,
-        targetType: row.target_type,
-        targetId: row.target_id,
-        title: row.title,
-        criteria: row.criteria,
-        status: row.status,
-        checkpointKind: row.checkpoint_kind,
-        aggregationPolicy: parseJson(row.aggregation_policy_json, {}),
-        eligibleAfterChildren: Boolean(row.eligible_after_children),
-        evidenceLevel: row.evidence_level,
-        requiredEvidenceLevel: row.required_evidence_level,
-        coverage: row.coverage,
-        evidence: parseJson(row.evidence_json, []),
-        invalidatedAt: row.invalidated_at,
-        currentRevision: row.current_revision,
-        updatedAt: row.updated_at,
-      }));
+      .all(projectId);
+    const freshnessContext = createCheckpointFreshnessContext(this);
+    const checkpoints = rawCheckpoints
+      .map((row) => {
+        const storedEvidence = parseJson(row.evidence_json, []);
+        const freshness = evaluateCheckpointFreshness(this, extractCheckpointIdentity(storedEvidence), freshnessContext);
+        return {
+          id: row.id,
+          targetType: row.target_type,
+          targetId: row.target_id,
+          title: row.title,
+          criteria: row.criteria,
+          recordedStatus: row.status,
+          status: row.status === "passed" && freshness.status !== "fresh" ? "retest_required" : row.status,
+          checkpointKind: row.checkpoint_kind,
+          aggregationPolicy: parseJson(row.aggregation_policy_json, {}),
+          eligibleAfterChildren: Boolean(row.eligible_after_children),
+          evidenceLevel: row.evidence_level,
+          requiredEvidenceLevel: row.required_evidence_level,
+          coverage: row.coverage,
+          evidence: stripCheckpointIdentity(storedEvidence),
+          freshness,
+          invalidatedAt: row.invalidated_at,
+          currentRevision: row.current_revision,
+          updatedAt: row.updated_at,
+        };
+      });
     const checkpointBindings = this.database
       .prepare(
         `SELECT cb.* FROM checkpoint_bindings cb JOIN checkpoints c ON c.id = cb.checkpoint_id
@@ -303,9 +328,9 @@ export class MdflowService {
         parentCheckpointId: row.parent_checkpoint_id, childCheckpointId: row.child_checkpoint_id,
         position: row.position, required: Boolean(row.required),
       }));
-    const checkpoints = deriveCheckpointStates(rawCheckpoints, checkpointDependencies);
+    const derivedCheckpoints = deriveCheckpointStates(checkpoints, checkpointDependencies);
     plans = plans.map((plan) => derivePlanState(
-      plan, plans, planDependencies, planSteps, planCheckpointRefs, checkpoints,
+      plan, plans, planDependencies, planSteps, planCheckpointRefs, derivedCheckpoints,
       planChainScopes, planChanges, checkpointBindings,
     ));
     const localizations = normalizeLocalizations(
@@ -354,15 +379,16 @@ export class MdflowService {
       decisions,
       decisionScopes,
       sourceRefs,
-      checkpoints,
+      checkpoints: derivedCheckpoints,
       checkpointBindings,
       checkpointDependencies,
       localizations,
     };
   }
 
-  chainCodeStream({ chainId, maxTotalChars = 4000 } = {}) {
+  chainCodeStream({ chainId, maxTotalChars = 4000, mode = "contract", maxLinesPerSymbol = 12 } = {}) {
     if (!chainId?.trim()) throw new Error("chainId is required");
+    if (!["contract", "slice"].includes(mode)) throw new Error('mode must be "contract" or "slice"');
     this.ensureSynced();
     const snapshot = this.snapshot();
     const chain = snapshot.chains.find((c) => c.id === chainId);
@@ -385,27 +411,42 @@ export class MdflowService {
       let code = null;
       let filePath = null;
       let symbol = null;
+      let signature = null;
+      let startLine = null;
+      let endLine = null;
+      let sourceStatus = "virtual";
+      let sourceHash = null;
 
       if (sourceRefs.length > 0) {
-        const ref = sourceRefs[0];
+        const ref = sourceRefs.find((candidate) => candidate.role === "implementation") || sourceRefs[0];
         filePath = ref.path;
         symbol = ref.symbol;
+        startLine = ref.start_line;
+        endLine = ref.end_line;
+        sourceStatus = "missing";
         const fullPath = path.isAbsolute(filePath)
           ? filePath
           : path.resolve(this.paths.projectRoot, filePath);
         try {
           if (fs.existsSync(fullPath)) {
             const content = fs.readFileSync(fullPath, "utf8");
+            sourceHash = crypto.createHash("sha256").update(content).digest("hex");
             const slice = extractSymbolSlice(content, {
               symbol: ref.symbol,
-              startLine: ref.start_line,
-              endLine: ref.end_line,
-              maxLines: 40,
+              startLine: ref.symbol ? null : ref.start_line,
+              endLine: ref.symbol ? null : ref.end_line,
+              maxLines: maxLinesPerSymbol,
+              language: detectLanguage(fullPath),
+              filePath: fullPath,
             });
-            code = slice.code;
+            sourceStatus = slice.found ? "anchored" : "stale";
+            signature = slice.signature;
+            startLine = slice.startLine;
+            endLine = slice.endLine;
+            code = mode === "slice" && slice.found ? slice.code : null;
           }
         } catch {
-          code = null;
+          sourceStatus = "unreadable";
         }
       }
 
@@ -415,14 +456,20 @@ export class MdflowService {
         filePath,
         symbol,
         code,
+        signature,
+        startLine,
+        endLine,
+        sourceStatus,
+        sourceHash,
         contract: block.contract || block.summary,
       });
     }
 
-    const codeStream = buildChainCodeStream(streamNodes, { maxTotalChars });
+    const codeStream = buildChainCodeStream(streamNodes, { maxTotalChars, mode });
     return {
       chainId: chain.id,
       title: chain.title,
+      mode,
       nodes: streamNodes,
       codeStream,
       markdown: [
@@ -435,13 +482,59 @@ export class MdflowService {
   }
 
   sanitizeLog({ rawOutput, maxChars = 3000, exitCode = null } = {}) {
-    return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode });
+    return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode, projectRoot: this.paths.projectRoot });
   }
 
-  mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null } = {}) {
+  runCommand({ command, cwd = ".", timeoutMs = 30000, maxChars = 3000 } = {}) {
+    if (!command?.trim()) throw new Error("command is required");
+    const projectRoot = path.resolve(this.paths.projectRoot);
+    const targetCwd = path.resolve(projectRoot, cwd || ".");
+    const relativeCwd = path.relative(projectRoot, targetCwd);
+    if (relativeCwd.startsWith("..") || path.isAbsolute(relativeCwd)) {
+      throw new Error("cwd must stay inside the registered project");
+    }
+
+    const result = spawnSync(process.env.SHELL || "/bin/sh", ["-lc", command], {
+      cwd: targetCwd,
+      encoding: "utf8",
+      timeout: timeoutMs,
+      maxBuffer: 2_000_000,
+      env: process.env,
+    });
+    const stdout = typeof result.stdout === "string" ? result.stdout : "";
+    const stderr = typeof result.stderr === "string" ? result.stderr : "";
+    const rawOutput = [stdout, stderr ? `[stderr]\n${stderr}` : ""].filter(Boolean).join("\n");
+    const timedOut = result.error?.code === "ETIMEDOUT";
+    const exitCode = typeof result.status === "number" ? result.status : (timedOut ? 124 : 1);
+    const sanitized = sanitizeTerminalOutput(rawOutput || result.error?.message || "", {
+      exitCode,
+      maxChars,
+      projectRoot,
+    });
+    const safeCommand = redactSensitiveText(command, { projectRoot }).text
+      .replace(/[\r\n]+/g, " ")
+      .replace(/`/g, "\\`");
+    return {
+      success: exitCode === 0 && !result.error,
+      command: safeCommand,
+      cwd: relativeCwd || ".",
+      exitCode,
+      timedOut,
+      signal: result.signal ?? null,
+      output: sanitized.text,
+      originalChars: sanitized.originalChars,
+      finalChars: sanitized.finalChars,
+      compressionRatio: sanitized.compressionRatio,
+      hasErrors: sanitized.hasErrors,
+      redactions: sanitized.redactions,
+    };
+  }
+
+  mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null, expectedSourceHash = null } = {}) {
     if (!blockId?.trim()) throw new Error("blockId is required");
     if (!symbol?.trim()) throw new Error("symbol is required");
     if (typeof newCode !== "string") throw new Error("newCode is required");
+    if (!verifyCommand?.trim()) throw new Error("verifyCommand is required for atomic code mutation");
 
     this.ensureSynced();
     const snapshot = this.snapshot();
@@ -453,7 +546,10 @@ export class MdflowService {
       throw new Error(`Block "${blockId}" has no bound source files (virtual blueprint)`);
     }
 
-    const ref = sourceRefs.find((r) => r.symbol === symbol) || sourceRefs[0];
+    const ref = sourceRefs.find((r) => r.symbol === symbol);
+    if (!ref) {
+      throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}"`);
+    }
     const filePath = ref.path;
     const fullPath = path.isAbsolute(filePath)
       ? filePath
@@ -464,6 +560,10 @@ export class MdflowService {
     }
 
     const originalCode = fs.readFileSync(fullPath, "utf8");
+    const originalHash = crypto.createHash("sha256").update(originalCode).digest("hex");
+    if (expectedSourceHash && expectedSourceHash !== originalHash) {
+      throw new Error(`Source drift detected for ${filePath}; expected ${expectedSourceHash}, found ${originalHash}`);
+    }
     const lang = detectLanguage(fullPath);
     const { updatedCode, replacedLines } = replaceSymbolSlice(originalCode, {
       symbol,
@@ -471,48 +571,21 @@ export class MdflowService {
       language: lang,
     });
 
-    // Write modified code to disk
-    fs.writeFileSync(fullPath, updatedCode, "utf8");
-
-    // Optional verification with sanitizer and auto-rollback
-    if (verifyCommand) {
-      try {
-        const rawOutput = execSync(verifyCommand, {
-          cwd: this.paths.projectRoot,
-          encoding: "utf8",
-          stdio: "pipe",
-        });
-        const sanitized = sanitizeTerminalOutput(rawOutput);
-        return {
-          success: true,
-          blockId,
-          symbol,
-          filePath,
-          replacedLines,
-          verification: {
-            passed: true,
-            command: verifyCommand,
-            output: sanitized.text,
-          },
-        };
-      } catch (err) {
-        // Automatic rollback on verification failure!
-        fs.writeFileSync(fullPath, originalCode, "utf8");
-        const rawError = (err.stdout || "") + "\n" + (err.stderr || "") + "\n" + err.message;
-        const sanitized = sanitizeTerminalOutput(rawError);
-        return {
-          success: false,
-          blockId,
-          symbol,
-          filePath,
-          error: "Verification test failed. Source code automatically rolled back.",
-          verification: {
-            passed: false,
-            command: verifyCommand,
-            output: sanitized.text,
-          },
-        };
-      }
+    writeFileAtomically(fullPath, updatedCode);
+    const verification = this.runCommand({ command: verifyCommand, maxChars: 3000 });
+    if (!verification.success) {
+      writeFileAtomically(fullPath, originalCode);
+      return {
+        success: false,
+        blockId,
+        symbol,
+        filePath,
+        error: "Verification failed; source code was automatically rolled back.",
+        verification: {
+          passed: false,
+          ...verification,
+        },
+      };
     }
 
     return {
@@ -521,6 +594,11 @@ export class MdflowService {
       symbol,
       filePath,
       replacedLines,
+      sourceHash: crypto.createHash("sha256").update(updatedCode).digest("hex"),
+      verification: {
+        passed: true,
+        ...verification,
+      },
     };
   }
 

@@ -11,6 +11,7 @@ import {
   now,
   changedHistoryFields,
 } from "./schema.mjs";
+import { withCheckpointIdentity } from "./checkpoint-freshness.mjs";
 
 export function listCheckpoints(service, {
   status, targetType, targetId, planId, chainScopeId, unassignedOnly = false, limit = 100, locale = "en",
@@ -98,6 +99,12 @@ export function recordCheckpoint(service, {
   }
   const checkpointId = id ?? identifier("checkpoint");
   const timestamp = now();
+  const checkpointEvidence = withCheckpointIdentity(service, {
+    targetType,
+    targetId,
+    evidence,
+    gitHead,
+  });
   const changeSetId = identifier("change");
   const historyContext = service.resolveHistoryContext(planId, chainScopeId);
   const before = service.historyState("checkpoint", checkpointId);
@@ -132,7 +139,7 @@ export function recordCheckpoint(service, {
         .run(
           title, criteria, status, checkpointKind, JSON.stringify(aggregationPolicy ?? {}), Number(Boolean(eligibleAfterChildren)),
           resolvedEvidenceLevel, requiredEvidenceLevel, coverage,
-          JSON.stringify(evidence), invalidatedAt, revision, timestamp, checkpointId,
+          JSON.stringify(checkpointEvidence), invalidatedAt, revision, timestamp, checkpointId,
         );
     } else {
       service.database
@@ -157,7 +164,7 @@ export function recordCheckpoint(service, {
           resolvedEvidenceLevel,
           requiredEvidenceLevel,
           coverage,
-          JSON.stringify(evidence),
+          JSON.stringify(checkpointEvidence),
           invalidatedAt,
           timestamp,
           timestamp,
@@ -246,6 +253,12 @@ export function executeRecordCheckpointOperation(service, operation, { timestamp
     throw new Error(`${fields.targetType}:${fields.targetId} not found`);
   }
   const id = operation.id ?? identifier("checkpoint");
+  const checkpointEvidence = withCheckpointIdentity(service, {
+    targetType: fields.targetType,
+    targetId: fields.targetId,
+    evidence: fields.evidence ?? [],
+    gitHead: fields.gitHead ?? null,
+  });
   const existing = service.database.prepare("SELECT * FROM checkpoints WHERE project_id = ? AND id = ?")
     .get(service.paths.descriptor.id, id);
   let revision = 1;
@@ -267,7 +280,7 @@ export function executeRecordCheckpointOperation(service, operation, { timestamp
     ).run(
       fields.title.trim(), fields.criteria ?? "", status, checkpointKind,
       JSON.stringify(fields.aggregationPolicy ?? {}), Number(Boolean(fields.eligibleAfterChildren)), evidenceLevel,
-      requiredEvidenceLevel, coverage, JSON.stringify(fields.evidence ?? []), fields.invalidatedAt ?? null,
+      requiredEvidenceLevel, coverage, JSON.stringify(checkpointEvidence), fields.invalidatedAt ?? null,
       revision, timestamp, service.paths.descriptor.id, id,
     );
   } else {
@@ -280,7 +293,7 @@ export function executeRecordCheckpointOperation(service, operation, { timestamp
     ).run(
       id, service.paths.descriptor.id, fields.targetType, fields.targetId, fields.title.trim(), fields.criteria ?? "",
       status, checkpointKind, JSON.stringify(fields.aggregationPolicy ?? {}), Number(Boolean(fields.eligibleAfterChildren)),
-      evidenceLevel, requiredEvidenceLevel, coverage, JSON.stringify(fields.evidence ?? []), fields.invalidatedAt ?? null,
+      evidenceLevel, requiredEvidenceLevel, coverage, JSON.stringify(checkpointEvidence), fields.invalidatedAt ?? null,
       timestamp, timestamp,
     );
   }

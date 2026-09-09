@@ -1,6 +1,6 @@
 {
   "name": "mdflow",
-  "version": "0.3.2+codex.20260909174500",
+  "version": "0.3.2",
   "description": "Keep project architecture, implementation progress, checkpoints, and code references synchronized through a task-scoped graph.",
   "author": {
     "name": "mdflow"
@@ -18,7 +18,12 @@
     "category": "Productivity",
     "capabilities": [
       "Project context retrieval",
-      "Architecture and progress synchronization",
+    "Contract-first AST code streams",
+    "Task-scoped shared context budgets",
+    "Redacted project-local command gateway",
+    "Verified AST mutation with source-drift protection",
+    "Checkpoint freshness and retest gating",
+    "Architecture and progress synchronization",
       "Checkpoint evidence"
     ],
     "defaultPrompt": [

@@ -1,6 +1,7 @@
 import { MdflowService } from "../packages/mcp/src/service.mjs";
 import { exportGraphToJson } from "../packages/mcp/src/database.mjs";
 import { sanitizeTerminalOutput } from "../packages/mcp/src/sanitizer.mjs";
+import { boundTaskResponse, startTaskBudget, resetTaskBudgets } from "../packages/mcp/src/task-budget.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -436,8 +437,10 @@ async function runBenchmark() {
   console.log("  PART C: AST 门面与链代码流切片实测 (Chain Code Stream)");
   console.log("----------------------------------------------------------------\n");
 
-  const streamResult = realService.chainCodeStream({ chainId: "chain-context-os" });
-  const streamTokens = estimateTokens(streamResult.codeStream);
+  const contractStreamResult = realService.chainCodeStream({ chainId: "chain-context-os", mode: "contract" });
+  const sliceStreamResult = realService.chainCodeStream({ chainId: "chain-context-os", mode: "slice" });
+  const contractTokens = estimateTokens(contractStreamResult.codeStream);
+  const sliceTokens = estimateTokens(sliceStreamResult.codeStream);
 
   // 计算这 4 个模块对应的全量源码文件 Token 总量
   const fullSourceFiles = [
@@ -452,13 +455,30 @@ async function runBenchmark() {
     totalFullSourceChars += content.length;
   }
   const fullFilesTokens = estimateTokens("a".repeat(totalFullSourceChars));
-  const streamSavingRatio = ((1 - streamTokens / fullFilesTokens) * 100).toFixed(1);
+  const contractSavingRatio = ((1 - contractTokens / fullFilesTokens) * 100).toFixed(1);
+  const sliceSavingRatio = ((1 - sliceTokens / fullFilesTokens) * 100).toFixed(1);
 
   console.log(`>>> 全链路代码上下文体积对比 (4 个跨层核心模块):`);
   console.log(`    - 传统 AI 遍历全量文件读取: ${totalFullSourceChars} 字符 | 约 ${fullFilesTokens} Tokens`);
-  console.log(`    - mdflow AST 链门面切片:    ${streamResult.codeStream.length} 字符 | 约 ${streamTokens} Tokens`);
-  console.log(`    - 实测 Token 节省率 (Code Saved):  ${streamSavingRatio}%`);
-  console.log(`    - 链路物化节点数:           ${streamResult.nodes.length} 个 (全部成功提取符号切片)`);
+  console.log(`    - mdflow AST 契约流 (默认):   ${contractStreamResult.codeStream.length} 字符 | 约 ${contractTokens} Tokens | 节省 ${contractSavingRatio}%`);
+  console.log(`    - mdflow AST 实现切片 (显式): ${sliceStreamResult.codeStream.length} 字符 | 约 ${sliceTokens} Tokens | 节省 ${sliceSavingRatio}%`);
+  console.log(`    - 链路节点数/源状态:          ${contractStreamResult.nodes.length} 个 / ${contractStreamResult.nodes.map((node) => node.sourceStatus).join(", ")}`);
+  console.log(`    - 默认契约流不含函数体:        ${contractStreamResult.codeStream.split("\n").filter((line) => line.trim() && !line.trim().startsWith("//") && !line.startsWith("#")).length === 0 ? "✓ YES" : "✗ NO"}`);
+
+  const sharedBudget = startTaskBudget({ projectRoot: repoRoot, budgetChars: 12000 });
+  const budgetContext = boundTaskResponse({
+    taskContextId: sharedBudget.taskContextId,
+    markdown: sampleTaskResult.markdown,
+    data: sampleTaskResult,
+  });
+  const budgetChain = boundTaskResponse({
+    taskContextId: sharedBudget.taskContextId,
+    markdown: contractStreamResult.codeStream,
+    data: contractStreamResult,
+  });
+  const sharedBudgetState = budgetChain.budget;
+  console.log(`    - 共享 taskContextId 累计返回: ${budgetContext.markdown.length + budgetChain.markdown.length} 字符 | 剩余 ${sharedBudgetState.remainingChars} 字符`);
+  resetTaskBudgets();
 
   // -------------------------------------------------------------
   // PART D: 终端日志智能脱敏实测 (Terminal Sanitizer Noise Compression)
