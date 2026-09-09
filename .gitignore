@@ -3,6 +3,7 @@ node_modules/
 apps/desktop/.build/
 apps/desktop/.swiftpm/
 dist/
+release-assets/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal

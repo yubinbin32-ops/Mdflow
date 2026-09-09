@@ -2,18 +2,18 @@ import AppKit
 import SwiftUI
 
 enum MdflowTheme {
-    // AppKit semantic colors resolve against the window's light/dark
-    // appearance, so the Canvas keeps one canonical project projection.
-    static let canvas = Color(nsColor: NSColor.controlBackgroundColor)
-    static let surface = Color(nsColor: NSColor.windowBackgroundColor)
-    static let ink = Color(nsColor: NSColor.labelColor)
-    static let muted = Color(nsColor: NSColor.secondaryLabelColor)
-    static let hairline = Color(nsColor: NSColor.separatorColor)
-    static let focus = Color(nsColor: NSColor.controlAccentColor)
-    static let success = Color(nsColor: NSColor.systemGreen)
-    static let pending = Color(nsColor: NSColor.systemOrange)
-    static let failure = Color(nsColor: NSColor.systemRed)
-    static let unstable = Color(nsColor: NSColor.systemPurple)
+    // AppKit semantic colors resolve dynamically against the window's
+    // active appearance, so light/dark mode and system themes update cleanly.
+    static var canvas: Color { Color(nsColor: NSColor.controlBackgroundColor) }
+    static var surface: Color { Color(nsColor: NSColor.windowBackgroundColor) }
+    static var ink: Color { Color(nsColor: NSColor.labelColor) }
+    static var muted: Color { Color(nsColor: NSColor.secondaryLabelColor) }
+    static var hairline: Color { Color(nsColor: NSColor.separatorColor) }
+    static var focus: Color { Color(nsColor: NSColor.controlAccentColor) }
+    static var success: Color { Color(nsColor: NSColor.systemGreen) }
+    static var pending: Color { Color(nsColor: NSColor.systemOrange) }
+    static var failure: Color { Color(nsColor: NSColor.systemRed) }
+    static var unstable: Color { Color(nsColor: NSColor.systemPurple) }
 
     static func healthColor(_ state: String) -> Color {
         switch state {
@@ -75,20 +75,22 @@ enum MdflowTheme {
         }
     }
 
-    static let chainPalette: [Color] = [
-        focus,
-        Color(nsColor: NSColor.systemOrange),
-        success,
-        Color(nsColor: NSColor.systemPurple),
-        failure,
-        Color(nsColor: NSColor.systemTeal),
-        Color(nsColor: NSColor.systemPink),
-        Color(nsColor: NSColor.systemBrown),
-        Color(nsColor: NSColor.systemIndigo),
-        Color(nsColor: NSColor.systemYellow),
-        Color(nsColor: NSColor.systemBlue),
-        Color(nsColor: NSColor.systemMint),
-    ]
+    static var chainPalette: [Color] {
+        [
+            focus,
+            Color(nsColor: NSColor.systemOrange),
+            success,
+            Color(nsColor: NSColor.systemPurple),
+            failure,
+            Color(nsColor: NSColor.systemTeal),
+            Color(nsColor: NSColor.systemPink),
+            Color(nsColor: NSColor.systemBrown),
+            Color(nsColor: NSColor.systemIndigo),
+            Color(nsColor: NSColor.systemYellow),
+            Color(nsColor: NSColor.systemBlue),
+            Color(nsColor: NSColor.systemMint),
+        ]
+    }
 
     static func chainColor(index: Int) -> Color {
         chainPalette[index % chainPalette.count]
