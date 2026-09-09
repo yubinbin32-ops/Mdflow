@@ -472,6 +472,14 @@ export function architectureCoverage(snapshot, planId = null) {
     values.push(binding);
     bindingsByCheckpoint.set(binding.checkpointId, values);
   }
+  const explicitlyRequiredBlockIds = new Set(snapshot.checkpointBindings
+    .filter((binding) => binding.required && binding.subjectType === "block")
+    .map((binding) => binding.subjectId));
+  for (const reference of snapshot.planCheckpointRefs) {
+    if (!reference.required || !candidatePlanIds.has(reference.planId)) continue;
+    const checkpoint = snapshot.checkpoints.find((item) => item.id === reference.checkpointId);
+    if (checkpoint?.targetType === "block") explicitlyRequiredBlockIds.add(checkpoint.targetId);
+  }
   const scopesByBlock = new Map(blocks.map((block) => [block.id, []]));
   for (const scope of snapshot.planChainScopes) {
     if (!candidatePlanIds.has(scope.planId)) continue;
@@ -483,15 +491,26 @@ export function architectureCoverage(snapshot, planId = null) {
   for (const node of snapshot.chainNodes) {
     if (chainIdsByBlock.has(node.blockId)) chainIdsByBlock.get(node.blockId).push(node.chainId);
   }
-  const chainGateIds = new Set(planId ? [] : snapshot.checkpoints.filter((checkpoint) =>
-    checkpoint.targetType === "chain" && checkpoint.checkpointKind === "integration",
-  ).map((checkpoint) => checkpoint.targetId));
+  // Chain integration is opt-in. Membership alone does not make every member
+  // Block wait for a Chain checkpoint; only a declared integration Checkpoint
+  // or an explicitly bound Plan ChainScope creates a gate.
+  const declaredChainGateIds = new Set(snapshot.checkpoints
+    .filter((checkpoint) => checkpoint.targetType === "chain" && checkpoint.checkpointKind === "integration")
+    .map((checkpoint) => checkpoint.targetId));
+  const chainGateIds = new Set([...declaredChainGateIds]);
   for (const binding of snapshot.checkpointBindings) {
     if (!binding.required || binding.subjectType !== "plan_chain_scope") continue;
     const scope = snapshot.planChainScopes.find((item) => item.id === binding.subjectId && candidatePlanIds.has(item.planId));
     const checkpoint = snapshot.checkpoints.find((item) => item.id === binding.checkpointId);
     if (scope && checkpoint?.checkpointKind === "integration") chainGateIds.add(scope.chainId);
   }
+  const chainGateMissingChainIds = [...chainGateIds].filter((chainId) => {
+    const gates = snapshot.checkpoints.filter((checkpoint) =>
+      checkpoint.targetType === "chain" && checkpoint.targetId === chainId && checkpoint.checkpointKind === "integration",
+    );
+    return gates.length === 0 || gates.every((checkpoint) => !checkpointSatisfiesGate(checkpoint));
+  });
+  const chainGateMissingSet = new Set(chainGateMissingChainIds);
 
   const blockCoverage = blocks.map((block) => {
     const blockCheckpoints = checkpointsByBlock.get(block.id) ?? [];
@@ -507,11 +526,15 @@ export function architectureCoverage(snapshot, planId = null) {
       ? [...new Set((scopesByBlock.get(block.id) ?? []).map((scope) => scope.chainId))]
       : memberChainIds;
     // A checkpoint is a requested verification artifact, not a prerequisite
-    // for merely declaring an architectural Block. Direct Plan work and
-    // completed delivery explicitly request verification; an unplanned
-    // proposed Block may remain checkpoint-free until its requirement is
-    // understood.
-    const checkpointRequired = plannedBlockIds.has(block.id) || block.deliveryState === "complete";
+    // for declaring an architectural Block, completing delivery, or entering
+    // a Plan. Only an explicit required binding/ref creates a Block gate.
+    const checkpointRequired = explicitlyRequiredBlockIds.has(block.id);
+    // A standalone Block checkpoint is valid on its own. It is only an
+    // unbound Plan checkpoint when it was explicitly attached to Plan work but
+    // not to this Block's canonical PlanChange.
+    const hasPlanIntentBinding = checkpointBindings.some((binding) =>
+      ["plan", "plan_change", "plan_chain_scope"].includes(binding.subjectType),
+    );
     return {
       blockId: block.id,
       hasCheckpoint,
@@ -520,8 +543,8 @@ export function architectureCoverage(snapshot, planId = null) {
       isCoveredByPlan: plannedBlockIds.has(block.id),
       isCoveredByChain: chainBlockIds.has(block.id),
       isCoveredByAnyVerification,
-      checkpointUnbound: plannedBlockIds.has(block.id) && hasCheckpoint && !hasExactPlanBinding,
-      chainGateMissing: relevantChainIds.length > 0 && relevantChainIds.some((chainId) => !chainGateIds.has(chainId)),
+      checkpointUnbound: plannedBlockIds.has(block.id) && hasCheckpoint && hasPlanIntentBinding && !hasExactPlanBinding,
+      chainGateMissing: relevantChainIds.some((chainId) => chainGateMissingSet.has(chainId)),
       checkpointIds: blockCheckpoints.map((checkpoint) => checkpoint.id),
       planChangeIds: [...changeIds],
       chainIds: memberChainIds,
@@ -556,6 +579,7 @@ export function architectureCoverage(snapshot, planId = null) {
     verificationCovered: blockCoverage.filter((item) => item.isCoveredByAnyVerification).length,
     checkpointUnboundIds: blockCoverage.filter((item) => item.checkpointUnbound).map((item) => item.blockId),
     chainGateMissingIds: blockCoverage.filter((item) => item.chainGateMissing).map((item) => item.blockId),
+    chainGateMissingChainIds,
     blockCoverage,
   };
 }

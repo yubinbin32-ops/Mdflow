@@ -9,6 +9,8 @@ function snapshot(entry) {
     consumedChars: entry.consumedChars,
     remainingChars: Math.max(0, entry.budgetChars - entry.consumedChars),
     responses: entry.responses,
+    sourceSyncRevision: entry.sourceSyncRevision ?? null,
+    sourceRevision: entry.sourceRevision ?? null,
   };
 }
 
@@ -23,6 +25,8 @@ export function startTaskBudget({ projectRoot = ".", taskContextId = null, budge
     budgetChars: Math.max(100, Math.floor(Number(budgetChars) || 12000)),
     consumedChars: 0,
     responses: 0,
+    sourceSyncRevision: null,
+    sourceRevision: null,
   };
   budgets.set(entry.id, entry);
   return snapshot(entry);
@@ -31,6 +35,24 @@ export function startTaskBudget({ projectRoot = ".", taskContextId = null, budge
 export function taskBudget(taskContextId) {
   const entry = taskContextId ? budgets.get(taskContextId) : null;
   return entry ? snapshot(entry) : null;
+}
+
+export function setTaskSourceBaseline(taskContextId, { sourceSyncRevision = null, sourceRevision = null } = {}) {
+  const entry = taskContextId ? budgets.get(taskContextId) : null;
+  if (!entry) return null;
+  if (entry.sourceSyncRevision === null) entry.sourceSyncRevision = sourceSyncRevision;
+  if (entry.sourceRevision === null) entry.sourceRevision = sourceRevision;
+  return snapshot(entry);
+}
+
+export function taskSourceBaseline(taskContextId) {
+  const entry = taskContextId ? budgets.get(taskContextId) : null;
+  if (!entry) return null;
+  return {
+    taskContextId: entry.id,
+    sourceSyncRevision: entry.sourceSyncRevision,
+    sourceRevision: entry.sourceRevision,
+  };
 }
 
 function truncateMarkdown(markdown, maxChars, suffix) {

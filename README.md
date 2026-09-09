@@ -72,10 +72,11 @@ Run `npm run benchmark` to reproduce the measurements locally. Results vary by r
 
 | Operation | Baseline | mdflow | Reduction / speed |
 | --- | ---: | ---: | ---: |
-| Task context | 173,095 tokens | 1,111 tokens | **99.4% fewer tokens** |
-| Four-module Chain (contract mode) | 28,514 tokens | 498 tokens | **98.3% fewer tokens** |
-| Build and test log | 4,042 tokens | 211 tokens | **94.8% fewer tokens** |
-| Structured context retrieval | repeated file scans | 5.15 ms P50 | local indexed lookup |
+| Task context | 154,147 tokens | 1,146 tokens | **99.3% fewer tokens** |
+| Four-module Chain (contract mode) | 30,642 tokens | 525 tokens | **98.3% fewer tokens** |
+| Four-module Chain (explicit slice) | 30,642 tokens | 804 tokens | **97.4% fewer tokens** |
+| Build and test log | 4,040 tokens | 211 tokens | **94.8% fewer tokens** |
+| Structured context retrieval | repeated file scans | 140.9 ms P50 | local indexed lookup + source scan |
 
 These are measurements from the current repository run, not fixed guarantees. Use `npm run benchmark` after changing the graph, source bindings, or stream policy.
 
@@ -97,9 +98,19 @@ Planned features live as **Ghost Blueprints** without fake file bindings. As imp
 
 ### Evidence as part of architecture
 
-Plans and blocks can require Checkpoints backed by tests, static checks, or review receipts. Completion is tied to evidence rather than a chat claim.
+Plans, Blocks, and Chains can require Checkpoints backed by tests, static checks, or review receipts. A Block may own an independent Checkpoint; a Chain may own an integration Checkpoint for its serial or parallel network. Completion is tied to evidence rather than a chat claim.
 
-Checkpoints also store a source identity snapshot (Git HEAD plus bound AST-file hashes). mdflow recomputes that identity when loading the graph; a changed source or commit turns an old `passed` checkpoint into `retest_required`, so it cannot satisfy a Plan or Chain gate. Historical checkpoints without an identity snapshot remain history, not current proof.
+Checkpoints also store a source identity snapshot (Git HEAD plus bound AST symbol/node hashes). mdflow recomputes that identity when loading the graph; a changed bound implementation or commit turns an old `passed` checkpoint into `retest_required`, so it cannot satisfy a Plan or Chain gate. Historical checkpoints without an identity snapshot remain history, not current proof.
+
+### Source bindings stay current while code moves
+
+The graph is the source of truth for architecture and intent; the source tree is the source of truth for behavior. `SourceBinding` is the small bridge between them. Its stable identity is the file plus symbol/method name, while line numbers are derived coordinates that may move. At mdflow boundaries—task context, Chain streaming, validation, checkpoint evaluation, and project-local commands—active bindings are rescanned and reported as `anchored`, `moved`, `changed`, `missing`, or `ambiguous`.
+
+Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit compact delta. `chain_code_stream` resolves the current symbol before returning a slice; it never returns an old body when the binding is stale, missing, unreadable, or ambiguous. `run_command` is the normal project command gateway, but an explicitly allowed external shell/IDE edit is not a blocker: the next mdflow boundary detects it and refreshes the derived line range. This keeps method names unchanged and makes mdflow usable during development instead of only after it.
+
+### Block, Chain, and Plan semantics
+
+A **Block** is an abstract architecture unit. It can stand alone, participate in one or more serial/parallel networks, and own its own Checkpoint. A **Chain** is a higher-level network of Blocks and can have an independent integration Checkpoint. A **Plan** records development intent and work scope over Blocks, Chains, and rules; it does not own the architecture and does not need to cover every Block or Chain. Unplanned architecture is valid and is not a health warning. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope.
 
 ### Terminal output built for agent context
 
@@ -116,6 +127,7 @@ Checkpoints also store a source identity snapshot (Git HEAD plus bound AST-file 
 - Compact orthogonal routing keeps large dependency graphs readable.
 - Double-click focus reveals one-hop dependencies and related Chains.
 - The Inspector shows AST bindings, code streams, plans, progress, and Checkpoint evidence.
+- Settings compares the bundled App, plugin manifest, MCP server version, and bundle fingerprint, and offers re-sync when they drift apart—even when a rebuild keeps the same semantic version.
 - Settings can configure Google Antigravity, Cursor, Claude Desktop, OpenCode, and Codex workflows.
 
 <table>
@@ -150,7 +162,7 @@ This standard shape works with Cursor, Claude Desktop, OpenCode, and other stdio
 
 ```bash
 npm ci
-npm test                 # 27 tests
+npm test                 # 33 tests
 npm run benchmark        # reproducible context/AST/log benchmark
 npm run plugin:build     # rebuild the bundled MCP server
 npm run plugin:verify    # MCP surface, redaction, and contract-stream smoke test

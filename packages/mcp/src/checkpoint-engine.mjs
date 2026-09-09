@@ -1,4 +1,4 @@
-import { transaction } from "./database.mjs";
+import { exportGraphToJson, transaction } from "./database.mjs";
 import {
   assertAllowed,
   LOCALES,
@@ -108,7 +108,7 @@ export function recordCheckpoint(service, {
   const changeSetId = identifier("change");
   const historyContext = service.resolveHistoryContext(planId, chainScopeId);
   const before = service.historyState("checkpoint", checkpointId);
-  return transaction(service.database, () => {
+  const result = transaction(service.database, () => {
     service.database
       .prepare(
         `INSERT INTO change_sets(id, project_id, actor, reason, task, git_head, created_at)
@@ -224,6 +224,19 @@ export function recordCheckpoint(service, {
       },
     };
   });
+  // checkpoint_record is a first-class mutation entry point, so it must keep
+  // the versioned graph projection in lockstep with graph_mutate. Otherwise a
+  // freshly recorded source identity can disappear when a new service process
+  // imports the checked-in graph.json.
+  if (service.paths.graphJsonPath) {
+    try {
+      exportGraphToJson(service.database, service.paths.graphJsonPath);
+    } catch {
+      // The database mutation is authoritative; preserve the successful
+      // checkpoint receipt when the derived projection cannot be written.
+    }
+  }
+  return result;
 }
 
 export function executeRecordCheckpointOperation(service, operation, { timestamp }) {

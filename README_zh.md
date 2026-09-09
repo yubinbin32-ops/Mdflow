@@ -72,10 +72,11 @@ flowchart LR
 
 | 操作 | 传统方式 | mdflow | 实测结果 |
 | --- | ---: | ---: | ---: |
-| 单任务上下文 | 173,095 tokens | 1,111 tokens | **减少 99.4%** |
-| 四模块 Chain（contract 模式） | 28,514 tokens | 498 tokens | **减少 98.3%** |
-| 构建与测试日志 | 4,042 tokens | 211 tokens | **减少 94.8%** |
-| 结构化上下文检索 | 反复扫描文件 | P50 5.15 ms | 本地索引查询 |
+| 单任务上下文 | 154,147 tokens | 1,146 tokens | **减少 99.3%** |
+| 四模块 Chain（contract 模式） | 30,642 tokens | 525 tokens | **减少 98.3%** |
+| 四模块 Chain（显式 slice） | 30,642 tokens | 804 tokens | **减少 97.4%** |
+| 构建与测试日志 | 4,040 tokens | 211 tokens | **减少 94.8%** |
+| 结构化上下文检索 | 反复扫描文件 | P50 140.9 ms | 本地索引查询 + 源码扫描 |
 
 以上是当前仓库的一次本地实测，不是固定保证。修改图谱、源引用或切片策略后，请重新运行 `npm run benchmark`。
 
@@ -97,9 +98,19 @@ flowchart LR
 
 ### 让证据成为架构的一部分
 
-Plan 和 Block 可以要求由测试、静态检查或评审回执支持的 Checkpoint。完成状态由证据推动，而不是依赖聊天中的口头声明。
+Plan、Block 和 Chain 都可以要求由测试、静态检查或评审回执支持的 Checkpoint。Block 可以拥有独立 Checkpoint；Chain 可以为自己的串联或并联网络拥有独立的集成 Checkpoint。完成状态由证据推动，而不是依赖聊天中的口头声明。
 
-Checkpoint 还会保存绑定源码的身份快照（Git HEAD 与 AST 源文件哈希）。读取图谱时会重新计算身份；源码或提交发生变化后，旧的 `passed` 会自动变成 `retest_required`，不能继续满足 Plan/Chain gate。没有身份快照的历史 checkpoint 只作为历史记录，不作为当前通过证据。
+Checkpoint 还会保存绑定源码的身份快照（Git HEAD 与 AST 符号/节点哈希）。读取图谱时会重新计算身份；绑定实现或提交发生变化后，旧的 `passed` 会自动变成 `retest_required`，不能继续满足 Plan/Chain gate。没有身份快照的历史 checkpoint 只作为历史记录，不作为当前通过证据。
+
+### 源码绑定会随代码移动保持同步
+
+图谱是架构与意图的事实源，源码树是行为的事实源，`SourceBinding` 是两者之间的小桥梁。绑定的稳定身份是“文件 + 符号/方法名”，行号只是可以移动的派生坐标。在任务上下文、Chain 流、图谱校验、Checkpoint 评估和项目内命令这些 mdflow 边界，系统都会重扫活跃绑定，并报告 `anchored`、`moved`、`changed`、`missing` 或 `ambiguous`。
+
+需要明确增量时使用 `source_sync`，或使用带 `sourceSyncRevision` 的 `changes_since`。`chain_code_stream` 返回实现切片前会重新解析当前符号；绑定过期、缺失、不可读或有歧义时，绝不会继续返回旧函数体。`run_command` 是项目命令的默认入口，但明确允许的外部 shell/IDE 编辑不构成阻塞：下一个 mdflow 边界会检测变化并刷新派生行号。这样方法名无需改变，mdflow 也能参与开发过程，而不只是事后补录。
+
+### Block、Chain 与 Plan 的边界
+
+**Block** 是抽象架构单元，可以独立存在、参与串联或并联网络，也可以拥有自己的 Checkpoint。**Chain** 是由 Block 组成的更高层网络，可以拥有独立的集成 Checkpoint。**Plan** 基于 Block、Chain 和规则记录开发意图与工作范围；它不拥有架构，也不要求覆盖所有 Block 或 Chain。没有进入 Plan 的架构是合法状态，不是健康告警。只有显式声明集成 Checkpoint，或被 Plan 的 ChainScope 绑定时，Chain gate 才是必需的。
 
 ### 为 Agent 压缩终端上下文
 
@@ -116,6 +127,7 @@ Checkpoint 还会保存绑定源码的身份快照（Git HEAD 与 AST 源文件�
 - 紧凑正交路由让大型依赖图保持可读。
 - 双击聚焦一跳依赖和相关 Chain。
 - Inspector 展示 AST 绑定、代码流、计划、进度和 Checkpoint 证据。
+- Settings 会比较 App、插件清单、MCP 服务版本和 bundle 指纹；即使重建后语义版本不变，只要内容漂移也会提供重新同步。
 - Settings 可以配置 Google Antigravity、Cursor、Claude Desktop、OpenCode 和 Codex 工作流。
 
 <table>
@@ -150,7 +162,7 @@ Cursor、Claude Desktop、OpenCode 以及其他 stdio MCP 客户端都使用这�
 
 ```bash
 npm ci
-npm test                 # 27 项测试
+npm test                 # 33 项测试
 npm run benchmark        # 可复现的 Context / AST / 日志基准
 npm run plugin:build     # 重新打包 MCP 服务
 npm run plugin:verify    # MCP 工具面、脱敏和契约流冒烟测试

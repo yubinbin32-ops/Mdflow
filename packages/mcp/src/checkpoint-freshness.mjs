@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { bindingIdentity } from "./source-binding.mjs";
 
 export const CHECKPOINT_IDENTITY_KIND = "mdflow-identity";
 
@@ -40,13 +41,13 @@ function fileHash(filePath) {
 
 function sourceRefsForBlock(database, blockId) {
   return database.prepare(
-    "SELECT path, symbol, role FROM source_refs WHERE block_id = ? ORDER BY path, start_line, id",
+    "SELECT id, path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY path, start_line, id",
   ).all(blockId);
 }
 
 function sourceRefsForChain(database, chainId) {
   return database.prepare(
-    `SELECT sr.path, sr.symbol, sr.role
+    `SELECT sr.id, sr.path, sr.start_line, sr.end_line, sr.symbol, sr.role
        FROM source_refs sr
        JOIN chain_nodes cn ON cn.block_id = sr.block_id
       WHERE cn.chain_id = ?
@@ -114,6 +115,23 @@ function checkpointFiles(service, targetType, targetId, evidence) {
   return [...files.values()];
 }
 
+function checkpointBindings(service, targetType, targetId) {
+  if (typeof service.syncSourceBindings !== "function") return [];
+  const refs = sourceRefsForTarget(service, targetType, targetId);
+  if (!refs.length) return [];
+  const state = service.syncSourceBindings({ includeUnchanged: true });
+  const byId = new Map((state.bindings ?? []).map((binding) => [binding.id, binding]));
+  const seen = new Set();
+  const bindings = [];
+  for (const ref of refs) {
+    const binding = byId.get(ref.id);
+    if (!binding || seen.has(binding.id)) continue;
+    seen.add(binding.id);
+    bindings.push(binding);
+  }
+  return bindings;
+}
+
 export function extractCheckpointIdentity(evidence) {
   return (Array.isArray(evidence) ? evidence : []).find(
     (item) => item && typeof item === "object" && item.kind === CHECKPOINT_IDENTITY_KIND,
@@ -128,11 +146,13 @@ export function stripCheckpointIdentity(evidence) {
 
 export function withCheckpointIdentity(service, { targetType, targetId, evidence = [], gitHead: requestedGitHead = null } = {}) {
   const cleanEvidence = stripCheckpointIdentity(evidence);
+  const bindings = checkpointBindings(service, targetType, targetId);
   const identity = {
     kind: CHECKPOINT_IDENTITY_KIND,
-    version: 1,
+    version: 2,
     gitHead: requestedGitHead ?? gitHead(projectRootFor(service)),
     files: checkpointFiles(service, targetType, targetId, cleanEvidence),
+    bindings: bindings.map(bindingIdentity),
   };
   return [...cleanEvidence, identity];
 }
@@ -143,7 +163,7 @@ export function createCheckpointFreshnessContext(service) {
 }
 
 export function evaluateCheckpointFreshness(service, identity, context = null) {
-  if (!identity || identity.kind !== CHECKPOINT_IDENTITY_KIND || identity.version !== 1) {
+  if (!identity || identity.kind !== CHECKPOINT_IDENTITY_KIND || ![1, 2].includes(identity.version)) {
     return { status: "unknown", reasons: ["checkpoint has no source identity"] };
   }
   const freshnessContext = context ?? createCheckpointFreshnessContext(service);
@@ -154,6 +174,28 @@ export function evaluateCheckpointFreshness(service, identity, context = null) {
     const currentHead = freshnessContext.gitHead;
     if (!currentHead) unknown = true;
     else if (currentHead !== identity.gitHead) reasons.push("git HEAD changed");
+  }
+  if (identity.version >= 2 && Array.isArray(identity.bindings) && identity.bindings.length > 0) {
+    const current = typeof service.syncSourceBindings === "function"
+      ? service.syncSourceBindings({ includeUnchanged: true })
+      : { bindings: [] };
+    const currentById = new Map((current.bindings ?? []).map((binding) => [binding.id, binding]));
+    for (const expected of identity.bindings) {
+      const actual = currentById.get(expected.id);
+      if (!actual) {
+        reasons.push(`source binding is missing: ${expected.path}${expected.symbol ? ` :: ${expected.symbol}` : ""}`);
+        continue;
+      }
+      if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(actual.bindingStatus)) {
+        reasons.push(`source binding is ${actual.bindingStatus}: ${actual.path}${actual.symbol ? ` :: ${actual.symbol}` : ""}`);
+        continue;
+      }
+      if (expected.nodeHash && actual.nodeHash && expected.nodeHash !== actual.nodeHash) {
+        reasons.push(`source symbol changed: ${actual.path}${actual.symbol ? ` :: ${actual.symbol}` : ""}`);
+      } else if (!expected.nodeHash && expected.fileHash !== actual.fileHash) {
+        reasons.push(`source changed: ${actual.path}`);
+      }
+    }
   }
   for (const file of Array.isArray(identity.files) ? identity.files : []) {
     const relative = relativeProjectPath(root, file.path);

@@ -194,22 +194,13 @@ struct DetailView: View {
             Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified")) · \(coverage.plannedBlocks)/\(coverage.totalBlocks) \(store.activeLocale == "zh-Hans" ? "由此 Plan 覆盖" : "covered by this Plan")")
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(MdflowTheme.ink.opacity(0.82))
-            let directStandaloneIDs = Set(directChanges.filter { $0.entityType == "block" }.map(\.entityId))
-                .intersection(Set(coverage.outsideChainIDs))
-            if !directStandaloneIDs.isEmpty {
-                let label = store.activeLocale == "zh-Hans" ? "不在 Chain 中的直接 Block" : "Direct Blocks outside Chains"
-                let refs = directStandaloneIDs.sorted().map { "block:\($0)" }.joined(separator: ", ")
-                Text("\(label): \(refs)")
-                    .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                    .foregroundStyle(MdflowTheme.focus)
-            }
-            if !coverage.withoutCheckpointIDs.isEmpty {
-                Text("\(store.text("noCheckpoint")): \(coverage.withoutCheckpointIDs.prefix(6).joined(separator: ", "))")
-                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.failure)
-            }
-            if !coverage.checkpointUnboundIDs.isEmpty {
-                Text("\(store.activeLocale == "zh-Hans" ? "Checkpoint 未绑定 PlanChange" : "Checkpoints not bound to PlanChanges"): \(coverage.checkpointUnboundIDs.prefix(6).joined(separator: ", "))")
+            if !coverage.requiredCheckpointMissingIDs.isEmpty {
+                Text("\(store.activeLocale == "zh-Hans" ? "验证待补" : "Verification needed"): \(coverage.requiredCheckpointMissingIDs.prefix(6).joined(separator: ", "))")
                     .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.pending)
+            }
+            if !coverage.failingIDs.isEmpty {
+                Text("\(store.activeLocale == "zh-Hans" ? "验证失败" : "Verification failing"): \(coverage.failingIDs.prefix(6).joined(separator: ", "))")
+                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.failure)
             }
             if !coverage.chainGateMissingIDs.isEmpty {
                 Text("\(store.activeLocale == "zh-Hans" ? "缺少 Chain integration gate" : "Missing Chain integration gates"): \(coverage.chainGateMissingIDs.prefix(6).joined(separator: ", "))")
@@ -421,20 +412,11 @@ struct DetailView: View {
                 structuredList(store.activeLocale == "zh-Hans" ? "禁止事项" : "MUST NOT", value: change.prohibitions)
                 structuredList(store.activeLocale == "zh-Hans" ? "预期影响" : "EXPECTED EFFECTS", value: change.expectedEffects)
                 structuredList(store.activeLocale == "zh-Hans" ? "文件与代码位置" : "FILES & CODE", value: change.sourceRefs)
-                let checks = store.checkpoints(subjectType: "plan_change", subjectID: change.id)
-                if !checks.isEmpty {
-                    ForEach(checks) { checkpoint in checkpointSummary(checkpoint) }
-                } else {
-                    let targetChecks = store.targetCheckpoints(for: change)
-                    if targetChecks.isEmpty {
-                        Label(store.activeLocale == "zh-Hans" ? "此对象尚无 Checkpoint" : "No checkpoint exists for this entity", systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 10, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.failure)
-                    } else {
-                        Label(store.activeLocale == "zh-Hans" ? "已有 Checkpoint，但尚未绑定到此 Plan 工作项" : "Checkpoints exist but are not bound to this Plan work item", systemImage: "link.badge.plus")
-                            .font(.system(size: 10, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.pending)
-                        ForEach(targetChecks) { checkpoint in checkpointSummary(checkpoint) }
+                let checks = (store.checkpoints(subjectType: "plan_change", subjectID: change.id) + store.targetCheckpoints(for: change))
+                    .reduce(into: [CheckpointItem]()) { result, checkpoint in
+                        if !result.contains(where: { $0.id == checkpoint.id }) { result.append(checkpoint) }
                     }
-                }
+                ForEach(checks) { checkpoint in checkpointSummary(checkpoint) }
                 Button {
                     store.locatePlanChange(change)
                 } label: {

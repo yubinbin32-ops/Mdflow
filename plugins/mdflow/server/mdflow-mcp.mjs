@@ -3258,8 +3258,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path10) {
-      let input = path10;
+    function removeDotSegments(path11) {
+      let input = path11;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3668,8 +3668,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
+        const path11 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path11 && path11 !== "/" ? path11 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7181,12 +7181,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs9, exportName) {
+    function addFormats(ajv, list, fs10, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs9[f]);
+        ajv.addFormat(f, fs10[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7568,8 +7568,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path10, errorMaps, issueData } = params;
-  const fullPath = [...path10, ...issueData.path || []];
+  const { data, path: path11, errorMaps, issueData } = params;
+  const fullPath = [...path11, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7684,11 +7684,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path10, key) {
+  constructor(parent, value, path11, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path10;
+    this._path = path11;
     this._key = key;
   }
   get path() {
@@ -11270,10 +11270,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path10) {
-  if (!path10)
+function getElementAtPath(obj, path11) {
+  if (!path11)
     return obj;
-  return path10.reduce((acc, key) => acc?.[key], obj);
+  return path11.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11685,11 +11685,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path10, issues) {
+function prefixIssues(path11, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path10);
+    iss.path.unshift(path11);
     return iss;
   });
 }
@@ -12118,16 +12118,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path10 = []) => {
+  const processError = (error3, path11 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path11, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else {
-        const fullpath = [...path10, ...issue2.path];
+        const fullpath = [...path11, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -16632,11 +16632,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path10) {
-  if (path10.length === 0) {
+function getDotPath(path11) {
+  if (path11.length === 0) {
     return "object root";
   }
-  return path10.reduce((acc, seg, index) => {
+  return path11.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23203,13 +23203,13 @@ var StdioServerTransport = class {
 };
 
 // packages/mcp/src/project-router.mjs
-import path8 from "node:path";
-import fs7 from "node:fs";
+import path9 from "node:path";
+import fs8 from "node:fs";
 
 // packages/mcp/src/service.mjs
-import crypto5 from "node:crypto";
-import fs6 from "node:fs";
-import path7 from "node:path";
+import crypto6 from "node:crypto";
+import fs7 from "node:fs";
+import path8 from "node:path";
 import { spawnSync as spawnSync2 } from "node:child_process";
 
 // packages/mcp/src/database.mjs
@@ -24130,10 +24130,10 @@ function detectLanguage(filePath = "") {
       return "text";
   }
 }
-function extractSymbols(sourceCode, { language = "typescript", filePath = "" } = {}) {
+function extractSymbols(sourceCode, { language = null, filePath = "" } = {}) {
   const lines = sourceCode.split(/\r?\n/);
   const symbols = [];
-  const lang = language === "text" && filePath ? detectLanguage(filePath) : language;
+  const lang = language && language !== "text" ? language : filePath ? detectLanguage(filePath) : "typescript";
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineNum = i + 1;
@@ -24150,6 +24150,24 @@ function extractSymbols(sourceCode, { language = "typescript", filePath = "" } =
           signature: trimmed.replace(/\{$/, "").trim(),
           startLine: lineNum,
           endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const templateConstMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*`/);
+      if (templateConstMatch) {
+        let endLine = lineNum;
+        for (let j = i; j < lines.length; j++) {
+          if (lines[j].includes("`") && (j !== i || lines[j].lastIndexOf("`") > lines[j].indexOf("`"))) {
+            endLine = j + 1;
+            break;
+          }
+        }
+        symbols.push({
+          name: templateConstMatch[1],
+          kind: "constant",
+          signature: `const ${templateConstMatch[1]} = \`...\``,
+          startLine: lineNum,
+          endLine
         });
         continue;
       }
@@ -24209,12 +24227,34 @@ function extractSymbols(sourceCode, { language = "typescript", filePath = "" } =
         continue;
       }
     } else if (lang === "swift") {
-      const swiftFuncMatch = trimmed.match(/^(?:public\s+|private\s+|fileprivate\s+|internal\s+|open\s+)?(?:static\s+|class\s+)?(?:mutating\s+)?func\s+([A-Za-z0-9_]+)\s*(\([^{]*\))/);
+      const swiftFuncMatch = trimmed.match(
+        /^(?:(?:public|private|fileprivate|internal|open|nonisolated|static|class|mutating|override|final|async|throws|rethrows)\s+)*func\s+([A-Za-z0-9_]+)\s*\(/
+      );
       if (swiftFuncMatch) {
+        let signature = trimmed;
+        if (!trimmed.includes(")")) {
+          for (let j = i + 1; j < Math.min(lines.length, i + 12); j++) {
+            signature += ` ${lines[j].trim()}`;
+            if (lines[j].includes("{")) break;
+          }
+        }
         symbols.push({
           name: swiftFuncMatch[1],
           kind: "function",
-          signature: `${swiftFuncMatch[1]}${swiftFuncMatch[2]}`,
+          signature: signature.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const swiftPropertyMatch = trimmed.match(
+        /^(?:(?:public|private|fileprivate|internal|open)\s+)?(?:private\(set\)\s+)?(?:static\s+|class\s+)?var\s+([A-Za-z0-9_]+)(?:\s*:\s*[^={]+)?\s*\{/
+      );
+      if (swiftPropertyMatch) {
+        symbols.push({
+          name: swiftPropertyMatch[1],
+          kind: "property",
+          signature: trimmed.replace(/\{$/, "").trim(),
           startLine: lineNum,
           endLine: findBlockEnd(lines, i)
         });
@@ -24256,7 +24296,12 @@ function extractSymbols(sourceCode, { language = "typescript", filePath = "" } =
       }
     }
   }
-  return symbols;
+  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol"].includes(item.kind));
+  return symbols.map((item) => {
+    if (["class", "struct", "enum", "protocol"].includes(item.kind)) return item;
+    const owner = typeSymbols.filter((type) => type.startLine < item.startLine && type.endLine >= item.endLine).sort((left, right) => left.endLine - left.startLine - (right.endLine - right.startLine))[0];
+    return owner ? { ...item, qualifiedName: `${owner.name}.${item.name}` } : item;
+  });
 }
 function findBlockEnd(lines, startIdx) {
   let openBraces = 0;
@@ -24301,12 +24346,17 @@ function extractSymbolSlice(sourceCode, {
   let targetStart = startLine;
   let targetEnd = endLine;
   let matched = null;
-  if (symbol && (!targetStart || !targetEnd)) {
-    const symbols = extractSymbols(sourceCode, {
+  let resolutionReason = null;
+  let resolutionCandidates = [];
+  if (symbol) {
+    const resolution = resolveSymbolMatch(sourceCode, {
+      symbol,
       language: language || (filePath ? detectLanguage(filePath) : "typescript"),
       filePath
     });
-    matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
+    matched = resolution.matched;
+    resolutionReason = resolution.reason;
+    resolutionCandidates = resolution.candidates;
     if (matched) {
       targetStart = matched.startLine;
       targetEnd = matched.endLine;
@@ -24320,7 +24370,9 @@ function extractSymbolSlice(sourceCode, {
       startLine: null,
       endLine: null,
       totalLines: 0,
-      code: ""
+      code: "",
+      reason: resolutionReason || "missing",
+      candidates: resolutionCandidates
     };
   }
   if (!targetStart) targetStart = 1;
@@ -24334,31 +24386,53 @@ function extractSymbolSlice(sourceCode, {
   }
   return {
     found: Boolean(matched || startLine || endLine),
-    symbol: matched?.name ?? symbol,
+    symbol: matched?.qualifiedName ?? matched?.name ?? symbol,
     signature: matched?.signature ?? null,
     startLine: targetStart,
     endLine: targetEnd,
     totalLines,
-    code: result
+    code: result,
+    reason: null
   };
+}
+function resolveSymbolMatch(sourceCode, { symbol, language = null, filePath = "" } = {}) {
+  if (!symbol?.trim()) return { matched: null, reason: "missing", candidates: [] };
+  const symbols = extractSymbols(sourceCode, {
+    language: language || (filePath ? detectLanguage(filePath) : "typescript"),
+    filePath
+  });
+  const requested = symbol.trim();
+  const signatureName = requested.includes("(") ? requested.slice(0, requested.indexOf("(")).trim() : requested;
+  const leaf = signatureName.split(".").at(-1);
+  const rawCandidates = signatureName.includes(".") ? symbols.filter((item) => item.name === signatureName || item.qualifiedName === signatureName) : symbols.filter(
+    (item) => item.name === signatureName || item.qualifiedName === signatureName || item.name === leaf || item.qualifiedName === leaf || item.qualifiedName?.endsWith(`.${signatureName}`)
+  );
+  const callableCandidates = rawCandidates.filter((item) => ["function", "method"].includes(item.kind));
+  const candidates = requested.includes("(") && callableCandidates.length > 0 ? callableCandidates : rawCandidates;
+  const candidateNames = candidates.map((item) => item.qualifiedName ?? item.name);
+  if (candidates.length === 1) return { matched: candidates[0], reason: null, candidates: candidateNames };
+  if (candidates.length > 1) return { matched: null, reason: "ambiguous", candidates: candidateNames };
+  return { matched: null, reason: "missing", candidates: [] };
 }
 function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4e3, mode = "contract" } = {}) {
   const sections = [];
   let currentChars = 0;
   const includeCode = mode === "slice";
   for (const node2 of chainNodes) {
-    const { blockId, title, filePath, symbol, code, contract, signature, sourceStatus, startLine, endLine } = node2;
+    const { blockId, title, filePath, symbol, code, contract, signature, sourceStatus: sourceStatus2, startLine, endLine } = node2;
     const header = `// -------------------------------------------------------------
 // [Node: ${blockId}] ${title} ${filePath ? `(${filePath}${symbol ? ` :: ${symbol}` : ""})` : ""}
 // -------------------------------------------------------------`;
     const bodyLines = [
-      `// Source status: ${sourceStatus ?? (filePath ? "anchored" : "virtual")}`,
+      `// Source status: ${sourceStatus2 ?? (filePath ? "anchored" : "virtual")}`,
       `// Symbol: ${symbol || "\u2014"}${signature ? ` \xB7 ${signature}` : ""}`,
       `// Lines: ${startLine && endLine ? `${startLine}-${endLine}` : "\u2014"}`,
       `// Contract: ${contract || "(not declared)"}`
     ];
     if (includeCode && code) bodyLines.push("", code);
-    if (includeCode && !code && sourceStatus === "missing") bodyLines.push("", "// No source slice available");
+    if (includeCode && !code && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus2)) {
+      bodyLines.push("", `// No current source slice available (${sourceStatus2}; rebind before reading implementation)`);
+    }
     const section = `${header}
 ${bodyLines.join("\n")}
 `;
@@ -24372,11 +24446,12 @@ ${bodyLines.join("\n")}
   return sections.join("\n");
 }
 function replaceSymbolSlice(sourceCode, { symbol, newCode, language = null }) {
-  const symbols = extractSymbols(sourceCode, { language: language || "typescript" });
-  const matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
-  if (!matched) {
-    throw new Error(`Symbol "${symbol}" not found in source code`);
+  const resolution = resolveSymbolMatch(sourceCode, { symbol, language: language || "typescript" });
+  if (!resolution.matched) {
+    const suffix = resolution.reason === "ambiguous" ? `; candidates: ${resolution.candidates.join(", ")}` : "";
+    throw new Error(`Symbol "${symbol}" ${resolution.reason === "ambiguous" ? "is ambiguous" : "not found in source code"}${suffix}`);
   }
+  const matched = resolution.matched;
   const lines = sourceCode.split(/\r?\n/);
   const before = lines.slice(0, matched.startLine - 1);
   const after = lines.slice(matched.endLine);
@@ -24388,7 +24463,7 @@ function replaceSymbolSlice(sourceCode, { symbol, newCode, language = null }) {
       oldEndLine: matched.endLine,
       newEndLine: matched.startLine + newLines.length - 1
     },
-    symbol: matched.name
+    symbol: matched.qualifiedName ?? matched.name
   };
 }
 
@@ -25437,6 +25512,12 @@ function architectureCoverage(snapshot2, planId = null) {
     values.push(binding);
     bindingsByCheckpoint.set(binding.checkpointId, values);
   }
+  const explicitlyRequiredBlockIds = new Set(snapshot2.checkpointBindings.filter((binding) => binding.required && binding.subjectType === "block").map((binding) => binding.subjectId));
+  for (const reference of snapshot2.planCheckpointRefs) {
+    if (!reference.required || !candidatePlanIds.has(reference.planId)) continue;
+    const checkpoint = snapshot2.checkpoints.find((item) => item.id === reference.checkpointId);
+    if (checkpoint?.targetType === "block") explicitlyRequiredBlockIds.add(checkpoint.targetId);
+  }
   const scopesByBlock = new Map(blocks.map((block) => [block.id, []]));
   for (const scope of snapshot2.planChainScopes) {
     if (!candidatePlanIds.has(scope.planId)) continue;
@@ -25448,27 +25529,36 @@ function architectureCoverage(snapshot2, planId = null) {
   for (const node2 of snapshot2.chainNodes) {
     if (chainIdsByBlock.has(node2.blockId)) chainIdsByBlock.get(node2.blockId).push(node2.chainId);
   }
-  const chainGateIds = new Set(planId ? [] : snapshot2.checkpoints.filter(
-    (checkpoint) => checkpoint.targetType === "chain" && checkpoint.checkpointKind === "integration"
-  ).map((checkpoint) => checkpoint.targetId));
+  const declaredChainGateIds = new Set(snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "chain" && checkpoint.checkpointKind === "integration").map((checkpoint) => checkpoint.targetId));
+  const chainGateIds = /* @__PURE__ */ new Set([...declaredChainGateIds]);
   for (const binding of snapshot2.checkpointBindings) {
     if (!binding.required || binding.subjectType !== "plan_chain_scope") continue;
     const scope = snapshot2.planChainScopes.find((item) => item.id === binding.subjectId && candidatePlanIds.has(item.planId));
     const checkpoint = snapshot2.checkpoints.find((item) => item.id === binding.checkpointId);
     if (scope && checkpoint?.checkpointKind === "integration") chainGateIds.add(scope.chainId);
   }
+  const chainGateMissingChainIds = [...chainGateIds].filter((chainId) => {
+    const gates = snapshot2.checkpoints.filter(
+      (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chainId && checkpoint.checkpointKind === "integration"
+    );
+    return gates.length === 0 || gates.every((checkpoint) => !checkpointSatisfiesGate(checkpoint));
+  });
+  const chainGateMissingSet = new Set(chainGateMissingChainIds);
   const blockCoverage = blocks.map((block) => {
     const blockCheckpoints = checkpointsByBlock.get(block.id) ?? [];
     const changeIds = new Set(candidateChangeIdsByBlock.get(block.id) ?? []);
-    const checkpointBindings = blockCheckpoints.flatMap((checkpoint) => bindingsByCheckpoint.get(checkpoint.id) ?? []);
+    const checkpointBindings2 = blockCheckpoints.flatMap((checkpoint) => bindingsByCheckpoint.get(checkpoint.id) ?? []);
     const hasCheckpoint = blockCheckpoints.length > 0;
-    const hasExactPlanBinding = checkpointBindings.some(
+    const hasExactPlanBinding = checkpointBindings2.some(
       (binding) => binding.subjectType === "plan_change" && changeIds.has(binding.subjectId)
     );
-    const isCoveredByAnyVerification = checkpointBindings.length > 0 || blockCheckpoints.some(checkpointSatisfiesGate);
+    const isCoveredByAnyVerification = checkpointBindings2.length > 0 || blockCheckpoints.some(checkpointSatisfiesGate);
     const memberChainIds = [...new Set(chainIdsByBlock.get(block.id) ?? [])];
     const relevantChainIds = planId ? [...new Set((scopesByBlock.get(block.id) ?? []).map((scope) => scope.chainId))] : memberChainIds;
-    const checkpointRequired = plannedBlockIds.has(block.id) || block.deliveryState === "complete";
+    const checkpointRequired = explicitlyRequiredBlockIds.has(block.id);
+    const hasPlanIntentBinding = checkpointBindings2.some(
+      (binding) => ["plan", "plan_change", "plan_chain_scope"].includes(binding.subjectType)
+    );
     return {
       blockId: block.id,
       hasCheckpoint,
@@ -25477,8 +25567,8 @@ function architectureCoverage(snapshot2, planId = null) {
       isCoveredByPlan: plannedBlockIds.has(block.id),
       isCoveredByChain: chainBlockIds.has(block.id),
       isCoveredByAnyVerification,
-      checkpointUnbound: plannedBlockIds.has(block.id) && hasCheckpoint && !hasExactPlanBinding,
-      chainGateMissing: relevantChainIds.length > 0 && relevantChainIds.some((chainId) => !chainGateIds.has(chainId)),
+      checkpointUnbound: plannedBlockIds.has(block.id) && hasCheckpoint && hasPlanIntentBinding && !hasExactPlanBinding,
+      chainGateMissing: relevantChainIds.some((chainId) => chainGateMissingSet.has(chainId)),
       checkpointIds: blockCheckpoints.map((checkpoint) => checkpoint.id),
       planChangeIds: [...changeIds],
       chainIds: memberChainIds,
@@ -25513,10 +25603,11 @@ function architectureCoverage(snapshot2, planId = null) {
     verificationCovered: blockCoverage.filter((item) => item.isCoveredByAnyVerification).length,
     checkpointUnboundIds: blockCoverage.filter((item) => item.checkpointUnbound).map((item) => item.blockId),
     chainGateMissingIds: blockCoverage.filter((item) => item.chainGateMissing).map((item) => item.blockId),
+    chainGateMissingChainIds,
     blockCoverage
   };
 }
-function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, checkpoints, chainScopes = [], changes = [], checkpointBindings = []) {
+function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, checkpoints, chainScopes = [], changes = [], checkpointBindings2 = []) {
   const ownDependencies = dependencies.filter((item) => item.planId === plan.id);
   const ownSteps = steps.filter((item) => item.planId === plan.id);
   const ownScopes = chainScopes.filter((item) => item.planId === plan.id);
@@ -25529,7 +25620,7 @@ function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, ch
   const requiredCheckpointIDs = /* @__PURE__ */ new Set([
     ...requiredRefs.map((item) => item.checkpointId),
     ...checkpoints.filter((item) => item.targetType === "plan" && item.targetId === plan.id).map((item) => item.id),
-    ...checkpointBindings.filter((binding) => binding.required && (binding.subjectType === "plan" && binding.subjectId === plan.id || binding.subjectType === "plan_chain_scope" && scopeIDs.has(binding.subjectId) || binding.subjectType === "plan_change" && changeIDs.has(binding.subjectId))).map((binding) => binding.checkpointId)
+    ...checkpointBindings2.filter((binding) => binding.required && (binding.subjectType === "plan" && binding.subjectId === plan.id || binding.subjectType === "plan_chain_scope" && scopeIDs.has(binding.subjectId) || binding.subjectType === "plan_change" && changeIDs.has(binding.subjectId))).map((binding) => binding.checkpointId)
   ]);
   const requiredCheckpoints = [...requiredCheckpointIDs].map((id) => checkpointById.get(id)).filter(Boolean);
   const completedGates = requiredCheckpoints.filter(checkpointSatisfiesGate).length;
@@ -25549,13 +25640,13 @@ function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, ch
       total: items.length
     };
   };
-  const chainGateIds = new Set(checkpointBindings.filter(
+  const chainGateIds = new Set(checkpointBindings2.filter(
     (binding) => binding.required && binding.subjectType === "plan_chain_scope" && scopeIDs.has(binding.subjectId)
   ).map((binding) => binding.checkpointId));
   const planGateIds = /* @__PURE__ */ new Set([
     ...requiredRefs.map((item) => item.checkpointId),
     ...checkpoints.filter((item) => item.targetType === "plan" && item.targetId === plan.id).map((item) => item.id),
-    ...checkpointBindings.filter(
+    ...checkpointBindings2.filter(
       (binding) => binding.required && binding.subjectType === "plan" && binding.subjectId === plan.id
     ).map((binding) => binding.checkpointId)
   ]);
@@ -25745,6 +25836,13 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
   assertAllowed(locale, LOCALES, "locale");
   const translations = localizationMap(snapshot2);
   const terms = taskTerms(task);
+  const focusIds = (kind) => new Set(focusRefs.filter((ref) => ref.startsWith(`${kind}:`)).flatMap((ref) => {
+    const id = ref.slice(`${kind}:`.length);
+    return [id, `${kind}:${id}`];
+  }));
+  const focusBlockIds = focusIds("block");
+  const focusChainIds = focusIds("chain");
+  const focusPlanIds = focusIds("plan");
   const backgroundRuleIds = new Set(snapshot2.backgroundScopes.map((scope) => scope.blockId));
   const planSignals = /* @__PURE__ */ new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "\u8BA1\u5212", "\u8FDB\u5EA6", "\u963B\u585E", "\u53D1\u5E03"]);
   const taskMentionsPlan = terms.some((term) => planSignals.has(term));
@@ -25769,7 +25867,7 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     semanticScore += scoreText(block.architectureLayer, 2);
     semanticScore += scoreText(block.body, 1);
     semanticScore += scoreText(localizedSearchText(snapshot2, "block", block.id), 3);
-    return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
+    return { block, score: semanticScore + (focusBlockIds.has(block.id) ? 100 : 0) };
   }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
   const scoredChains = snapshot2.chains.map((chain) => {
     let semanticScore = 0;
@@ -25780,11 +25878,11 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     semanticScore += scoreText(localizedSearchText(snapshot2, "chain", chain.id), 3);
     return {
       chain,
-      score: semanticScore + (focusRefs.includes(`chain:${chain.id}`) ? 100 : 0)
+      score: semanticScore + (focusChainIds.has(chain.id) ? 100 : 0)
     };
   }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
   const scoredPlans = snapshot2.plans.map((plan) => {
-    const focused = focusRefs.includes(`plan:${plan.id}`);
+    const focused = focusPlanIds.has(plan.id);
     let semanticScore = 0;
     semanticScore += scoreText(plan.title, 5);
     semanticScore += scoreText(plan.summary, 3);
@@ -25818,9 +25916,7 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
   const selectedBlockIds = new Set(scoredBlocks.slice(0, 5).map((entry) => entry.block.id));
   const selectedChainIds = new Set(scoredChains.slice(0, 1).map((entry) => entry.chain.id));
   const selectedPlanIds = new Set(scoredPlans.slice(0, 1).map((entry) => entry.plan.id));
-  const detailedBlockIds = new Set(
-    focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length))
-  );
+  const detailedBlockIds = new Set(focusBlockIds);
   if (selectedPlanIds.size === 0) {
     for (const entry of scoredBlocks.slice(0, 3)) detailedBlockIds.add(entry.block.id);
   }
@@ -25854,15 +25950,15 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     if (selectedPlanIds.has(scope.planId)) selectedChainIds.add(scope.chainId);
   }
   for (const chainId of selectedChainIds) {
-    const path10 = snapshot2.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
-    if (focusRefs.includes(`chain:${chainId}`)) {
-      for (const blockId of path10.slice(0, 10)) selectedBlockIds.add(blockId);
+    const path11 = snapshot2.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
+    if (focusChainIds.has(chainId)) {
+      for (const blockId of path11.slice(0, 10)) selectedBlockIds.add(blockId);
       continue;
     }
-    const matchingPositions = path10.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
+    const matchingPositions = path11.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
     for (const position of matchingPositions) {
       for (const index of [position - 1, position, position + 1]) {
-        if (path10[index]) selectedBlockIds.add(path10[index]);
+        if (path11[index]) selectedBlockIds.add(path11[index]);
       }
     }
   }
@@ -25914,13 +26010,18 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
   }
   lines.push("");
   lines.push("## Architecture coverage");
-  lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
-  lines.push(`- ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone \xB7 ${coverage.verificationCovered}/${coverage.totalBlocks} covered by bound or passed verification \xB7 ${coverage.failingIds.length} failing`);
-  if (coverage.unplannedIds.length) lines.push(`- Unplanned: ${coverage.unplannedIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 10 ? " \u2026" : ""}`);
-  if (coverage.withoutCheckpointIds.length) lines.push(`- Checkpoint-free Blocks (verification not requested yet): ${coverage.withoutCheckpointIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 10 ? " \u2026" : ""}`);
+  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} Blocks bound or passed \xB7 ${coverage.failingIds.length} failing`);
+  if (taskMentionsPlan && coverage.unplannedIds.length) {
+    lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks are in the current Plan; other Blocks remain independent architecture.`);
+  }
   if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 10 ? " \u2026" : ""}`);
-  if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound checkpoints: ${coverage.checkpointUnboundIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 10 ? " \u2026" : ""}`);
-  if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain gates: ${coverage.chainGateMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 10 ? " \u2026" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 10).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 10 ? " \u2026" : ""}`);
+  if (snapshot2.sourceSync) {
+    lines.push(`- Source sync: r${snapshot2.sourceSync.revision} \xB7 ${snapshot2.sourceSync.bindingCount} bindings \xB7 ${snapshot2.sourceSync.invalidBindingCount} needing relocation`);
+    if (snapshot2.sourceSync.changes?.length) {
+      lines.push(`- Code changes since the previous mdflow boundary: ${snapshot2.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot2.sourceSync.changes.length > 8 ? " \u2026" : ""}`);
+    }
+  }
   lines.push("");
   if (applicableRuleIds.length) {
     lines.push("## Applicable rule index");
@@ -25956,8 +26057,8 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
       );
       const changeTermFrequency = new Map(terms.map((term) => [term, changeTexts.filter((text) => text.includes(term)).length]));
       const broadChangeTermLimit = Math.max(2, Math.ceil(changes.length / 2));
-      const explicitBlockIDs = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
-      const explicitChainIDs = new Set(focusRefs.filter((ref) => ref.startsWith("chain:")).map((ref) => ref.slice("chain:".length)));
+      const explicitBlockIDs = focusBlockIds;
+      const explicitChainIDs = focusChainIds;
       const taskChanges = changes.map((change) => {
         const text = `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase();
         const semanticScore = terms.reduce((score, term) => score + (term.length > 2 && (changeTermFrequency.get(term) ?? 0) < broadChangeTermLimit && text.includes(term) ? 1 : 0), 0);
@@ -25970,12 +26071,6 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
       if (selectedPlanCoverage) {
         const directBlocks = changes.filter((change) => change.planId === plan.id && change.entityType === "block").map((change) => `block:${change.entityId}`);
         if (directBlocks.length) lines.push(`  Direct Blocks: ${directBlocks.slice(0, 20).join(", ")}${directBlocks.length > 20 ? ` \u2026 (${directBlocks.length} total)` : ""}`);
-        if (selectedPlanCoverage.unplannedIds.length) {
-          lines.push(`  Uncovered direct Blocks: ${selectedPlanCoverage.unplannedIds.slice(0, 20).map((blockId) => `block:${blockId}`).join(", ")}${selectedPlanCoverage.unplannedIds.length > 20 ? ` \u2026 (${selectedPlanCoverage.unplannedIds.length} total)` : ""}`);
-        }
-        if (selectedPlanCoverage.withoutCheckpointIds.length) {
-          lines.push(`  Blocks without checkpoint: ${selectedPlanCoverage.withoutCheckpointIds.slice(0, 20).map((blockId) => `block:${blockId}`).join(", ")}`);
-        }
       }
       if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
       const dependencies = snapshot2.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
@@ -26004,20 +26099,19 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     }
     lines.push("");
   }
-  const hasExplicitChainFocus = focusRefs.some((ref) => ref.startsWith("chain:"));
+  const hasExplicitChainFocus = focusChainIds.size > 0;
   const hasSemanticChainMatch = scoredChains.some((entry) => selectedChainIds.has(entry.chain.id));
   if (relevantChains.length && (selectedPlanIds.size === 0 || hasExplicitChainFocus || hasSemanticChainMatch)) {
     lines.push("## Target chains");
     for (const chain of relevantChains) {
       const title = localizedValue(translations, "chain", chain.id, locale, "title", chain.title);
-      const path10 = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
-      lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path10 ? ` \xB7 path ${path10}` : ""}`);
+      const path11 = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
+      lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path11 ? ` \xB7 path ${path11}` : ""}`);
       const intent = localizedValue(translations, "chain", chain.id, locale, "intent", chain.intent);
       if (intent && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  ${intent}`);
     }
     lines.push("");
   }
-  const explicitBlockFocusIds = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
   const chainOrder = /* @__PURE__ */ new Map();
   for (const chainId of selectedChainIds) {
     snapshot2.chainNodes.filter((node2) => node2.chainId === chainId).sort((left, right) => left.position - right.position).forEach((node2, index) => {
@@ -26028,7 +26122,7 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
   const orderedRelevantBlocks = [...relevantBlocks].sort(
     (left, right) => (chainOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (chainOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.localOrder - right.localOrder || left.id.localeCompare(right.id)
   );
-  const contentBlocks = selectedPlanIds.size && explicitBlockFocusIds.size ? orderedRelevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id)) : orderedRelevantBlocks;
+  const contentBlocks = selectedPlanIds.size && focusBlockIds.size ? orderedRelevantBlocks.filter((block) => focusBlockIds.has(block.id)) : orderedRelevantBlocks;
   if (contentBlocks.length) {
     lines.push("## Architecture order / relevant Blocks");
     contentBlocks.forEach((block, index) => {
@@ -26056,7 +26150,7 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
         }
         lines.push(`  Flow: ${flowParts.join(" | ")}`);
       }
-      if (summary && (selectedPlanIds.size === 0 || explicitBlockFocusIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
+      if (summary && (selectedPlanIds.size === 0 || focusBlockIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
       if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
       if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
     });
@@ -26098,6 +26192,16 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
 [truncated; use plan_context, entity_open, checkpoint_list, or changes_since for the referenced detail]`;
   return {
     graphRevision: snapshot2.project.graphRevision,
+    sourceSync: snapshot2.sourceSync ? {
+      revision: snapshot2.sourceSync.revision,
+      sourceRevision: snapshot2.sourceSync.sourceRevision,
+      bindingCount: snapshot2.sourceSync.bindingCount,
+      changed: snapshot2.sourceSync.changed,
+      changedBindingCount: snapshot2.sourceSync.changedBindingCount,
+      invalidBindingCount: snapshot2.sourceSync.invalidBindingCount,
+      affectedBlockIds: snapshot2.sourceSync.affectedBlockIds,
+      changes: snapshot2.sourceSync.changes
+    } : null,
     refs: [
       ...relevantPlans.map((plan) => `plan:${plan.id}`),
       ...relevantChains.map((chain) => `chain:${chain.id}`),
@@ -26249,11 +26353,9 @@ function renderPlanContext(service, { id, locale = "en", maxChars = 12e3 } = {})
   lines.push("", "## Architecture coverage");
   lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
   lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct \xB7 ${coverage.chainPlanBlocks} through Chains)`);
-  lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} \xB7 ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone \xB7 ${coverage.failingIds.length} failing`);
-  if (coverage.unplannedIds.length) lines.push(`- Outside this Plan: ${coverage.unplannedIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.unplannedIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.withoutCheckpointIds.length) lines.push(`- Required Block checkpoints missing: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.checkpointUnboundIds.length) lines.push(`- Block checkpoints not bound to an exact PlanChange: ${coverage.checkpointUnboundIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.chainGateMissingIds.length) lines.push(`- Blocks on Chains without integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " \u2026" : ""}`);
+  lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} \xB7 ${coverage.failingIds.length} failing`);
+  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required verification missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " \u2026" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((chainId) => `chain:${chainId}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " \u2026" : ""}`);
   const typed = plan.typedProgress;
   lines.push("", "## Typed progress");
   lines.push(`- Direct Block Changes: ${typed.directBlockChanges.completed}/${typed.directBlockChanges.total}`);
@@ -26598,20 +26700,210 @@ function createFoundationPlan(service, {
 }
 
 // packages/mcp/src/checkpoint-freshness.mjs
+import crypto5 from "node:crypto";
+import fs5 from "node:fs";
+import path6 from "node:path";
+import { spawnSync } from "node:child_process";
+
+// packages/mcp/src/source-binding.mjs
 import crypto4 from "node:crypto";
 import fs4 from "node:fs";
 import path5 from "node:path";
-import { spawnSync } from "node:child_process";
+function hashText(value) {
+  return crypto4.createHash("sha256").update(String(value ?? "")).digest("hex");
+}
+function normalizeCode(value) {
+  return String(value ?? "").replace(/\r\n/g, "\n").trim();
+}
+function relativePath(projectRoot, filePath) {
+  const absolute = path5.resolve(projectRoot, filePath);
+  const relative = path5.relative(projectRoot, absolute);
+  if (!relative || relative.startsWith("..") || path5.isAbsolute(relative)) return null;
+  return relative.split(path5.sep).join("/");
+}
+function refKey(ref, index) {
+  return ref.id || `${ref.blockId ?? "block"}:${ref.path}:${ref.symbol ?? "line"}:${index}`;
+}
+function readFileCached(projectRoot, ref, fileCache) {
+  const rawPath = String(ref.path ?? "");
+  const absolutePath = path5.isAbsolute(rawPath) ? rawPath : path5.resolve(projectRoot, rawPath);
+  const relative = relativePath(projectRoot, absolutePath);
+  if (!relative) {
+    return { absolutePath, relativePath: null, status: "outside_project" };
+  }
+  let stat;
+  try {
+    stat = fs4.statSync(absolutePath);
+    if (!stat.isFile()) return { absolutePath, relativePath: relative, status: "missing" };
+  } catch {
+    return { absolutePath, relativePath: relative, status: "missing" };
+  }
+  const signature = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}`;
+  const cached2 = fileCache.get(relative);
+  if (cached2?.signature === signature) return cached2;
+  try {
+    const content = fs4.readFileSync(absolutePath, "utf8");
+    const next = {
+      absolutePath,
+      relativePath: relative,
+      status: "readable",
+      signature,
+      content,
+      fileHash: hashText(content),
+      lineCount: content.split(/\r?\n/).length,
+      language: detectLanguage(absolutePath)
+    };
+    fileCache.set(relative, next);
+    return next;
+  } catch {
+    return { absolutePath, relativePath: relative, status: "unreadable", signature };
+  }
+}
+function currentSlice(file, ref) {
+  if (file.status !== "readable") return { found: false, reason: file.status, code: "" };
+  if (!ref.symbol && (!ref.startLine || !ref.endLine)) {
+    return { found: false, reason: "unbound", code: "" };
+  }
+  return extractSymbolSlice(file.content, {
+    symbol: ref.symbol || null,
+    startLine: ref.symbol ? null : ref.startLine,
+    endLine: ref.symbol ? null : ref.endLine,
+    maxLines: Math.max(file.lineCount + 1, 50),
+    language: file.language,
+    filePath: file.absolutePath
+  });
+}
+function sourceStatus({ file, slice, moved, implementationChanged }) {
+  if (file.status !== "readable") return file.status;
+  if (!slice.found) return slice.reason === "ambiguous" ? "ambiguous" : "stale";
+  if (!slice.symbol) return "line_only";
+  if (moved) return "moved";
+  if (implementationChanged) return "changed";
+  return "anchored";
+}
+function changeKinds(previous, current) {
+  if (!previous) return [];
+  const kinds = [];
+  if (previous.path !== current.path || previous.symbol !== current.symbol) kinds.push("binding_definition_changed");
+  if (previous.fileHash && current.fileHash && previous.fileHash !== current.fileHash) kinds.push("source_file_changed");
+  if (previous.nodeHash && current.nodeHash && previous.nodeHash !== current.nodeHash) kinds.push("implementation_changed");
+  if (previous.startLine && current.startLine && (previous.startLine !== current.startLine || previous.endLine !== current.endLine)) kinds.push("binding_moved");
+  if (previous.bindingStatus !== current.bindingStatus) {
+    if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(current.bindingStatus)) kinds.push("binding_invalid");
+    else if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(previous.bindingStatus)) kinds.push("binding_restored");
+  }
+  return [...new Set(kinds)];
+}
+function scanSourceBindings({
+  projectRoot,
+  sourceRefs = [],
+  previous = /* @__PURE__ */ new Map(),
+  fileCache = /* @__PURE__ */ new Map(),
+  scannedAt = (/* @__PURE__ */ new Date()).toISOString()
+} = {}) {
+  const bindings = [];
+  const changes = [];
+  for (const [index, ref] of sourceRefs.entries()) {
+    const key = refKey(ref, index);
+    const previousBinding = previous.get(key) ?? null;
+    const file = readFileCached(projectRoot, ref, fileCache);
+    const slice = currentSlice(file, ref);
+    const fileChanged = Boolean(previousBinding?.fileHash && file.fileHash && previousBinding.fileHash !== file.fileHash);
+    const moved = Boolean(previousBinding?.startLine && slice.startLine && (previousBinding.startLine !== slice.startLine || previousBinding.endLine !== slice.endLine));
+    const nodeHash = slice.found ? hashText(normalizeCode(slice.code)) : null;
+    const signatureHash = slice.signature ? hashText(normalizeCode(slice.signature)) : null;
+    const implementationChanged = Boolean(previousBinding?.nodeHash && nodeHash && previousBinding.nodeHash !== nodeHash);
+    const bindingStatus = file.status !== "readable" ? file.status : !slice.found ? slice.reason === "ambiguous" ? "ambiguous" : "stale" : !ref.symbol && fileChanged ? "stale" : moved ? "moved" : "fresh";
+    const binding = {
+      id: ref.id ?? key,
+      blockId: ref.blockId,
+      path: ref.path,
+      relativePath: file.relativePath,
+      absolutePath: file.absolutePath,
+      symbol: ref.symbol ?? null,
+      role: ref.role ?? "implementation",
+      language: file.language ?? detectLanguage(ref.path),
+      startLine: slice.startLine ?? null,
+      endLine: slice.endLine ?? null,
+      signature: slice.signature ?? null,
+      fileHash: file.fileHash ?? null,
+      nodeHash,
+      signatureHash,
+      bindingStatus,
+      implementationStatus: implementationChanged ? "changed" : "unchanged",
+      sourceStatus: sourceStatus({ file, slice: !ref.symbol && fileChanged ? { ...slice, found: false, reason: "stale" } : slice, moved, implementationChanged }),
+      reason: slice.reason ?? (file.status === "readable" ? null : file.status),
+      candidates: slice.candidates ?? [],
+      scannedAt,
+      // Kept in the process-local index only; never returned by default.
+      content: file.status === "readable" ? file.content : null
+    };
+    bindings.push(binding);
+    const kinds = changeKinds(previousBinding, binding);
+    if (kinds.length) {
+      changes.push({
+        refId: binding.id,
+        blockId: binding.blockId,
+        path: binding.relativePath ?? binding.path,
+        symbol: binding.symbol,
+        kinds,
+        previous: {
+          bindingStatus: previousBinding.bindingStatus,
+          implementationStatus: previousBinding.implementationStatus,
+          startLine: previousBinding.startLine ?? null,
+          endLine: previousBinding.endLine ?? null,
+          fileHash: previousBinding.fileHash ?? null,
+          nodeHash: previousBinding.nodeHash ?? null
+        },
+        current: {
+          bindingStatus: binding.bindingStatus,
+          implementationStatus: binding.implementationStatus,
+          startLine: binding.startLine,
+          endLine: binding.endLine,
+          fileHash: binding.fileHash,
+          nodeHash: binding.nodeHash
+        }
+      });
+    }
+  }
+  const sourceRevision = hashText(bindings.map((item) => [item.id, item.bindingStatus, item.fileHash, item.nodeHash, item.startLine, item.endLine]).sort((a, b) => a[0].localeCompare(b[0])).map((item) => item.join("|")).join("\n"));
+  return {
+    bindings,
+    changes,
+    changed: changes.length > 0,
+    sourceRevision,
+    scannedAt,
+    fileCache
+  };
+}
+function bindingIdentity(binding) {
+  return {
+    id: binding.id,
+    blockId: binding.blockId,
+    path: binding.relativePath ?? binding.path,
+    symbol: binding.symbol,
+    language: binding.language,
+    signature: binding.signature,
+    fileHash: binding.fileHash,
+    nodeHash: binding.nodeHash,
+    signatureHash: binding.signatureHash,
+    startLine: binding.startLine,
+    endLine: binding.endLine,
+    bindingStatus: binding.bindingStatus
+  };
+}
+
+// packages/mcp/src/checkpoint-freshness.mjs
 var CHECKPOINT_IDENTITY_KIND = "mdflow-identity";
 function projectRootFor(service) {
-  return path5.resolve(service.paths.projectRoot);
+  return path6.resolve(service.paths.projectRoot);
 }
 function relativeProjectPath(root, candidate) {
   if (typeof candidate !== "string" || !candidate.trim()) return null;
-  const resolved = path5.resolve(root, candidate);
-  const relative = path5.relative(root, resolved);
-  if (!relative || relative.startsWith("..") || path5.isAbsolute(relative)) return null;
-  return relative.split(path5.sep).join("/");
+  const resolved = path6.resolve(root, candidate);
+  const relative = path6.relative(root, resolved);
+  if (!relative || relative.startsWith("..") || path6.isAbsolute(relative)) return null;
+  return relative.split(path6.sep).join("/");
 }
 function gitHead(projectRoot) {
   const result = spawnSync("git", ["rev-parse", "HEAD"], {
@@ -26626,20 +26918,20 @@ function gitHead(projectRoot) {
 }
 function fileHash(filePath) {
   try {
-    if (!fs4.statSync(filePath).isFile()) return null;
-    return crypto4.createHash("sha256").update(fs4.readFileSync(filePath)).digest("hex");
+    if (!fs5.statSync(filePath).isFile()) return null;
+    return crypto5.createHash("sha256").update(fs5.readFileSync(filePath)).digest("hex");
   } catch {
     return null;
   }
 }
 function sourceRefsForBlock(database, blockId) {
   return database.prepare(
-    "SELECT path, symbol, role FROM source_refs WHERE block_id = ? ORDER BY path, start_line, id"
+    "SELECT id, path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY path, start_line, id"
   ).all(blockId);
 }
 function sourceRefsForChain(database, chainId) {
   return database.prepare(
-    `SELECT sr.path, sr.symbol, sr.role
+    `SELECT sr.id, sr.path, sr.start_line, sr.end_line, sr.symbol, sr.role
        FROM source_refs sr
        JOIN chain_nodes cn ON cn.block_id = sr.block_id
       WHERE cn.chain_id = ?
@@ -26694,13 +26986,29 @@ function checkpointFiles(service, targetType, targetId, evidence) {
     const relative = relativeProjectPath(root, ref.path);
     const key = relative ?? `!${String(ref.path)}`;
     if (files.has(key)) continue;
-    const absolute = relative ? path5.join(root, relative) : null;
+    const absolute = relative ? path6.join(root, relative) : null;
     files.set(key, {
       path: relative ?? String(ref.path),
       hash: absolute ? fileHash(absolute) : null
     });
   }
   return [...files.values()];
+}
+function checkpointBindings(service, targetType, targetId) {
+  if (typeof service.syncSourceBindings !== "function") return [];
+  const refs = sourceRefsForTarget(service, targetType, targetId);
+  if (!refs.length) return [];
+  const state = service.syncSourceBindings({ includeUnchanged: true });
+  const byId = new Map((state.bindings ?? []).map((binding) => [binding.id, binding]));
+  const seen = /* @__PURE__ */ new Set();
+  const bindings = [];
+  for (const ref of refs) {
+    const binding = byId.get(ref.id);
+    if (!binding || seen.has(binding.id)) continue;
+    seen.add(binding.id);
+    bindings.push(binding);
+  }
+  return bindings;
 }
 function extractCheckpointIdentity(evidence) {
   return (Array.isArray(evidence) ? evidence : []).find(
@@ -26714,11 +27022,13 @@ function stripCheckpointIdentity(evidence) {
 }
 function withCheckpointIdentity(service, { targetType, targetId, evidence = [], gitHead: requestedGitHead = null } = {}) {
   const cleanEvidence = stripCheckpointIdentity(evidence);
+  const bindings = checkpointBindings(service, targetType, targetId);
   const identity = {
     kind: CHECKPOINT_IDENTITY_KIND,
-    version: 1,
+    version: 2,
     gitHead: requestedGitHead ?? gitHead(projectRootFor(service)),
-    files: checkpointFiles(service, targetType, targetId, cleanEvidence)
+    files: checkpointFiles(service, targetType, targetId, cleanEvidence),
+    bindings: bindings.map(bindingIdentity)
   };
   return [...cleanEvidence, identity];
 }
@@ -26727,7 +27037,7 @@ function createCheckpointFreshnessContext(service) {
   return { root, gitHead: gitHead(root), fileHashes: /* @__PURE__ */ new Map() };
 }
 function evaluateCheckpointFreshness(service, identity, context = null) {
-  if (!identity || identity.kind !== CHECKPOINT_IDENTITY_KIND || identity.version !== 1) {
+  if (!identity || identity.kind !== CHECKPOINT_IDENTITY_KIND || ![1, 2].includes(identity.version)) {
     return { status: "unknown", reasons: ["checkpoint has no source identity"] };
   }
   const freshnessContext = context ?? createCheckpointFreshnessContext(service);
@@ -26739,6 +27049,26 @@ function evaluateCheckpointFreshness(service, identity, context = null) {
     if (!currentHead) unknown2 = true;
     else if (currentHead !== identity.gitHead) reasons.push("git HEAD changed");
   }
+  if (identity.version >= 2 && Array.isArray(identity.bindings) && identity.bindings.length > 0) {
+    const current = typeof service.syncSourceBindings === "function" ? service.syncSourceBindings({ includeUnchanged: true }) : { bindings: [] };
+    const currentById = new Map((current.bindings ?? []).map((binding) => [binding.id, binding]));
+    for (const expected of identity.bindings) {
+      const actual = currentById.get(expected.id);
+      if (!actual) {
+        reasons.push(`source binding is missing: ${expected.path}${expected.symbol ? ` :: ${expected.symbol}` : ""}`);
+        continue;
+      }
+      if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(actual.bindingStatus)) {
+        reasons.push(`source binding is ${actual.bindingStatus}: ${actual.path}${actual.symbol ? ` :: ${actual.symbol}` : ""}`);
+        continue;
+      }
+      if (expected.nodeHash && actual.nodeHash && expected.nodeHash !== actual.nodeHash) {
+        reasons.push(`source symbol changed: ${actual.path}${actual.symbol ? ` :: ${actual.symbol}` : ""}`);
+      } else if (!expected.nodeHash && expected.fileHash !== actual.fileHash) {
+        reasons.push(`source changed: ${actual.path}`);
+      }
+    }
+  }
   for (const file of Array.isArray(identity.files) ? identity.files : []) {
     const relative = relativeProjectPath(root, file.path);
     if (!relative) {
@@ -26746,7 +27076,7 @@ function evaluateCheckpointFreshness(service, identity, context = null) {
       continue;
     }
     if (!freshnessContext.fileHashes.has(relative)) {
-      freshnessContext.fileHashes.set(relative, fileHash(path5.join(root, relative)));
+      freshnessContext.fileHashes.set(relative, fileHash(path6.join(root, relative)));
     }
     const currentHash = freshnessContext.fileHashes.get(relative);
     if (!currentHash) reasons.push(`source file is missing: ${relative}`);
@@ -26867,7 +27197,7 @@ function recordCheckpoint(service, {
   const changeSetId = identifier("change");
   const historyContext = service.resolveHistoryContext(planId, chainScopeId);
   const before = service.historyState("checkpoint", checkpointId);
-  return transaction(service.database, () => {
+  const result = transaction(service.database, () => {
     service.database.prepare(
       `INSERT INTO change_sets(id, project_id, actor, reason, task, git_head, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -27003,6 +27333,13 @@ function recordCheckpoint(service, {
       }
     };
   });
+  if (service.paths.graphJsonPath) {
+    try {
+      exportGraphToJson(service.database, service.paths.graphJsonPath);
+    } catch {
+    }
+  }
+  return result;
 }
 function executeRecordCheckpointOperation(service, operation, { timestamp }) {
   const fields = operation.fields ?? {};
@@ -27157,16 +27494,12 @@ function renderProjectMap(service, { locale = "en" } = {}) {
   lines.push(`- ${graphBlocks.length} Blocks / ${snapshot2.links.length} Links / ${snapshot2.chains.length} Chain overlays`);
   lines.push(`- ${snapshot2.decisions.length} Decisions (scoped index; expand a record on demand)`);
   lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
-  lines.push(`- Verification coverage: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed \xB7 ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone`);
-  lines.push(`- Architecture coverage: ${coverage.directPlanBlocks} direct Plan Blocks \xB7 ${coverage.chainPlanBlocks} through Chains \xB7 ${coverage.unverifiedIds.length} unverified \xB7 ${coverage.failingIds.length} failing`);
-  if (coverage.unverifiedIds.length) lines.push(`- Unverified Blocks: ${coverage.unverifiedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unverifiedIds.length > 12 ? " \u2026" : ""}`);
+  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed \xB7 ${coverage.failingIds.length} failing`);
+  lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks covered; architecture outside the Plan remains valid`);
   if (coverage.failingIds.length) lines.push(`- Failed verification: ${coverage.failingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.failingIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.outsideChainIds.length) lines.push(`- Outside Chains: ${coverage.outsideChainIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.outsideChainIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.unplannedIds.length) lines.push(`- Unplanned Blocks: ${coverage.unplannedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.withoutCheckpointIds.length) lines.push(`- Checkpoint-free Blocks (verification not requested yet): ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " \u2026" : ""}`);
   if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound Block checkpoints: ${coverage.checkpointUnboundIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " \u2026" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " \u2026" : ""}`);
+  if (snapshot2.sourceSync) lines.push(`- Source sync: r${snapshot2.sourceSync.revision} \xB7 ${snapshot2.sourceSync.bindingCount} bindings \xB7 ${snapshot2.sourceSync.invalidBindingCount} needing relocation`);
   lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" \xB7 ") || "None"}`);
   lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" \xB7 ") || "None"}`);
   for (const block of graphBlocks.filter((item) => item.priority === "critical").slice(0, 8)) {
@@ -27433,16 +27766,13 @@ function openEntity(service, rawPayload = {}) {
     lines.push(`- Architecture: ${entity.architectureLayer}`);
     lines.push(`- Scope: ${entity.scope}`);
     lines.push(`- Local order: ${entity.localOrder}`);
-    if (ruleScopes.length) {
-      lines.push(`- Rule scopes: ${ruleScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")} (background; not a Canvas Block)`);
-    }
+    if (ruleScopes.length) lines.push(`- Rule scopes: ${ruleScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
     if (coverage) {
-      lines.push(`- Coverage: checkpoint=${coverage.hasCheckpoint ? "yes" : "no"} \xB7 required=${coverage.checkpointRequired ? "yes" : "no"} \xB7 requiredMissing=${coverage.missingRequiredCheckpoint ? "yes" : "no"} \xB7 plan=${coverage.isCoveredByPlan ? "yes" : "no"} \xB7 chain=${coverage.isCoveredByChain ? "yes" : "no"} \xB7 verification=${coverage.isCoveredByAnyVerification ? "yes" : "no"}`);
+      const verification = coverage.missingRequiredCheckpoint ? "needed" : coverage.hasCheckpoint && coverage.isCoveredByAnyVerification ? "recorded" : coverage.hasCheckpoint ? "checkpointed" : null;
+      if (verification) lines.push(`- Verification: ${verification}`);
     }
   }
-  if (type === "decision" && decisionScopes.length) {
-    lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")} (background; not a Canvas entity)`);
-  }
+  if (type === "decision" && decisionScopes.length) lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
   if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
   if (entity.status) lines.push(`- Status: ${entity.status}`);
   if (type === "plan") {
@@ -27525,9 +27855,12 @@ function openEntity(service, rawPayload = {}) {
   }
   return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, decisionScopes, markdown: lines.join("\n") };
 }
-function getChangesSince(service, { sequence = 0, limit = 100 } = {}) {
+function getChangesSince(service, { sequence = 0, sourceSyncRevision = null, limit = 100 } = {}) {
   if (!Number.isInteger(sequence) || sequence < 0) throw new Error("sequence must be a non-negative integer");
   const boundedLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+  const sourceSync = service.sourceBindingReport({
+    sinceRevision: Number.isInteger(sourceSyncRevision) ? sourceSyncRevision : null
+  });
   const latestSequence = service.database.prepare(
     "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?"
   ).get(service.paths.descriptor.id).sequence;
@@ -27564,19 +27897,25 @@ function getChangesSince(service, { sequence = 0, limit = 100 } = {}) {
     `# Changes since sequence ${sequence}`,
     `Range: ${sequence} \u2192 ${rows.at(-1)?.sequence ?? sequence} \xB7 latest ${latestSequence} \xB7 earliest ${earliestSequence || "\u2014"}`,
     `Returned: ${rows.length}${hasMore ? ` \xB7 more available after ${rows.at(-1)?.sequence ?? sequence}` : ""}`,
+    `Source sync: r${sourceSync.sourceSyncRevision} \xB7 ${sourceSync.changes.length} change(s) since ${Number.isInteger(sourceSyncRevision) ? `r${sourceSyncRevision}` : "last boundary"}`,
     "",
     ...rows.map((change) => {
       const fields = change.changedFields?.length ? ` \xB7 fields ${change.changedFields.join(", ")}` : "";
       const refs = change.affectedRefs?.length ? ` \xB7 refs ${change.affectedRefs.join(", ")}` : "";
       return `- #${change.sequence} ${change.action} ${change.ref} \xB7 r${change.revision ?? "?"}${fields}${refs}${change.summary ? ` \u2014 ${change.summary}` : ""}`;
     }),
-    ...rows.length ? ["", "Use includeStructured=true when exact before/after JSON is required."] : []
+    ...rows.length ? ["", "Use includeStructured=true when exact before/after JSON is required."] : [],
+    ...sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 12).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : []
   ].join("\n");
   return {
     fromSequence: sequence,
     nextSequence: rows.at(-1)?.sequence ?? sequence,
     latestSequence,
     earliestSequence,
+    sourceSyncRevision: sourceSync.sourceSyncRevision,
+    sourceChanges: sourceSync.changes,
+    affectedBlockIds: sourceSync.affectedBlockIds,
+    affectedChainIds: sourceSync.affectedChainIds,
     hasMore,
     changes: rows,
     markdown
@@ -27660,27 +27999,6 @@ function validateGraph(service) {
       warnings.push(`Block block:${block.id} uses kind '${block.kind}'. Testing and verification criteria belong in Checkpoints and Plan gates.`);
       continue;
     }
-    if (block.deliveryState === "complete") {
-      const passed = snapshot2.checkpoints.some(
-        (checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpointSatisfiesGate(checkpoint)
-      );
-      if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
-    }
-  }
-  const connectedBlockIds = /* @__PURE__ */ new Set();
-  for (const link of snapshot2.links) {
-    if (link.sourceType === "block") connectedBlockIds.add(link.sourceId);
-    if (link.targetType === "block") connectedBlockIds.add(link.targetId);
-  }
-  for (const node2 of snapshot2.chainNodes) {
-    connectedBlockIds.add(node2.blockId);
-  }
-  const ruleBlockIds = new Set(snapshot2.backgroundScopes.map((s) => s.blockId));
-  const isolatedFlowBlocks = snapshot2.blocks.filter(
-    (block) => !connectedBlockIds.has(block.id) && !ruleBlockIds.has(block.id) && !["principle", "decision", "risk", "test", "checkpoint"].includes(block.kind)
-  );
-  if (isolatedFlowBlocks.length > 0) {
-    warnings.push(`${isolatedFlowBlocks.length} architecture Block(s) have no Link or Chain connections (independent or awaiting flow): ${isolatedFlowBlocks.slice(0, 10).map((b) => `block:${b.id}`).join(", ")}${isolatedFlowBlocks.length > 10 ? " \u2026" : ""}. Use graph_flow ("A -> B") if they belong to a sequence.`);
   }
   const unspecifiedBlocks = snapshot2.blocks.filter((block) => block.architectureLayer === "unspecified");
   if (unspecifiedBlocks.length > 0) {
@@ -27689,14 +28007,8 @@ function validateGraph(service) {
   if (coverage.requiredCheckpointMissingIds.length) {
     warnings.push(`${coverage.requiredCheckpointMissingIds.length} Block(s) require a checkpoint but have none: ${coverage.requiredCheckpointMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 20 ? " \u2026" : ""}`);
   }
-  if (coverage.unplannedIds.length) {
-    warnings.push(`${coverage.unplannedIds.length} Block(s) are not covered by any Plan: ${coverage.unplannedIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 20 ? " \u2026" : ""}`);
-  }
-  if (coverage.checkpointUnboundIds.length) {
-    warnings.push(`${coverage.checkpointUnboundIds.length} planned Block checkpoint(s) are not bound to an exact PlanChange: ${coverage.checkpointUnboundIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 20 ? " \u2026" : ""}`);
-  }
-  if (coverage.chainGateMissingIds.length) {
-    warnings.push(`${coverage.chainGateMissingIds.length} Block(s) belong to Chains without an integration gate: ${coverage.chainGateMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 20 ? " \u2026" : ""}`);
+  if (coverage.chainGateMissingChainIds.length) {
+    warnings.push(`${coverage.chainGateMissingChainIds.length} declared Chain integration gate(s) are not passed: ${coverage.chainGateMissingChainIds.slice(0, 20).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 20 ? " \u2026" : ""}`);
   }
   const staleCheckpoints = snapshot2.checkpoints.filter(
     (checkpoint) => checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "stale"
@@ -27740,8 +28052,8 @@ function validateGraph(service) {
 }
 
 // packages/mcp/src/mutation-engine.mjs
-import fs5 from "node:fs";
-import path6 from "node:path";
+import fs6 from "node:fs";
+import path7 from "node:path";
 
 // packages/mcp/src/patch.mjs
 var HEADER_PATTERN = /^mdflow\/(\d+)(?:\s+(.*))?$/;
@@ -29387,10 +29699,10 @@ function addSourceRef(service, operation, { timestamp }) {
   let startLine = fields.startLine ?? null;
   let endLine = fields.endLine ?? null;
   if ((!startLine || !endLine) && service.paths?.projectRoot) {
-    const fullPath = path6.isAbsolute(resolvedPath) ? resolvedPath : path6.resolve(service.paths.projectRoot, resolvedPath);
+    const fullPath = path7.isAbsolute(resolvedPath) ? resolvedPath : path7.resolve(service.paths.projectRoot, resolvedPath);
     try {
-      if (fs5.existsSync(fullPath)) {
-        const content = fs5.readFileSync(fullPath, "utf8");
+      if (fs6.existsSync(fullPath)) {
+        const content = fs6.readFileSync(fullPath, "utf8");
         const symbols = extractSymbols(content, { filePath: resolvedPath });
         const matched = resolvedSymbol ? symbols.find((s) => s.name === resolvedSymbol || s.name.endsWith(`.${resolvedSymbol}`)) : symbols[0];
         if (matched) {
@@ -29727,7 +30039,6 @@ function executeGraphPatch(service, {
   const after = service.snapshot();
   const coverage = architectureCoverage(after);
   const validation = service.validate();
-  const unverified = coverage.unverifiedIds.map((id) => `block:${id}`);
   const markdown = [
     "# Graph patch",
     "- Protocol: mdflow/1",
@@ -29741,8 +30052,8 @@ function executeGraphPatch(service, {
     "",
     "## Coverage",
     `- Blocks: ${coverage.totalBlocks} total \xB7 ${coverage.verified} verified \xB7 ${coverage.planned} planned \xB7 ${coverage.withCheckpoint} with checkpoints`,
-    `- Chains: ${coverage.inChains} in Chains \xB7 ${coverage.outsideChainIds.length} standalone \xB7 ${coverage.failingIds.length} failing`,
-    ...unverified.length ? [`- Unverified: ${unverified.join(", ")}`] : [],
+    `- Chains: ${coverage.inChains} with member Blocks \xB7 ${coverage.failingIds.length} failing`,
+    ...coverage.requiredCheckpointMissingIds.length ? [`- Required verification missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}`] : [],
     "",
     "## Next",
     "Use entity_open for changed refs and graph_validate for the full validation report."
@@ -29891,13 +30202,13 @@ function executeRevertChangeSet(service, {
 
 // packages/mcp/src/service.mjs
 function writeFileAtomically(filePath, content) {
-  const temporaryPath = `${filePath}.mdflow-tmp-${process.pid}-${crypto5.randomUUID()}`;
-  fs6.writeFileSync(temporaryPath, content, "utf8");
+  const temporaryPath = `${filePath}.mdflow-tmp-${process.pid}-${crypto6.randomUUID()}`;
+  fs7.writeFileSync(temporaryPath, content, "utf8");
   try {
-    fs6.renameSync(temporaryPath, filePath);
+    fs7.renameSync(temporaryPath, filePath);
   } catch (error2) {
     try {
-      fs6.rmSync(temporaryPath, { force: true });
+      fs7.rmSync(temporaryPath, { force: true });
     } catch {
     }
     throw error2;
@@ -29908,6 +30219,11 @@ var MdflowService = class {
     const resolvedOptions = typeof options === "string" ? { projectRoot: options } : options;
     this.paths = resolveProjectPaths(resolvedOptions);
     this.database = openDatabase(this.paths.databasePath);
+    this.sourceBindingState = /* @__PURE__ */ new Map();
+    this.sourceFileCache = /* @__PURE__ */ new Map();
+    this.sourceSyncRevision = 0;
+    this.sourceSyncState = null;
+    this.sourceSyncHistory = [];
     this.ensureProject();
     this.ensureSynced();
   }
@@ -29917,7 +30233,7 @@ var MdflowService = class {
   ensureSynced() {
     const graphJsonPath = this.paths.graphJsonPath;
     if (!graphJsonPath) return false;
-    if (!fs6.existsSync(graphJsonPath)) {
+    if (!fs7.existsSync(graphJsonPath)) {
       const hasProject2 = this.database.prepare("SELECT count(*) as count FROM projects").get()?.count > 0;
       if (hasProject2) {
         exportGraphToJson(this.database, graphJsonPath);
@@ -29925,7 +30241,7 @@ var MdflowService = class {
       }
       return false;
     }
-    const stat = fs6.statSync(graphJsonPath);
+    const stat = fs7.statSync(graphJsonPath);
     const meta2 = getSyncMeta(this.database);
     const hasProject = this.database.prepare("SELECT count(*) as count FROM projects").get()?.count > 0;
     if (!hasProject) {
@@ -29935,8 +30251,8 @@ var MdflowService = class {
     if (meta2.graph_json_mtime && Math.abs(stat.mtimeMs - Number(meta2.graph_json_mtime)) < 10) {
       return false;
     }
-    const content = fs6.readFileSync(graphJsonPath, "utf8");
-    const currentHash = crypto5.createHash("sha256").update(content).digest("hex");
+    const content = fs7.readFileSync(graphJsonPath, "utf8");
+    const currentHash = crypto6.createHash("sha256").update(content).digest("hex");
     if (meta2.graph_json_hash !== currentHash) {
       importGraphFromJson(this.database, graphJsonPath);
       return true;
@@ -29965,12 +30281,94 @@ var MdflowService = class {
       timestamp
     );
   }
+  /**
+   * Scan only files already bound by SourceRefs.  This is deliberately a
+   * read-time fence: external editor/exec/git changes become visible at the
+   * next mdflow boundary without requiring a fragile filesystem watcher.
+   * Line ranges are refreshed in memory from the current symbol; callers may
+   * persist derived coordinates after an explicit code mutation.
+   */
+  syncSourceBindings({ includeUnchanged = false } = {}) {
+    const projectId = this.paths.descriptor.id;
+    const refs = this.database.prepare(
+      `SELECT sr.id, sr.block_id, sr.path, sr.start_line, sr.end_line, sr.symbol, sr.role, sr.git_commit
+         FROM source_refs sr
+         JOIN blocks b ON b.id = sr.block_id
+        WHERE b.project_id = ? AND b.archived = 0
+        ORDER BY sr.path, sr.start_line, sr.id`
+    ).all(projectId).map((row) => ({
+      id: row.id,
+      blockId: row.block_id,
+      path: row.path,
+      startLine: row.start_line,
+      endLine: row.end_line,
+      symbol: row.symbol,
+      role: row.role,
+      gitCommit: row.git_commit
+    }));
+    const previousById = this.sourceBindingState;
+    const result = scanSourceBindings({
+      projectRoot: this.paths.projectRoot,
+      sourceRefs: refs,
+      previous: previousById,
+      fileCache: this.sourceFileCache
+    });
+    const previousRevision = this.sourceSyncState?.sourceRevision ?? null;
+    const inventoryChanged = previousById.size !== result.bindings.length || [...previousById.keys()].some((id) => !result.bindings.some((item) => item.id === id));
+    const changed = Boolean(previousRevision && previousRevision !== result.sourceRevision) || inventoryChanged;
+    if (changed) {
+      this.sourceSyncRevision += 1;
+      this.sourceSyncHistory.push({
+        revision: this.sourceSyncRevision,
+        scannedAt: result.scannedAt,
+        changes: result.changes
+      });
+      if (this.sourceSyncHistory.length > 100) this.sourceSyncHistory.shift();
+    }
+    this.sourceBindingState = new Map(result.bindings.map((binding) => [binding.id, binding]));
+    this.sourceSyncState = {
+      revision: this.sourceSyncRevision,
+      sourceRevision: result.sourceRevision,
+      scannedAt: result.scannedAt,
+      changed,
+      bindingCount: result.bindings.length,
+      changedBindingCount: result.changes.length,
+      invalidBindingCount: result.bindings.filter((item) => ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(item.bindingStatus)).length,
+      affectedBlockIds: [...new Set(result.changes.map((item) => item.blockId).filter(Boolean))],
+      changes: result.changes
+    };
+    return {
+      ...this.sourceSyncState,
+      bindings: (includeUnchanged ? result.bindings : result.bindings.filter(
+        (item) => item.bindingStatus !== "fresh" || item.implementationStatus === "changed" || result.changes.some((change) => change.refId === item.id)
+      )).map(bindingIdentity)
+    };
+  }
+  sourceBindingReport(options = {}) {
+    this.ensureSynced();
+    const report = this.syncSourceBindings(options);
+    const sinceRevision = Number.isInteger(options.sinceRevision) ? options.sinceRevision : null;
+    const historicalChanges = sinceRevision == null ? report.changes : this.sourceSyncHistory.filter((item) => item.revision > sinceRevision).flatMap((item) => item.changes);
+    const chainIds = /* @__PURE__ */ new Set();
+    for (const change of historicalChanges) {
+      this.database.prepare("SELECT chain_id FROM chain_nodes WHERE block_id = ?").all(change.blockId).forEach((row) => chainIds.add(row.chain_id));
+    }
+    return {
+      ...report,
+      sourceSyncRevision: report.revision,
+      changes: historicalChanges,
+      changed: historicalChanges.length > 0,
+      affectedBlockIds: [...new Set(historicalChanges.map((item) => item.blockId).filter(Boolean))],
+      affectedChainIds: [...chainIds]
+    };
+  }
   project() {
     this.ensureSynced();
     return this.database.prepare("SELECT * FROM projects WHERE id = ?").get(this.paths.descriptor.id);
   }
   snapshot() {
     this.ensureSynced();
+    const sourceSync = this.syncSourceBindings();
     const projectId = this.paths.descriptor.id;
     const blocks = this.database.prepare("SELECT * FROM blocks WHERE project_id = ? AND archived = 0 ORDER BY title").all(projectId).map(normalizeBlock);
     const chains = this.database.prepare("SELECT * FROM chains WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC").all(projectId).map(normalizeChain);
@@ -30083,7 +30481,7 @@ var MdflowService = class {
         updatedAt: row.updated_at
       };
     });
-    const checkpointBindings = this.database.prepare(
+    const checkpointBindings2 = this.database.prepare(
       `SELECT cb.* FROM checkpoint_bindings cb JOIN checkpoints c ON c.id = cb.checkpoint_id
          WHERE c.project_id = ? ORDER BY cb.checkpoint_id, cb.position`
     ).all(projectId).map((row) => ({
@@ -30113,7 +30511,7 @@ var MdflowService = class {
       derivedCheckpoints,
       planChainScopes,
       planChanges,
-      checkpointBindings
+      checkpointBindings2
     ));
     const localizations = normalizeLocalizations(
       this.database.prepare(
@@ -30155,8 +30553,9 @@ var MdflowService = class {
       decisions,
       decisionScopes,
       sourceRefs,
+      sourceSync,
       checkpoints: derivedCheckpoints,
-      checkpointBindings,
+      checkpointBindings: checkpointBindings2,
       checkpointDependencies,
       localizations
     };
@@ -30166,6 +30565,7 @@ var MdflowService = class {
     if (!["contract", "slice"].includes(mode)) throw new Error('mode must be "contract" or "slice"');
     this.ensureSynced();
     const snapshot2 = this.snapshot();
+    const sourceSync = snapshot2.sourceSync ?? this.syncSourceBindings();
     const chain = snapshot2.chains.find((c) => c.id === chainId);
     if (!chain) throw new Error(`Chain not found: ${chainId}`);
     const nodeIds = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((a, b) => a.position - b.position).map((node2) => node2.blockId);
@@ -30173,43 +30573,42 @@ var MdflowService = class {
     for (const blockId of nodeIds) {
       const block = snapshot2.blocks.find((b) => b.id === blockId);
       if (!block) continue;
-      const sourceRefs = this.database.prepare("SELECT path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id").all(block.id);
+      const sourceRefs = this.database.prepare("SELECT id, path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id").all(block.id);
       let code = null;
       let filePath = null;
       let symbol = null;
       let signature = null;
       let startLine = null;
       let endLine = null;
-      let sourceStatus = "virtual";
+      let sourceStatus2 = "virtual";
       let sourceHash = null;
       if (sourceRefs.length > 0) {
         const ref = sourceRefs.find((candidate) => candidate.role === "implementation") || sourceRefs[0];
-        filePath = ref.path;
+        const binding = this.sourceBindingState.get(ref.id);
+        filePath = binding?.relativePath ?? ref.path;
         symbol = ref.symbol;
-        startLine = ref.start_line;
-        endLine = ref.end_line;
-        sourceStatus = "missing";
-        const fullPath = path7.isAbsolute(filePath) ? filePath : path7.resolve(this.paths.projectRoot, filePath);
-        try {
-          if (fs6.existsSync(fullPath)) {
-            const content = fs6.readFileSync(fullPath, "utf8");
-            sourceHash = crypto5.createHash("sha256").update(content).digest("hex");
-            const slice = extractSymbolSlice(content, {
+        startLine = binding?.startLine ?? ref.start_line;
+        endLine = binding?.endLine ?? ref.end_line;
+        sourceStatus2 = "missing";
+        if (binding) {
+          sourceStatus2 = binding.sourceStatus;
+          sourceHash = binding.fileHash;
+          signature = binding.signature;
+          if (binding.content && !["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(binding.bindingStatus)) {
+            const fullPath = binding.absolutePath;
+            const slice = extractSymbolSlice(binding.content, {
               symbol: ref.symbol,
-              startLine: ref.symbol ? null : ref.start_line,
-              endLine: ref.symbol ? null : ref.end_line,
+              startLine: ref.symbol ? null : binding.startLine ?? ref.start_line,
+              endLine: ref.symbol ? null : binding.endLine ?? ref.end_line,
               maxLines: maxLinesPerSymbol,
-              language: detectLanguage(fullPath),
+              language: binding.language,
               filePath: fullPath
             });
-            sourceStatus = slice.found ? "anchored" : "stale";
             signature = slice.signature;
             startLine = slice.startLine;
             endLine = slice.endLine;
             code = mode === "slice" && slice.found ? slice.code : null;
           }
-        } catch {
-          sourceStatus = "unreadable";
         }
       }
       streamNodes.push({
@@ -30221,7 +30620,7 @@ var MdflowService = class {
         signature,
         startLine,
         endLine,
-        sourceStatus,
+        sourceStatus: sourceStatus2,
         sourceHash,
         contract: block.contract || block.summary
       });
@@ -30231,11 +30630,20 @@ var MdflowService = class {
       chainId: chain.id,
       title: chain.title,
       mode,
+      sourceSync: {
+        revision: sourceSync.revision,
+        changed: sourceSync.changed,
+        changedBindingCount: sourceSync.changedBindingCount,
+        invalidBindingCount: sourceSync.invalidBindingCount,
+        changes: sourceSync.changes.slice(0, 12)
+      },
       nodes: streamNodes,
       codeStream,
       markdown: [
         `# Chain Code Stream: ${chain.title} (${chain.id})`,
         `Nodes: ${streamNodes.length} \xB7 Sliced from AST symbol facades`,
+        `Source sync: r${sourceSync.revision} \xB7 ${sourceSync.changedBindingCount} binding change(s) \xB7 ${sourceSync.invalidBindingCount} invalid`,
+        ...sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 8).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : [],
         "",
         codeStream
       ].join("\n")
@@ -30246,10 +30654,12 @@ var MdflowService = class {
   }
   runCommand({ command, cwd = ".", timeoutMs = 3e4, maxChars = 3e3 } = {}) {
     if (!command?.trim()) throw new Error("command is required");
-    const projectRoot = path7.resolve(this.paths.projectRoot);
-    const targetCwd = path7.resolve(projectRoot, cwd || ".");
-    const relativeCwd = path7.relative(projectRoot, targetCwd);
-    if (relativeCwd.startsWith("..") || path7.isAbsolute(relativeCwd)) {
+    this.ensureSynced();
+    this.syncSourceBindings();
+    const projectRoot = path8.resolve(this.paths.projectRoot);
+    const targetCwd = path8.resolve(projectRoot, cwd || ".");
+    const relativeCwd = path8.relative(projectRoot, targetCwd);
+    if (relativeCwd.startsWith("..") || path8.isAbsolute(relativeCwd)) {
       throw new Error("cwd must stay inside the registered project");
     }
     const result = spawnSync2(process.env.SHELL || "/bin/sh", ["-lc", command], {
@@ -30271,6 +30681,7 @@ ${stderr}` : ""].filter(Boolean).join("\n");
       projectRoot
     });
     const safeCommand = redactSensitiveText(command, { projectRoot }).text.replace(/[\r\n]+/g, " ").replace(/`/g, "\\`");
+    const sourceSync = this.syncSourceBindings();
     return {
       success: exitCode === 0 && !result.error,
       command: safeCommand,
@@ -30283,7 +30694,14 @@ ${stderr}` : ""].filter(Boolean).join("\n");
       finalChars: sanitized.finalChars,
       compressionRatio: sanitized.compressionRatio,
       hasErrors: sanitized.hasErrors,
-      redactions: sanitized.redactions
+      redactions: sanitized.redactions,
+      sourceSync: {
+        revision: sourceSync.revision,
+        changed: sourceSync.changed,
+        changedBindingCount: sourceSync.changedBindingCount,
+        invalidBindingCount: sourceSync.invalidBindingCount,
+        changes: sourceSync.changes.slice(0, 12)
+      }
     };
   }
   mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null, expectedSourceHash = null } = {}) {
@@ -30304,12 +30722,16 @@ ${stderr}` : ""].filter(Boolean).join("\n");
       throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}"`);
     }
     const filePath = ref.path;
-    const fullPath = path7.isAbsolute(filePath) ? filePath : path7.resolve(this.paths.projectRoot, filePath);
-    if (!fs6.existsSync(fullPath)) {
+    const fullPath = path8.isAbsolute(filePath) ? filePath : path8.resolve(this.paths.projectRoot, filePath);
+    const currentBinding = this.sourceBindingState.get(ref.id);
+    if (currentBinding && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(currentBinding.bindingStatus)) {
+      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rescan/rebind before mutating`);
+    }
+    if (!fs7.existsSync(fullPath)) {
       throw new Error(`Source file not found at ${fullPath}`);
     }
-    const originalCode = fs6.readFileSync(fullPath, "utf8");
-    const originalHash = crypto5.createHash("sha256").update(originalCode).digest("hex");
+    const originalCode = fs7.readFileSync(fullPath, "utf8");
+    const originalHash = crypto6.createHash("sha256").update(originalCode).digest("hex");
     if (expectedSourceHash && expectedSourceHash !== originalHash) {
       throw new Error(`Source drift detected for ${filePath}; expected ${expectedSourceHash}, found ${originalHash}`);
     }
@@ -30335,13 +30757,27 @@ ${stderr}` : ""].filter(Boolean).join("\n");
         }
       };
     }
+    const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
+    const updatedBinding = this.sourceBindingState.get(ref.id);
+    if (updatedBinding?.bindingStatus === "fresh" || updatedBinding?.bindingStatus === "moved") {
+      this.database.prepare("UPDATE source_refs SET start_line = ?, end_line = ? WHERE id = ?").run(updatedBinding.startLine, updatedBinding.endLine, ref.id);
+      try {
+        exportGraphToJson(this.database, this.paths.graphJsonPath);
+      } catch {
+      }
+    }
     return {
       success: true,
       blockId,
       symbol,
       filePath,
       replacedLines,
-      sourceHash: crypto5.createHash("sha256").update(updatedCode).digest("hex"),
+      sourceHash: crypto6.createHash("sha256").update(updatedCode).digest("hex"),
+      sourceSync: {
+        revision: sourceSync.revision,
+        changedBindingCount: sourceSync.changedBindingCount,
+        affectedBlockIds: sourceSync.affectedBlockIds
+      },
       verification: {
         passed: true,
         ...verification
@@ -30455,7 +30891,7 @@ function createService(options = {}) {
 // packages/mcp/src/project-router.mjs
 function databaseFileIdentity(databasePath) {
   try {
-    const stat = fs7.statSync(databasePath);
+    const stat = fs8.statSync(databasePath);
     return `${stat.dev}:${stat.ino}`;
   } catch {
     return null;
@@ -30487,7 +30923,7 @@ var ProjectServiceRouter = class {
         throw err;
       }
     }
-    const key = path8.resolve(paths.projectRoot);
+    const key = path9.resolve(paths.projectRoot);
     this.activeProjectRoot = key;
     const cached2 = this.services.get(key);
     if (cached2) {
@@ -30519,7 +30955,7 @@ var ProjectServiceRouter = class {
     const registered = registerProject(input);
     this.activeProjectRoot = registered.projectRoot;
     const service = this.serviceFor({ projectRoot: registered.projectRoot });
-    if (!fs7.existsSync(service.paths.graphJsonPath)) {
+    if (!fs8.existsSync(service.paths.graphJsonPath)) {
       service.ensureSynced();
     }
     return registered;
@@ -30532,9 +30968,9 @@ var ProjectServiceRouter = class {
 };
 
 // packages/mcp/src/cli.mjs
-import fs8 from "node:fs";
+import fs9 from "node:fs";
 import os from "node:os";
-import path9 from "node:path";
+import path10 from "node:path";
 var VERSION = "0.3.2";
 var HELP = `
 mdflow v${VERSION}: A context operating system for AI coding agents.
@@ -30596,7 +31032,7 @@ async function runCli(args, router2) {
     const projectRoot = process.cwd();
     const shouldScan = args.includes("--scan") || args.includes("-s");
     try {
-      const reg = registerProject({ projectRoot, name: path9.basename(projectRoot) });
+      const reg = registerProject({ projectRoot, name: path10.basename(projectRoot) });
       console.log(`\u2713 ${reg.created ? "Initialized new" : "Opened existing"} mdflow project at ${projectRoot}`);
       const service = router2.serviceFor({ projectRoot });
       if (shouldScan && reg.created) {
@@ -30604,7 +31040,7 @@ async function runCli(args, router2) {
         const bootstrapped = bootstrapProject(service, projectRoot);
         console.log(`\u2713 Created ${bootstrapped.blocks} initial blocks and 1 baseline chain.`);
       }
-      if (!fs8.existsSync(service.paths.graphJsonPath)) {
+      if (!fs9.existsSync(service.paths.graphJsonPath)) {
         exportGraphToJson(service.database, service.paths.graphJsonPath);
         console.log(`\u2713 Created .mdflow/graph.json text source of truth`);
       }
@@ -30649,15 +31085,15 @@ async function runCli(args, router2) {
 }
 function bootstrapProject(service, projectRoot) {
   const operations = [];
-  const pkgPath = path9.join(projectRoot, "package.json");
+  const pkgPath = path10.join(projectRoot, "package.json");
   let pkg = {};
-  if (fs8.existsSync(pkgPath)) {
+  if (fs9.existsSync(pkgPath)) {
     try {
-      pkg = JSON.parse(fs8.readFileSync(pkgPath, "utf8"));
+      pkg = JSON.parse(fs9.readFileSync(pkgPath, "utf8"));
     } catch {
     }
   }
-  const projectName = pkg.name || path9.basename(projectRoot);
+  const projectName = pkg.name || path10.basename(projectRoot);
   const coreBlockId = "core-application";
   operations.push({
     action: "create_block",
@@ -30670,7 +31106,7 @@ function bootstrapProject(service, projectRoot) {
       scope: "general"
     }
   });
-  const dirs = fs8.readdirSync(projectRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "node_modules").map((d) => d.name);
+  const dirs = fs9.readdirSync(projectRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "node_modules").map((d) => d.name);
   if (dirs.some((d) => ["src", "app", "lib"].includes(d))) {
     operations.push({
       action: "create_block",
@@ -30730,14 +31166,14 @@ function bootstrapProject(service, projectRoot) {
 function setupEditors() {
   const cwd = process.cwd();
   console.log("=== Setting up Mdflow MCP Server ===");
-  const cursorDir = path9.join(cwd, ".cursor");
-  const cursorMcpFile = path9.join(cursorDir, "mcp.json");
+  const cursorDir = path10.join(cwd, ".cursor");
+  const cursorMcpFile = path10.join(cursorDir, "mcp.json");
   try {
-    fs8.mkdirSync(cursorDir, { recursive: true });
+    fs9.mkdirSync(cursorDir, { recursive: true });
     let cursorConfig = { mcpServers: {} };
-    if (fs8.existsSync(cursorMcpFile)) {
+    if (fs9.existsSync(cursorMcpFile)) {
       try {
-        cursorConfig = JSON.parse(fs8.readFileSync(cursorMcpFile, "utf8"));
+        cursorConfig = JSON.parse(fs9.readFileSync(cursorMcpFile, "utf8"));
       } catch {
       }
     }
@@ -30746,18 +31182,18 @@ function setupEditors() {
       command: "npx",
       args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     };
-    fs8.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
+    fs9.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
     console.log(`\u2713 Configured Cursor: ${cursorMcpFile}`);
   } catch (err) {
     console.log(`- Cursor setup skipped: ${err.message}`);
   }
-  const claudeConfigPath = path9.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
+  const claudeConfigPath = path10.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
   try {
-    if (fs8.existsSync(path9.dirname(claudeConfigPath))) {
+    if (fs9.existsSync(path10.dirname(claudeConfigPath))) {
       let claudeConfig = { mcpServers: {} };
-      if (fs8.existsSync(claudeConfigPath)) {
+      if (fs9.existsSync(claudeConfigPath)) {
         try {
-          claudeConfig = JSON.parse(fs8.readFileSync(claudeConfigPath, "utf8"));
+          claudeConfig = JSON.parse(fs9.readFileSync(claudeConfigPath, "utf8"));
         } catch {
         }
       }
@@ -30766,7 +31202,7 @@ function setupEditors() {
         command: "npx",
         args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
       };
-      fs8.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
+      fs9.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
       console.log(`\u2713 Configured Claude Desktop: ${claudeConfigPath}`);
     }
   } catch (err) {
@@ -30782,7 +31218,7 @@ function setupEditors() {
 }
 
 // packages/mcp/src/task-budget.mjs
-import crypto6 from "node:crypto";
+import crypto7 from "node:crypto";
 var budgets = /* @__PURE__ */ new Map();
 function snapshot(entry) {
   return {
@@ -30790,7 +31226,9 @@ function snapshot(entry) {
     budgetChars: entry.budgetChars,
     consumedChars: entry.consumedChars,
     remainingChars: Math.max(0, entry.budgetChars - entry.consumedChars),
-    responses: entry.responses
+    responses: entry.responses,
+    sourceSyncRevision: entry.sourceSyncRevision ?? null,
+    sourceRevision: entry.sourceRevision ?? null
   };
 }
 function startTaskBudget({ projectRoot = ".", taskContextId = null, budgetChars = 12e3 } = {}) {
@@ -30799,14 +31237,36 @@ function startTaskBudget({ projectRoot = ".", taskContextId = null, budgetChars 
     if (existing.projectRoot === projectRoot) return snapshot(existing);
   }
   const entry = {
-    id: taskContextId || `task_${crypto6.randomUUID()}`,
+    id: taskContextId || `task_${crypto7.randomUUID()}`,
     projectRoot,
     budgetChars: Math.max(100, Math.floor(Number(budgetChars) || 12e3)),
     consumedChars: 0,
-    responses: 0
+    responses: 0,
+    sourceSyncRevision: null,
+    sourceRevision: null
   };
   budgets.set(entry.id, entry);
   return snapshot(entry);
+}
+function taskBudget(taskContextId) {
+  const entry = taskContextId ? budgets.get(taskContextId) : null;
+  return entry ? snapshot(entry) : null;
+}
+function setTaskSourceBaseline(taskContextId, { sourceSyncRevision = null, sourceRevision = null } = {}) {
+  const entry = taskContextId ? budgets.get(taskContextId) : null;
+  if (!entry) return null;
+  if (entry.sourceSyncRevision === null) entry.sourceSyncRevision = sourceSyncRevision;
+  if (entry.sourceRevision === null) entry.sourceRevision = sourceRevision;
+  return snapshot(entry);
+}
+function taskSourceBaseline(taskContextId) {
+  const entry = taskContextId ? budgets.get(taskContextId) : null;
+  if (!entry) return null;
+  return {
+    taskContextId: entry.id,
+    sourceSyncRevision: entry.sourceSyncRevision,
+    sourceRevision: entry.sourceRevision
+  };
 }
 function truncateMarkdown(markdown, maxChars, suffix) {
   const text = String(markdown ?? "");
@@ -30856,7 +31316,7 @@ var router = new ProjectServiceRouter();
 var server = new McpServer(
   { name: "mdflow", version: "0.3.2" },
   {
-    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block does not need to belong to a Chain or have a checkpoint until a requirement, Plan, Chain gate, or explicit verification request requires one. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
+    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next mdflow boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }
 );
 var projectRootInput = {
@@ -30949,7 +31409,7 @@ server.registerTool(
 server.registerTool(
   "project_map",
   {
-    description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, unplanned Blocks, checkpoint-free Blocks, and missing required checkpoints without loading entity bodies.",
+    description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, explicit integration gates, and source-sync status without loading entity bodies.",
     inputSchema: { ...projectRootInput, locale: _enum(["en", "zh-Hans"]).optional(), includeStructured: boolean2().default(false) }
   },
   async (input) => {
@@ -30995,6 +31455,30 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.chainCodeStream(payload));
     return readResult(data, data.markdown, input.includeStructured);
+  }
+);
+server.registerTool(
+  "source_sync",
+  {
+    description: "Scan current files for bound symbols without loading source into the response. Reports moved, changed, missing, or ambiguous bindings and affected Blocks/Chains.",
+    inputSchema: {
+      ...projectRootInput,
+      sinceRevision: number2().int().min(0).optional(),
+      includeUnchanged: boolean2().default(false),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.sourceBindingReport(payload));
+    const md = [
+      "# Source Synchronization",
+      `- Status: ${data.invalidBindingCount ? "attention required" : data.changed ? "updated" : "in sync"}`,
+      `- Revision: ${data.sourceSyncRevision} \xB7 Bindings: ${data.bindingCount} \xB7 Invalid: ${data.invalidBindingCount}`,
+      ...data.affectedBlockIds?.length ? [`- Affected Blocks: ${data.affectedBlockIds.map((id) => `block:${id}`).join(", ")}`] : [],
+      ...data.affectedChainIds?.length ? [`- Affected Chains: ${data.affectedChainIds.map((id) => `chain:${id}`).join(", ")}`] : [],
+      ...data.changes?.length ? ["", "## Changes", ...data.changes.slice(0, 20).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : []
+    ].join("\n");
+    return readResult(data, md, input.includeStructured);
   }
 );
 server.registerTool(
@@ -31135,7 +31619,11 @@ server.registerTool(
       (service, payload) => service.contextForTask(payload)
     );
     data.taskContextId = budget.taskContextId;
-    data.taskBudget = budget;
+    setTaskSourceBaseline(budget.taskContextId, {
+      sourceSyncRevision: data.sourceSync?.revision ?? null,
+      sourceRevision: data.sourceSync?.sourceRevision ?? null
+    });
+    data.taskBudget = taskBudget(budget.taskContextId);
     const budgetLine = `
 
 ## Task budget
@@ -31232,12 +31720,17 @@ server.registerTool(
     inputSchema: {
       ...projectRootInput,
       sequence: number2().int().min(0).default(0),
+      sourceSyncRevision: number2().int().min(0).optional(),
       limit: number2().int().min(1).max(500).default(100),
       includeStructured: boolean2().default(false)
     }
   },
   async (input) => {
-    const data = withProject(input, (service, payload) => service.changesSince(payload));
+    const baseline = taskSourceBaseline(input.taskContextId);
+    const data = withProject(input, (service, payload) => service.changesSince({
+      ...payload,
+      sourceSyncRevision: payload.sourceSyncRevision ?? baseline?.sourceSyncRevision ?? null
+    }));
     return readResult(data, data.markdown, input.includeStructured);
   }
 );

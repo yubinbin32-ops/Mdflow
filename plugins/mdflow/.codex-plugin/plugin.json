@@ -18,12 +18,13 @@
     "category": "Productivity",
     "capabilities": [
       "Project context retrieval",
-    "Contract-first AST code streams",
-    "Task-scoped shared context budgets",
-    "Redacted project-local command gateway",
-    "Verified AST mutation with source-drift protection",
-    "Checkpoint freshness and retest gating",
-    "Architecture and progress synchronization",
+      "Contract-first AST code streams",
+      "Live source binding synchronization",
+      "Task-scoped shared context budgets",
+      "Redacted project-local command gateway",
+      "Verified AST mutation with source-drift protection",
+      "Checkpoint freshness and retest gating",
+      "Architecture and progress synchronization",
       "Checkpoint evidence"
     ],
     "defaultPrompt": [

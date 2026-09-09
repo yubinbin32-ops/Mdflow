@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 struct EditorPlatformStatus: Identifiable, Equatable {
@@ -10,6 +11,17 @@ struct EditorPlatformStatus: Identifiable, Equatable {
     var targetVersion: String
     var isOutdated: Bool
     var configPath: String
+    var appVersion: String = ""
+    var installedBuild: String? = nil
+    var targetBuild: String = ""
+
+    var isAppVersionMismatch: Bool {
+        !appVersion.isEmpty && appVersion != targetVersion
+    }
+
+    var isBuildMismatch: Bool {
+        installedBuild != nil && !targetBuild.isEmpty && installedBuild != targetBuild
+    }
 }
 
 enum PluginInstallStatus: Equatable {
@@ -27,6 +39,47 @@ enum PluginInstaller {
     }
 
     static let fallbackVersion = "0.3.2"
+
+    private static let buildFiles = [
+        ".codex-plugin/plugin.json",
+        "server/mdflow-mcp.mjs",
+        "skills/mdflow/SKILL.md"
+    ]
+
+    private static func pluginBuildID(pluginRoot: URL) -> String? {
+        var hasher = SHA256()
+        for relativePath in buildFiles {
+            let fileURL = pluginRoot.appending(path: relativePath)
+            guard let data = try? Data(contentsOf: fileURL) else { return nil }
+            hasher.update(data: Data(relativePath.utf8))
+            hasher.update(data: Data([0]))
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func bundledPluginBuildID(marketplaceRoot: URL?) -> String {
+        guard let marketplaceRoot else { return "" }
+        let pluginRoot = marketplaceRoot.appending(path: "plugins/mdflow", directoryHint: .isDirectory)
+        return pluginBuildID(pluginRoot: pluginRoot) ?? ""
+    }
+
+    static func bundledAppVersion(marketplaceRoot: URL?) -> String {
+        if let marketplaceRoot {
+            let infoURL = marketplaceRoot.appending(path: "apps/desktop/Resources/Info.plist")
+            if let data = try? Data(contentsOf: infoURL),
+               let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+               let version = plist["CFBundleShortVersionString"] as? String,
+               !version.isEmpty {
+                return version
+            }
+        }
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+           !version.isEmpty {
+            return version
+        }
+        return fallbackVersion
+    }
 
     static func bundledTargetVersion(marketplaceRoot: URL?) -> String {
         if let marketplaceRoot {
@@ -50,6 +103,9 @@ enum PluginInstaller {
     static func detectAllPlatforms(projectRoot: URL?, marketplaceRoot: URL?) -> [EditorPlatformStatus] {
         var platforms: [EditorPlatformStatus] = []
         let targetVersion = bundledTargetVersion(marketplaceRoot: marketplaceRoot)
+        let targetBuild = bundledPluginBuildID(marketplaceRoot: marketplaceRoot)
+        let appVersion = bundledAppVersion(marketplaceRoot: marketplaceRoot)
+        let versionsCompatible = appVersion == targetVersion
         let home = FileManager.default.homeDirectoryForCurrentUser
 
         // 1. Claude Desktop
@@ -57,8 +113,9 @@ enum PluginInstaller {
         let claudeAppExists = FileManager.default.fileExists(atPath: "/Applications/Claude.app") ||
                               FileManager.default.fileExists(atPath: "/Applications/Claude Desktop.app") ||
                               FileManager.default.fileExists(atPath: home.appending(path: "Applications/Claude.app").path)
-        let claudeInstalledVer = claudeAppExists ? readMcpVersion(at: claudeConfigURL, targetVersion: targetVersion) : nil
-        let claudeSynced = claudeAppExists && claudeInstalledVer != nil && claudeInstalledVer == targetVersion
+        let claudeMetadata = claudeAppExists ? readMcpMetadata(at: claudeConfigURL) : (version: nil, build: nil)
+        let claudeInstalledVer = claudeMetadata.version
+        let claudeSynced = claudeAppExists && versionsCompatible && claudeInstalledVer != nil && claudeInstalledVer == targetVersion && claudeMetadata.build == targetBuild
         let claudeOutdated = claudeAppExists && claudeInstalledVer != nil && claudeInstalledVer != targetVersion
         platforms.append(EditorPlatformStatus(
             id: "claude",
@@ -69,15 +126,19 @@ enum PluginInstaller {
             installedVersion: claudeInstalledVer,
             targetVersion: targetVersion,
             isOutdated: claudeOutdated,
-            configPath: "~/Library/Application Support/Claude/claude_desktop_config.json"
+            configPath: "~/Library/Application Support/Claude/claude_desktop_config.json",
+            appVersion: appVersion,
+            installedBuild: claudeMetadata.build,
+            targetBuild: targetBuild
         ))
 
         // 2. Cursor
         let cursorAppExists = FileManager.default.fileExists(atPath: "/Applications/Cursor.app") ||
                               FileManager.default.fileExists(atPath: home.appending(path: "Applications/Cursor.app").path)
         let userCursorURL = home.appending(path: ".cursor/mcp.json")
-        let cursorInstalledVer = cursorAppExists ? readMcpVersion(at: userCursorURL, targetVersion: targetVersion) : nil
-        let cursorSynced = cursorAppExists && cursorInstalledVer != nil && cursorInstalledVer == targetVersion
+        let cursorMetadata = cursorAppExists ? readMcpMetadata(at: userCursorURL) : (version: nil, build: nil)
+        let cursorInstalledVer = cursorMetadata.version
+        let cursorSynced = cursorAppExists && versionsCompatible && cursorInstalledVer != nil && cursorInstalledVer == targetVersion && cursorMetadata.build == targetBuild
         let cursorOutdated = cursorAppExists && cursorInstalledVer != nil && cursorInstalledVer != targetVersion
         platforms.append(EditorPlatformStatus(
             id: "cursor",
@@ -88,15 +149,19 @@ enum PluginInstaller {
             installedVersion: cursorInstalledVer,
             targetVersion: targetVersion,
             isOutdated: cursorOutdated,
-            configPath: "~/.cursor/mcp.json"
+            configPath: "~/.cursor/mcp.json",
+            appVersion: appVersion,
+            installedBuild: cursorMetadata.build,
+            targetBuild: targetBuild
         ))
 
         // 3. Antigravity
         let antigravityAppExists = FileManager.default.fileExists(atPath: "/Applications/Antigravity.app") ||
                                    FileManager.default.fileExists(atPath: home.appending(path: ".gemini/antigravity").path)
         let antigravityUserURL = home.appending(path: ".gemini/config/mcp_config.json")
-        let antigravityInstalledVer = antigravityAppExists ? readMcpVersion(at: antigravityUserURL, targetVersion: targetVersion) : nil
-        let antigravitySynced = antigravityAppExists && antigravityInstalledVer != nil && antigravityInstalledVer == targetVersion
+        let antigravityMetadata = antigravityAppExists ? readMcpMetadata(at: antigravityUserURL) : (version: nil, build: nil)
+        let antigravityInstalledVer = antigravityMetadata.version
+        let antigravitySynced = antigravityAppExists && versionsCompatible && antigravityInstalledVer != nil && antigravityInstalledVer == targetVersion && antigravityMetadata.build == targetBuild
         let antigravityOutdated = antigravityAppExists && antigravityInstalledVer != nil && antigravityInstalledVer != targetVersion
         platforms.append(EditorPlatformStatus(
             id: "antigravity",
@@ -107,7 +172,10 @@ enum PluginInstaller {
             installedVersion: antigravityInstalledVer,
             targetVersion: targetVersion,
             isOutdated: antigravityOutdated,
-            configPath: "~/.gemini/config/mcp_config.json"
+            configPath: "~/.gemini/config/mcp_config.json",
+            appVersion: appVersion,
+            installedBuild: antigravityMetadata.build,
+            targetBuild: targetBuild
         ))
 
         // 4. OpenCode
@@ -117,8 +185,9 @@ enum PluginInstaller {
                                 FileManager.default.fileExists(atPath: home.appending(path: "Applications/OpenCode.app").path) ||
                                 FileManager.default.fileExists(atPath: "/opt/homebrew/bin/opencode") ||
                                 FileManager.default.fileExists(atPath: "/usr/local/bin/opencode")
-        let opencodeInstalledVer = opencodeAppExists ? readMcpVersion(at: opencodeUserURL, targetVersion: targetVersion) : nil
-        let opencodeSynced = opencodeAppExists && opencodeInstalledVer != nil && opencodeInstalledVer == targetVersion
+        let opencodeMetadata = opencodeAppExists ? readMcpMetadata(at: opencodeUserURL) : (version: nil, build: nil)
+        let opencodeInstalledVer = opencodeMetadata.version
+        let opencodeSynced = opencodeAppExists && versionsCompatible && opencodeInstalledVer != nil && opencodeInstalledVer == targetVersion && opencodeMetadata.build == targetBuild
         let opencodeOutdated = opencodeAppExists && opencodeInstalledVer != nil && opencodeInstalledVer != targetVersion
         platforms.append(EditorPlatformStatus(
             id: "opencode",
@@ -129,7 +198,10 @@ enum PluginInstaller {
             installedVersion: opencodeInstalledVer,
             targetVersion: targetVersion,
             isOutdated: opencodeOutdated,
-            configPath: "~/.config/opencode/mcp.json"
+            configPath: "~/.config/opencode/mcp.json",
+            appVersion: appVersion,
+            installedBuild: opencodeMetadata.build,
+            targetBuild: targetBuild
         ))
 
         // 5. Codex
@@ -137,17 +209,20 @@ enum PluginInstaller {
         let codexAppExists = codexUrl != nil ||
                              FileManager.default.fileExists(atPath: "/Applications/ChatGPT.app") ||
                              FileManager.default.fileExists(atPath: home.appending(path: ".codex").path)
-        let codexStatus = readCodexStatus(targetVersion: targetVersion)
+        let codexStatus = readCodexStatus(targetVersion: targetVersion, targetBuild: targetBuild)
         platforms.append(EditorPlatformStatus(
             id: "codex",
             name: "Codex",
             iconSystemName: "command",
             isAppInstalled: codexAppExists,
-            isSynced: codexAppExists && codexStatus.isSynced,
+            isSynced: codexAppExists && versionsCompatible && codexStatus.isSynced,
             installedVersion: codexAppExists ? codexStatus.version : nil,
             targetVersion: targetVersion,
             isOutdated: codexAppExists && codexStatus.isOutdated,
-            configPath: "~/.codex/config.toml"
+            configPath: "~/.codex/config.toml",
+            appVersion: appVersion,
+            installedBuild: codexAppExists ? codexStatus.build : nil,
+            targetBuild: targetBuild
         ))
 
         return platforms
@@ -155,6 +230,11 @@ enum PluginInstaller {
 
     static func syncPlatform(id: String, projectRoot: URL?, marketplaceRoot: URL) throws {
         let targetVersion = bundledTargetVersion(marketplaceRoot: marketplaceRoot)
+        let targetBuild = bundledPluginBuildID(marketplaceRoot: marketplaceRoot)
+        let appVersion = bundledAppVersion(marketplaceRoot: marketplaceRoot)
+        guard appVersion == targetVersion else {
+            throw CommandFailure(output: "mdflow app v\(appVersion) and plugin v\(targetVersion) are different; rebuild or re-sync from one matching bundle.")
+        }
         let serverScript = marketplaceRoot
             .appending(path: "plugins/mdflow/server/mdflow-mcp.mjs")
             .standardizedFileURL.path
@@ -167,20 +247,20 @@ enum PluginInstaller {
         case "claude":
             let claudeConfigURL = home.appending(path: "Library/Application Support/Claude/claude_desktop_config.json")
             try? FileManager.default.createDirectory(at: claudeConfigURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            _ = configureJsonMcp(at: claudeConfigURL, serverScript: serverScript, version: targetVersion)
+            _ = configureJsonMcp(at: claudeConfigURL, serverScript: serverScript, version: targetVersion, build: targetBuild)
 
         case "cursor":
             // 1. User/Global Cursor config ONLY
             let userCursorDir = home.appending(path: ".cursor")
             try? FileManager.default.createDirectory(at: userCursorDir, withIntermediateDirectories: true)
-            _ = configureJsonMcp(at: userCursorDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion)
+            _ = configureJsonMcp(at: userCursorDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
             syncDirectory(from: skillSource, to: userCursorDir.appending(path: "skills/mdflow"))
 
             // 2. Only update project root IF .cursor directory already explicitly existed
             if let root = projectRoot {
                 let projectCursorDir = root.appending(path: ".cursor")
                 if FileManager.default.fileExists(atPath: projectCursorDir.path) {
-                    _ = configureJsonMcp(at: projectCursorDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion)
+                    _ = configureJsonMcp(at: projectCursorDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
             }
 
@@ -188,14 +268,14 @@ enum PluginInstaller {
             // 1. User/Global Antigravity config ONLY
             let geminiConfigDir = home.appending(path: ".gemini/config")
             try? FileManager.default.createDirectory(at: geminiConfigDir, withIntermediateDirectories: true)
-            _ = configureJsonMcp(at: geminiConfigDir.appending(path: "mcp_config.json"), serverScript: serverScript, version: targetVersion)
+            _ = configureJsonMcp(at: geminiConfigDir.appending(path: "mcp_config.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
             syncDirectory(from: skillSource, to: geminiConfigDir.appending(path: "skills/mdflow"))
 
             // 2. Only update project root IF .agents/mcp_config.json already explicitly existed
             if let root = projectRoot {
                 let projectAgentsConfig = root.appending(path: ".agents/mcp_config.json")
                 if FileManager.default.fileExists(atPath: projectAgentsConfig.path) {
-                    _ = configureJsonMcp(at: projectAgentsConfig, serverScript: serverScript, version: targetVersion)
+                    _ = configureJsonMcp(at: projectAgentsConfig, serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
             }
 
@@ -203,14 +283,14 @@ enum PluginInstaller {
             // 1. User/Global OpenCode config ONLY
             let userOpencodeDir = home.appending(path: ".config/opencode")
             try? FileManager.default.createDirectory(at: userOpencodeDir, withIntermediateDirectories: true)
-            _ = configureJsonMcp(at: userOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion)
+            _ = configureJsonMcp(at: userOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
             syncDirectory(from: skillSource, to: userOpencodeDir.appending(path: "skills/mdflow"))
 
             // 2. Only update project root IF .opencode directory already explicitly existed
             if let root = projectRoot {
                 let projectOpencodeDir = root.appending(path: ".opencode")
                 if FileManager.default.fileExists(atPath: projectOpencodeDir.path) {
-                    _ = configureJsonMcp(at: projectOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion)
+                    _ = configureJsonMcp(at: projectOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
             }
 
@@ -272,7 +352,7 @@ enum PluginInstaller {
             if let executable = try? codexExecutable() {
                 let installResult = try? run(executable, arguments: ["plugin", "add", "mdflow@personal", "--json"])
                 if installResult?.status != 0 {
-                    configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion)
+                    configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
             }
 
@@ -282,7 +362,7 @@ enum PluginInstaller {
             // Keep the legacy TOML fallback only when the Codex executable is
             // unavailable and the native plugin cannot be installed.
             if (try? codexExecutable()) == nil {
-                configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion)
+                configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion, build: targetBuild)
             }
 
         default:
@@ -293,7 +373,7 @@ enum PluginInstaller {
     static func installAll(projectRoot: URL?, marketplaceRoot: URL) throws {
         let statuses = detectAllPlatforms(projectRoot: projectRoot, marketplaceRoot: marketplaceRoot)
         for platform in statuses where platform.isAppInstalled {
-            try? syncPlatform(id: platform.id, projectRoot: projectRoot, marketplaceRoot: marketplaceRoot)
+            try syncPlatform(id: platform.id, projectRoot: projectRoot, marketplaceRoot: marketplaceRoot)
         }
     }
 
@@ -306,24 +386,26 @@ enum PluginInstaller {
         return platforms.contains { $0.isSynced }
     }
 
-    private static func readMcpVersion(at configURL: URL, targetVersion: String) -> String? {
+    private static func readMcpMetadata(at configURL: URL) -> (version: String?, build: String?) {
         guard FileManager.default.fileExists(atPath: configURL.path),
               let data = try? Data(contentsOf: configURL),
               let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let servers = json["mcpServers"] as? [String: Any],
               let mdflow = servers["mdflow"] as? [String: Any] else {
-            return nil
+            return (nil, nil)
         }
+        var version: String?
         if let ver = mdflow["_version"] as? String {
-            return ver
+            version = ver
+        } else if let ver = mdflow["version"] as? String {
+            version = ver
         }
-        if let ver = mdflow["version"] as? String {
-            return ver
-        }
-        return targetVersion
+        // A server entry without an mdflow version is legacy/unknown, not
+        // proof that the installed plugin matches the current App bundle.
+        return (version, mdflow["_build"] as? String)
     }
 
-    private static func configureJsonMcp(at configURL: URL, serverScript: String, version: String) -> Bool {
+    private static func configureJsonMcp(at configURL: URL, serverScript: String, version: String, build: String) -> Bool {
         var json: [String: Any] = [:]
         if FileManager.default.fileExists(atPath: configURL.path),
            let data = try? Data(contentsOf: configURL),
@@ -334,7 +416,8 @@ enum PluginInstaller {
         mcpServers["mdflow"] = [
             "command": "node",
             "args": [serverScript],
-            "_version": version
+            "_version": version,
+            "_build": build
         ]
         json["mcpServers"] = mcpServers
         guard let outputData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) else {
@@ -398,24 +481,27 @@ enum PluginInstaller {
         }
     }
 
-    private static func readCodexStatus(targetVersion: String) -> (isInstalled: Bool, isSynced: Bool, isOutdated: Bool, version: String?) {
+    private static func readCodexStatus(targetVersion: String, targetBuild: String) -> (isInstalled: Bool, isSynced: Bool, isOutdated: Bool, version: String?, build: String?) {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let pluginJsonURL = home.appending(path: "plugins/mdflow/.codex-plugin/plugin.json")
         let codexConfigURL = home.appending(path: ".codex/config.toml")
         
         guard FileManager.default.fileExists(atPath: codexConfigURL.path),
               let content = try? String(contentsOf: codexConfigURL, encoding: .utf8) else {
-            return (false, false, false, nil)
+            return (false, false, false, nil, nil)
         }
 
         // The plugin is only considered installed if actively registered in ~/.codex/config.toml
         let hasPlugin = content.contains("[plugins.\"mdflow@personal\"]") || content.contains("[plugins.\"mdflow")
         let hasMcp = content.contains("[mcp_servers.mdflow]")
         guard hasPlugin || hasMcp else {
-            return (false, false, false, nil)
+            return (false, false, false, nil, nil)
         }
 
         var detectedVer: String? = nil
+        var detectedBuild: String? = nil
+        let installedPluginRoot = home.appending(path: "plugins/mdflow", directoryHint: .isDirectory)
+        detectedBuild = pluginBuildID(pluginRoot: installedPluginRoot)
         
         if FileManager.default.fileExists(atPath: pluginJsonURL.path),
            let data = try? Data(contentsOf: pluginJsonURL),
@@ -437,10 +523,25 @@ enum PluginInstaller {
             }
         }
 
-        let ver = detectedVer ?? targetVersion
+        if detectedBuild == nil {
+            for line in content.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.starts(with: "MDFLOW_BUILD") {
+                    let parts = trimmed.components(separatedBy: "=")
+                    if parts.count >= 2 {
+                        detectedBuild = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
+                        break
+                    }
+                }
+            }
+        }
+
+        guard let ver = detectedVer else {
+            return (true, false, false, nil, detectedBuild)
+        }
         let isSynced = (ver == targetVersion)
         let isOutdated = (ver != targetVersion)
-        return (true, isSynced, isOutdated, ver)
+        return (true, isSynced && detectedBuild == targetBuild, isOutdated, ver, detectedBuild)
     }
 
     private static func cleanCodexLegacyMarketplace(configURL: URL) {
@@ -464,7 +565,7 @@ enum PluginInstaller {
         try? cleanedLines.joined(separator: "\n").write(to: configURL, atomically: true, encoding: .utf8)
     }
 
-    private static func configureTomlMcp(at configURL: URL, serverScript: String, version: String) {
+    private static func configureTomlMcp(at configURL: URL, serverScript: String, version: String, build: String) {
         var content = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         if !content.contains("[mcp_servers.mdflow]") {
             content += """
@@ -475,6 +576,7 @@ enum PluginInstaller {
             
             [mcp_servers.mdflow.env]
             MDFLOW_VERSION = "\(version)"
+            MDFLOW_BUILD = "\(build)"
             """
             try? content.write(to: configURL, atomically: true, encoding: .utf8)
         }

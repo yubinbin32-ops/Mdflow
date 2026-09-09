@@ -1,0 +1,203 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import { MdflowService } from "../src/service.mjs";
+
+async function makeProject(prefix, source) {
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  await fs.mkdir(path.join(projectRoot, ".mdflow"), { recursive: true });
+  await fs.mkdir(path.join(projectRoot, "src"), { recursive: true });
+  await fs.writeFile(
+    path.join(projectRoot, ".mdflow", "project.json"),
+    JSON.stringify({
+      schemaVersion: "2.0.0",
+      id: `${prefix}-project`,
+      name: "Source Binding Test",
+      defaultLocale: "en",
+      supportedLocales: ["en"],
+    }),
+  );
+  const sourcePath = path.join(projectRoot, "src", "service.ts");
+  await fs.writeFile(sourcePath, source);
+  return { projectRoot, sourcePath };
+}
+
+test("source binding follows a moved symbol and reports external implementation changes", async () => {
+  const { projectRoot, sourcePath } = await makeProject(
+    "mdflow-test-source-binding-",
+    "export function processPayment(amount: number) {\n  return amount + 1;\n}\n",
+  );
+  const service = new MdflowService({ projectRoot, autoSync: true });
+  try {
+    service.mutate({
+      reason: "create source-bound chain",
+      operations: [
+        {
+          action: "create_block",
+          id: "payment-service",
+          fields: {
+            title: "Payment service",
+            kind: "service",
+            summary: "Processes payments",
+            contract: "processPayment(amount) -> number",
+            architectureLayer: "application",
+            deliveryState: "complete",
+          },
+        },
+        {
+          action: "add_source_ref",
+          id: "payment-service",
+          fields: { path: "src/service.ts:processPayment" },
+        },
+        {
+          action: "create_chain",
+          id: "payment-chain",
+          fields: { title: "Payment chain", intent: "source binding" },
+        },
+        {
+          action: "set_chain_path",
+          id: "payment-chain",
+          expectedRevision: 1,
+          fields: { nodeIds: ["payment-service"] },
+        },
+      ],
+    });
+
+    const initial = service.chainCodeStream({ chainId: "payment-chain", mode: "slice" });
+    assert.equal(initial.nodes[0].sourceStatus, "anchored");
+    assert.match(initial.codeStream, /return amount \+ 1/);
+
+    await fs.writeFile(sourcePath, "// moved without changing the symbol\n\nexport function processPayment(amount: number) {\n  return amount + 1;\n}\n");
+    const moved = service.chainCodeStream({ chainId: "payment-chain", mode: "slice" });
+    assert.equal(moved.nodes[0].sourceStatus, "moved");
+    assert.equal(moved.nodes[0].startLine, 3);
+    assert.match(moved.codeStream, /return amount \+ 1/);
+    assert.equal(moved.sourceSync.changed, true);
+    assert.ok(moved.sourceSync.changes[0].kinds.includes("binding_moved"));
+
+    const commandResult = service.runCommand({
+      command: "printf '%s\\n' 'export function processPayment(amount: number) {' '  return amount + 2;' '}' > src/service.ts",
+      maxChars: 400,
+    });
+    assert.equal(commandResult.success, true);
+    assert.equal(commandResult.sourceSync.changed, true);
+    assert.ok(commandResult.sourceSync.changes[0].kinds.includes("implementation_changed"));
+
+    service.recordCheckpoint({
+      id: "payment-checkpoint",
+      targetType: "block",
+      targetId: "payment-service",
+      title: "Payment verification",
+      status: "passed",
+      evidenceLevel: "integration",
+      requiredEvidenceLevel: "integration",
+      evidence: [{ kind: "test", command: "node --test" }],
+    });
+    assert.equal(service.snapshot().checkpoints.find((item) => item.id === "payment-checkpoint").status, "passed");
+
+    const exportedGraph = JSON.parse(await fs.readFile(path.join(projectRoot, ".mdflow", "graph.json"), "utf8"));
+    const exportedCheckpoint = exportedGraph.data.checkpoints.find((item) => item.id === "payment-checkpoint");
+    const identity = JSON.parse(exportedCheckpoint.evidence_json).find((item) => item.kind === "mdflow-identity");
+    assert.equal(identity.version, 2);
+    assert.ok(identity.bindings.some((binding) => binding.symbol === "processPayment"));
+
+    await fs.writeFile(sourcePath, "// moved without changing the symbol\n\nexport function processPayment(amount: number) {\n  return amount + 3;\n}\n");
+    const changed = service.snapshot();
+    const checkpoint = changed.checkpoints.find((item) => item.id === "payment-checkpoint");
+    assert.equal(checkpoint.status, "retest_required");
+    assert.equal(checkpoint.freshness.status, "stale");
+    assert.match(changed.sourceSync.changes[0].kinds.join(","), /implementation_changed/);
+  } finally {
+    service.close();
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("duplicate symbol names never fall back to an unrelated source slice", async () => {
+  const { projectRoot } = await makeProject(
+    "mdflow-test-source-ambiguous-",
+    "export function run() { return 1; }\nexport function run() { return 2; }\n",
+  );
+  const service = new MdflowService({ projectRoot });
+  try {
+    service.mutate({
+      reason: "create ambiguous source binding",
+      operations: [
+        {
+          action: "create_block",
+          id: "ambiguous-service",
+          fields: { title: "Ambiguous service", kind: "service", deliveryState: "implementing" },
+        },
+        {
+          action: "add_source_ref",
+          id: "ambiguous-service",
+          fields: { path: "src/service.ts:run" },
+        },
+        {
+          action: "create_chain",
+          id: "ambiguous-chain",
+          fields: { title: "Ambiguous chain" },
+        },
+        {
+          action: "set_chain_path",
+          id: "ambiguous-chain",
+          expectedRevision: 1,
+          fields: { nodeIds: ["ambiguous-service"] },
+        },
+      ],
+    });
+    const stream = service.chainCodeStream({ chainId: "ambiguous-chain", mode: "slice" });
+    assert.equal(stream.nodes[0].sourceStatus, "ambiguous");
+    assert.match(stream.codeStream, /No current source slice available/);
+    assert.doesNotMatch(stream.codeStream, /return 1/);
+    assert.doesNotMatch(stream.codeStream, /return 2/);
+  } finally {
+    service.close();
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("standalone Blocks and Chains do not create implicit verification gates", async () => {
+  const { projectRoot } = await makeProject(
+    "mdflow-test-architecture-semantics-",
+    "export function healthCheck() { return true; }\n",
+  );
+  const service = new MdflowService({ projectRoot });
+  try {
+    service.mutate({
+      reason: "verify independent architecture semantics",
+      operations: [
+        {
+          action: "create_block",
+          id: "standalone-block",
+          fields: { title: "Standalone block", kind: "service", architectureLayer: "application", deliveryState: "complete" },
+        },
+        {
+          action: "create_block",
+          id: "chain-block",
+          fields: { title: "Chain block", kind: "service", architectureLayer: "application", deliveryState: "implementing" },
+        },
+        {
+          action: "create_chain",
+          id: "independent-chain",
+          fields: { title: "Independent chain", intent: "No integration gate declared" },
+        },
+        {
+          action: "set_chain_path",
+          id: "independent-chain",
+          expectedRevision: 1,
+          fields: { nodeIds: ["chain-block"] },
+        },
+      ],
+    });
+
+    const validation = service.validate();
+    assert.equal(validation.errors.length, 0);
+    assert.doesNotMatch(validation.warnings.join("\n"), /implicit|isolated|checkpoint|integration gate/i);
+  } finally {
+    service.close();
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

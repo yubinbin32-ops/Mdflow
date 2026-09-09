@@ -5,14 +5,14 @@ import * as z from "zod/v4";
 import { ProjectServiceRouter } from "./project-router.mjs";
 import { runCli } from "./cli.mjs";
 import { sanitizeTerminalOutput } from "./sanitizer.mjs";
-import { boundTaskResponse, startTaskBudget } from "./task-budget.mjs";
+import { boundTaskResponse, setTaskSourceBaseline, startTaskBudget, taskBudget, taskSourceBaseline } from "./task-budget.mjs";
 
 const router = new ProjectServiceRouter();
 const server = new McpServer(
   { name: "mdflow", version: "0.3.2" },
   {
     instructions:
-      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block does not need to belong to a Chain or have a checkpoint until a requirement, Plan, Chain gate, or explicit verification request requires one. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
+      "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next mdflow boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
   },
 );
 const projectRootInput = {
@@ -121,7 +121,7 @@ server.registerTool(
 server.registerTool(
   "project_map",
   {
-    description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, unplanned Blocks, checkpoint-free Blocks, and missing required checkpoints without loading entity bodies.",
+    description: "Read a compact project map with architecture coverage, ordered Plans, Chain paths, explicit integration gates, and source-sync status without loading entity bodies.",
     inputSchema: { ...projectRootInput, locale: z.enum(["en", "zh-Hans"]).optional(), includeStructured: z.boolean().default(false) },
   },
   async (input) => {
@@ -170,6 +170,33 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.chainCodeStream(payload));
     return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "source_sync",
+  {
+    description:
+      "Scan current files for bound symbols without loading source into the response. Reports moved, changed, missing, or ambiguous bindings and affected Blocks/Chains.",
+    inputSchema: {
+      ...projectRootInput,
+      sinceRevision: z.number().int().min(0).optional(),
+      includeUnchanged: z.boolean().default(false),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.sourceBindingReport(payload));
+    const md = [
+      "# Source Synchronization",
+      `- Status: ${data.invalidBindingCount ? "attention required" : data.changed ? "updated" : "in sync"}`,
+      `- Revision: ${data.sourceSyncRevision} · Bindings: ${data.bindingCount} · Invalid: ${data.invalidBindingCount}`,
+      ...(data.affectedBlockIds?.length ? [`- Affected Blocks: ${data.affectedBlockIds.map((id) => `block:${id}`).join(", ")}`] : []),
+      ...(data.affectedChainIds?.length ? [`- Affected Chains: ${data.affectedChainIds.map((id) => `chain:${id}`).join(", ")}`] : []),
+      ...(data.changes?.length ? ["", "## Changes", ...data.changes.slice(0, 20).map((change) =>
+        `- block:${change.blockId} ${change.symbol ?? change.path} · ${change.kinds.join(", ")}`)] : []),
+    ].join("\n");
+    return readResult(data, md, input.includeStructured);
   },
 );
 
@@ -315,7 +342,11 @@ server.registerTool(
       (service, payload) => service.contextForTask(payload),
     );
     data.taskContextId = budget.taskContextId;
-    data.taskBudget = budget;
+    setTaskSourceBaseline(budget.taskContextId, {
+      sourceSyncRevision: data.sourceSync?.revision ?? null,
+      sourceRevision: data.sourceSync?.sourceRevision ?? null,
+    });
+    data.taskBudget = taskBudget(budget.taskContextId);
     const budgetLine = `\n\n## Task budget\n- Context ID: ${budget.taskContextId} · Total: ${budget.budgetChars} chars · Shared across focused reads.`;
     return readResult(data, `${data.markdown}${budgetLine}`, input.includeStructured);
   },
@@ -419,12 +450,17 @@ server.registerTool(
     inputSchema: {
       ...projectRootInput,
       sequence: z.number().int().min(0).default(0),
+      sourceSyncRevision: z.number().int().min(0).optional(),
       limit: z.number().int().min(1).max(500).default(100),
       includeStructured: z.boolean().default(false),
     },
   },
   async (input) => {
-    const data = withProject(input, (service, payload) => service.changesSince(payload));
+    const baseline = taskSourceBaseline(input.taskContextId);
+    const data = withProject(input, (service, payload) => service.changesSince({
+      ...payload,
+      sourceSyncRevision: payload.sourceSyncRevision ?? baseline?.sourceSyncRevision ?? null,
+    }));
     return readResult(data, data.markdown, input.includeStructured);
   },
 );

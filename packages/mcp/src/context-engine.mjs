@@ -14,6 +14,15 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
   assertAllowed(locale, LOCALES, "locale");
   const translations = localizationMap(snapshot);
   const terms = taskTerms(task);
+  const focusIds = (kind) => new Set(focusRefs
+    .filter((ref) => ref.startsWith(`${kind}:`))
+    .flatMap((ref) => {
+      const id = ref.slice(`${kind}:`.length);
+      return [id, `${kind}:${id}`];
+    }));
+  const focusBlockIds = focusIds("block");
+  const focusChainIds = focusIds("chain");
+  const focusPlanIds = focusIds("plan");
   const backgroundRuleIds = new Set(snapshot.backgroundScopes.map((scope) => scope.blockId));
   const planSignals = new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "计划", "进度", "阻塞", "发布"]);
   const taskMentionsPlan = terms.some((term) => planSignals.has(term));
@@ -40,7 +49,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       semanticScore += scoreText(block.architectureLayer, 2);
       semanticScore += scoreText(block.body, 1);
       semanticScore += scoreText(localizedSearchText(snapshot, "block", block.id), 3);
-      return { block, score: semanticScore + (focusRefs.includes(`block:${block.id}`) ? 100 : 0) };
+      return { block, score: semanticScore + (focusBlockIds.has(block.id) ? 100 : 0) };
     })
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score);
@@ -54,14 +63,14 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       semanticScore += scoreText(localizedSearchText(snapshot, "chain", chain.id), 3);
       return {
         chain,
-        score: semanticScore + (focusRefs.includes(`chain:${chain.id}`) ? 100 : 0),
+        score: semanticScore + (focusChainIds.has(chain.id) ? 100 : 0),
       };
     })
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score);
   const scoredPlans = snapshot.plans
     .map((plan) => {
-      const focused = focusRefs.includes(`plan:${plan.id}`);
+      const focused = focusPlanIds.has(plan.id);
       let semanticScore = 0;
       semanticScore += scoreText(plan.title, 5);
       semanticScore += scoreText(plan.summary, 3);
@@ -101,9 +110,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
   const selectedBlockIds = new Set(scoredBlocks.slice(0, 5).map((entry) => entry.block.id));
   const selectedChainIds = new Set(scoredChains.slice(0, 1).map((entry) => entry.chain.id));
   const selectedPlanIds = new Set(scoredPlans.slice(0, 1).map((entry) => entry.plan.id));
-  const detailedBlockIds = new Set(
-    focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)),
-  );
+  const detailedBlockIds = new Set(focusBlockIds);
   if (selectedPlanIds.size === 0) {
     for (const entry of scoredBlocks.slice(0, 3)) detailedBlockIds.add(entry.block.id);
   }
@@ -148,7 +155,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       .filter((item) => item.chainId === chainId)
       .sort((a, b) => a.position - b.position)
       .map((item) => item.blockId);
-    if (focusRefs.includes(`chain:${chainId}`)) {
+    if (focusChainIds.has(chainId)) {
       for (const blockId of path.slice(0, 10)) selectedBlockIds.add(blockId);
       continue;
     }
@@ -243,13 +250,18 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
   lines.push("");
 
   lines.push("## Architecture coverage");
-  lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
-  lines.push(`- ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone · ${coverage.verificationCovered}/${coverage.totalBlocks} covered by bound or passed verification · ${coverage.failingIds.length} failing`);
-  if (coverage.unplannedIds.length) lines.push(`- Unplanned: ${coverage.unplannedIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 10 ? " …" : ""}`);
-  if (coverage.withoutCheckpointIds.length) lines.push(`- Checkpoint-free Blocks (verification not requested yet): ${coverage.withoutCheckpointIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 10 ? " …" : ""}`);
+  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} Blocks bound or passed · ${coverage.failingIds.length} failing`);
+  if (taskMentionsPlan && coverage.unplannedIds.length) {
+    lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks are in the current Plan; other Blocks remain independent architecture.`);
+  }
   if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 10 ? " …" : ""}`);
-  if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound checkpoints: ${coverage.checkpointUnboundIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 10 ? " …" : ""}`);
-  if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain gates: ${coverage.chainGateMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 10 ? " …" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 10).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 10 ? " …" : ""}`);
+  if (snapshot.sourceSync) {
+    lines.push(`- Source sync: r${snapshot.sourceSync.revision} · ${snapshot.sourceSync.bindingCount} bindings · ${snapshot.sourceSync.invalidBindingCount} needing relocation`);
+    if (snapshot.sourceSync.changes?.length) {
+      lines.push(`- Code changes since the previous mdflow boundary: ${snapshot.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot.sourceSync.changes.length > 8 ? " …" : ""}`);
+    }
+  }
   lines.push("");
   if (applicableRuleIds.length) {
     lines.push("## Applicable rule index");
@@ -292,8 +304,8 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       );
       const changeTermFrequency = new Map(terms.map((term) => [term, changeTexts.filter((text) => text.includes(term)).length]));
       const broadChangeTermLimit = Math.max(2, Math.ceil(changes.length / 2));
-      const explicitBlockIDs = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
-      const explicitChainIDs = new Set(focusRefs.filter((ref) => ref.startsWith("chain:")).map((ref) => ref.slice("chain:".length)));
+      const explicitBlockIDs = focusBlockIds;
+      const explicitChainIDs = focusChainIds;
       const taskChanges = changes
         .map((change) => {
           const text = `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase();
@@ -313,12 +325,6 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       if (selectedPlanCoverage) {
         const directBlocks = changes.filter((change) => change.planId === plan.id && change.entityType === "block").map((change) => `block:${change.entityId}`);
         if (directBlocks.length) lines.push(`  Direct Blocks: ${directBlocks.slice(0, 20).join(", ")}${directBlocks.length > 20 ? ` … (${directBlocks.length} total)` : ""}`);
-        if (selectedPlanCoverage.unplannedIds.length) {
-          lines.push(`  Uncovered direct Blocks: ${selectedPlanCoverage.unplannedIds.slice(0, 20).map((blockId) => `block:${blockId}`).join(", ")}${selectedPlanCoverage.unplannedIds.length > 20 ? ` … (${selectedPlanCoverage.unplannedIds.length} total)` : ""}`);
-        }
-        if (selectedPlanCoverage.withoutCheckpointIds.length) {
-          lines.push(`  Blocks without checkpoint: ${selectedPlanCoverage.withoutCheckpointIds.slice(0, 20).map((blockId) => `block:${blockId}`).join(", ")}`);
-        }
       }
       if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
       const dependencies = snapshot.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
@@ -347,7 +353,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     }
     lines.push("");
   }
-  const hasExplicitChainFocus = focusRefs.some((ref) => ref.startsWith("chain:"));
+  const hasExplicitChainFocus = focusChainIds.size > 0;
   const hasSemanticChainMatch = scoredChains.some((entry) => selectedChainIds.has(entry.chain.id));
   if (relevantChains.length && (selectedPlanIds.size === 0 || hasExplicitChainFocus || hasSemanticChainMatch)) {
     lines.push("## Target chains");
@@ -364,7 +370,6 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     }
     lines.push("");
   }
-  const explicitBlockFocusIds = new Set(focusRefs.filter((ref) => ref.startsWith("block:")).map((ref) => ref.slice("block:".length)));
   const chainOrder = new Map();
   for (const chainId of selectedChainIds) {
     snapshot.chainNodes
@@ -382,8 +387,8 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
   // Plan context must show its direct Block work even when the caller only
   // focused the Plan. `focusRefs=block:*` remains an optional narrower read;
   // it must not be the implicit gate for plan coverage.
-  const contentBlocks = selectedPlanIds.size && explicitBlockFocusIds.size
-    ? orderedRelevantBlocks.filter((block) => explicitBlockFocusIds.has(block.id))
+  const contentBlocks = selectedPlanIds.size && focusBlockIds.size
+    ? orderedRelevantBlocks.filter((block) => focusBlockIds.has(block.id))
     : orderedRelevantBlocks;
   if (contentBlocks.length) {
     lines.push("## Architecture order / relevant Blocks");
@@ -412,7 +417,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
         }
         lines.push(`  Flow: ${flowParts.join(" | ")}`);
       }
-      if (summary && (selectedPlanIds.size === 0 || explicitBlockFocusIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
+      if (summary && (selectedPlanIds.size === 0 || focusBlockIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
       if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
       if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
     });
@@ -456,6 +461,16 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     : `${fullMarkdown.slice(0, Math.max(0, maxChars - 112))}\n\n[truncated; use plan_context, entity_open, checkpoint_list, or changes_since for the referenced detail]`;
   return {
     graphRevision: snapshot.project.graphRevision,
+    sourceSync: snapshot.sourceSync ? {
+      revision: snapshot.sourceSync.revision,
+      sourceRevision: snapshot.sourceSync.sourceRevision,
+      bindingCount: snapshot.sourceSync.bindingCount,
+      changed: snapshot.sourceSync.changed,
+      changedBindingCount: snapshot.sourceSync.changedBindingCount,
+      invalidBindingCount: snapshot.sourceSync.invalidBindingCount,
+      affectedBlockIds: snapshot.sourceSync.affectedBlockIds,
+      changes: snapshot.sourceSync.changes,
+    } : null,
     refs: [
       ...relevantPlans.map((plan) => `plan:${plan.id}`),
       ...relevantChains.map((chain) => `chain:${chain.id}`),

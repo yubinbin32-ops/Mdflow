@@ -1,6 +1,6 @@
 ---
 name: mdflow
-description: Context operating system for AI coding agents. Call context_for_task at task start, stream AST code along chains with chain_code_stream, design architecture from 0 with graph_flow/graph_patch, and apply verified code mutations with block_code_mutate.
+description: Context operating system for AI coding agents. Call context_for_task at task start, keep source bindings synchronized, stream AST code along chains with chain_code_stream, design architecture from 0 with graph_flow/graph_patch, and apply verified code mutations with block_code_mutate.
 ---
 
 # mdflow: Context Operating System for AI Coding Agents
@@ -9,7 +9,8 @@ mdflow is the canonical development operating system for AI coding agents. It pr
 
 > [!IMPORTANT]
 > **Core Mission**: mdflow is your **living runtime OS**, not an archive to update after the fact.
-> Every piece of code is a reflection of the architectural graph. If you write code that is not registered in mdflow, you are creating architectural drift and technical debt.
+> The graph is the source of truth for architecture and intent; the source tree is the source of truth for behavior. `SourceBinding` is the bridge that keeps the two aligned while code moves.
+> New architecture must be registered in mdflow, while existing bound source is rescanned automatically instead of requiring a full post-hoc documentation pass.
 > **Architecture precedes code. Decisions precede implementation.**
 
 ---
@@ -38,6 +39,7 @@ stateDiagram-v2
      - Automatically initializes `.mdflow` if the project is brand new.
      - Save the returned `taskContextId`; pass it to `chain_code_stream`, `plan_context`, `entity_open`, `checkpoint_list`, and `changes_since` so focused reads consume one shared task budget instead of several independent responses.
      - Use the default shared budget first; increase `budgetChars` only when the task genuinely needs more context. `includeStructured=true` is an explicit expansion and is capped by the same task budget.
+     - `context_for_task` also performs a compact source-binding scan. Read its `sourceSync` summary and use `source_sync` when you need the complete delta; do not copy source code into the synchronization response.
      - **Rule**: Before knowing which Block and Chain the task belongs to, DO NOT open arbitrary source files.
   2. **Call `timeline_sync(nowDoing="...")`**:
      - Anchor your current working cursor immediately so other agents and future prompts have zero ambiguity about the active focus.
@@ -66,13 +68,28 @@ stateDiagram-v2
 
 ---
 
+## 🧭 Semantic model and source-of-truth boundary
+
+Keep these concepts separate; do not invent a Plan or a Chain gate merely because a Block exists:
+
+- **Block** is an abstract architecture unit. It may stand alone, participate in serial or parallel networks, and own an independent Checkpoint.
+- **Chain** is a higher-level serial/parallel network of Blocks. It may own an integration Checkpoint that is independent of the Blocks' Checkpoints.
+- **Plan** records development intent and work scope over Blocks, Chains, and rules. It does not own the architecture and does not need to cover every Block or Chain. Unplanned architecture is valid.
+- **Checkpoint** belongs to its declared target. A Block Checkpoint verifies that Block; a Chain Checkpoint verifies integration; a Plan gate verifies the Plan's required scope. A standalone Block Checkpoint is not an error.
+
+Source synchronization follows one stable rule: the file plus `symbol`/method name is the binding identity; `startLine`/`endLine` are derived coordinates. At mdflow boundaries (`context_for_task`, `chain_code_stream`, `graph_validate`, checkpoint evaluation, and `run_command`), active bindings are rescanned. `moved` means the symbol was found at a new range, `changed` means its current implementation differs, and `missing`/`ambiguous`/`unreadable` means the current implementation is unsafe to stream or mutate.
+
+Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit compact delta. `chain_code_stream(mode="slice")` must resolve the current symbol before returning a body and must never fall back to an old slice. An external host shell/IDE edit is allowed when explicitly needed; treat it as an untracked boundary and let the next mdflow boundary detect it, or call `source_sync` immediately.
+
+---
+
 ### ⚡ Trigger 3: When Tracing Multi-Module Execution Chains
 * **Your Natural Habit (WRONG)**: Reading 3–5 full source files (1,000–3,000 lines), wasting 80% of your context window on boilerplate imports, formatting, and unrelated helpers.
 * **The mdflow Reflex (MANDATORY)**:
   - **Trigger**: Call `chain_code_stream(chainId="...", mode="contract")`:
     - The default stream is **contract-first**: symbol, signature, source status, line range, and declared contract only.
     - Request `mode="slice"` only for the smallest implementation body needed for a concrete edit; never use it as a substitute for a full-file dump.
-    - Treat `sourceStatus="stale"|"missing"|"unreadable"` as a stop signal instead of guessing from adjacent code.
+    - Treat `sourceStatus="stale"|"missing"|"unreadable"|"ambiguous"` as a stop signal instead of guessing from adjacent code. `moved` and `changed` are current-source results; refresh the stream before mutating or relying on old evidence.
     - This keeps the normal trace small and makes the token budget observable rather than claiming a fixed percentage.
     - Pass the `taskContextId` returned by `context_for_task` so Chain expansion shares the task budget; omitting it is an explicit unbounded escape hatch.
 
@@ -87,8 +104,9 @@ stateDiagram-v2
        - `verifyCommand` is required. If the command fails, **mdflow rolls back the file automatically**, ensuring zero broken intermediate states.
        - When editing a file that may have changed since it was read, request the latest Chain stream with `includeStructured=true` and pass its full `sourceHash` as `expectedSourceHash`.
   2. **Command output gateway**:
-     - Use `run_command(command="...")` for tests and builds. It captures stdout/stderr, redacts credentials and local paths, compresses routine output, and returns no raw terminal stream.
-     - Use `log_sanitize(rawOutput="...")` only for output already supplied by an external tool; it is not the normal command runner.
+      - Use `run_command(command="...")` for tests and builds. It captures stdout/stderr, redacts credentials and local paths, compresses routine output, and returns no raw terminal stream.
+      - Use `log_sanitize(rawOutput="...")` only for output already supplied by an external tool; it is not the normal command runner.
+      - An explicitly allowed external `exec_command` or IDE edit is not forbidden, but it is outside mdflow's immediate mutation receipt. Run `source_sync` when returning to the mdflow workflow; the next context/stream/validation boundary will also detect the drift.
 
 ---
 
@@ -111,7 +129,8 @@ stateDiagram-v2
 1. **NEVER edit code before updating the graph**: If a new function, struct, or service does not exist in `.mdflow`, create the Block first.
 2. **NEVER pollute project roots**: Tool and editor configs (e.g. Cursor, OpenCode, Claude) must only be written to their canonical user/global application support directories unless the project explicitly maintains them.
 3. **NEVER dump full files when AST streams exist**: Always prefer `chain_code_stream` over reading entire multi-hundred-line files.
-4. **NEVER declare a task done without a Checkpoint**: Every completed feature or bugfix requires a passing `checkpoint_record` or `step_advance`.
+4. **NEVER close a required gate without current evidence**: Record a passing Checkpoint for the declared Block, Chain, or Plan gate. Do not create artificial Plan membership or Chain gates just to make standalone architecture look complete.
+5. **NEVER use a stale implementation body**: If a source binding is missing, unreadable, or ambiguous, rebind or ask for a decision; never paste the previous slice back into context or mutation.
 
 ---
 
@@ -130,6 +149,7 @@ stateDiagram-v2
 | | `block_code_mutate` | **Implementation phase** — exact symbol mutation + source-drift check + auto-rollback. | `blockId`, `symbol`, `newCode`, `verifyCommand`, `expectedSourceHash` |
 | | `run_command` | **Normal test/build gateway** — execute inside the project and return sanitized output only. | `command`, `cwd`, `timeoutMs`, `maxChars` |
 | | `log_sanitize` | Processing large external compiler/test outputs. | `rawOutput`, `exitCode` |
+| **Synchronization** | `source_sync` | **After external edits or when a delta is needed** — rescan active bindings and return compact source changes. | `sinceRevision`, `includeUnchanged` |
 | **Milestones** | `checkpoint_record` | **Verification phase** — recording objective test/build evidence. | `targetId`, `status`, `evidenceLevel` |
 | | `step_advance` | **Completion phase** — moving the active plan step cursor forward. | `summary` |
 | | `timeline_sync` | **Handoff / Pause** — updating `nowDoing` and `nextUp`. | `nowDoing`, `nextUp` |

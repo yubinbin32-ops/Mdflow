@@ -526,6 +526,19 @@ private struct EditorPlatformRow: View {
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
                             .background(Capsule().fill(Color.black.opacity(0.04)))
+                    } else if status.isAppVersionMismatch {
+                        HStack(spacing: 3) {
+                            Text("App v\(status.appVersion)")
+                            Text("↔")
+                            Text("Plugin v\(status.targetVersion)")
+                            Text("·")
+                            Text(store.text("versionMismatch"))
+                        }
+                        .font(.system(size: 7.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.orange)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.orange.opacity(0.12)))
                     } else if status.isSynced {
                         HStack(spacing: 3) {
                             Text("v\(status.installedVersion ?? status.targetVersion)")
@@ -538,6 +551,13 @@ private struct EditorPlatformRow: View {
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(Capsule().fill(MdflowTheme.success.opacity(0.12)))
+                    } else if status.isBuildMismatch {
+                        Text(store.text("bundleChanged"))
+                            .font(.system(size: 7.5, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.orange)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.orange.opacity(0.12)))
                     } else if status.isOutdated {
                         HStack(spacing: 3) {
                             Text("v\(status.installedVersion ?? "?")")
@@ -590,14 +610,14 @@ private struct EditorPlatformRow: View {
                             .foregroundStyle(MdflowTheme.muted)
                     }
                     .frame(width: 64, alignment: .trailing)
-                } else if status.isOutdated {
+                } else if status.isOutdated || status.isAppVersionMismatch || status.isBuildMismatch {
                     Button(action: {
                         store.syncEditor(id: status.id)
                     }) {
                         HStack(spacing: 3) {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.system(size: 9, weight: .bold))
-                            Text(store.text("updateSingle"))
+                            Text(status.isAppVersionMismatch || status.isBuildMismatch ? store.text("resync") : store.text("updateSingle"))
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                         }
                     }

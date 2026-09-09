@@ -1932,7 +1932,6 @@ export function executeGraphPatch(service, {
   const after = service.snapshot();
   const coverage = architectureCoverage(after);
   const validation = service.validate();
-  const unverified = coverage.unverifiedIds.map((id) => `block:${id}`);
   const markdown = [
     "# Graph patch",
     "- Protocol: mdflow/1",
@@ -1946,8 +1945,10 @@ export function executeGraphPatch(service, {
     "",
     "## Coverage",
     `- Blocks: ${coverage.totalBlocks} total · ${coverage.verified} verified · ${coverage.planned} planned · ${coverage.withCheckpoint} with checkpoints`,
-    `- Chains: ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone · ${coverage.failingIds.length} failing`,
-    ...(unverified.length ? [`- Unverified: ${unverified.join(", ")}`] : []),
+    `- Chains: ${coverage.inChains} with member Blocks · ${coverage.failingIds.length} failing`,
+    ...(coverage.requiredCheckpointMissingIds.length
+      ? [`- Required verification missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}`]
+      : []),
     "",
     "## Next",
     "Use entity_open for changed refs and graph_validate for the full validation report.",

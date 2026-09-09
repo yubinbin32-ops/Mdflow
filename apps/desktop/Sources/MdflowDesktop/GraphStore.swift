@@ -278,6 +278,14 @@ final class GraphStore: ObservableObject {
         let planned = directlyPlanned.union(chainPlanned)
         let checkpointGroups = Dictionary(grouping: snapshot.checkpoints.filter { $0.targetType == "block" }, by: \.targetId)
         let bindingsByCheckpoint = Dictionary(grouping: snapshot.checkpointBindings, by: \.checkpointId)
+        var explicitlyRequiredBlockIDs = Set(snapshot.checkpointBindings.filter {
+            $0.required && $0.subjectType == "block"
+        }.map(\.subjectId))
+        for reference in snapshot.planCheckpointReferences where reference.required && candidatePlanIDs.contains(reference.planId) {
+            if let checkpoint = snapshot.checkpoints.first(where: { $0.id == reference.checkpointId }), checkpoint.targetType == "block" {
+                explicitlyRequiredBlockIDs.insert(checkpoint.targetId)
+            }
+        }
         let changesByBlock = Dictionary(grouping: snapshot.planChanges.filter {
             candidatePlanIDs.contains($0.planId) && $0.entityType == "block"
         }, by: \.entityId)
@@ -303,7 +311,7 @@ final class GraphStore: ObservableObject {
             let relevantChainIDs = planID == nil
                 ? memberChainIDs
                 : Set(candidateScopes.filter { structuredStringList($0.nodeIds).contains(block.id) }.map(\.chainId))
-            let checkpointRequired = planned.contains(block.id) || block.deliveryState == "complete"
+            let checkpointRequired = explicitlyRequiredBlockIDs.contains(block.id)
             return BlockCoverage(
                 blockID: block.id,
                 hasCheckpoint: !checkpoints.isEmpty,
@@ -814,7 +822,7 @@ final class GraphStore: ObservableObject {
             "overview":"整体网络", "plans":"计划", "chains":"链路", "settings":"设置", "done":"完成",
             "summary":"摘要", "details":"详情", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
             "plugin":"多平台 AI 编辑器同步", "pluginHelp":"管理各大 AI 客户端（Claude、Cursor、Antigravity、OpenCode、Codex）的 MCP 直连配置。",
-            "syncAll":"一键同步全部", "syncSingle":"同步配置", "updateSingle":"更新", "synced":"已就绪", "notSynced":"未连接", "notDetected":"未检测到客户端", "notConfigured":"待同步", "skipped":"未安装", "latest":"最新", "updateAvailable":"可更新", "syncing":"正在同步…",
+            "syncAll":"一键同步全部", "syncSingle":"同步配置", "updateSingle":"更新", "resync":"重新同步", "versionMismatch":"版本不一致", "bundleChanged":"Bundle 已变化", "synced":"已就绪", "notSynced":"未连接", "notDetected":"未检测到客户端", "notConfigured":"待同步", "skipped":"未安装", "latest":"最新", "updateAvailable":"可更新", "syncing":"正在同步…",
             "installPlugin":"一键安装", "installingPlugin":"正在安装…", "checkingPlugin":"正在检查编辑器状态…", "pluginNotInstalled":"尚未安装", "pluginInstalled":"已安装；新任务中即可使用", "pluginInstallFailed":"安装失败",
             "liveData":"实时数据内核", "liveHelp":"底层图数据变动自动秒级热重载，无需手动刷新。", "language":"界面语言", "appearance":"外观模式", "system":"跟随系统", "light":"浅色", "dark":"深色",
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
@@ -822,13 +830,13 @@ final class GraphStore: ObservableObject {
             "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
             "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则", "decisions":"架构决策",
             "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
-            "all":"全部", "verification":"验证", "unassigned":"独立验证", "verified":"已验证", "unplanned":"未规划", "noCheckpoint":"无检查点", "checkpointFree":"待验证", "directBlockWork":"直接 Block 工作", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
+            "all":"全部", "verification":"验证", "unassigned":"独立验证", "verified":"已验证", "directBlockWork":"直接 Block 工作", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
         ]
         let en: [String: String] = [
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
             "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
             "plugin":"AI EDITOR MCP BRIDGES", "pluginHelp":"Sync mdflow architecture context to Claude Desktop, Cursor, Antigravity, OpenCode, and Codex.",
-            "syncAll":"Sync All", "syncSingle":"Sync", "updateSingle":"Update", "synced":"Connected", "notSynced":"Not Connected", "notDetected":"Not Detected", "notConfigured":"Not Configured", "skipped":"Skipped", "latest":"Latest", "updateAvailable":"Update", "syncing":"Syncing…",
+            "syncAll":"Sync All", "syncSingle":"Sync", "updateSingle":"Update", "resync":"Re-sync", "versionMismatch":"Version mismatch", "bundleChanged":"Bundle changed", "synced":"Connected", "notSynced":"Not Connected", "notDetected":"Not Detected", "notConfigured":"Not Configured", "skipped":"Skipped", "latest":"Latest", "updateAvailable":"Update", "syncing":"Syncing…",
             "installPlugin":"Install Plugin", "installingPlugin":"Installing…", "checkingPlugin":"Checking editor statuses…", "pluginNotInstalled":"Not installed", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
             "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "appearance":"Appearance", "system":"System", "light":"Light", "dark":"Dark",
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
@@ -836,7 +844,7 @@ final class GraphStore: ObservableObject {
             "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
             "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules", "decisions":"Architecture Decisions",
             "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
-            "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "verified":"Verified", "unplanned":"Unplanned", "noCheckpoint":"No checkpoint", "checkpointFree":"Checkpoint-free", "directBlockWork":"Direct Block work", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
+            "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "verified":"Verified", "directBlockWork":"Direct Block work", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
         ]
         return (activeLocale == "zh-Hans" ? zh : en)[key] ?? key
     }

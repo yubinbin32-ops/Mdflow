@@ -46,6 +46,7 @@ import {
   extractCheckpointIdentity,
   stripCheckpointIdentity,
 } from "./checkpoint-freshness.mjs";
+import { bindingIdentity, scanSourceBindings } from "./source-binding.mjs";
 import {
   renderProjectMap,
   listDecisions,
@@ -75,6 +76,11 @@ export class MdflowService {
     const resolvedOptions = typeof options === "string" ? { projectRoot: options } : options;
     this.paths = resolveProjectPaths(resolvedOptions);
     this.database = openDatabase(this.paths.databasePath);
+    this.sourceBindingState = new Map();
+    this.sourceFileCache = new Map();
+    this.sourceSyncRevision = 0;
+    this.sourceSyncState = null;
+    this.sourceSyncHistory = [];
     this.ensureProject();
     this.ensureSynced();
   }
@@ -146,6 +152,99 @@ export class MdflowService {
       );
   }
 
+  /**
+   * Scan only files already bound by SourceRefs.  This is deliberately a
+   * read-time fence: external editor/exec/git changes become visible at the
+   * next mdflow boundary without requiring a fragile filesystem watcher.
+   * Line ranges are refreshed in memory from the current symbol; callers may
+   * persist derived coordinates after an explicit code mutation.
+   */
+  syncSourceBindings({ includeUnchanged = false } = {}) {
+    const projectId = this.paths.descriptor.id;
+    const refs = this.database
+      .prepare(
+        `SELECT sr.id, sr.block_id, sr.path, sr.start_line, sr.end_line, sr.symbol, sr.role, sr.git_commit
+         FROM source_refs sr
+         JOIN blocks b ON b.id = sr.block_id
+        WHERE b.project_id = ? AND b.archived = 0
+        ORDER BY sr.path, sr.start_line, sr.id`,
+      )
+      .all(projectId)
+      .map((row) => ({
+        id: row.id,
+        blockId: row.block_id,
+        path: row.path,
+        startLine: row.start_line,
+        endLine: row.end_line,
+        symbol: row.symbol,
+        role: row.role,
+        gitCommit: row.git_commit,
+      }));
+    const previousById = this.sourceBindingState;
+    const result = scanSourceBindings({
+      projectRoot: this.paths.projectRoot,
+      sourceRefs: refs,
+      previous: previousById,
+      fileCache: this.sourceFileCache,
+    });
+    const previousRevision = this.sourceSyncState?.sourceRevision ?? null;
+    const inventoryChanged = previousById.size !== result.bindings.length ||
+      [...previousById.keys()].some((id) => !result.bindings.some((item) => item.id === id));
+    const changed = Boolean(previousRevision && previousRevision !== result.sourceRevision) || inventoryChanged;
+    if (changed) {
+      this.sourceSyncRevision += 1;
+      this.sourceSyncHistory.push({
+        revision: this.sourceSyncRevision,
+        scannedAt: result.scannedAt,
+        changes: result.changes,
+      });
+      if (this.sourceSyncHistory.length > 100) this.sourceSyncHistory.shift();
+    }
+    this.sourceBindingState = new Map(result.bindings.map((binding) => [binding.id, binding]));
+    this.sourceSyncState = {
+      revision: this.sourceSyncRevision,
+      sourceRevision: result.sourceRevision,
+      scannedAt: result.scannedAt,
+      changed,
+      bindingCount: result.bindings.length,
+      changedBindingCount: result.changes.length,
+      invalidBindingCount: result.bindings.filter((item) => ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(item.bindingStatus)).length,
+      affectedBlockIds: [...new Set(result.changes.map((item) => item.blockId).filter(Boolean))],
+      changes: result.changes,
+    };
+    return {
+      ...this.sourceSyncState,
+      bindings: (includeUnchanged ? result.bindings : result.bindings.filter((item) =>
+        item.bindingStatus !== "fresh" || item.implementationStatus === "changed" ||
+        result.changes.some((change) => change.refId === item.id),
+      )).map(bindingIdentity),
+    };
+  }
+
+  sourceBindingReport(options = {}) {
+    this.ensureSynced();
+    const report = this.syncSourceBindings(options);
+    const sinceRevision = Number.isInteger(options.sinceRevision) ? options.sinceRevision : null;
+    const historicalChanges = sinceRevision == null
+      ? report.changes
+      : this.sourceSyncHistory.filter((item) => item.revision > sinceRevision).flatMap((item) => item.changes);
+    const chainIds = new Set();
+    for (const change of historicalChanges) {
+      this.database
+        .prepare("SELECT chain_id FROM chain_nodes WHERE block_id = ?")
+        .all(change.blockId)
+        .forEach((row) => chainIds.add(row.chain_id));
+    }
+    return {
+      ...report,
+      sourceSyncRevision: report.revision,
+      changes: historicalChanges,
+      changed: historicalChanges.length > 0,
+      affectedBlockIds: [...new Set(historicalChanges.map((item) => item.blockId).filter(Boolean))],
+      affectedChainIds: [...chainIds],
+    };
+  }
+
   project() {
     this.ensureSynced();
     return this.database.prepare("SELECT * FROM projects WHERE id = ?").get(this.paths.descriptor.id);
@@ -153,6 +252,7 @@ export class MdflowService {
 
   snapshot() {
     this.ensureSynced();
+    const sourceSync = this.syncSourceBindings();
     const projectId = this.paths.descriptor.id;
     const blocks = this.database
       .prepare("SELECT * FROM blocks WHERE project_id = ? AND archived = 0 ORDER BY title")
@@ -379,6 +479,7 @@ export class MdflowService {
       decisions,
       decisionScopes,
       sourceRefs,
+      sourceSync,
       checkpoints: derivedCheckpoints,
       checkpointBindings,
       checkpointDependencies,
@@ -391,6 +492,7 @@ export class MdflowService {
     if (!["contract", "slice"].includes(mode)) throw new Error('mode must be "contract" or "slice"');
     this.ensureSynced();
     const snapshot = this.snapshot();
+    const sourceSync = snapshot.sourceSync ?? this.syncSourceBindings();
     const chain = snapshot.chains.find((c) => c.id === chainId);
     if (!chain) throw new Error(`Chain not found: ${chainId}`);
 
@@ -405,7 +507,7 @@ export class MdflowService {
       if (!block) continue;
 
       const sourceRefs = this.database
-        .prepare("SELECT path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id")
+        .prepare("SELECT id, path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id")
         .all(block.id);
 
       let code = null;
@@ -419,34 +521,31 @@ export class MdflowService {
 
       if (sourceRefs.length > 0) {
         const ref = sourceRefs.find((candidate) => candidate.role === "implementation") || sourceRefs[0];
-        filePath = ref.path;
+        const binding = this.sourceBindingState.get(ref.id);
+        filePath = binding?.relativePath ?? ref.path;
         symbol = ref.symbol;
-        startLine = ref.start_line;
-        endLine = ref.end_line;
+        startLine = binding?.startLine ?? ref.start_line;
+        endLine = binding?.endLine ?? ref.end_line;
         sourceStatus = "missing";
-        const fullPath = path.isAbsolute(filePath)
-          ? filePath
-          : path.resolve(this.paths.projectRoot, filePath);
-        try {
-          if (fs.existsSync(fullPath)) {
-            const content = fs.readFileSync(fullPath, "utf8");
-            sourceHash = crypto.createHash("sha256").update(content).digest("hex");
-            const slice = extractSymbolSlice(content, {
+        if (binding) {
+          sourceStatus = binding.sourceStatus;
+          sourceHash = binding.fileHash;
+          signature = binding.signature;
+          if (binding.content && !["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(binding.bindingStatus)) {
+            const fullPath = binding.absolutePath;
+            const slice = extractSymbolSlice(binding.content, {
               symbol: ref.symbol,
-              startLine: ref.symbol ? null : ref.start_line,
-              endLine: ref.symbol ? null : ref.end_line,
+              startLine: ref.symbol ? null : binding.startLine ?? ref.start_line,
+              endLine: ref.symbol ? null : binding.endLine ?? ref.end_line,
               maxLines: maxLinesPerSymbol,
-              language: detectLanguage(fullPath),
+              language: binding.language,
               filePath: fullPath,
             });
-            sourceStatus = slice.found ? "anchored" : "stale";
             signature = slice.signature;
             startLine = slice.startLine;
             endLine = slice.endLine;
             code = mode === "slice" && slice.found ? slice.code : null;
           }
-        } catch {
-          sourceStatus = "unreadable";
         }
       }
 
@@ -470,11 +569,21 @@ export class MdflowService {
       chainId: chain.id,
       title: chain.title,
       mode,
+      sourceSync: {
+        revision: sourceSync.revision,
+        changed: sourceSync.changed,
+        changedBindingCount: sourceSync.changedBindingCount,
+        invalidBindingCount: sourceSync.invalidBindingCount,
+        changes: sourceSync.changes.slice(0, 12),
+      },
       nodes: streamNodes,
       codeStream,
       markdown: [
         `# Chain Code Stream: ${chain.title} (${chain.id})`,
         `Nodes: ${streamNodes.length} · Sliced from AST symbol facades`,
+        `Source sync: r${sourceSync.revision} · ${sourceSync.changedBindingCount} binding change(s) · ${sourceSync.invalidBindingCount} invalid`,
+        ...(sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 8).map((change) =>
+          `- block:${change.blockId} ${change.symbol ?? change.path} · ${change.kinds.join(", ")}`)] : []),
         "",
         codeStream,
       ].join("\n"),
@@ -487,6 +596,11 @@ export class MdflowService {
 
   runCommand({ command, cwd = ".", timeoutMs = 30000, maxChars = 3000 } = {}) {
     if (!command?.trim()) throw new Error("command is required");
+    // Establish a source baseline before an external command can edit files;
+    // the post-command scan then turns exec/git/script edits into a compact
+    // mdflow-visible change receipt.
+    this.ensureSynced();
+    this.syncSourceBindings();
     const projectRoot = path.resolve(this.paths.projectRoot);
     const targetCwd = path.resolve(projectRoot, cwd || ".");
     const relativeCwd = path.relative(projectRoot, targetCwd);
@@ -514,6 +628,7 @@ export class MdflowService {
     const safeCommand = redactSensitiveText(command, { projectRoot }).text
       .replace(/[\r\n]+/g, " ")
       .replace(/`/g, "\\`");
+    const sourceSync = this.syncSourceBindings();
     return {
       success: exitCode === 0 && !result.error,
       command: safeCommand,
@@ -527,6 +642,13 @@ export class MdflowService {
       compressionRatio: sanitized.compressionRatio,
       hasErrors: sanitized.hasErrors,
       redactions: sanitized.redactions,
+      sourceSync: {
+        revision: sourceSync.revision,
+        changed: sourceSync.changed,
+        changedBindingCount: sourceSync.changedBindingCount,
+        invalidBindingCount: sourceSync.invalidBindingCount,
+        changes: sourceSync.changes.slice(0, 12),
+      },
     };
   }
 
@@ -554,6 +676,11 @@ export class MdflowService {
     const fullPath = path.isAbsolute(filePath)
       ? filePath
       : path.resolve(this.paths.projectRoot, filePath);
+
+    const currentBinding = this.sourceBindingState.get(ref.id);
+    if (currentBinding && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(currentBinding.bindingStatus)) {
+      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rescan/rebind before mutating`);
+    }
 
     if (!fs.existsSync(fullPath)) {
       throw new Error(`Source file not found at ${fullPath}`);
@@ -588,6 +715,19 @@ export class MdflowService {
       };
     }
 
+    const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
+    const updatedBinding = this.sourceBindingState.get(ref.id);
+    if (updatedBinding?.bindingStatus === "fresh" || updatedBinding?.bindingStatus === "moved") {
+      this.database
+        .prepare("UPDATE source_refs SET start_line = ?, end_line = ? WHERE id = ?")
+        .run(updatedBinding.startLine, updatedBinding.endLine, ref.id);
+      try {
+        exportGraphToJson(this.database, this.paths.graphJsonPath);
+      } catch {
+        // Derived coordinates are still available in the live binding index.
+      }
+    }
+
     return {
       success: true,
       blockId,
@@ -595,6 +735,11 @@ export class MdflowService {
       filePath,
       replacedLines,
       sourceHash: crypto.createHash("sha256").update(updatedCode).digest("hex"),
+      sourceSync: {
+        revision: sourceSync.revision,
+        changedBindingCount: sourceSync.changedBindingCount,
+        affectedBlockIds: sourceSync.affectedBlockIds,
+      },
       verification: {
         passed: true,
         ...verification,

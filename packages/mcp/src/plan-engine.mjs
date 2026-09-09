@@ -139,11 +139,9 @@ export function renderPlanContext(service, { id, locale = "en", maxChars = 12000
   lines.push("", "## Architecture coverage");
   lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
   lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct · ${coverage.chainPlanBlocks} through Chains)`);
-  lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} · ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone · ${coverage.failingIds.length} failing`);
-  if (coverage.unplannedIds.length) lines.push(`- Outside this Plan: ${coverage.unplannedIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
-  if (coverage.withoutCheckpointIds.length) lines.push(`- Required Block checkpoints missing: ${coverage.withoutCheckpointIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
-  if (coverage.checkpointUnboundIds.length) lines.push(`- Block checkpoints not bound to an exact PlanChange: ${coverage.checkpointUnboundIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " …" : ""}`);
-  if (coverage.chainGateMissingIds.length) lines.push(`- Blocks on Chains without integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " …" : ""}`);
+  lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} · ${coverage.failingIds.length} failing`);
+  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required verification missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " …" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((chainId) => `chain:${chainId}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " …" : ""}`);
   const typed = plan.typedProgress;
   lines.push("", "## Typed progress");
   lines.push(`- Direct Block Changes: ${typed.directBlockChanges.completed}/${typed.directBlockChanges.total}`);

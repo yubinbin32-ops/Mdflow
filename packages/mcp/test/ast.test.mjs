@@ -88,6 +88,27 @@ class InventoryService:
   assert.ok(swiftSlice.signature.includes("processPayment"));
 });
 
+test("ast: file paths select the adapter and expose computed Swift properties", () => {
+  const swiftCode = `
+struct DetailView {
+    var body: some View {
+        Text("detail")
+    }
+
+    private func refresh() {
+        print("refresh")
+    }
+}
+`;
+  const symbols = extractSymbols(swiftCode, { filePath: "DetailView.swift" });
+  assert.ok(symbols.find((s) => s.name === "body" && s.kind === "property"));
+  assert.equal(symbols.find((s) => s.name === "body")?.qualifiedName, "DetailView.body");
+  assert.ok(symbols.find((s) => s.name === "refresh" && s.kind === "function"));
+  const body = extractSymbolSlice(swiftCode, { symbol: "DetailView.body", filePath: "DetailView.swift" });
+  assert.equal(body.found, true);
+  assert.match(body.code, /Text\("detail"\)/);
+});
+
 test("ast: extractSymbolSlice extracts targeted slice with collapse", () => {
   const code = Array.from({ length: 100 }, (_, i) => `const line_${i + 1} = ${i + 1};`).join("\n");
   const slice = extractSymbolSlice(code, { startLine: 10, endLine: 80, maxLines: 20 });

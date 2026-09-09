@@ -34,11 +34,16 @@ export function detectLanguage(filePath = "") {
 /**
  * Extract symbols (functions, classes, interfaces, types) from source code using resilient syntax patterns
  */
-export function extractSymbols(sourceCode, { language = "typescript", filePath = "" } = {}) {
+export function extractSymbols(sourceCode, { language = null, filePath = "" } = {}) {
   const lines = sourceCode.split(/\r?\n/);
   const symbols = [];
 
-  const lang = language === "text" && filePath ? detectLanguage(filePath) : language;
+  // A file path is the least surprising language hint for callers that are
+  // indexing a repository. Keep the old TypeScript default only when no path
+  // is available, while still honoring an explicit language override.
+  const lang = language && language !== "text"
+    ? language
+    : (filePath ? detectLanguage(filePath) : "typescript");
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -60,6 +65,27 @@ export function extractSymbols(sourceCode, { language = "typescript", filePath =
           signature: trimmed.replace(/\{$/, "").trim(),
           startLine: lineNum,
           endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
+      // Large template constants such as a database schema are not function
+      // bodies, but they are still useful file-local anchors for freshness.
+      const templateConstMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*`/);
+      if (templateConstMatch) {
+        let endLine = lineNum;
+        for (let j = i; j < lines.length; j++) {
+          if (lines[j].includes("`") && (j !== i || lines[j].lastIndexOf("`") > lines[j].indexOf("`"))) {
+            endLine = j + 1;
+            break;
+          }
+        }
+        symbols.push({
+          name: templateConstMatch[1],
+          kind: "constant",
+          signature: `const ${templateConstMatch[1]} = \`...\``,
+          startLine: lineNum,
+          endLine,
         });
         continue;
       }
@@ -132,12 +158,41 @@ export function extractSymbols(sourceCode, { language = "typescript", filePath =
       }
     } else if (lang === "swift") {
       // Swift func
-      const swiftFuncMatch = trimmed.match(/^(?:public\s+|private\s+|fileprivate\s+|internal\s+|open\s+)?(?:static\s+|class\s+)?(?:mutating\s+)?func\s+([A-Za-z0-9_]+)\s*(\([^{]*\))/);
+      const swiftFuncMatch = trimmed.match(
+        /^(?:(?:public|private|fileprivate|internal|open|nonisolated|static|class|mutating|override|final|async|throws|rethrows)\s+)*func\s+([A-Za-z0-9_]+)\s*\(/,
+      );
       if (swiftFuncMatch) {
+        // Swift permits long signatures to place the closing parenthesis and
+        // opening brace on later lines. The name is the stable identity; the
+        // compact signature is assembled only for display.
+        let signature = trimmed;
+        if (!trimmed.includes(")")) {
+          for (let j = i + 1; j < Math.min(lines.length, i + 12); j++) {
+            signature += ` ${lines[j].trim()}`;
+            if (lines[j].includes("{")) break;
+          }
+        }
         symbols.push({
           name: swiftFuncMatch[1],
           kind: "function",
-          signature: `${swiftFuncMatch[1]}${swiftFuncMatch[2]}`,
+          signature: signature.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i),
+        });
+        continue;
+      }
+
+      // Computed properties (notably SwiftUI `body` and view sections) are
+      // source identities too. Treat only properties with a brace body as
+      // AST-addressable; stored properties remain data, not mutation slices.
+      const swiftPropertyMatch = trimmed.match(
+        /^(?:(?:public|private|fileprivate|internal|open)\s+)?(?:private\(set\)\s+)?(?:static\s+|class\s+)?var\s+([A-Za-z0-9_]+)(?:\s*:\s*[^={]+)?\s*\{/,
+      );
+      if (swiftPropertyMatch) {
+        symbols.push({
+          name: swiftPropertyMatch[1],
+          kind: "property",
+          signature: trimmed.replace(/\{$/, "").trim(),
           startLine: lineNum,
           endLine: findBlockEnd(lines, i),
         });
@@ -185,7 +240,18 @@ export function extractSymbols(sourceCode, { language = "typescript", filePath =
     }
   }
 
-  return symbols;
+  // Attach a qualified name after the first pass so methods/properties inside
+  // types remain addressable even when a file contains repeated names such as
+  // SwiftUI's `body`. The original short `name` is preserved for editor
+  // search and backwards-compatible callers.
+  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol"].includes(item.kind));
+  return symbols.map((item) => {
+    if (["class", "struct", "enum", "protocol"].includes(item.kind)) return item;
+    const owner = typeSymbols
+      .filter((type) => type.startLine < item.startLine && type.endLine >= item.endLine)
+      .sort((left, right) => (left.endLine - left.startLine) - (right.endLine - right.startLine))[0];
+    return owner ? { ...item, qualifiedName: `${owner.name}.${item.name}` } : item;
+  });
 }
 
 /**
@@ -244,13 +310,18 @@ export function extractSymbolSlice(sourceCode, {
   let targetStart = startLine;
   let targetEnd = endLine;
   let matched = null;
+  let resolutionReason = null;
+  let resolutionCandidates = [];
 
-  if (symbol && (!targetStart || !targetEnd)) {
-    const symbols = extractSymbols(sourceCode, {
+  if (symbol) {
+    const resolution = resolveSymbolMatch(sourceCode, {
+      symbol,
       language: language || (filePath ? detectLanguage(filePath) : "typescript"),
       filePath,
     });
-    matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
+    matched = resolution.matched;
+    resolutionReason = resolution.reason;
+    resolutionCandidates = resolution.candidates;
     if (matched) {
       targetStart = matched.startLine;
       targetEnd = matched.endLine;
@@ -268,6 +339,8 @@ export function extractSymbolSlice(sourceCode, {
       endLine: null,
       totalLines: 0,
       code: "",
+      reason: resolutionReason || "missing",
+      candidates: resolutionCandidates,
     };
   }
 
@@ -284,13 +357,46 @@ export function extractSymbolSlice(sourceCode, {
 
   return {
     found: Boolean(matched || startLine || endLine),
-    symbol: matched?.name ?? symbol,
+    symbol: matched?.qualifiedName ?? matched?.name ?? symbol,
     signature: matched?.signature ?? null,
     startLine: targetStart,
     endLine: targetEnd,
     totalLines,
     code: result,
+    reason: null,
   };
+}
+
+/**
+ * Resolve one symbol without trusting a previously stored line range.
+ * A short method name is useful inside a file, but duplicate methods are not
+ * safe to mutate or stream implicitly. Qualified names therefore match their
+ * leaf only when that leaf is unique in the current file.
+ */
+export function resolveSymbolMatch(sourceCode, { symbol, language = null, filePath = "" } = {}) {
+  if (!symbol?.trim()) return { matched: null, reason: "missing", candidates: [] };
+  const symbols = extractSymbols(sourceCode, {
+    language: language || (filePath ? detectLanguage(filePath) : "typescript"),
+    filePath,
+  });
+  const requested = symbol.trim();
+  const signatureName = requested.includes("(") ? requested.slice(0, requested.indexOf("(")).trim() : requested;
+  const leaf = signatureName.split(".").at(-1);
+  const rawCandidates = signatureName.includes(".")
+    ? symbols.filter((item) => item.name === signatureName || item.qualifiedName === signatureName)
+    : symbols.filter((item) =>
+      item.name === signatureName ||
+      item.qualifiedName === signatureName ||
+      item.name === leaf ||
+      item.qualifiedName === leaf ||
+      item.qualifiedName?.endsWith(`.${signatureName}`),
+    );
+  const callableCandidates = rawCandidates.filter((item) => ["function", "method"].includes(item.kind));
+  const candidates = requested.includes("(") && callableCandidates.length > 0 ? callableCandidates : rawCandidates;
+  const candidateNames = candidates.map((item) => item.qualifiedName ?? item.name);
+  if (candidates.length === 1) return { matched: candidates[0], reason: null, candidates: candidateNames };
+  if (candidates.length > 1) return { matched: null, reason: "ambiguous", candidates: candidateNames };
+  return { matched: null, reason: "missing", candidates: [] };
 }
 
 /**
@@ -314,7 +420,9 @@ export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000, mo
       `// Contract: ${contract || "(not declared)"}`,
     ];
     if (includeCode && code) bodyLines.push("", code);
-    if (includeCode && !code && sourceStatus === "missing") bodyLines.push("", "// No source slice available");
+    if (includeCode && !code && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus)) {
+      bodyLines.push("", `// No current source slice available (${sourceStatus}; rebind before reading implementation)`);
+    }
 
     const section = `${header}\n${bodyLines.join("\n")}\n`;
     if (currentChars + section.length > maxTotalChars && sections.length > 0) {
@@ -333,11 +441,14 @@ export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000, mo
  * Replace a specific symbol's implementation in source code using AST boundary detection
  */
 export function replaceSymbolSlice(sourceCode, { symbol, newCode, language = null }) {
-  const symbols = extractSymbols(sourceCode, { language: language || "typescript" });
-  const matched = symbols.find((s) => s.name === symbol || s.name.endsWith(`.${symbol}`));
-  if (!matched) {
-    throw new Error(`Symbol "${symbol}" not found in source code`);
+  const resolution = resolveSymbolMatch(sourceCode, { symbol, language: language || "typescript" });
+  if (!resolution.matched) {
+    const suffix = resolution.reason === "ambiguous"
+      ? `; candidates: ${resolution.candidates.join(", ")}`
+      : "";
+    throw new Error(`Symbol "${symbol}" ${resolution.reason === "ambiguous" ? "is ambiguous" : "not found in source code"}${suffix}`);
   }
+  const matched = resolution.matched;
 
   const lines = sourceCode.split(/\r?\n/);
   const before = lines.slice(0, matched.startLine - 1);
@@ -351,6 +462,6 @@ export function replaceSymbolSlice(sourceCode, { symbol, newCode, language = nul
       oldEndLine: matched.endLine,
       newEndLine: matched.startLine + newLines.length - 1,
     },
-    symbol: matched.name,
+    symbol: matched.qualifiedName ?? matched.name,
   };
 }

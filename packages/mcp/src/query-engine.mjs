@@ -71,16 +71,12 @@ export function renderProjectMap(service, { locale = "en" } = {}) {
   lines.push(`- ${graphBlocks.length} Blocks / ${snapshot.links.length} Links / ${snapshot.chains.length} Chain overlays`);
   lines.push(`- ${snapshot.decisions.length} Decisions (scoped index; expand a record on demand)`);
   lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified · ${coverage.planned}/${coverage.totalBlocks} planned · ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
-  lines.push(`- Verification coverage: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed · ${coverage.inChains} in Chains · ${coverage.outsideChainIds.length} standalone`);
-  lines.push(`- Architecture coverage: ${coverage.directPlanBlocks} direct Plan Blocks · ${coverage.chainPlanBlocks} through Chains · ${coverage.unverifiedIds.length} unverified · ${coverage.failingIds.length} failing`);
-  if (coverage.unverifiedIds.length) lines.push(`- Unverified Blocks: ${coverage.unverifiedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unverifiedIds.length > 12 ? " …" : ""}`);
+  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed · ${coverage.failingIds.length} failing`);
+  lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks covered; architecture outside the Plan remains valid`);
   if (coverage.failingIds.length) lines.push(`- Failed verification: ${coverage.failingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.failingIds.length > 12 ? " …" : ""}`);
-  if (coverage.outsideChainIds.length) lines.push(`- Outside Chains: ${coverage.outsideChainIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.outsideChainIds.length > 12 ? " …" : ""}`);
-  if (coverage.unplannedIds.length) lines.push(`- Unplanned Blocks: ${coverage.unplannedIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 12 ? " …" : ""}`);
-  if (coverage.withoutCheckpointIds.length) lines.push(`- Checkpoint-free Blocks (verification not requested yet): ${coverage.withoutCheckpointIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.withoutCheckpointIds.length > 12 ? " …" : ""}`);
   if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " …" : ""}`);
-  if (coverage.checkpointUnboundIds.length) lines.push(`- Unbound Block checkpoints: ${coverage.checkpointUnboundIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 12 ? " …" : ""}`);
-  if (coverage.chainGateMissingIds.length) lines.push(`- Missing Chain integration gates: ${coverage.chainGateMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 12 ? " …" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " …" : ""}`);
+  if (snapshot.sourceSync) lines.push(`- Source sync: r${snapshot.sourceSync.revision} · ${snapshot.sourceSync.bindingCount} bindings · ${snapshot.sourceSync.invalidBindingCount} needing relocation`);
   lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" · ") || "None"}`);
   lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" · ") || "None"}`);
   for (const block of graphBlocks.filter((item) => item.priority === "critical").slice(0, 8)) {
@@ -384,16 +380,19 @@ export function openEntity(service, rawPayload = {}) {
     lines.push(`- Architecture: ${entity.architectureLayer}`);
     lines.push(`- Scope: ${entity.scope}`);
     lines.push(`- Local order: ${entity.localOrder}`);
-    if (ruleScopes.length) {
-      lines.push(`- Rule scopes: ${ruleScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")} (background; not a Canvas Block)`);
-    }
+    if (ruleScopes.length) lines.push(`- Rule scopes: ${ruleScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
     if (coverage) {
-      lines.push(`- Coverage: checkpoint=${coverage.hasCheckpoint ? "yes" : "no"} · required=${coverage.checkpointRequired ? "yes" : "no"} · requiredMissing=${coverage.missingRequiredCheckpoint ? "yes" : "no"} · plan=${coverage.isCoveredByPlan ? "yes" : "no"} · chain=${coverage.isCoveredByChain ? "yes" : "no"} · verification=${coverage.isCoveredByAnyVerification ? "yes" : "no"}`);
+      const verification = coverage.missingRequiredCheckpoint
+        ? "needed"
+        : coverage.hasCheckpoint && coverage.isCoveredByAnyVerification
+          ? "recorded"
+          : coverage.hasCheckpoint
+            ? "checkpointed"
+            : null;
+      if (verification) lines.push(`- Verification: ${verification}`);
     }
   }
-  if (type === "decision" && decisionScopes.length) {
-    lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")} (background; not a Canvas entity)`);
-  }
+  if (type === "decision" && decisionScopes.length) lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
   if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
   if (entity.status) lines.push(`- Status: ${entity.status}`);
   if (type === "plan") {
@@ -468,9 +467,12 @@ export function openEntity(service, rawPayload = {}) {
   return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, decisionScopes, markdown: lines.join("\n") };
 }
 
-export function getChangesSince(service, { sequence = 0, limit = 100 } = {}) {
+export function getChangesSince(service, { sequence = 0, sourceSyncRevision = null, limit = 100 } = {}) {
   if (!Number.isInteger(sequence) || sequence < 0) throw new Error("sequence must be a non-negative integer");
   const boundedLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+  const sourceSync = service.sourceBindingReport({
+    sinceRevision: Number.isInteger(sourceSyncRevision) ? sourceSyncRevision : null,
+  });
   const latestSequence = service.database.prepare(
     "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?",
   ).get(service.paths.descriptor.id).sequence;
@@ -498,6 +500,7 @@ export function getChangesSince(service, { sequence = 0, limit = 100 } = {}) {
     `# Changes since sequence ${sequence}`,
     `Range: ${sequence} → ${rows.at(-1)?.sequence ?? sequence} · latest ${latestSequence} · earliest ${earliestSequence || "—"}`,
     `Returned: ${rows.length}${hasMore ? ` · more available after ${rows.at(-1)?.sequence ?? sequence}` : ""}`,
+    `Source sync: r${sourceSync.sourceSyncRevision} · ${sourceSync.changes.length} change(s) since ${Number.isInteger(sourceSyncRevision) ? `r${sourceSyncRevision}` : "last boundary"}`,
     "",
     ...rows.map((change) => {
       const fields = change.changedFields?.length ? ` · fields ${change.changedFields.join(", ")}` : "";
@@ -505,12 +508,18 @@ export function getChangesSince(service, { sequence = 0, limit = 100 } = {}) {
       return `- #${change.sequence} ${change.action} ${change.ref} · r${change.revision ?? "?"}${fields}${refs}${change.summary ? ` — ${change.summary}` : ""}`;
     }),
     ...(rows.length ? ["", "Use includeStructured=true when exact before/after JSON is required."] : []),
+    ...(sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 12).map((change) =>
+      `- block:${change.blockId} ${change.symbol ?? change.path} · ${change.kinds.join(", ")}`)] : []),
   ].join("\n");
   return {
     fromSequence: sequence,
     nextSequence: rows.at(-1)?.sequence ?? sequence,
     latestSequence,
     earliestSequence,
+    sourceSyncRevision: sourceSync.sourceSyncRevision,
+    sourceChanges: sourceSync.changes,
+    affectedBlockIds: sourceSync.affectedBlockIds,
+    affectedChainIds: sourceSync.affectedChainIds,
     hasMore,
     changes: rows,
     markdown,
@@ -595,29 +604,6 @@ export function validateGraph(service) {
       warnings.push(`Block block:${block.id} uses kind '${block.kind}'. Testing and verification criteria belong in Checkpoints and Plan gates.`);
       continue;
     }
-    if (block.deliveryState === "complete") {
-      const passed = snapshot.checkpoints.some(
-        (checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpointSatisfiesGate(checkpoint),
-      );
-      if (!passed) warnings.push(`Complete block has no passed checkpoint: block:${block.id}`);
-    }
-  }
-  const connectedBlockIds = new Set();
-  for (const link of snapshot.links) {
-    if (link.sourceType === "block") connectedBlockIds.add(link.sourceId);
-    if (link.targetType === "block") connectedBlockIds.add(link.targetId);
-  }
-  for (const node of snapshot.chainNodes) {
-    connectedBlockIds.add(node.blockId);
-  }
-  const ruleBlockIds = new Set(snapshot.backgroundScopes.map((s) => s.blockId));
-  const isolatedFlowBlocks = snapshot.blocks.filter((block) =>
-    !connectedBlockIds.has(block.id) &&
-    !ruleBlockIds.has(block.id) &&
-    !["principle", "decision", "risk", "test", "checkpoint"].includes(block.kind)
-  );
-  if (isolatedFlowBlocks.length > 0) {
-    warnings.push(`${isolatedFlowBlocks.length} architecture Block(s) have no Link or Chain connections (independent or awaiting flow): ${isolatedFlowBlocks.slice(0, 10).map((b) => `block:${b.id}`).join(", ")}${isolatedFlowBlocks.length > 10 ? " …" : ""}. Use graph_flow ("A -> B") if they belong to a sequence.`);
   }
   const unspecifiedBlocks = snapshot.blocks.filter((block) => block.architectureLayer === "unspecified");
   if (unspecifiedBlocks.length > 0) {
@@ -626,14 +612,11 @@ export function validateGraph(service) {
   if (coverage.requiredCheckpointMissingIds.length) {
     warnings.push(`${coverage.requiredCheckpointMissingIds.length} Block(s) require a checkpoint but have none: ${coverage.requiredCheckpointMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 20 ? " …" : ""}`);
   }
-  if (coverage.unplannedIds.length) {
-    warnings.push(`${coverage.unplannedIds.length} Block(s) are not covered by any Plan: ${coverage.unplannedIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.unplannedIds.length > 20 ? " …" : ""}`);
-  }
-  if (coverage.checkpointUnboundIds.length) {
-    warnings.push(`${coverage.checkpointUnboundIds.length} planned Block checkpoint(s) are not bound to an exact PlanChange: ${coverage.checkpointUnboundIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.checkpointUnboundIds.length > 20 ? " …" : ""}`);
-  }
-  if (coverage.chainGateMissingIds.length) {
-    warnings.push(`${coverage.chainGateMissingIds.length} Block(s) belong to Chains without an integration gate: ${coverage.chainGateMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.chainGateMissingIds.length > 20 ? " …" : ""}`);
+  // Plan coverage, standalone verification, and Chain integration are
+  // separate concepts. An unplanned Block is not a graph defect, and a
+  // standalone Block checkpoint does not need a PlanChange binding.
+  if (coverage.chainGateMissingChainIds.length) {
+    warnings.push(`${coverage.chainGateMissingChainIds.length} declared Chain integration gate(s) are not passed: ${coverage.chainGateMissingChainIds.slice(0, 20).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 20 ? " …" : ""}`);
   }
   const staleCheckpoints = snapshot.checkpoints.filter((checkpoint) =>
     checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "stale",
