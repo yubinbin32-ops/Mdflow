@@ -1,20 +1,20 @@
 {
   "version": 1,
   "projectId": "mdflow",
-  "graphRevision": 748,
-  "exportedAt": "2026-09-09T05:08:12.409Z",
+  "graphRevision": 753,
+  "exportedAt": "2026-09-09T10:38:03.762Z",
   "data": {
     "projects": [
       {
         "created_at": "2026-09-04T08:35:14.191Z",
-        "graph_revision": 748,
-        "handoff_json": "{\"activePlanId\":\"plan-ai-verification-workflow\",\"activeStepId\":\"step-5-checkpoint-sync\",\"nowDoing\":\"已全部完成测试内容并验证闭环\",\"nextUp\":\"向用户汇报全流程测试结果与系统状态\",\"lastFinished\":\"全流程 5 个测试步骤均已验证通过并记录门禁\",\"touchedFiles\":[],\"cursorUpdatedAt\":\"2026-09-08T16:56:49.861Z\"}",
+        "graph_revision": 753,
+        "handoff_json": "{\"activePlanId\":null,\"activeStepId\":null,\"nowDoing\":\"已验证：插件删除后状态联动精准切换为待同步\",\"nextUp\":\"向用户汇报排查原因与修复结果\",\"lastFinished\":\"修改 readCodexStatus 仅以 config.toml 实际注册项为判定依据\",\"touchedFiles\":[],\"cursorUpdatedAt\":\"2026-09-09T10:38:03.762Z\"}",
         "id": "mdflow",
         "name": "mdflow",
         "repo_root": ".",
         "schema_version": 1,
-        "timeline_json": "{\"activePlanId\":\"plan-ai-verification-workflow\",\"activeStepId\":\"step-5-checkpoint-sync\",\"nowDoing\":\"已全部完成测试内容并验证闭环\",\"nextUp\":\"向用户汇报全流程测试结果与系统状态\",\"lastFinished\":\"全流程 5 个测试步骤均已验证通过并记录门禁\",\"touchedFiles\":[],\"cursorUpdatedAt\":\"2026-09-08T16:56:49.861Z\"}",
-        "updated_at": "2026-09-09T05:08:12.409Z"
+        "timeline_json": "{\"activePlanId\":null,\"activeStepId\":null,\"nowDoing\":\"已验证：插件删除后状态联动精准切换为待同步\",\"nextUp\":\"向用户汇报排查原因与修复结果\",\"lastFinished\":\"修改 readCodexStatus 仅以 config.toml 实际注册项为判定依据\",\"touchedFiles\":[],\"cursorUpdatedAt\":\"2026-09-09T10:38:03.762Z\"}",
+        "updated_at": "2026-09-09T10:38:03.762Z"
       }
     ],
     "blocks": [
@@ -187,6 +187,27 @@
         "updated_at": "2026-09-08T11:42:32.358Z"
       },
       {
+        "architecture_layer": "unspecified",
+        "archived": 0,
+        "body": "",
+        "confidence": "confirmed",
+        "contract": "",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "current_revision": 1,
+        "delivery_state": "proposed",
+        "health_state": "healthy",
+        "id": "codex-plugin-lifecycle",
+        "kind": "service",
+        "local_order": 0,
+        "priority": "normal",
+        "project_id": "mdflow",
+        "scope": "general",
+        "summary": "管理 Codex 规范插件的安装、清理与个人市场注册，杜绝外部市场源污染。",
+        "tags_json": "[]",
+        "title": "Codex Plugin Lifecycle Manager",
+        "updated_at": "2026-09-09T10:33:37.478Z"
+      },
+      {
         "architecture_layer": "client",
         "archived": 0,
         "body": "Every Block card consistently renders kind, title, summary, delivery state, and health warning. Camera zoom scales the complete card as one object; it never swaps or hides summary content. Chain membership is expressed by the surrounding directional enclosures and the inspector instead of duplicate chips on the card. Full bodies and contracts remain in the inspector.",
@@ -290,6 +311,27 @@
         "tags_json": "[\"ui\",\"details\",\"history\"]",
         "title": "唯一详情检视器",
         "updated_at": "2026-09-06T04:56:19.054Z"
+      },
+      {
+        "architecture_layer": "unspecified",
+        "archived": 0,
+        "body": "",
+        "confidence": "confirmed",
+        "contract": "",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "current_revision": 1,
+        "delivery_state": "proposed",
+        "health_state": "healthy",
+        "id": "editor-detector",
+        "kind": "service",
+        "local_order": 0,
+        "priority": "normal",
+        "project_id": "mdflow",
+        "scope": "general",
+        "summary": "检测系统已安装的 AI 编辑器 (Claude, Cursor, Antigravity, OpenCode, Codex) 并读取版本比对状态。",
+        "tags_json": "[]",
+        "title": "Editor Platform Detector",
+        "updated_at": "2026-09-09T10:38:03.745Z"
       },
       {
         "architecture_layer": "application",
@@ -1189,6 +1231,17 @@
         "symbol": "Agent operating contract"
       },
       {
+        "block_id": "codex-plugin-lifecycle",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "end_line": null,
+        "git_commit": null,
+        "id": "source_96b4dd61-5593-4a5e-a5c9-da59bf35a867",
+        "path": "apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift",
+        "role": "implementation",
+        "start_line": null,
+        "symbol": "syncPlatform"
+      },
+      {
         "block_id": "compact-block-card",
         "created_at": "2026-09-04T10:36:11.104Z",
         "end_line": null,
@@ -1330,6 +1383,17 @@
         "role": "implementation",
         "start_line": 93,
         "symbol": "planDocument / chainScopeRow / planStepsSection"
+      },
+      {
+        "block_id": "editor-detector",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "end_line": null,
+        "git_commit": null,
+        "id": "source_cb084130-9eb8-4bad-bb40-30cdc0f7a509",
+        "path": "apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift",
+        "role": "implementation",
+        "start_line": null,
+        "symbol": "detectAllPlatforms"
       },
       {
         "block_id": "foundation-plan-bootstrap",
@@ -3434,7 +3498,53 @@
         "scope_value": "*"
       }
     ],
-    "decisions": [],
+    "decisions": [
+      {
+        "alternatives_json": "[]",
+        "archived": 0,
+        "consequences_json": "[]",
+        "created_at": "2026-09-09T10:36:42.331Z",
+        "current_revision": 1,
+        "id": "codex-active-registration-check",
+        "project_id": "mdflow",
+        "rationale": "用户在 Codex 桌面端卸载插件时，只会从 config.toml 移除注册，本地源码目录 ~/plugins 依然保留。若只检查本地文件会导致已卸载时依然显示已就绪的假同步。",
+        "status": "active",
+        "summary": "判定 Codex 是否安装 mdflow 插件，必须以 ~/.codex/config.toml 中是否存在 active 的插件或 MCP 注册项为准，不得仅凭 ~/plugins/mdflow 源码目录的存在而判定为已安装。",
+        "supersedes_decision_id": null,
+        "title": "Codex 插件真实安装状态检测策略 (Codex Active Registration Detection)",
+        "updated_at": "2026-09-09T10:36:42.331Z"
+      },
+      {
+        "alternatives_json": "[]",
+        "archived": 0,
+        "consequences_json": "[]",
+        "created_at": "2026-09-09T10:29:10.508Z",
+        "current_revision": 1,
+        "id": "codex-native-plugin-spec",
+        "project_id": "mdflow",
+        "rationale": "Codex 官方规范要求本地个人插件使用 personal 市场或本地隐式发现，避免 UI 产生冗余市场标签和重复插件。",
+        "status": "active",
+        "summary": "弃用 codex plugin marketplace add 外部市场源，采用 ~/.agents/plugins 规范实现单点安装，杜绝重复项。",
+        "supersedes_decision_id": null,
+        "title": "Codex 原生个人插件规范接入 (Codex Native Plugin via Personal Marketplace)",
+        "updated_at": "2026-09-09T10:29:10.508Z"
+      },
+      {
+        "alternatives_json": "[]",
+        "archived": 0,
+        "consequences_json": "[]",
+        "created_at": "2026-09-09T10:29:10.508Z",
+        "current_revision": 1,
+        "id": "multi-editor-sync-policy",
+        "project_id": "mdflow",
+        "rationale": "消除无用配置对代码库的侵入，支持版本比对与一键更新。",
+        "status": "active",
+        "summary": "仅同步本机实际安装的编辑器，跳过未安装编辑器，严禁向用户项目根目录生成 .cursor、.opencode、.agents 配置。",
+        "supersedes_decision_id": null,
+        "title": "多编辑器检测与零污染同步策略 (Multi-Editor Detection & Zero Root Pollution)",
+        "updated_at": "2026-09-09T10:29:10.508Z"
+      }
+    ],
     "decision_scopes": [],
     "plans": [],
     "plan_chain_refs": [],
@@ -3804,6 +3914,46 @@
         "target_type": "block",
         "title": "OpenCode 与精密工程设计多平台同步收口",
         "updated_at": "2026-09-07T16:37:11.426Z"
+      },
+      {
+        "aggregation_policy_json": "{}",
+        "checkpoint_kind": "atomic",
+        "coverage": "complete",
+        "created_at": "2026-09-09T10:33:37.478Z",
+        "criteria": "",
+        "current_revision": 1,
+        "eligible_after_children": 0,
+        "evidence_json": "[]",
+        "evidence_level": "real_target",
+        "id": "chk-codex-native-plugin-sync",
+        "invalidated_at": null,
+        "project_id": "mdflow",
+        "required_evidence_level": "static",
+        "status": "passed",
+        "target_id": "codex-plugin-lifecycle",
+        "target_type": "block",
+        "title": "Codex 规范个人插件与多端零污染同步闭环验证",
+        "updated_at": "2026-09-09T10:33:37.478Z"
+      },
+      {
+        "aggregation_policy_json": "{}",
+        "checkpoint_kind": "atomic",
+        "coverage": "complete",
+        "created_at": "2026-09-09T10:38:03.745Z",
+        "criteria": "",
+        "current_revision": 1,
+        "eligible_after_children": 0,
+        "evidence_json": "[]",
+        "evidence_level": "real_target",
+        "id": "chk-codex-uninstalled-detection",
+        "invalidated_at": null,
+        "project_id": "mdflow",
+        "required_evidence_level": "static",
+        "status": "passed",
+        "target_id": "editor-detector",
+        "target_type": "block",
+        "title": "Codex 插件卸载状态精准探测验证",
+        "updated_at": "2026-09-09T10:38:03.745Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -6689,51 +6839,6 @@
     "change_sets": [
       {
         "actor": "agent",
-        "created_at": "2026-09-07T15:56:08.053Z",
-        "git_head": null,
-        "id": "change_1fea8d6a-a404-4642-8389-9aabed8bbef6",
-        "project_id": "mdflow",
-        "reason": "Checkpoint: 验证 graph.json 能被重新灌入空数据库并保持图谱等价",
-        "task": "验证 graph.json 能被重新灌入空数据库并保持图谱等价"
-      },
-      {
-        "actor": "agent",
-        "created_at": "2026-09-07T15:56:10.933Z",
-        "git_head": null,
-        "id": "change_60476690-0620-4ea9-9658-e78a6c282b21",
-        "project_id": "mdflow",
-        "reason": "Checkpoint: 验证外部 Git Discard 能触发 SQLite 缓存自动刷新",
-        "task": "验证外部 Git Discard 能触发 SQLite 缓存自动刷新"
-      },
-      {
-        "actor": "agent",
-        "created_at": "2026-09-07T15:56:15.458Z",
-        "git_head": null,
-        "id": "change_cf94828d-9620-4231-aa53-dd83f86379fc",
-        "project_id": "mdflow",
-        "reason": "Checkpoint: 验证 revertChangeSet 支持包含 create_block 的完整逆向撤销",
-        "task": "验证 revertChangeSet 支持包含 create_block 的完整逆向撤销"
-      },
-      {
-        "actor": "agent",
-        "created_at": "2026-09-07T15:56:53.762Z",
-        "git_head": null,
-        "id": "change_211c93a2-de04-427c-aaa2-fd2288838da1",
-        "project_id": "mdflow",
-        "reason": "Complete git-sync-atomic-rollback refactoring and all checkpoints",
-        "task": ""
-      },
-      {
-        "actor": "agent",
-        "created_at": "2026-09-07T16:05:48.306Z",
-        "git_head": null,
-        "id": "change_f8f27448-7321-40db-952a-af5be7a75ff6",
-        "project_id": "mdflow",
-        "reason": "Add block",
-        "task": ""
-      },
-      {
-        "actor": "agent",
         "created_at": "2026-09-07T16:05:48.323Z",
         "git_head": null,
         "id": "change_2b770cf2-35e8-443d-9af6-e4cbb4d0e656",
@@ -7135,6 +7240,51 @@
         "id": "change_6799af02-858b-4f4f-ae68-ce386ed6efcb",
         "project_id": "mdflow",
         "reason": "Delete development plans in preparation for public release",
+        "task": ""
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T10:29:10.508Z",
+        "git_head": null,
+        "id": "change_b238d940-6ae2-47a5-95e0-84219d2f2fcd",
+        "project_id": "mdflow",
+        "reason": "Document multi-editor sync and zero root pollution policy",
+        "task": ""
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "git_head": null,
+        "id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "project_id": "mdflow",
+        "reason": "Add editor detection and Codex lifecycle blocks",
+        "task": ""
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T10:33:37.478Z",
+        "git_head": null,
+        "id": "change_7d7f01e3-0a76-4d2c-ac3b-dba58d639520",
+        "project_id": "mdflow",
+        "reason": "Record objective checkpoint for Codex native personal plugin and zero-pollution editor sync",
+        "task": ""
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T10:36:42.331Z",
+        "git_head": null,
+        "id": "change_cd2c4c67-7b6e-435e-97ce-ed42c44b2afb",
+        "project_id": "mdflow",
+        "reason": "Fix Codex plugin detection: require active config registration over disk file existence",
+        "task": ""
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-09T10:38:03.745Z",
+        "git_head": null,
+        "id": "change_182186a4-6085-4420-aae3-0bd48cf995bd",
+        "project_id": "mdflow",
+        "reason": "Record objective checkpoint for uninstalled status detection in Codex",
         "task": ""
       }
     ],
@@ -9212,6 +9362,159 @@
         "plan_id": "plan-ai-verification-workflow",
         "revision": 3,
         "summary": "Deleted plan plan-ai-verification-workflow"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"decision:multi-editor-sync-policy\"]",
+        "after_json": "{\"id\":\"multi-editor-sync-policy\",\"title\":\"多编辑器检测与零污染同步策略 (Multi-Editor Detection & Zero Root Pollution)\",\"summary\":\"仅同步本机实际安装的编辑器，跳过未安装编辑器，严禁向用户项目根目录生成 .cursor、.opencode、.agents 配置。\",\"rationale\":\"消除无用配置对代码库的侵入，支持版本比对与一键更新。\",\"alternatives\":[],\"consequences\":[],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":1,\"archived\":false,\"createdAt\":\"2026-09-09T10:29:10.508Z\",\"updatedAt\":\"2026-09-09T10:29:10.508Z\",\"scopes\":[]}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_b238d940-6ae2-47a5-95e0-84219d2f2fcd",
+        "changed_fields_json": "[\"title\",\"summary\",\"rationale\",\"status\"]",
+        "created_at": "2026-09-09T10:29:10.508Z",
+        "entity_id": "multi-editor-sync-policy",
+        "entity_type": "decision",
+        "evidence_refs_json": "[]",
+        "id": 1554,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "多编辑器检测与零污染同步策略 (Multi-Editor Detection & Zero Root Pollution)"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"decision:codex-native-plugin-spec\"]",
+        "after_json": "{\"id\":\"codex-native-plugin-spec\",\"title\":\"Codex 原生个人插件规范接入 (Codex Native Plugin via Personal Marketplace)\",\"summary\":\"弃用 codex plugin marketplace add 外部市场源，采用 ~/.agents/plugins 规范实现单点安装，杜绝重复项。\",\"rationale\":\"Codex 官方规范要求本地个人插件使用 personal 市场或本地隐式发现，避免 UI 产生冗余市场标签和重复插件。\",\"alternatives\":[],\"consequences\":[],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":1,\"archived\":false,\"createdAt\":\"2026-09-09T10:29:10.508Z\",\"updatedAt\":\"2026-09-09T10:29:10.508Z\",\"scopes\":[]}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_b238d940-6ae2-47a5-95e0-84219d2f2fcd",
+        "changed_fields_json": "[\"title\",\"summary\",\"rationale\",\"status\"]",
+        "created_at": "2026-09-09T10:29:10.508Z",
+        "entity_id": "codex-native-plugin-spec",
+        "entity_type": "decision",
+        "evidence_refs_json": "[]",
+        "id": 1555,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "Codex 原生个人插件规范接入 (Codex Native Plugin via Personal Marketplace)"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"block:editor-detector\"]",
+        "after_json": "{\"id\":\"editor-detector\",\"kind\":\"service\",\"title\":\"Editor Platform Detector\",\"summary\":\"检测系统已安装的 AI 编辑器 (Claude, Cursor, Antigravity, OpenCode, Codex) 并读取版本比对状态。\",\"body\":\"\",\"contract\":\"\",\"scope\":\"general\",\"architectureLayer\":\"unspecified\",\"localOrder\":0,\"deliveryState\":\"proposed\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":1,\"archived\":false,\"updatedAt\":\"2026-09-09T10:29:10.521Z\",\"sourceRefs\":[]}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "changed_fields_json": "[\"title\",\"kind\",\"summary\"]",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "editor-detector",
+        "entity_type": "block",
+        "evidence_refs_json": "[]",
+        "id": 1556,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "Editor Platform Detector"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"block:codex-plugin-lifecycle\"]",
+        "after_json": "{\"id\":\"codex-plugin-lifecycle\",\"kind\":\"service\",\"title\":\"Codex Plugin Lifecycle Manager\",\"summary\":\"管理 Codex 规范插件的安装、清理与个人市场注册，杜绝外部市场源污染。\",\"body\":\"\",\"contract\":\"\",\"scope\":\"general\",\"architectureLayer\":\"unspecified\",\"localOrder\":0,\"deliveryState\":\"proposed\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":1,\"archived\":false,\"updatedAt\":\"2026-09-09T10:29:10.521Z\",\"sourceRefs\":[]}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "changed_fields_json": "[\"title\",\"kind\",\"summary\"]",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "codex-plugin-lifecycle",
+        "entity_type": "block",
+        "evidence_refs_json": "[]",
+        "id": 1557,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "Codex Plugin Lifecycle Manager"
+      },
+      {
+        "action": "source-linked",
+        "affected_refs_json": "[\"block:editor-detector\"]",
+        "after_json": "{\"id\":\"editor-detector\",\"kind\":\"service\",\"title\":\"Editor Platform Detector\",\"summary\":\"检测系统已安装的 AI 编辑器 (Claude, Cursor, Antigravity, OpenCode, Codex) 并读取版本比对状态。\",\"body\":\"\",\"contract\":\"\",\"scope\":\"general\",\"architectureLayer\":\"unspecified\",\"localOrder\":0,\"deliveryState\":\"proposed\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":1,\"archived\":false,\"updatedAt\":\"2026-09-09T10:29:10.521Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"start_line\":null,\"end_line\":null,\"symbol\":\"detectAllPlatforms\",\"role\":\"implementation\"}]}",
+        "before_json": "{\"id\":\"editor-detector\",\"kind\":\"service\",\"title\":\"Editor Platform Detector\",\"summary\":\"检测系统已安装的 AI 编辑器 (Claude, Cursor, Antigravity, OpenCode, Codex) 并读取版本比对状态。\",\"body\":\"\",\"contract\":\"\",\"scope\":\"general\",\"architectureLayer\":\"unspecified\",\"localOrder\":0,\"deliveryState\":\"proposed\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":1,\"archived\":false,\"updatedAt\":\"2026-09-09T10:29:10.521Z\",\"sourceRefs\":[]}",
+        "chain_scope_id": null,
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "changed_fields_json": "[\"sourceRefs\"]",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "editor-detector",
+        "entity_type": "block",
+        "evidence_refs_json": "[]",
+        "id": 1558,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "implementation: apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift"
+      },
+      {
+        "action": "source-linked",
+        "affected_refs_json": "[\"block:codex-plugin-lifecycle\"]",
+        "after_json": "{\"id\":\"codex-plugin-lifecycle\",\"kind\":\"service\",\"title\":\"Codex Plugin Lifecycle Manager\",\"summary\":\"管理 Codex 规范插件的安装、清理与个人市场注册，杜绝外部市场源污染。\",\"body\":\"\",\"contract\":\"\",\"scope\":\"general\",\"architectureLayer\":\"unspecified\",\"localOrder\":0,\"deliveryState\":\"proposed\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":1,\"archived\":false,\"updatedAt\":\"2026-09-09T10:29:10.521Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift\",\"start_line\":null,\"end_line\":null,\"symbol\":\"syncPlatform\",\"role\":\"implementation\"}]}",
+        "before_json": "{\"id\":\"codex-plugin-lifecycle\",\"kind\":\"service\",\"title\":\"Codex Plugin Lifecycle Manager\",\"summary\":\"管理 Codex 规范插件的安装、清理与个人市场注册，杜绝外部市场源污染。\",\"body\":\"\",\"contract\":\"\",\"scope\":\"general\",\"architectureLayer\":\"unspecified\",\"localOrder\":0,\"deliveryState\":\"proposed\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":1,\"archived\":false,\"updatedAt\":\"2026-09-09T10:29:10.521Z\",\"sourceRefs\":[]}",
+        "chain_scope_id": null,
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "changed_fields_json": "[\"sourceRefs\"]",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "codex-plugin-lifecycle",
+        "entity_type": "block",
+        "evidence_refs_json": "[]",
+        "id": 1559,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "implementation: apps/desktop/Sources/MdflowDesktop/PluginInstaller.swift"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"checkpoint:chk-codex-native-plugin-sync\",\"block:codex-plugin-lifecycle\"]",
+        "after_json": "{\"id\":\"chk-codex-native-plugin-sync\",\"targetType\":\"block\",\"targetId\":\"codex-plugin-lifecycle\",\"title\":\"Codex 规范个人插件与多端零污染同步闭环验证\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"real_target\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_7d7f01e3-0a76-4d2c-ac3b-dba58d639520",
+        "changed_fields_json": "[\"title\",\"targetType\",\"targetId\",\"status\",\"evidenceLevel\"]",
+        "created_at": "2026-09-09T10:33:37.478Z",
+        "entity_id": "chk-codex-native-plugin-sync",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[]",
+        "id": 1560,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "Codex 规范个人插件与多端零污染同步闭环验证"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"decision:codex-active-registration-check\"]",
+        "after_json": "{\"id\":\"codex-active-registration-check\",\"title\":\"Codex 插件真实安装状态检测策略 (Codex Active Registration Detection)\",\"summary\":\"判定 Codex 是否安装 mdflow 插件，必须以 ~/.codex/config.toml 中是否存在 active 的插件或 MCP 注册项为准，不得仅凭 ~/plugins/mdflow 源码目录的存在而判定为已安装。\",\"rationale\":\"用户在 Codex 桌面端卸载插件时，只会从 config.toml 移除注册，本地源码目录 ~/plugins 依然保留。若只检查本地文件会导致已卸载时依然显示已就绪的假同步。\",\"alternatives\":[],\"consequences\":[],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":1,\"archived\":false,\"createdAt\":\"2026-09-09T10:36:42.331Z\",\"updatedAt\":\"2026-09-09T10:36:42.331Z\",\"scopes\":[]}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_cd2c4c67-7b6e-435e-97ce-ed42c44b2afb",
+        "changed_fields_json": "[\"title\",\"summary\",\"rationale\",\"status\"]",
+        "created_at": "2026-09-09T10:36:42.331Z",
+        "entity_id": "codex-active-registration-check",
+        "entity_type": "decision",
+        "evidence_refs_json": "[]",
+        "id": 1561,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "Codex 插件真实安装状态检测策略 (Codex Active Registration Detection)"
+      },
+      {
+        "action": "created",
+        "affected_refs_json": "[\"checkpoint:chk-codex-uninstalled-detection\",\"block:editor-detector\"]",
+        "after_json": "{\"id\":\"chk-codex-uninstalled-detection\",\"targetType\":\"block\",\"targetId\":\"editor-detector\",\"title\":\"Codex 插件卸载状态精准探测验证\",\"criteria\":\"\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"real_target\",\"requiredEvidenceLevel\":\"static\",\"coverage\":\"complete\",\"evidence\":[],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":1}",
+        "before_json": "{}",
+        "chain_scope_id": null,
+        "change_set_id": "change_182186a4-6085-4420-aae3-0bd48cf995bd",
+        "changed_fields_json": "[\"title\",\"targetType\",\"targetId\",\"status\",\"evidenceLevel\"]",
+        "created_at": "2026-09-09T10:38:03.745Z",
+        "entity_id": "chk-codex-uninstalled-detection",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[]",
+        "id": 1562,
+        "plan_id": null,
+        "revision": 1,
+        "summary": "Codex 插件卸载状态精准探测验证"
       }
     ],
     "change_feed": [
@@ -10357,6 +10660,87 @@
         "entity_type": "plan",
         "project_id": "mdflow",
         "sequence": 1552
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_b238d940-6ae2-47a5-95e0-84219d2f2fcd",
+        "created_at": "2026-09-09T10:29:10.508Z",
+        "entity_id": "multi-editor-sync-policy",
+        "entity_type": "decision",
+        "project_id": "mdflow",
+        "sequence": 1554
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_b238d940-6ae2-47a5-95e0-84219d2f2fcd",
+        "created_at": "2026-09-09T10:29:10.508Z",
+        "entity_id": "codex-native-plugin-spec",
+        "entity_type": "decision",
+        "project_id": "mdflow",
+        "sequence": 1555
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "editor-detector",
+        "entity_type": "block",
+        "project_id": "mdflow",
+        "sequence": 1556
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "codex-plugin-lifecycle",
+        "entity_type": "block",
+        "project_id": "mdflow",
+        "sequence": 1557
+      },
+      {
+        "action": "source-linked",
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "editor-detector",
+        "entity_type": "block",
+        "project_id": "mdflow",
+        "sequence": 1558
+      },
+      {
+        "action": "source-linked",
+        "change_set_id": "change_4f484cae-fce6-4c98-ad46-6414b117e9cb",
+        "created_at": "2026-09-09T10:29:10.521Z",
+        "entity_id": "codex-plugin-lifecycle",
+        "entity_type": "block",
+        "project_id": "mdflow",
+        "sequence": 1559
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_7d7f01e3-0a76-4d2c-ac3b-dba58d639520",
+        "created_at": "2026-09-09T10:33:37.478Z",
+        "entity_id": "chk-codex-native-plugin-sync",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1560
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_cd2c4c67-7b6e-435e-97ce-ed42c44b2afb",
+        "created_at": "2026-09-09T10:36:42.331Z",
+        "entity_id": "codex-active-registration-check",
+        "entity_type": "decision",
+        "project_id": "mdflow",
+        "sequence": 1561
+      },
+      {
+        "action": "created",
+        "change_set_id": "change_182186a4-6085-4420-aae3-0bd48cf995bd",
+        "created_at": "2026-09-09T10:38:03.745Z",
+        "entity_id": "chk-codex-uninstalled-detection",
+        "entity_type": "checkpoint",
+        "project_id": "mdflow",
+        "sequence": 1562
       }
     ]
   }

@@ -813,8 +813,8 @@ final class GraphStore: ObservableObject {
         let zh: [String: String] = [
             "overview":"整体网络", "plans":"计划", "chains":"链路", "settings":"设置", "done":"完成",
             "summary":"摘要", "details":"详情", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
-            "plugin":"多平台 AI 编辑器同步", "pluginHelp":"管理各大 AI 客户端（Claude、Cursor、VS Code、OpenCode、Codex）的 MCP 直连配置。",
-            "syncAll":"一键同步全部", "syncSingle":"同步配置", "synced":"已就绪", "notSynced":"未连接", "notDetected":"未检测到客户端", "syncing":"正在同步…",
+            "plugin":"多平台 AI 编辑器同步", "pluginHelp":"管理各大 AI 客户端（Claude、Cursor、Antigravity、OpenCode、Codex）的 MCP 直连配置。",
+            "syncAll":"一键同步全部", "syncSingle":"同步配置", "updateSingle":"更新", "synced":"已就绪", "notSynced":"未连接", "notDetected":"未检测到客户端", "notConfigured":"待同步", "skipped":"未安装", "latest":"最新", "updateAvailable":"可更新", "syncing":"正在同步…",
             "installPlugin":"一键安装", "installingPlugin":"正在安装…", "checkingPlugin":"正在检查编辑器状态…", "pluginNotInstalled":"尚未安装", "pluginInstalled":"已安装；新任务中即可使用", "pluginInstallFailed":"安装失败",
             "liveData":"实时数据内核", "liveHelp":"底层图数据变动自动秒级热重载，无需手动刷新。", "language":"界面语言", "appearance":"外观模式", "system":"跟随系统", "light":"浅色", "dark":"深色",
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
@@ -827,8 +827,8 @@ final class GraphStore: ObservableObject {
         let en: [String: String] = [
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
             "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
-            "plugin":"AI EDITOR MCP BRIDGES", "pluginHelp":"Sync mdflow architecture context to Claude Desktop, Cursor, VS Code, OpenCode, and Codex.",
-            "syncAll":"Sync All", "syncSingle":"Sync", "synced":"Connected", "notSynced":"Not Connected", "notDetected":"Not Detected", "syncing":"Syncing…",
+            "plugin":"AI EDITOR MCP BRIDGES", "pluginHelp":"Sync mdflow architecture context to Claude Desktop, Cursor, Antigravity, OpenCode, and Codex.",
+            "syncAll":"Sync All", "syncSingle":"Sync", "updateSingle":"Update", "synced":"Connected", "notSynced":"Not Connected", "notDetected":"Not Detected", "notConfigured":"Not Configured", "skipped":"Skipped", "latest":"Latest", "updateAvailable":"Update", "syncing":"Syncing…",
             "installPlugin":"Install Plugin", "installingPlugin":"Installing…", "checkingPlugin":"Checking editor statuses…", "pluginNotInstalled":"Not installed", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
             "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "appearance":"Appearance", "system":"System", "light":"Light", "dark":"Dark",
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",

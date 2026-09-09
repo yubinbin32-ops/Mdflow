@@ -507,7 +507,7 @@ private struct EditorPlatformRow: View {
 
                 Image(systemName: iconName(for: status.id))
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(MdflowTheme.ink)
+                    .foregroundStyle(status.isAppInstalled ? MdflowTheme.ink : MdflowTheme.muted.opacity(0.5))
             }
             .frame(width: 26, height: 26)
 
@@ -516,10 +516,45 @@ private struct EditorPlatformRow: View {
                 HStack(spacing: 6) {
                     Text(status.name)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(MdflowTheme.ink)
+                        .foregroundStyle(status.isAppInstalled ? MdflowTheme.ink : MdflowTheme.muted)
 
                     if !status.isAppInstalled {
                         Text(store.text("notDetected"))
+                            .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                            .tracking(0.6)
+                            .foregroundStyle(MdflowTheme.muted)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.black.opacity(0.04)))
+                    } else if status.isSynced {
+                        HStack(spacing: 3) {
+                            Text("v\(status.installedVersion ?? status.targetVersion)")
+                                .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                            Text("·")
+                            Text(store.text("latest"))
+                                .font(.system(size: 7.5, weight: .medium, design: .rounded))
+                        }
+                        .foregroundStyle(MdflowTheme.success)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(MdflowTheme.success.opacity(0.12)))
+                    } else if status.isOutdated {
+                        HStack(spacing: 3) {
+                            Text("v\(status.installedVersion ?? "?")")
+                                .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                            Text("➔")
+                            Text("v\(status.targetVersion)")
+                                .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                            Text("·")
+                            Text(store.text("updateAvailable"))
+                                .font(.system(size: 7.5, weight: .medium, design: .rounded))
+                        }
+                        .foregroundStyle(Color.orange)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.orange.opacity(0.12)))
+                    } else {
+                        Text(store.text("notConfigured"))
                             .font(.system(size: 7.5, weight: .bold, design: .monospaced))
                             .tracking(0.6)
                             .foregroundStyle(MdflowTheme.muted)
@@ -531,31 +566,44 @@ private struct EditorPlatformRow: View {
 
                 Text(status.configPath)
                     .font(.system(size: 8.5, design: .monospaced))
-                    .foregroundStyle(MdflowTheme.muted)
+                    .foregroundStyle(MdflowTheme.muted.opacity(status.isAppInstalled ? 1.0 : 0.6))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
 
             Spacer()
 
-            // Trailing Checkbox & Sync Status
+            // Trailing Actions & Status
             HStack(spacing: 8) {
-                // Interactive Checkbox Button
-                Button(action: {
-                    store.syncEditor(id: status.id)
-                }) {
-                    Image(systemName: status.isSynced ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(status.isSynced ? MdflowTheme.success : MdflowTheme.muted.opacity(0.4))
-                }
-                .buttonStyle(.plain)
-                .help(status.isSynced ? store.text("synced") : store.text("syncSingle"))
-
-                if status.isSynced {
-                    Text(store.text("synced"))
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(MdflowTheme.muted)
-                        .frame(width: 48, alignment: .trailing)
+                if !status.isAppInstalled {
+                    Text(store.text("skipped"))
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(MdflowTheme.muted.opacity(0.6))
+                        .frame(width: 54, alignment: .trailing)
+                } else if status.isSynced {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(MdflowTheme.success)
+                        Text(store.text("synced"))
+                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                            .foregroundStyle(MdflowTheme.muted)
+                    }
+                    .frame(width: 64, alignment: .trailing)
+                } else if status.isOutdated {
+                    Button(action: {
+                        store.syncEditor(id: status.id)
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 9, weight: .bold))
+                            Text(store.text("updateSingle"))
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .controlSize(.mini)
                 } else {
                     Button(store.text("syncSingle")) {
                         store.syncEditor(id: status.id)

@@ -1,55 +1,129 @@
 ---
 name: mdflow
-description: Context operating system for AI coding agents. Call context_for_task at task start, and use graph_patch / graph_mutate to build and evolve architecture from 0.
+description: Context operating system for AI coding agents. Call context_for_task at task start, stream AST code along chains with chain_code_stream, design architecture from 0 with graph_flow/graph_patch, and apply verified code mutations with block_code_mutate.
 ---
 
-# mdflow: Context Operating System for AI Coding
+# mdflow: Context Operating System for AI Coding Agents
 
-Use mdflow as the canonical development operating system for projects. Public user documentation (README, release notes, landing pages) can remain Markdown; all development architecture, planning, live progress, checkpoints, and code locations belong naturally in mdflow.
+mdflow is the canonical development operating system for AI coding agents. It provides a structured, token-budgeted architecture map, AST-level code slicing, and safe verified mutation with automatic rollback.
 
-AI-facing development context is projected as clean, readable Markdown automatically. Map development intents directly to the corresponding mdflow records; use external Markdown files only when mdflow cannot express the content.
+> [!IMPORTANT]
+> **Core Mission**: mdflow is your **living runtime OS**, not an archive to update after the fact.
+> Every piece of code is a reflection of the architectural graph. If you write code that is not registered in mdflow, you are creating architectural drift and technical debt.
+> **Architecture precedes code. Decisions precede implementation.**
 
-## Cold-Start & Building Architecture from 0
+---
 
-mdflow empowers AI coding agents to autonomously design, express, and evolve software architecture:
+## 🧠 The AI Cognitive Trigger Protocol: WHEN to Use mdflow
 
-1. **Task Start**: Call `context_for_task(task="...")` at task start. On any project (new or existing), mdflow auto-registers cleanly with zero manual configuration.
-2. **AI-Authored Architecture**: Inspect local codebase files as needed, formulate your design, and write architecture entities directly into mdflow using `graph_patch` (compact human/AI directives like `create block:<id>`, `flow: A -> B`) or `graph_mutate`.
-3. **Transparent Persistence**: All mutations automatically synchronize SQLite and `.mdflow/graph.json` with transactional integrity, versioning, and rollback safety.
+Do not treat mdflow as a passive tool manual. Follow this **mandatory cognitive reflex machine** throughout your development cycle:
 
-## The 6 Core Pillars
+```mermaid
+stateDiagram-v2
+    [*] --> 1_TaskReceived: User gives requirement or bug
+    1_TaskReceived --> 2_DesignReflex: Context retrieved & cursor anchored
+    2_DesignReflex --> 3_TraceReflex: Decision & Blocks registered
+    3_TraceReflex --> 4_MutationReflex: Chain AST slices inspected
+    4_MutationReflex --> 5_SealReflex: Code verified & tests pass
+    5_SealReflex --> [*]: Checkpoint recorded & step advanced
+```
 
-1. **Block (Architecture)**: Coarse-grained software responsibilities (`ui`, `service`, `function`, `data`, `database`, `api`, `integration`, `risk`). Independent blocks are valid; verification belongs to Checkpoints, not as architecture Blocks.
-2. **Chain & Flow (Pipelines)**: Ordered execution paths across Blocks. Declare flows with natural arrow syntax (`A -> B -> C`).
-3. **Plan (Work Packages)**: Grouped into Phases (`foundation`, `core`, `release`) and Priorities (`P0` > `P1` > `P2`).
-4. **Timeline (Execution Axis)**: Anchors development across conversation boundaries with an active cursor (`activePlanId`, `activeStepId`, `nowDoing`, `nextUp`, `lastFinished`).
-5. **Rule & Decision (Project Memory)**: Scoped background constraints and architectural decisions kept outside the Canvas graph.
-6. **Checkpoint (Evidence Gates)**: Objective proofs (`passed`, `failed`) with evidence levels backing health and delivery states.
+---
 
-## Progressive Reading Workflow
+### ⚡ Trigger 1: When Receiving ANY Request, Bug, or Feature
+* **Your Natural Habit (WRONG)**: Immediately searching files (`grep`/`find`/`ls`), guessing which file to edit, and opening raw files.
+* **The mdflow Reflex (MANDATORY)**:
+  1. **Call `context_for_task(task="...")`**:
+     - Locks in the relevant architecture Blocks, execution Chains, and active Plan within a tight token budget.
+     - Automatically initializes `.mdflow` if the project is brand new.
+     - **Rule**: Before knowing which Block and Chain the task belongs to, DO NOT open arbitrary source files.
+  2. **Call `timeline_sync(nowDoing="...")`**:
+     - Anchor your current working cursor immediately so other agents and future prompts have zero ambiguity about the active focus.
 
-1. **Task Start (Cold or Warm)**: Call `context_for_task` with your current task and optional `projectRoot`. If the project is brand new, mdflow auto-registers it immediately with zero manual setup. Never run `cat` or `ls` on `.mdflow`.
-2. **Plan Implementation**: Call `plan_context` before touching code to review ordered steps, ChainScopes, direct entity changes, and gates.
-3. **Targeted Details**: Call `entity_open` for a single Block, Chain, Link, or Decision.
-4. **Synchronization**: Call `changes_since` after a known change sequence to sync incremental mutations.
+---
 
-## Concise AI Writing Protocol
+### ⚡ Trigger 2: When Formulating a Solution or Making Architectural Choices
+* **Your Natural Habit (WRONG)**: Keeping the design in your hidden thoughts and directly typing code into files.
+* **The mdflow Reflex (MANDATORY)**:
+  1. **When making a technical trade-off or choosing an approach**:
+     - **Trigger**: Call `graph_mutate` with a `create_decision` operation (or review past constraints with `decision_open` / `decision_list`).
+     - Record: Why this approach was chosen, what was rejected, and the consequences.
+  2. **When creating or altering modules, structs, interfaces, or services**:
+     - **Trigger**: Call `graph_patch` or `graph_flow` **BEFORE writing the code**.
+     - Declare the Block and its connections:
+       ```text
+       mdflow/1 reason="Introduce editor platform detection engine"
+       create block:editor-detector kind=service title="Editor Platform Detector" summary="Detects installed IDEs and reads versions"
+       flow: desktop-store -[calls]-> editor-detector
+       ```
+     - Bind the planned source symbol:
+       ```text
+       source block:editor-detector path="Sources/MdflowDesktop/PluginInstaller.swift" symbol="detectAllPlatforms"
+       ```
+  3. **Validate**: Call `graph_validate()` to guarantee no orphan blocks or broken links.
 
-Write the canonical record at the exact boundary where the fact becomes true:
+---
 
-| What to record | Best tool call | Example / Syntax |
-| --- | --- | --- |
-| **Live Progress** | `timeline_sync` | `timeline_sync(nowDoing="Implementing X", nextUp="Verify Y")` |
-| **Step Completion** | `step_advance` | `step_advance(summary="Step X completed")` |
-| **Pipeline Flow** | `graph_flow` | `graph_flow(flow="Reader -> Analyzer -[writes]-> Database")` |
-| **Quick Connect** | `architecture_connect` | `architecture_connect(sourceId="A", targetId="B", kind="calls")` |
-| **Link Suggestion** | `architecture_link_suggest` | `architecture_link_suggest(blockId="A")` (AST import analysis) |
-| **Full CRUD Mutation**| `graph_patch` | Compact patch: `create`, `update`, `delete <type>:<id>` |
-| **Verification Gate** | `checkpoint_record` | `checkpoint_record(targetId="B", status="passed", evidenceLevel="integration")` |
+### ⚡ Trigger 3: When Tracing Multi-Module Execution Chains
+* **Your Natural Habit (WRONG)**: Reading 3–5 full source files (1,000–3,000 lines), wasting 80% of your context window on boilerplate imports, formatting, and unrelated helpers.
+* **The mdflow Reflex (MANDATORY)**:
+  - **Trigger**: Call `chain_code_stream(chainId="...")`:
+    - Traverses the chain and streams **only the targeted AST symbol bodies** (functions, structs, classes) bound to the blocks.
+    - Slashes token consumption by ~90%, keeping context sharp and hallucination-free.
 
-## On-Demand References
+---
 
-For detailed syntax specifications, read on-demand:
-- **Patch Syntax & Directives**: [references/patch-syntax.md](references/patch-syntax.md)
-- **Checkpoint Evidence Hierarchy**: [references/verification-gates.md](references/verification-gates.md)
+### ⚡ Trigger 4: When Modifying Code & Running Builds
+* **Your Natural Habit (WRONG)**: Performing raw regex or string replacements across large files; if the build fails, leaving broken code behind.
+* **The mdflow Reflex (MANDATORY)**:
+  1. **AST-bounded mutation**:
+     - Call `block_code_mutate(blockId="...", symbol="...", newCode="...", verifyCommand="...")`:
+       - Accurately replaces only the target symbol's AST node.
+       - Automatically runs `verifyCommand`. If the command fails, **mdflow rolls back the file automatically**, ensuring zero broken intermediate states.
+  2. **Compiler log compression**:
+     - If a build or test produces massive terminal output, use `log_sanitize(rawOutput="...")` to isolate actionable error traces.
 
+---
+
+### ⚡ Trigger 5: When Verification Passes & Work is Completed
+* **Your Natural Habit (WRONG)**: Saying "I'm done" in chat without leaving verifiable artifacts or moving the timeline.
+* **The mdflow Reflex (MANDATORY)**:
+  1. **Seal verification proof**:
+     - Call `checkpoint_record(targetId="...", status="passed", evidenceLevel="integration"|"real_target", summary="...")`.
+     - An assertion without objective evidence is invalid.
+  2. **Advance progress cursor**:
+     - Call `step_advance(summary="...")` to mark the plan step as completed and push the project cursor forward.
+  3. **Sync timeline**:
+     - Call `timeline_sync(nowDoing="", nextUp="...")` so the next interaction resumes seamlessly.
+
+---
+
+## 🚫 Critical Anti-Patterns (The "Never Do" List)
+
+1. **NEVER edit code before updating the graph**: If a new function, struct, or service does not exist in `.mdflow`, create the Block first.
+2. **NEVER pollute project roots**: Tool and editor configs (e.g. Cursor, OpenCode, Claude) must only be written to their canonical user/global application support directories unless the project explicitly maintains them.
+3. **NEVER dump full files when AST streams exist**: Always prefer `chain_code_stream` over reading entire multi-hundred-line files.
+4. **NEVER declare a task done without a Checkpoint**: Every completed feature or bugfix requires a passing `checkpoint_record` or `step_advance`.
+
+---
+
+## 🛠️ Complete MCP Tool Reference
+
+| Category | Tool | Mandatory Trigger Moment (WHEN) | Key Arguments |
+|---|---|---|---|
+| **Orientation** | `context_for_task` | **Task start** — before touching any files. | `task`, `projectRoot`, `focusRefs` |
+| | `entity_open` | Deep-diving into a specific Block, Chain, or Plan contract. | `type`, `id` |
+| | `graph_search` | Locating existing architecture elements without loading whole files. | `query`, `kinds` |
+| **Architecture** | `graph_patch` | **Design phase** — before adding or modifying code modules. | `patch`, `projectRoot` |
+| | `graph_flow` | Connecting pipeline stages via arrow syntax (`A -> B -> C`). | `flow`, `projectRoot` |
+| | `graph_mutate` | Fine-grained programmatic operations (e.g. creating decisions). | `operations`, `reason` |
+| | `graph_validate` | Verifying architecture integrity after any graph mutation. | `projectRoot` |
+| **AST Code** | `chain_code_stream` | **Logic tracing** — inspecting execution flow across files. | `chainId`, `maxTotalChars` |
+| | `block_code_mutate` | **Implementation phase** — atomic symbol mutation + auto-rollback. | `blockId`, `symbol`, `newCode`, `verifyCommand` |
+| | `log_sanitize` | Processing large compiler/test outputs. | `rawOutput`, `exitCode` |
+| **Milestones** | `checkpoint_record` | **Verification phase** — recording objective test/build evidence. | `targetId`, `status`, `evidenceLevel` |
+| | `step_advance` | **Completion phase** — moving the active plan step cursor forward. | `summary` |
+| | `timeline_sync` | **Handoff / Pause** — updating `nowDoing` and `nextUp`. | `nowDoing`, `nextUp` |
+| **Memory** | `decision_open` | Reviewing constraints and rationale before making architectural pivots. | `id` |
+| | `decision_list` | Browsing historical decisions made by the team. | (none) |
+| | `change_set_revert`| Rolling back an entire architectural transaction if needed. | `changeSetId`, `reason` |
