@@ -96,3 +96,37 @@ source block:ghost-block path="src/auth.js" symbol="login"`,
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
+
+test("graph drift detection: semantic field changes request related architecture review", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-semantic-drift-"));
+  registerProject({ projectRoot: tmpDir, name: "semantic-drift" });
+  const service = createService({ projectRoot: tmpDir });
+  try {
+    service.mutate({
+      reason: "create related architecture",
+      operations: [
+        { action: "create_block", id: "payment", fields: { title: "Payment", kind: "service", contract: "charge(card)" } },
+        { action: "create_block", id: "ledger", fields: { title: "Ledger", kind: "service" } },
+        { action: "create_link", id: "payment-ledger", fields: { sourceType: "block", sourceId: "payment", targetType: "block", targetId: "ledger", kind: "calls", contract: "charge then record" } },
+        { action: "create_plan", id: "pay-plan", fields: { title: "Payments", status: "active" } },
+        { action: "set_plan_changes", id: "pay-plan", expectedRevision: 1, fields: { changes: [{ id: "pay-change", entityType: "block", entityId: "payment", title: "Update payment contract", status: "pending" }] } },
+      ],
+    });
+    service.mutate({
+      reason: "change payment contract",
+      operations: [{ action: "update_block", id: "payment", expectedRevision: 1, fields: { contract: "charge(card, idempotencyKey)" } }],
+    });
+    const drift = analyzeGraphDrift(service);
+    assert.equal(drift.semanticReviews.length > 0, true);
+    const review = drift.semanticReviews.find((item) => item.entityId === "payment");
+    assert.equal(review.status, "review_required");
+    assert.ok(review.fields.includes("contract"));
+    assert.ok(review.relatedLinks.includes("link:payment-ledger"));
+    assert.ok(review.relatedPlanChanges.includes("plan_change:pay-change"));
+    const status = renderGraphStatus(service);
+    assert.ok(status.markdown.includes("Semantic reviews required"));
+  } finally {
+    service.close();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});

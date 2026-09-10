@@ -24888,6 +24888,7 @@ function syncTimeline(service, {
   };
   service.database.prepare("UPDATE projects SET timeline_json = ?, handoff_json = ?, updated_at = ? WHERE id = ?").run(JSON.stringify(updatedCursor), JSON.stringify(updatedCursor), timestamp, service.paths.descriptor.id);
   if (updatedCursor.activePlanId && updatedCursor.activeStepId) {
+    service.database.prepare("UPDATE plan_steps SET status = 'complete', updated_at = ? WHERE plan_id = ? AND status = 'active' AND id != ?").run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
     service.database.prepare("UPDATE plan_steps SET status = 'active', updated_at = ? WHERE plan_id = ? AND id = ? AND status = 'pending'").run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
   }
   return updatedCursor;
@@ -25232,6 +25233,13 @@ var HEALTH_STATES = /* @__PURE__ */ new Set([
 ]);
 var PLAN_STATUSES = /* @__PURE__ */ new Set(["draft", "ready", "active", "verifying", "complete", "blocked", "failed", "retest_required", "cancelled"]);
 var PLAN_STEP_STATUSES = /* @__PURE__ */ new Set(["pending", "active", "complete", "blocked", "failed", "skipped"]);
+function isHardPlanBlocker(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/^(blocked|blocker|waiting|cannot|can't|unable|depends on|prerequisite)\b/i.test(text)) return true;
+  if (/\b(blocked by|waiting for|cannot proceed|can't proceed|unable to proceed)\b/i.test(text)) return true;
+  return false;
+}
 var DECISION_STATUSES = /* @__PURE__ */ new Set(["proposed", "active", "superseded", "reconsidered"]);
 var CHECKPOINT_STATUSES = /* @__PURE__ */ new Set([
   "pending",
@@ -25803,7 +25811,7 @@ function derivePlanState(plan, allPlans, dependencies, steps, checkpointRefs, ch
   } else if (ownSteps.some((item) => item.status === "failed") || requiredCheckpoints.some((item) => item.status === "failed")) {
     derivedStatus = "failed";
     derivedReason ||= "A required step or checkpoint failed.";
-  } else if (plan.blockers.length || ownSteps.some((item) => item.status === "blocked") || requiredCheckpoints.some((item) => item.status === "blocked")) {
+  } else if (plan.blockers.some(isHardPlanBlocker) || ownSteps.some((item) => item.status === "blocked") || requiredCheckpoints.some((item) => item.status === "blocked")) {
     derivedStatus = "blocked";
     derivedReason ||= "A required step, checkpoint, or explicit blocker prevents progress.";
   } else {
@@ -26607,12 +26615,68 @@ function analyzeGraphDrift(service, snapshot2 = service.snapshot()) {
   }
   const retestRequired = snapshot2.checkpoints.filter((cp) => cp.status === "retest_required" || cp.recordedStatus === "passed" && cp.freshness?.status === "stale").map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId }));
   const pendingCheckpoints = snapshot2.checkpoints.filter((cp) => cp.status === "pending" || cp.status === "failed" || cp.status === "blocked").map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId, status: cp.status }));
+  const semanticReviews = collectSemanticReviews(service, snapshot2);
   return {
     isolatedBlocks,
     ghostDrifts,
     retestRequired,
     pendingCheckpoints,
-    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0
+    semanticReviews,
+    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0 || semanticReviews.length > 0
+  };
+}
+var SEMANTIC_FIELDS = /* @__PURE__ */ new Set(["title", "summary", "contract", "intent", "inputContract", "outputContract"]);
+function collectSemanticReviews(service, snapshot2) {
+  let rows = [];
+  try {
+    rows = service.database.prepare(`
+      SELECT h.entity_type, h.entity_id, h.revision, h.changed_fields_json, h.created_at, h.summary
+        FROM history h
+       WHERE h.entity_type IN ('block', 'chain', 'link', 'decision')
+         AND h.action IN ('updated', 'created')
+       ORDER BY h.id DESC
+       LIMIT 200
+    `).all();
+  } catch {
+    return [];
+  }
+  const latest = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const key = `${row.entity_type}:${row.entity_id}`;
+    if (latest.has(key)) continue;
+    const changedFields = parseJson(row.changed_fields_json, []);
+    const semanticFields = changedFields.filter((field) => SEMANTIC_FIELDS.has(field));
+    if (!semanticFields.length) continue;
+    latest.set(key, { ...row, semanticFields });
+  }
+  const reviews = [];
+  for (const item of latest.values()) {
+    const related = relatedArchitecture(snapshot2, item.entity_type, item.entity_id);
+    if (!related.links.length && !related.decisions.length && !related.planChanges.length) continue;
+    reviews.push({
+      status: "review_required",
+      entityType: item.entity_type,
+      entityId: item.entity_id,
+      revision: item.revision,
+      fields: item.semanticFields,
+      relatedLinks: related.links,
+      relatedDecisions: related.decisions,
+      relatedPlanChanges: related.planChanges,
+      summary: item.summary
+    });
+  }
+  return reviews.slice(0, 20);
+}
+function relatedArchitecture(snapshot2, entityType, entityId) {
+  const links = snapshot2.links.filter(
+    (link) => link.sourceType === entityType && link.sourceId === entityId || link.targetType === entityType && link.targetId === entityId
+  ).map((link) => `link:${link.id}`);
+  const decisions = snapshot2.decisionScopes.filter((scope) => scope.scopeType === entityType && scope.scopeValue === entityId).map((scope) => `decision:${scope.decisionId}`);
+  const planChanges = snapshot2.planChanges.filter((change) => change.entityType === entityType && change.entityId === entityId && !["complete", "passed", "skipped"].includes(change.status)).map((change) => `plan_change:${change.id}`);
+  return {
+    links: [...new Set(links)].slice(0, 8),
+    decisions: [...new Set(decisions)].slice(0, 8),
+    planChanges: [...new Set(planChanges)].slice(0, 8)
   };
 }
 function renderGraphStatus(service, { locale = "en" } = {}) {
@@ -26656,6 +26720,14 @@ function renderGraphStatus(service, { locale = "en" } = {}) {
       for (const r of drift.retestRequired) {
         lines.push(`- **checkpoint:${r.id}** for ${r.targetType}:${r.targetId} (${r.title})`);
         lines.push(`  *Action*: Re-run tests and record evidence with \`checkpoint_record\`.`);
+      }
+    }
+    if (drift.semanticReviews?.length) {
+      lines.push("### \u{1F9E0} Semantic reviews required");
+      for (const review of drift.semanticReviews.slice(0, 12)) {
+        const related = [...review.relatedLinks, ...review.relatedDecisions, ...review.relatedPlanChanges].slice(0, 6);
+        lines.push(`- **${review.entityType}:${review.entityId}** changed ${review.fields.join(", ")}`);
+        if (related.length) lines.push(`  *Review*: ${related.join(", ")}`);
       }
     }
     lines.push("");
@@ -26880,6 +26952,7 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     if (drift.ghostDrifts.length) parts.push(`${drift.ghostDrifts.length} ghost drift(s)`);
     if (drift.isolatedBlocks.length) parts.push(`${drift.isolatedBlocks.length} isolated block(s)`);
     if (drift.retestRequired.length) parts.push(`${drift.retestRequired.length} retest(s)`);
+    if (drift.semanticReviews?.length) parts.push(`${drift.semanticReviews.length} semantic review(s)`);
     lines.push(`- Drift alerts: ${parts.join(", ")} \xB7 Call graph_status for details.`);
     const relevantDrifts = drift.ghostDrifts.filter((g) => relevantBlocks.some((b) => b.id === g.blockId));
     if (relevantDrifts.length > 0) {
@@ -27229,7 +27302,12 @@ function renderPlanContext(service, { id, locale = "en", maxChars = 12e3 } = {})
   const nextAction = localizedValue(translations, "plan", id, locale, "nextAction", plan.nextAction);
   if (nextAction) lines.push("", "## Next action", nextAction);
   if (plan.proposedDelta.length) lines.push("", "## Overall change", ...plan.proposedDelta.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
-  if (plan.blockers.length) lines.push("", "## Blockers / prohibitions", ...plan.blockers.map((item) => `- ${item}`));
+  if (plan.blockers.length) {
+    const hard = plan.blockers.filter(isHardPlanBlocker);
+    const notes = plan.blockers.filter((item) => !isHardPlanBlocker(item));
+    if (hard.length) lines.push("", "## Blockers", ...hard.map((item) => `- ${item}`));
+    if (notes.length) lines.push("", "## Scope notes", ...notes.map((item) => `- ${item}`));
+  }
   lines.push("", "## Architecture coverage");
   lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
   lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct \xB7 ${coverage.chainPlanBlocks} through Chains)`);
@@ -31916,6 +31994,21 @@ ${suffix}`;
   if (maxChars <= marker.length) return marker.slice(0, maxChars);
   return `${text.slice(0, maxChars - marker.length)}${marker}`;
 }
+function compactState(data, entry) {
+  return {
+    taskContextId: entry.id,
+    graphRevision: data?.graphRevision ?? null,
+    sourceSyncRevision: data?.sourceSync?.revision ?? data?.sourceSyncRevision ?? null,
+    sourceRevision: data?.sourceSync?.sourceRevision ?? data?.sourceRevision ?? null,
+    success: typeof data?.success === "boolean" ? data.success : null,
+    valid: typeof data?.valid === "boolean" ? data.valid : null,
+    changed: data?.sourceSync?.changed ?? data?.changed ?? false,
+    executionId: data?.executionId ?? null,
+    changeSetId: data?.changeSetId ?? null,
+    truncated: true,
+    reason: "detail projection exceeded the remaining task budget"
+  };
+}
 function boundTaskResponse({ taskContextId, markdown, data, includeStructured = false } = {}) {
   const entry = taskContextId ? budgets.get(taskContextId) : null;
   if (!entry) return { markdown, structured: includeStructured ? data : void 0, budget: null };
@@ -31931,13 +32024,8 @@ function boundTaskResponse({ taskContextId, markdown, data, includeStructured = 
   } else if (markdownText.length + structuredText.length <= available) {
     structured = data;
   } else {
-    const receipt = {
-      taskContextId: entry.id,
-      budget: snapshot(entry),
-      truncated: true,
-      reason: "structured projection exceeded the remaining task budget"
-    };
-    structured = JSON.stringify(receipt).length <= available ? receipt : { taskContextId: entry.id, truncated: true };
+    const receipt = { ...compactState(data, entry), budget: snapshot(entry) };
+    structured = JSON.stringify(receipt).length <= available ? receipt : compactState(data, entry);
   }
   if (includeStructured) {
     const structuredChars = JSON.stringify(structured).length;
@@ -31948,6 +32036,88 @@ function boundTaskResponse({ taskContextId, markdown, data, includeStructured = 
   entry.responses += 1;
   const after = snapshot(entry);
   return { markdown: boundedMarkdown, structured, budget: after };
+}
+
+// packages/mcp/src/reference.mjs
+var TYPE_ALIASES = /* @__PURE__ */ new Map([
+  ["block", "block"],
+  ["chain", "chain"],
+  ["link", "link"],
+  ["plan", "plan"],
+  ["decision", "decision"],
+  ["checkpoint", "checkpoint"],
+  ["plan_change", "plan_change"],
+  ["plan_step", "plan_step"],
+  ["plan_chain_scope", "plan_chain_scope"],
+  ["change", "change"],
+  ["change_set", "change"],
+  ["exec", "exec"],
+  ["execution", "exec"]
+]);
+function normalizeEntityId(value, expectedType = null) {
+  if (typeof value !== "string") return value;
+  const separator = value.indexOf(":");
+  if (separator <= 0) return value;
+  const prefix = TYPE_ALIASES.get(value.slice(0, separator));
+  if (!prefix) return value;
+  const id = value.slice(separator + 1);
+  if (!id) throw new Error(`Invalid typed reference: ${value}`);
+  const expected = expectedType ? TYPE_ALIASES.get(expectedType) ?? expectedType : null;
+  if (expected && prefix !== expected) {
+    throw new Error(`Typed reference ${value} does not match expected ${expectedType}`);
+  }
+  return id;
+}
+function normalizeMcpIds(input = {}) {
+  const payload = { ...input };
+  const fixedTypes = {
+    blockId: "block",
+    chainId: "chain",
+    planId: "plan",
+    checkpointId: "checkpoint",
+    chainScopeId: "plan_chain_scope",
+    changeSetId: "change",
+    executionId: "exec",
+    dependsOnPlanId: "plan"
+  };
+  for (const [field, type] of Object.entries(fixedTypes)) {
+    if (field in payload) payload[field] = normalizeEntityId(payload[field], type);
+  }
+  if (payload.type && "id" in payload) payload.id = normalizeEntityId(payload.id, payload.type);
+  if (payload.targetType && "targetId" in payload) payload.targetId = normalizeEntityId(payload.targetId, payload.targetType);
+  if ("sourceId" in payload) payload.sourceId = normalizeEntityId(payload.sourceId, "block");
+  if ("targetId" in payload && !payload.targetType) payload.targetId = normalizeEntityId(payload.targetId, "block");
+  if (Array.isArray(payload.evidenceExecutionIds)) {
+    payload.evidenceExecutionIds = payload.evidenceExecutionIds.map((id) => normalizeEntityId(id, "exec"));
+  }
+  if (Array.isArray(payload.operations)) payload.operations = payload.operations.map(normalizeMutationOperationIds);
+  return payload;
+}
+function operationEntityType2(action) {
+  if (/^(create|update|delete)_block$/.test(action)) return "block";
+  if (/^(create|update|delete)_chain$/.test(action) || action === "set_chain_path") return "chain";
+  if (/^(create|update|delete)_link$/.test(action)) return "link";
+  if (/^(create|update|delete)_plan$/.test(action) || action.startsWith("set_plan_") || action === "update_plan_step" || action === "update_plan_change" || action === "update_plan_chain_scope") return "plan";
+  if (/^(create|update|delete)_decision$/.test(action)) return "decision";
+  if (/^(create|delete)_checkpoint$/.test(action) || action === "set_checkpoint_bindings" || action === "set_checkpoint_dependencies") return "checkpoint";
+  if (action === "add_source_ref" || action === "remove_source_ref") return "block";
+  return null;
+}
+function normalizeMutationOperationIds(operation = {}) {
+  const next = { ...operation, fields: operation.fields ? { ...operation.fields } : operation.fields };
+  const type = operationEntityType2(next.action ?? "");
+  if (type && next.id) next.id = normalizeEntityId(next.id, type);
+  if (next.action === "record_checkpoint" && next.fields?.targetType && next.fields?.targetId) {
+    next.fields.targetId = normalizeEntityId(next.fields.targetId, next.fields.targetType);
+  }
+  if (next.action === "set_chain_path") {
+    if (Array.isArray(next.fields?.nodeIds)) next.fields.nodeIds = next.fields.nodeIds.map((id) => normalizeEntityId(id, "block"));
+    if (Array.isArray(next.fields?.linkIds)) next.fields.linkIds = next.fields.linkIds.map((id) => normalizeEntityId(id, "link"));
+  }
+  if (Array.isArray(next.fields?.evidenceExecutionIds)) {
+    next.fields.evidenceExecutionIds = next.fields.evidenceExecutionIds.map((id) => normalizeEntityId(id, "exec"));
+  }
+  return next;
 }
 
 // packages/mcp/src/server.mjs
@@ -31964,7 +32134,7 @@ var projectRootInput = {
 };
 function withProject(input, callback) {
   const service = router.serviceFor(input);
-  const { projectRoot: _projectRoot, ...payload } = input;
+  const { projectRoot: _projectRoot, ...payload } = normalizeMcpIds(input);
   const data = callback(service, payload);
   if (data && typeof data === "object" && input.taskContextId) {
     Object.defineProperty(data, "__taskContextId", { value: input.taskContextId, enumerable: false });

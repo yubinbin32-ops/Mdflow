@@ -184,6 +184,9 @@ export function syncTimeline(service, {
 
   if (updatedCursor.activePlanId && updatedCursor.activeStepId) {
     service.database
+      .prepare("UPDATE plan_steps SET status = 'complete', updated_at = ? WHERE plan_id = ? AND status = 'active' AND id != ?")
+      .run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
+    service.database
       .prepare("UPDATE plan_steps SET status = 'active', updated_at = ? WHERE plan_id = ? AND id = ? AND status = 'pending'")
       .run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
   }

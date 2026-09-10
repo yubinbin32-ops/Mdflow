@@ -114,6 +114,16 @@ test("timeline: getTimelineState, syncTimeline and advanceStep", async () => {
   assert.equal(steps[0].status, "complete");
   assert.equal(steps[1].status, "active");
 
+  const moved = service.syncTimeline({
+    planId: "plan-auth",
+    stepId: "step-2",
+    nowDoing: "Implementing token signer",
+  });
+  assert.equal(moved.activeStepId, "step-2");
+  const afterMove = service.snapshot().planSteps.sort((a, b) => a.position - b.position);
+  assert.equal(afterMove[0].status, "complete");
+  assert.equal(afterMove[1].status, "active");
+
   router.close();
   await fs.rm(tmpDir, { recursive: true, force: true });
 });

@@ -719,12 +719,79 @@ export function analyzeGraphDrift(service, snapshot = service.snapshot()) {
     .filter((cp) => cp.status === "pending" || cp.status === "failed" || cp.status === "blocked")
     .map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId, status: cp.status }));
 
+  const semanticReviews = collectSemanticReviews(service, snapshot);
+
   return {
     isolatedBlocks,
     ghostDrifts,
     retestRequired,
     pendingCheckpoints,
-    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0,
+    semanticReviews,
+    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0 || semanticReviews.length > 0,
+  };
+}
+
+const SEMANTIC_FIELDS = new Set(["title", "summary", "contract", "intent", "inputContract", "outputContract"]);
+
+function collectSemanticReviews(service, snapshot) {
+  let rows = [];
+  try {
+    rows = service.database.prepare(`
+      SELECT h.entity_type, h.entity_id, h.revision, h.changed_fields_json, h.created_at, h.summary
+        FROM history h
+       WHERE h.entity_type IN ('block', 'chain', 'link', 'decision')
+         AND h.action IN ('updated', 'created')
+       ORDER BY h.id DESC
+       LIMIT 200
+    `).all();
+  } catch {
+    return [];
+  }
+  const latest = new Map();
+  for (const row of rows) {
+    const key = `${row.entity_type}:${row.entity_id}`;
+    if (latest.has(key)) continue;
+    const changedFields = parseJson(row.changed_fields_json, []);
+    const semanticFields = changedFields.filter((field) => SEMANTIC_FIELDS.has(field));
+    if (!semanticFields.length) continue;
+    latest.set(key, { ...row, semanticFields });
+  }
+  const reviews = [];
+  for (const item of latest.values()) {
+    const related = relatedArchitecture(snapshot, item.entity_type, item.entity_id);
+    if (!related.links.length && !related.decisions.length && !related.planChanges.length) continue;
+    reviews.push({
+      status: "review_required",
+      entityType: item.entity_type,
+      entityId: item.entity_id,
+      revision: item.revision,
+      fields: item.semanticFields,
+      relatedLinks: related.links,
+      relatedDecisions: related.decisions,
+      relatedPlanChanges: related.planChanges,
+      summary: item.summary,
+    });
+  }
+  return reviews.slice(0, 20);
+}
+
+function relatedArchitecture(snapshot, entityType, entityId) {
+  const links = snapshot.links
+    .filter((link) =>
+      (link.sourceType === entityType && link.sourceId === entityId) ||
+      (link.targetType === entityType && link.targetId === entityId),
+    )
+    .map((link) => `link:${link.id}`);
+  const decisions = snapshot.decisionScopes
+    .filter((scope) => scope.scopeType === entityType && scope.scopeValue === entityId)
+    .map((scope) => `decision:${scope.decisionId}`);
+  const planChanges = snapshot.planChanges
+    .filter((change) => change.entityType === entityType && change.entityId === entityId && !["complete", "passed", "skipped"].includes(change.status))
+    .map((change) => `plan_change:${change.id}`);
+  return {
+    links: [...new Set(links)].slice(0, 8),
+    decisions: [...new Set(decisions)].slice(0, 8),
+    planChanges: [...new Set(planChanges)].slice(0, 8),
   };
 }
 
@@ -773,6 +840,14 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
         lines.push(`  *Action*: Re-run tests and record evidence with \`checkpoint_record\`.`);
       }
     }
+    if (drift.semanticReviews?.length) {
+      lines.push("### 🧠 Semantic reviews required");
+      for (const review of drift.semanticReviews.slice(0, 12)) {
+        const related = [...review.relatedLinks, ...review.relatedDecisions, ...review.relatedPlanChanges].slice(0, 6);
+        lines.push(`- **${review.entityType}:${review.entityId}** changed ${review.fields.join(", ")}`);
+        if (related.length) lines.push(`  *Review*: ${related.join(", ")}`);
+      }
+    }
     lines.push("");
   } else {
     lines.push("## ✅ Architecture Health: Clean & Synchronized");
@@ -808,4 +883,3 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
     markdown: lines.join("\n"),
   };
 }
-

@@ -3,6 +3,7 @@ import {
   assertAllowed,
   LOCALES,
   EVIDENCE_LEVELS,
+  isHardPlanBlocker,
   localizationMap,
   localizedValue,
   foundationBlockGroups,
@@ -135,7 +136,12 @@ export function renderPlanContext(service, { id, locale = "en", maxChars = 12000
   const nextAction = localizedValue(translations, "plan", id, locale, "nextAction", plan.nextAction);
   if (nextAction) lines.push("", "## Next action", nextAction);
   if (plan.proposedDelta.length) lines.push("", "## Overall change", ...plan.proposedDelta.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
-  if (plan.blockers.length) lines.push("", "## Blockers / prohibitions", ...plan.blockers.map((item) => `- ${item}`));
+  if (plan.blockers.length) {
+    const hard = plan.blockers.filter(isHardPlanBlocker);
+    const notes = plan.blockers.filter((item) => !isHardPlanBlocker(item));
+    if (hard.length) lines.push("", "## Blockers", ...hard.map((item) => `- ${item}`));
+    if (notes.length) lines.push("", "## Scope notes", ...notes.map((item) => `- ${item}`));
+  }
   lines.push("", "## Architecture coverage");
   lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
   lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct · ${coverage.chainPlanBlocks} through Chains)`);

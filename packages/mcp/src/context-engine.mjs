@@ -259,6 +259,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     if (drift.ghostDrifts.length) parts.push(`${drift.ghostDrifts.length} ghost drift(s)`);
     if (drift.isolatedBlocks.length) parts.push(`${drift.isolatedBlocks.length} isolated block(s)`);
     if (drift.retestRequired.length) parts.push(`${drift.retestRequired.length} retest(s)`);
+    if (drift.semanticReviews?.length) parts.push(`${drift.semanticReviews.length} semantic review(s)`);
     lines.push(`- Drift alerts: ${parts.join(", ")} · Call graph_status for details.`);
     const relevantDrifts = drift.ghostDrifts.filter((g) => relevantBlocks.some((b) => b.id === g.blockId));
     if (relevantDrifts.length > 0) {

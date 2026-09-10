@@ -41,6 +41,14 @@ export const HEALTH_STATES = new Set([
 
 export const PLAN_STATUSES = new Set(["draft", "ready", "active", "verifying", "complete", "blocked", "failed", "retest_required", "cancelled"]);
 export const PLAN_STEP_STATUSES = new Set(["pending", "active", "complete", "blocked", "failed", "skipped"]);
+
+export function isHardPlanBlocker(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/^(blocked|blocker|waiting|cannot|can't|unable|depends on|prerequisite)\b/i.test(text)) return true;
+  if (/\b(blocked by|waiting for|cannot proceed|can't proceed|unable to proceed)\b/i.test(text)) return true;
+  return false;
+}
 export const DECISION_STATUSES = new Set(["proposed", "active", "superseded", "reconsidered"]);
 export const CHECKPOINT_STATUSES = new Set([
   "pending", "running", "passed", "partial_pass", "failed", "blocked", "not_supported", "retest_required",
@@ -657,7 +665,7 @@ export function derivePlanState(
   } else if (ownSteps.some((item) => item.status === "failed") || requiredCheckpoints.some((item) => item.status === "failed")) {
     derivedStatus = "failed";
     derivedReason ||= "A required step or checkpoint failed.";
-  } else if (plan.blockers.length || ownSteps.some((item) => item.status === "blocked") || requiredCheckpoints.some((item) => item.status === "blocked")) {
+  } else if (plan.blockers.some(isHardPlanBlocker) || ownSteps.some((item) => item.status === "blocked") || requiredCheckpoints.some((item) => item.status === "blocked")) {
     derivedStatus = "blocked";
     derivedReason ||= "A required step, checkpoint, or explicit blocker prevents progress.";
   } else {
