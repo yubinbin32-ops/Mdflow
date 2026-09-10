@@ -6,6 +6,7 @@ import { ProjectServiceRouter } from "./project-router.mjs";
 import { runCli } from "./cli.mjs";
 import { sanitizeTerminalOutput } from "./sanitizer.mjs";
 import { boundTaskResponse, setTaskSourceBaseline, startTaskBudget, taskBudget, taskSourceBaseline } from "./task-budget.mjs";
+import { normalizeMcpIds } from "./reference.mjs";
 
 const router = new ProjectServiceRouter();
 const server = new McpServer(
@@ -22,7 +23,7 @@ const projectRootInput = {
 
 function withProject(input, callback) {
   const service = router.serviceFor(input);
-  const { projectRoot: _projectRoot, ...payload } = input;
+  const { projectRoot: _projectRoot, ...payload } = normalizeMcpIds(input);
   const data = callback(service, payload);
   if (data && typeof data === "object" && input.taskContextId) {
     Object.defineProperty(data, "__taskContextId", { value: input.taskContextId, enumerable: false });
@@ -30,17 +31,32 @@ function withProject(input, callback) {
   return data;
 }
 
-function readResult(data, markdown, includeStructured = false) {
+function operationEnvelope(data, structured, operation, budget = null) {
+  if (structured === undefined) return undefined;
+  const truncated = Boolean(structured?.truncated);
+  return {
+    ok: data?.success === false ? false : data?.valid === false ? false : !Boolean(data?.error),
+    operation: operation ?? data?.operation ?? null,
+    graphRevision: data?.graphRevision ?? null,
+    sourceSyncRevision: data?.sourceSync?.revision ?? data?.sourceSyncRevision ?? null,
+    changed: data?.sourceSync?.changed ?? data?.changed ?? false,
+    truncated,
+    budget: budget ?? data?.budget ?? structured?.budget ?? null,
+    data: structured,
+  };
+}
+
+function readResult(data, markdown, includeStructured = false, operation = null) {
   const bounded = boundTaskResponse({
     taskContextId: data?.__taskContextId,
     markdown,
     data,
     includeStructured,
   });
-  return response(data, bounded.markdown, bounded.structured);
+  return response(data, bounded.markdown, operationEnvelope(data, bounded.structured, operation, bounded.budget));
 }
 
-function writeResult(data, markdown, includeStructured = false) {
+function writeResult(data, markdown, includeStructured = false, operation = null) {
   const text = markdown ?? data?.markdown ?? writeReceiptMarkdown(data);
   const bounded = boundTaskResponse({
     taskContextId: data?.__taskContextId,
@@ -48,7 +64,7 @@ function writeResult(data, markdown, includeStructured = false) {
     data,
     includeStructured,
   });
-  return response(data, bounded.markdown, bounded.structured);
+  return response(data, bounded.markdown, operationEnvelope(data, bounded.structured, operation, bounded.budget));
 }
 
 function writeReceiptMarkdown(data = {}) {
@@ -201,6 +217,95 @@ server.registerTool(
 );
 
 server.registerTool(
+  "source_binding_suggest",
+  {
+    description:
+      "Suggest source bindings for a Block from AST symbols and project semantics. Suggestions are read-only; use source_binding_accept to persist an explicitly chosen candidate.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: z.string().min(1),
+      limit: z.number().int().min(1).max(50).optional(),
+      maxFiles: z.number().int().min(1).max(2000).optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.suggestSourceBindings(payload));
+    const md = [
+      `# Source Binding Suggestions: block:${data.blockId}`,
+      `- Scanned files: ${data.scannedFiles}`,
+      `- Candidates: ${data.candidates.length}`,
+      ...(data.candidates.length ? ["", ...data.candidates.map((candidate, index) =>
+        `${index + 1}. \`${candidate.path}:${candidate.symbol}\` · ${candidate.role} · confidence ${candidate.confidence} · ${candidate.reasons.join("; ")}`)] : ["", "No candidate bindings found."]),
+      "",
+      "Suggestions are read-only. Confirm a candidate explicitly with source_binding_accept.",
+    ].join("\n");
+    return readResult(data, md, input.includeStructured, "source_binding_suggest");
+  },
+);
+
+server.registerTool(
+  "source_binding_accept",
+  {
+    description:
+      "Persist explicitly selected AST source binding candidates for a Block. Every candidate is re-resolved against current source before a SourceRef is created.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: z.string().min(1),
+      bindings: z.array(z.object({
+        path: z.string().min(1),
+        symbol: z.string().min(1),
+        role: z.enum(["facade", "implementation", "persistence", "renderer", "controller", "test", "config"]).optional(),
+      })).min(1).max(20),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.acceptSourceBindings(payload));
+    const md = [
+      `# Source Bindings Accepted: block:${data.blockId}`,
+      `- Added: ${data.accepted.length}`,
+      `- Changed: ${data.changed ? "yes" : "no"}`,
+      ...(data.accepted.length ? ["", ...data.accepted.map((binding) => `- ${binding.role}: \`${binding.path}:${binding.symbol}\` (${binding.startLine}-${binding.endLine})`)] : []),
+      ...(data.sourceSync ? [`- Source sync revision: ${data.sourceSync.revision}`] : []),
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured, "source_binding_accept");
+  },
+);
+
+server.registerTool(
+  "block_seal",
+  {
+    description:
+      "Seal a verified Block implementation as complete. Requires valid current SourceBindings and a fresh passed direct Checkpoint; an executionId, when supplied, must be a successful receipt cited by that Checkpoint.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: z.string().min(1),
+      checkpointId: z.string().min(1).optional(),
+      executionId: z.string().min(1).optional(),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.sealBlock(payload));
+    const md = [
+      `# Block Seal: ${data.sealed ? "complete" : "not sealed"}`,
+      `- Block: block:${data.blockId}`,
+      `- Delivery state: ${data.deliveryState ?? "complete"}`,
+      `- Checkpoint: ${data.checkpointId}`,
+      ...(data.executionId ? [`- Execution: ${data.executionId}`] : []),
+      `- Changed: ${data.changed ? "yes" : "no"}${data.idempotent ? " (already sealed)" : ""}`,
+      ...(data.graphRevision !== undefined ? [`- Graph revision: ${data.graphRevision}`] : []),
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured, "block_seal");
+  },
+);
+
+server.registerTool(
   "run_command",
   {
     description:
@@ -211,6 +316,7 @@ server.registerTool(
       cwd: z.string().min(1).optional(),
       timeoutMs: z.number().int().min(100).max(120000).optional(),
       maxChars: z.number().int().min(100).max(10000).optional(),
+      executionKind: z.enum(["command", "test", "build"]).optional(),
       includeStructured: z.boolean().default(false),
     },
   },
@@ -218,6 +324,7 @@ server.registerTool(
     const data = withProject(input, (service, payload) => service.runCommand(payload));
     const markdown = [
       `# Command Result: ${data.success ? "PASSED" : "FAILED"}`,
+      `- Execution: ${data.executionId} · Kind: ${data.executionKind} · Duration: ${data.durationMs}ms`,
       `- Command: \`${data.command}\``,
       `- Exit code: ${data.exitCode} · Output: ${data.originalChars} → ${data.finalChars} chars · Redactions: ${data.redactions}`,
       "",
@@ -225,7 +332,7 @@ server.registerTool(
       data.output,
       "```",
     ].join("\n");
-    return readResult(data, markdown, input.includeStructured);
+    return readResult(data, markdown, input.includeStructured, "run_command");
   },
 );
 
@@ -750,6 +857,7 @@ server.registerTool(
       requiredEvidenceLevel: z.enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).optional(),
       coverage: z.enum(["complete", "partial"]).optional(),
       evidence: z.array(z.record(z.string(), z.unknown())).optional(),
+      evidenceExecutionIds: z.array(z.string().min(1)).optional(),
       invalidatedAt: z.string().nullable().optional(),
       expectedRevision: z.number().int().optional(),
       planId: z.string().optional(),
@@ -760,7 +868,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.recordCheckpoint(payload));
-    return writeResult(data, `Recorded checkpoint ${data.checkpoint.id} for ${data.checkpoint.status}. Graph revision ${data.graphRevision}.`, input.includeStructured);
+    return writeResult(data, `Recorded checkpoint ${data.checkpoint.id} for ${data.checkpoint.status}. Graph revision ${data.graphRevision}.`, input.includeStructured, "checkpoint_record");
   },
 );
 
@@ -772,7 +880,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service) => service.validate());
-    return writeResult(data, undefined, input.includeStructured);
+    return writeResult(data, undefined, input.includeStructured, "graph_validate");
   },
 );
 

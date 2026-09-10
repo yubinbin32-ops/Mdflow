@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { openDatabase, exportGraphToJson, importGraphFromJson, getSyncMeta, setSyncMeta } from "./database.mjs";
+import { openDatabase, exportGraphToJson, importGraphFromJson, getSyncMeta, setSyncMeta, transaction } from "./database.mjs";
 import { resolveProjectPaths } from "./paths.mjs";
 import { extractSymbolSlice, buildChainCodeStream, replaceSymbolSlice, detectLanguage } from "./ast.mjs";
 import { redactSensitiveText, sanitizeTerminalOutput } from "./sanitizer.mjs";
@@ -21,8 +21,45 @@ function writeFileAtomically(filePath, content) {
   }
 }
 
+function gitCommand(projectRoot, args) {
+  const result = spawnSync("git", args, {
+    cwd: projectRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: 5000,
+    maxBuffer: 2_000_000,
+  });
+  return result.status === 0 ? String(result.stdout ?? "").trim() : null;
+}
+
+function executionGitIdentity(projectRoot) {
+  const head = gitCommand(projectRoot, ["rev-parse", "HEAD"]);
+  const diff = gitCommand(projectRoot, ["diff", "--binary", "HEAD"]);
+  return {
+    gitHead: head,
+    dirtyDiffHash: diff == null ? null : crypto.createHash("sha256").update(diff).digest("hex"),
+  };
+}
+
+function parseExecutionSummary(command, output, success) {
+  const text = String(output ?? "");
+  const tests = text.match(/(?:tests?|suites?)\s+(\d+).*?(?:passed|pass)\s+(\d+).*?(?:failed|fail)\s+(\d+)/is);
+  const testSummary = tests ? { total: Number(tests[1]), passed: Number(tests[2]), failed: Number(tests[3]) } : {};
+  const artifacts = [...text.matchAll(/(?:written|created|built|output)\s+(?:to\s+)?[`']?([^\s`']+\.(?:app|js|mjs|json|zip|dmg|html|css|js))[`']?/gi)]
+    .slice(0, 12).map((match) => match[1]);
+  return {
+    testSummary: { ...testSummary, inferred: Object.keys(testSummary).length > 0, success },
+    artifactSummary: { paths: artifacts, inferred: artifacts.length > 0 },
+    kind: /test|spec|lint|check/i.test(command) ? "test" : /build|compile|package/i.test(command) ? "build" : "command",
+  };
+}
+
+const SOURCE_BACKED_BLOCK_KINDS = new Set(["flow", "ui", "service", "function", "integration", "api", "data", "database"]);
+const INVALID_BINDING_STATUSES = new Set(["missing", "unreadable", "outside_project", "stale", "ambiguous"]);
+
 import {
   now,
+  identifier,
   parseJson,
   entityExists,
   normalizeBlock,
@@ -46,7 +83,7 @@ import {
   extractCheckpointIdentity,
   stripCheckpointIdentity,
 } from "./checkpoint-freshness.mjs";
-import { bindingIdentity, scanSourceBindings } from "./source-binding.mjs";
+import { bindingIdentity, scanSourceBindings, suggestSourceBindings } from "./source-binding.mjs";
 import {
   renderProjectMap,
   listDecisions,
@@ -244,6 +281,143 @@ export class MdflowService {
       changed: historicalChanges.length > 0,
       affectedBlockIds: [...new Set(historicalChanges.map((item) => item.blockId).filter(Boolean))],
       affectedChainIds: [...chainIds],
+    };
+  }
+
+  suggestSourceBindings({ blockId, limit = 12, maxFiles = 600 } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    this.ensureSynced();
+    const block = this.snapshot().blocks.find((item) => item.id === blockId);
+    if (!block) throw new Error(`Block not found: ${blockId}`);
+    const existingRefs = this.database.prepare(
+      "SELECT path, symbol, role FROM source_refs WHERE block_id = ? ORDER BY path, symbol",
+    ).all(blockId);
+    return suggestSourceBindings({
+      projectRoot: this.paths.projectRoot,
+      block,
+      existingRefs,
+      limit,
+      maxFiles,
+    });
+  }
+
+  acceptSourceBindings({ blockId, bindings = [], actor = "agent", reason = "Accept SourceBinding candidates" } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    if (!Array.isArray(bindings) || bindings.length === 0) throw new Error("bindings must contain at least one candidate");
+    if (bindings.length > 20) throw new Error("bindings cannot exceed 20 candidates per operation");
+    this.ensureSynced();
+    if (!this.snapshot().blocks.some((item) => item.id === blockId)) throw new Error(`Block not found: ${blockId}`);
+    const existing = new Set(this.database.prepare(
+      "SELECT path, symbol FROM source_refs WHERE block_id = ?",
+    ).all(blockId).map((item) => `${item.path}:${item.symbol ?? ""}`));
+    const accepted = [];
+    for (const candidate of bindings) {
+      if (!candidate?.path?.trim() || !candidate?.symbol?.trim()) throw new Error("Each binding requires path and symbol");
+      const absolutePath = path.resolve(this.paths.projectRoot, candidate.path);
+      const relativePath = path.relative(this.paths.projectRoot, absolutePath);
+      if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) throw new Error(`Binding path must stay inside project: ${candidate.path}`);
+      if (!fs.existsSync(absolutePath)) throw new Error(`Binding source file not found: ${candidate.path}`);
+      const content = fs.readFileSync(absolutePath, "utf8");
+      const slice = extractSymbolSlice(content, {
+        symbol: candidate.symbol,
+        language: detectLanguage(absolutePath),
+        filePath: absolutePath,
+        maxLines: 4,
+      });
+      if (!slice.found) throw new Error(`Binding symbol is ${slice.reason ?? "missing"}: ${candidate.path}:${candidate.symbol}`);
+      const normalizedPath = relativePath.split(path.sep).join("/");
+      const key = `${normalizedPath}:${candidate.symbol}`;
+      if (existing.has(key)) continue;
+      existing.add(key);
+      accepted.push({
+        path: normalizedPath,
+        symbol: candidate.symbol,
+        role: candidate.role ?? "implementation",
+        startLine: slice.startLine,
+        endLine: slice.endLine,
+      });
+    }
+    if (!accepted.length) return { blockId, accepted: [], changed: false, graphRevision: this.project().graph_revision };
+    const mutation = this.mutate({
+      actor,
+      reason,
+      operations: accepted.map((binding) => ({ action: "add_source_ref", id: blockId, fields: binding })),
+    });
+    const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
+    return { ...mutation, blockId, accepted, changed: true, sourceSync };
+  }
+
+  sealBlock({ blockId, checkpointId = null, executionId = null, actor = "agent", reason = "Seal verified Block implementation" } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    this.ensureSynced();
+    const snapshot = this.snapshot();
+    const block = snapshot.blocks.find((item) => item.id === blockId);
+    if (!block) throw new Error(`Block not found: ${blockId}`);
+
+    const bindings = this.syncSourceBindings({ includeUnchanged: true }).bindings.filter((item) => item.blockId === blockId);
+    if (SOURCE_BACKED_BLOCK_KINDS.has(block.kind)) {
+      if (!bindings.length) throw new Error(`Source-backed Block has no SourceBinding: ${blockId}`);
+      const invalid = bindings.find((binding) => INVALID_BINDING_STATUSES.has(binding.bindingStatus));
+      if (invalid) throw new Error(`Cannot seal Block with ${invalid.bindingStatus} SourceBinding: ${invalid.path}:${invalid.symbol ?? ""}`);
+    }
+
+    const directCheckpoints = snapshot.checkpoints.filter((checkpoint) =>
+      checkpoint.targetType === "block" && checkpoint.targetId === blockId,
+    );
+    const checkpoint = checkpointId
+      ? directCheckpoints.find((item) => item.id === checkpointId)
+      : directCheckpoints.find((item) => item.status === "passed" && item.freshness?.status === "fresh");
+    if (!checkpoint) throw new Error(checkpointId
+      ? `Checkpoint is not attached to block:${blockId}: ${checkpointId}`
+      : `Block requires a direct passed Checkpoint: ${blockId}`);
+    if (checkpoint.status !== "passed") throw new Error(`Checkpoint must be passed before sealing: ${checkpoint.id} (${checkpoint.status})`);
+    if (checkpoint.freshness?.status !== "fresh") throw new Error(`Checkpoint must be fresh before sealing: ${checkpoint.id} (${checkpoint.freshness?.status ?? "unknown"})`);
+
+    let executionReceipt = null;
+    if (executionId) {
+      executionReceipt = this.database.prepare(
+        "SELECT id, status, exit_code, execution_kind, duration_ms, source_revision FROM execution_receipts WHERE id = ? AND project_id = ?",
+      ).get(executionId, this.paths.descriptor.id);
+      if (!executionReceipt) throw new Error(`Execution receipt not found in project: ${executionId}`);
+      if (executionReceipt.status !== "passed" || executionReceipt.exit_code !== 0) {
+        throw new Error(`Execution receipt must be successful before sealing: ${executionId}`);
+      }
+      const cited = checkpoint.evidence.some((item) => item?.kind === "execution_receipt" && item.executionId === executionId);
+      if (!cited) throw new Error(`Checkpoint ${checkpoint.id} does not cite execution receipt: ${executionId}`);
+    }
+
+    if (block.deliveryState === "complete") {
+      return {
+        blockId,
+        sealed: true,
+        changed: false,
+        idempotent: true,
+        checkpointId: checkpoint.id,
+        executionId: executionReceipt?.id ?? null,
+        graphRevision: this.project().graph_revision,
+      };
+    }
+    const mutation = this.mutate({
+      actor,
+      reason,
+      operations: [{
+        action: "update_block",
+        id: blockId,
+        expectedRevision: block.currentRevision,
+        summary: `Sealed with checkpoint:${checkpoint.id}${executionReceipt ? ` and execution:${executionReceipt.id}` : ""}`,
+        fields: { deliveryState: "complete", healthState: "healthy" },
+      }],
+    });
+    return {
+      ...mutation,
+      blockId,
+      sealed: true,
+      changed: true,
+      idempotent: false,
+      previousDeliveryState: block.deliveryState,
+      deliveryState: "complete",
+      checkpointId: checkpoint.id,
+      executionId: executionReceipt?.id ?? null,
     };
   }
 
@@ -596,7 +770,7 @@ export class MdflowService {
     return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode, projectRoot: this.paths.projectRoot });
   }
 
-  runCommand({ command, cwd = ".", timeoutMs = 30000, maxChars = 3000 } = {}) {
+  runCommand({ command, cwd = ".", timeoutMs = 30000, maxChars = 3000, executionKind = null } = {}) {
     if (!command?.trim()) throw new Error("command is required");
     // Establish a source baseline before an external command can edit files;
     // the post-command scan then turns exec/git/script edits into a compact
@@ -610,6 +784,7 @@ export class MdflowService {
       throw new Error("cwd must stay inside the registered project");
     }
 
+    const startedAt = Date.now();
     const result = spawnSync(process.env.SHELL || "/bin/sh", ["-lc", command], {
       cwd: targetCwd,
       encoding: "utf8",
@@ -631,8 +806,64 @@ export class MdflowService {
       .replace(/[\r\n]+/g, " ")
       .replace(/`/g, "\\`");
     const sourceSync = this.syncSourceBindings();
+    const success = exitCode === 0 && !result.error;
+    const executionSummary = parseExecutionSummary(command, sanitized.text, success);
+    const gitIdentity = executionGitIdentity(projectRoot);
+    const executionId = identifier("exec");
+    const receipt = {
+      id: executionId,
+      projectId: this.paths.descriptor.id,
+      command: safeCommand,
+      cwd: relativeCwd || ".",
+      executionKind: executionKind || executionSummary.kind,
+      status: success ? "passed" : timedOut ? "timed_out" : "failed",
+      exitCode,
+      timedOut,
+      signal: result.signal ?? null,
+      durationMs: Date.now() - startedAt,
+      stdoutBytes: Buffer.byteLength(stdout, "utf8"),
+      stderrBytes: Buffer.byteLength(stderr, "utf8"),
+      output: sanitized.text,
+      originalChars: sanitized.originalChars,
+      finalChars: sanitized.finalChars,
+      redactions: sanitized.redactions,
+      gitHead: gitIdentity.gitHead,
+      dirtyDiffHash: gitIdentity.dirtyDiffHash,
+      sourceSyncRevision: sourceSync.revision,
+      sourceRevision: sourceSync.sourceRevision,
+      testSummary: executionSummary.testSummary,
+      artifactSummary: executionSummary.artifactSummary,
+      external: false,
+    };
+    transaction(this.database, () => {
+      this.database.prepare(`
+        INSERT INTO execution_receipts(
+          id, project_id, command, cwd, execution_kind, status, exit_code, timed_out, signal,
+          duration_ms, stdout_bytes, stderr_bytes, output, original_chars, final_chars, redactions,
+          git_head, dirty_diff_hash, source_sync_revision, source_revision,
+          test_summary_json, artifact_summary_json, external, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        receipt.id, receipt.projectId, receipt.command, receipt.cwd, receipt.executionKind, receipt.status,
+        receipt.exitCode, Number(receipt.timedOut), receipt.signal, receipt.durationMs,
+        receipt.stdoutBytes, receipt.stderrBytes, receipt.output, receipt.originalChars, receipt.finalChars,
+        receipt.redactions, receipt.gitHead, receipt.dirtyDiffHash, receipt.sourceSyncRevision,
+        receipt.sourceRevision, JSON.stringify(receipt.testSummary), JSON.stringify(receipt.artifactSummary),
+        Number(receipt.external), now(),
+      );
+    });
     return {
-      success: exitCode === 0 && !result.error,
+      executionId,
+      durationMs: receipt.durationMs,
+      stdoutBytes: receipt.stdoutBytes,
+      stderrBytes: receipt.stderrBytes,
+      executionKind: receipt.executionKind,
+      gitHead: receipt.gitHead,
+      dirtyDiffHash: receipt.dirtyDiffHash,
+      testSummary: receipt.testSummary,
+      artifactSummary: receipt.artifactSummary,
+      external: receipt.external,
+      success,
       command: safeCommand,
       cwd: relativeCwd || ".",
       exitCode,

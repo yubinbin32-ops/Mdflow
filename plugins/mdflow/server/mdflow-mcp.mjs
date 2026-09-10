@@ -23498,6 +23498,35 @@ CREATE TABLE IF NOT EXISTS checkpoints (
   updated_at TEXT NOT NULL
 );
 
+-- Runtime evidence produced by the controlled command gateway.  Receipts are
+-- deliberately compact: raw stdout/stderr never enters the graph projection.
+CREATE TABLE IF NOT EXISTS execution_receipts (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  command TEXT NOT NULL,
+  cwd TEXT NOT NULL DEFAULT '.',
+  execution_kind TEXT NOT NULL DEFAULT 'command',
+  status TEXT NOT NULL,
+  exit_code INTEGER,
+  timed_out INTEGER NOT NULL DEFAULT 0,
+  signal TEXT,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  stdout_bytes INTEGER NOT NULL DEFAULT 0,
+  stderr_bytes INTEGER NOT NULL DEFAULT 0,
+  output TEXT NOT NULL DEFAULT '',
+  original_chars INTEGER NOT NULL DEFAULT 0,
+  final_chars INTEGER NOT NULL DEFAULT 0,
+  redactions INTEGER NOT NULL DEFAULT 0,
+  git_head TEXT,
+  dirty_diff_hash TEXT,
+  source_sync_revision INTEGER,
+  source_revision TEXT,
+  test_summary_json TEXT NOT NULL DEFAULT '{}',
+  artifact_summary_json TEXT NOT NULL DEFAULT '{}',
+  external INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS checkpoint_bindings (
   checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
   subject_type TEXT NOT NULL CHECK(subject_type IN ('block', 'link', 'chain', 'plan', 'plan_change', 'plan_chain_scope')),
@@ -23866,6 +23895,9 @@ var GRAPH_TABLES = [
   { name: "plan_changes", orderBy: "plan_id, position, id" },
   { name: "plan_chain_change_refs", orderBy: "chain_scope_id, plan_change_id" },
   { name: "checkpoints", orderBy: "id" },
+  // Execution receipts are runtime evidence, not architecture. Keep them in
+  // the project database so checkpoints can reference them, but do not copy
+  // command output into graph.json or every architecture diff becomes noisy.
   { name: "checkpoint_bindings", orderBy: "checkpoint_id, position, subject_type, subject_id, role" },
   { name: "checkpoint_dependencies", orderBy: "parent_checkpoint_id, position, child_checkpoint_id" },
   { name: "localized_text", orderBy: "entity_type, entity_id, locale, field" }
@@ -27557,6 +27589,85 @@ import { spawnSync } from "node:child_process";
 import crypto4 from "node:crypto";
 import fs5 from "node:fs";
 import path6 from "node:path";
+var DISCOVERY_IGNORES = /* @__PURE__ */ new Set([".git", ".mdflow", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
+var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".swift", ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".cc", ".cpp", ".h", ".hpp"]);
+function discoveryTerms(value) {
+  return [...new Set(String(value ?? "").replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((term) => term.length >= 3))];
+}
+function sourceFiles(projectRoot, maxFiles) {
+  const files = [];
+  const visit = (directory) => {
+    if (files.length >= maxFiles) return;
+    let entries = [];
+    try {
+      entries = fs5.readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (files.length >= maxFiles) break;
+      if (entry.name.startsWith(".") && entry.name !== ".github") continue;
+      if (DISCOVERY_IGNORES.has(entry.name)) continue;
+      const candidate = path6.join(directory, entry.name);
+      if (entry.isDirectory()) visit(candidate);
+      else if (entry.isFile() && SOURCE_EXTENSIONS.has(path6.extname(entry.name).toLowerCase())) files.push(candidate);
+    }
+  };
+  visit(projectRoot);
+  return files;
+}
+function candidateRole(relative, symbol) {
+  const text = `${relative} ${symbol.kind} ${symbol.name}`.toLowerCase();
+  if (/(^|\/)(test|tests|spec|specs)(\/|\.)|\.test\.|\.spec\./.test(text)) return "test";
+  if (/database|storage|repository|persist|sqlite|schema/.test(text)) return "persistence";
+  if (/server|router|controller|handler|api/.test(text)) return "controller";
+  if (/config|setting|manifest/.test(text)) return "config";
+  if (/render|view|screen|canvas|ui/.test(text)) return "renderer";
+  if (/index|facade|client/.test(text)) return "facade";
+  return "implementation";
+}
+function suggestSourceBindings({ projectRoot, block, existingRefs = [], limit = 12, maxFiles = 600 } = {}) {
+  if (!block?.id) throw new Error("block is required");
+  const terms = discoveryTerms([block.id, block.title, block.summary, block.contract, ...block.tags ?? []].join(" "));
+  const existing = new Set(existingRefs.map((ref) => `${ref.path}:${ref.symbol ?? ""}`));
+  const candidates = [];
+  const files = sourceFiles(projectRoot, maxFiles);
+  for (const absolutePath of files) {
+    const relative = path6.relative(projectRoot, absolutePath).split(path6.sep).join("/");
+    let content;
+    try {
+      content = fs5.readFileSync(absolutePath, "utf8");
+    } catch {
+      continue;
+    }
+    for (const symbol of extractSymbols(content, { filePath: relative })) {
+      if (existing.has(`${relative}:${symbol.qualifiedName ?? symbol.name}`) || existing.has(`${relative}:${symbol.name}`)) continue;
+      const haystack = `${relative} ${symbol.qualifiedName ?? symbol.name} ${symbol.signature ?? ""}`.toLowerCase();
+      const matchedTerms = terms.filter((term) => haystack.includes(term));
+      const exactName = discoveryTerms(symbol.qualifiedName ?? symbol.name).some((term) => terms.includes(term));
+      const pathMatches = terms.filter((term) => relative.toLowerCase().includes(term)).length;
+      const score = matchedTerms.length * 12 + pathMatches * 5 + (exactName ? 18 : 0);
+      if (score < 12) continue;
+      candidates.push({
+        path: relative,
+        symbol: symbol.qualifiedName ?? symbol.name,
+        role: candidateRole(relative, symbol),
+        confidence: Math.min(0.98, Number((0.35 + score / 100).toFixed(2))),
+        reasons: [
+          ...matchedTerms.length ? [`matched terms: ${matchedTerms.slice(0, 6).join(", ")}`] : [],
+          ...pathMatches ? ["source path matches Block semantics"] : [],
+          ...exactName ? ["symbol name matches Block semantics"] : []
+        ],
+        signature: symbol.signature ?? null,
+        startLine: symbol.startLine,
+        endLine: symbol.endLine,
+        score
+      });
+    }
+  }
+  candidates.sort((left, right) => right.score - left.score || left.path.localeCompare(right.path) || left.symbol.localeCompare(right.symbol));
+  return { blockId: block.id, scannedFiles: files.length, candidates: candidates.slice(0, limit).map(({ score: _score, ...item }) => item) };
+}
 function hashText(value) {
   return crypto4.createHash("sha256").update(String(value ?? "")).digest("hex");
 }
@@ -28014,7 +28125,8 @@ function recordCheckpoint(service, {
   expectedRevision,
   planId = null,
   chainScopeId = null,
-  gitHead: gitHead2 = null
+  gitHead: gitHead2 = null,
+  evidenceExecutionIds = []
 } = {}) {
   if (!["block", "chain", "link", "plan"].includes(targetType)) throw new Error(`Invalid targetType: ${targetType}`);
   if (!title?.trim()) throw new Error("title is required");
@@ -28023,7 +28135,19 @@ function recordCheckpoint(service, {
   if (!entityExists(service.database, service.paths.descriptor.id, targetType, targetId)) {
     throw new Error(`${targetType}:${targetId} not found`);
   }
-  const resolvedEvidenceLevel = evidenceLevel ?? (status === "passed" ? "static" : "none");
+  if (!Array.isArray(evidenceExecutionIds)) throw new Error("evidenceExecutionIds must be an array");
+  const receipts = evidenceExecutionIds.map((executionId) => {
+    const receipt = service.database.prepare(
+      "SELECT * FROM execution_receipts WHERE id = ? AND project_id = ?"
+    ).get(executionId, service.paths.descriptor.id);
+    if (!receipt) throw new Error(`Execution receipt not found in project: ${executionId}`);
+    return receipt;
+  });
+  if (status === "passed") {
+    const failedReceipt = receipts.find((receipt) => receipt.status !== "passed" || receipt.exit_code !== 0);
+    if (failedReceipt) throw new Error(`Passed checkpoint cannot use failed execution receipt: ${failedReceipt.id}`);
+  }
+  const resolvedEvidenceLevel = evidenceLevel ?? (receipts.length > 0 ? "integration" : status === "passed" ? "static" : "none");
   assertAllowed(resolvedEvidenceLevel, EVIDENCE_LEVELS, "evidence level");
   assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
   if (!["complete", "partial"].includes(coverage)) throw new Error(`Invalid checkpoint coverage: ${coverage}`);
@@ -28036,10 +28160,29 @@ function recordCheckpoint(service, {
   }
   const checkpointId = id ?? identifier("checkpoint");
   const timestamp = now();
+  const receiptEvidence = receipts.map((receipt) => ({
+    kind: "execution_receipt",
+    executionId: receipt.id,
+    command: receipt.command,
+    cwd: receipt.cwd,
+    executionKind: receipt.execution_kind,
+    status: receipt.status,
+    exitCode: receipt.exit_code,
+    durationMs: receipt.duration_ms,
+    originalChars: receipt.original_chars,
+    finalChars: receipt.final_chars,
+    redactions: receipt.redactions,
+    gitHead: receipt.git_head,
+    dirtyDiffHash: receipt.dirty_diff_hash,
+    sourceSyncRevision: receipt.source_sync_revision,
+    sourceRevision: receipt.source_revision,
+    testSummary: JSON.parse(receipt.test_summary_json || "{}"),
+    artifactSummary: JSON.parse(receipt.artifact_summary_json || "{}")
+  }));
   const checkpointEvidence = withCheckpointIdentity(service, {
     targetType,
     targetId,
-    evidence,
+    evidence: [...evidence, ...receiptEvidence],
     gitHead: gitHead2
   });
   const changeSetId = identifier("change");
@@ -28131,7 +28274,7 @@ function recordCheckpoint(service, {
       "evidence",
       "invalidatedAt"
     ]);
-    const evidenceRefs = [...new Set(evidence.flatMap(
+    const evidenceRefs = [...new Set([...evidence, ...receiptEvidence].flatMap(
       (item) => [item.ref, item.path, item.command, item.url].filter((value) => typeof value === "string" && value.trim())
     ))];
     const affectedRefs = [
@@ -28177,7 +28320,8 @@ function recordCheckpoint(service, {
         eligibleAfterChildren: Boolean(eligibleAfterChildren),
         evidenceLevel: resolvedEvidenceLevel,
         requiredEvidenceLevel,
-        coverage
+        coverage,
+        executionIds: receipts.map((receipt) => receipt.id)
       }
     };
   });
@@ -30460,6 +30604,37 @@ function writeFileAtomically(filePath, content) {
     throw error2;
   }
 }
+function gitCommand(projectRoot, args) {
+  const result = spawnSync2("git", args, {
+    cwd: projectRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: 5e3,
+    maxBuffer: 2e6
+  });
+  return result.status === 0 ? String(result.stdout ?? "").trim() : null;
+}
+function executionGitIdentity(projectRoot) {
+  const head = gitCommand(projectRoot, ["rev-parse", "HEAD"]);
+  const diff = gitCommand(projectRoot, ["diff", "--binary", "HEAD"]);
+  return {
+    gitHead: head,
+    dirtyDiffHash: diff == null ? null : crypto6.createHash("sha256").update(diff).digest("hex")
+  };
+}
+function parseExecutionSummary(command, output, success) {
+  const text = String(output ?? "");
+  const tests = text.match(/(?:tests?|suites?)\s+(\d+).*?(?:passed|pass)\s+(\d+).*?(?:failed|fail)\s+(\d+)/is);
+  const testSummary = tests ? { total: Number(tests[1]), passed: Number(tests[2]), failed: Number(tests[3]) } : {};
+  const artifacts = [...text.matchAll(/(?:written|created|built|output)\s+(?:to\s+)?[`']?([^\s`']+\.(?:app|js|mjs|json|zip|dmg|html|css|js))[`']?/gi)].slice(0, 12).map((match) => match[1]);
+  return {
+    testSummary: { ...testSummary, inferred: Object.keys(testSummary).length > 0, success },
+    artifactSummary: { paths: artifacts, inferred: artifacts.length > 0 },
+    kind: /test|spec|lint|check/i.test(command) ? "test" : /build|compile|package/i.test(command) ? "build" : "command"
+  };
+}
+var SOURCE_BACKED_BLOCK_KINDS = /* @__PURE__ */ new Set(["flow", "ui", "service", "function", "integration", "api", "data", "database"]);
+var INVALID_BINDING_STATUSES = /* @__PURE__ */ new Set(["missing", "unreadable", "outside_project", "stale", "ambiguous"]);
 var MdflowService = class {
   constructor(options = {}) {
     const resolvedOptions = typeof options === "string" ? { projectRoot: options } : options;
@@ -30606,6 +30781,132 @@ var MdflowService = class {
       changed: historicalChanges.length > 0,
       affectedBlockIds: [...new Set(historicalChanges.map((item) => item.blockId).filter(Boolean))],
       affectedChainIds: [...chainIds]
+    };
+  }
+  suggestSourceBindings({ blockId, limit = 12, maxFiles = 600 } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    this.ensureSynced();
+    const block = this.snapshot().blocks.find((item) => item.id === blockId);
+    if (!block) throw new Error(`Block not found: ${blockId}`);
+    const existingRefs = this.database.prepare(
+      "SELECT path, symbol, role FROM source_refs WHERE block_id = ? ORDER BY path, symbol"
+    ).all(blockId);
+    return suggestSourceBindings({
+      projectRoot: this.paths.projectRoot,
+      block,
+      existingRefs,
+      limit,
+      maxFiles
+    });
+  }
+  acceptSourceBindings({ blockId, bindings = [], actor = "agent", reason = "Accept SourceBinding candidates" } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    if (!Array.isArray(bindings) || bindings.length === 0) throw new Error("bindings must contain at least one candidate");
+    if (bindings.length > 20) throw new Error("bindings cannot exceed 20 candidates per operation");
+    this.ensureSynced();
+    if (!this.snapshot().blocks.some((item) => item.id === blockId)) throw new Error(`Block not found: ${blockId}`);
+    const existing = new Set(this.database.prepare(
+      "SELECT path, symbol FROM source_refs WHERE block_id = ?"
+    ).all(blockId).map((item) => `${item.path}:${item.symbol ?? ""}`));
+    const accepted = [];
+    for (const candidate of bindings) {
+      if (!candidate?.path?.trim() || !candidate?.symbol?.trim()) throw new Error("Each binding requires path and symbol");
+      const absolutePath = path9.resolve(this.paths.projectRoot, candidate.path);
+      const relativePath2 = path9.relative(this.paths.projectRoot, absolutePath);
+      if (relativePath2.startsWith("..") || path9.isAbsolute(relativePath2)) throw new Error(`Binding path must stay inside project: ${candidate.path}`);
+      if (!fs8.existsSync(absolutePath)) throw new Error(`Binding source file not found: ${candidate.path}`);
+      const content = fs8.readFileSync(absolutePath, "utf8");
+      const slice = extractSymbolSlice(content, {
+        symbol: candidate.symbol,
+        language: detectLanguage(absolutePath),
+        filePath: absolutePath,
+        maxLines: 4
+      });
+      if (!slice.found) throw new Error(`Binding symbol is ${slice.reason ?? "missing"}: ${candidate.path}:${candidate.symbol}`);
+      const normalizedPath = relativePath2.split(path9.sep).join("/");
+      const key = `${normalizedPath}:${candidate.symbol}`;
+      if (existing.has(key)) continue;
+      existing.add(key);
+      accepted.push({
+        path: normalizedPath,
+        symbol: candidate.symbol,
+        role: candidate.role ?? "implementation",
+        startLine: slice.startLine,
+        endLine: slice.endLine
+      });
+    }
+    if (!accepted.length) return { blockId, accepted: [], changed: false, graphRevision: this.project().graph_revision };
+    const mutation = this.mutate({
+      actor,
+      reason,
+      operations: accepted.map((binding) => ({ action: "add_source_ref", id: blockId, fields: binding }))
+    });
+    const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
+    return { ...mutation, blockId, accepted, changed: true, sourceSync };
+  }
+  sealBlock({ blockId, checkpointId = null, executionId = null, actor = "agent", reason = "Seal verified Block implementation" } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    this.ensureSynced();
+    const snapshot2 = this.snapshot();
+    const block = snapshot2.blocks.find((item) => item.id === blockId);
+    if (!block) throw new Error(`Block not found: ${blockId}`);
+    const bindings = this.syncSourceBindings({ includeUnchanged: true }).bindings.filter((item) => item.blockId === blockId);
+    if (SOURCE_BACKED_BLOCK_KINDS.has(block.kind)) {
+      if (!bindings.length) throw new Error(`Source-backed Block has no SourceBinding: ${blockId}`);
+      const invalid = bindings.find((binding) => INVALID_BINDING_STATUSES.has(binding.bindingStatus));
+      if (invalid) throw new Error(`Cannot seal Block with ${invalid.bindingStatus} SourceBinding: ${invalid.path}:${invalid.symbol ?? ""}`);
+    }
+    const directCheckpoints = snapshot2.checkpoints.filter(
+      (checkpoint2) => checkpoint2.targetType === "block" && checkpoint2.targetId === blockId
+    );
+    const checkpoint = checkpointId ? directCheckpoints.find((item) => item.id === checkpointId) : directCheckpoints.find((item) => item.status === "passed" && item.freshness?.status === "fresh");
+    if (!checkpoint) throw new Error(checkpointId ? `Checkpoint is not attached to block:${blockId}: ${checkpointId}` : `Block requires a direct passed Checkpoint: ${blockId}`);
+    if (checkpoint.status !== "passed") throw new Error(`Checkpoint must be passed before sealing: ${checkpoint.id} (${checkpoint.status})`);
+    if (checkpoint.freshness?.status !== "fresh") throw new Error(`Checkpoint must be fresh before sealing: ${checkpoint.id} (${checkpoint.freshness?.status ?? "unknown"})`);
+    let executionReceipt = null;
+    if (executionId) {
+      executionReceipt = this.database.prepare(
+        "SELECT id, status, exit_code, execution_kind, duration_ms, source_revision FROM execution_receipts WHERE id = ? AND project_id = ?"
+      ).get(executionId, this.paths.descriptor.id);
+      if (!executionReceipt) throw new Error(`Execution receipt not found in project: ${executionId}`);
+      if (executionReceipt.status !== "passed" || executionReceipt.exit_code !== 0) {
+        throw new Error(`Execution receipt must be successful before sealing: ${executionId}`);
+      }
+      const cited = checkpoint.evidence.some((item) => item?.kind === "execution_receipt" && item.executionId === executionId);
+      if (!cited) throw new Error(`Checkpoint ${checkpoint.id} does not cite execution receipt: ${executionId}`);
+    }
+    if (block.deliveryState === "complete") {
+      return {
+        blockId,
+        sealed: true,
+        changed: false,
+        idempotent: true,
+        checkpointId: checkpoint.id,
+        executionId: executionReceipt?.id ?? null,
+        graphRevision: this.project().graph_revision
+      };
+    }
+    const mutation = this.mutate({
+      actor,
+      reason,
+      operations: [{
+        action: "update_block",
+        id: blockId,
+        expectedRevision: block.currentRevision,
+        summary: `Sealed with checkpoint:${checkpoint.id}${executionReceipt ? ` and execution:${executionReceipt.id}` : ""}`,
+        fields: { deliveryState: "complete", healthState: "healthy" }
+      }]
+    });
+    return {
+      ...mutation,
+      blockId,
+      sealed: true,
+      changed: true,
+      idempotent: false,
+      previousDeliveryState: block.deliveryState,
+      deliveryState: "complete",
+      checkpointId: checkpoint.id,
+      executionId: executionReceipt?.id ?? null
     };
   }
   project() {
@@ -30898,7 +31199,7 @@ var MdflowService = class {
   sanitizeLog({ rawOutput, maxChars = 3e3, exitCode = null } = {}) {
     return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode, projectRoot: this.paths.projectRoot });
   }
-  runCommand({ command, cwd = ".", timeoutMs = 3e4, maxChars = 3e3 } = {}) {
+  runCommand({ command, cwd = ".", timeoutMs = 3e4, maxChars = 3e3, executionKind = null } = {}) {
     if (!command?.trim()) throw new Error("command is required");
     this.ensureSynced();
     this.syncSourceBindings();
@@ -30908,6 +31209,7 @@ var MdflowService = class {
     if (relativeCwd.startsWith("..") || path9.isAbsolute(relativeCwd)) {
       throw new Error("cwd must stay inside the registered project");
     }
+    const startedAt = Date.now();
     const result = spawnSync2(process.env.SHELL || "/bin/sh", ["-lc", command], {
       cwd: targetCwd,
       encoding: "utf8",
@@ -30928,8 +31230,82 @@ ${stderr}` : ""].filter(Boolean).join("\n");
     });
     const safeCommand = redactSensitiveText(command, { projectRoot }).text.replace(/[\r\n]+/g, " ").replace(/`/g, "\\`");
     const sourceSync = this.syncSourceBindings();
+    const success = exitCode === 0 && !result.error;
+    const executionSummary = parseExecutionSummary(command, sanitized.text, success);
+    const gitIdentity = executionGitIdentity(projectRoot);
+    const executionId = identifier("exec");
+    const receipt = {
+      id: executionId,
+      projectId: this.paths.descriptor.id,
+      command: safeCommand,
+      cwd: relativeCwd || ".",
+      executionKind: executionKind || executionSummary.kind,
+      status: success ? "passed" : timedOut ? "timed_out" : "failed",
+      exitCode,
+      timedOut,
+      signal: result.signal ?? null,
+      durationMs: Date.now() - startedAt,
+      stdoutBytes: Buffer.byteLength(stdout, "utf8"),
+      stderrBytes: Buffer.byteLength(stderr, "utf8"),
+      output: sanitized.text,
+      originalChars: sanitized.originalChars,
+      finalChars: sanitized.finalChars,
+      redactions: sanitized.redactions,
+      gitHead: gitIdentity.gitHead,
+      dirtyDiffHash: gitIdentity.dirtyDiffHash,
+      sourceSyncRevision: sourceSync.revision,
+      sourceRevision: sourceSync.sourceRevision,
+      testSummary: executionSummary.testSummary,
+      artifactSummary: executionSummary.artifactSummary,
+      external: false
+    };
+    transaction(this.database, () => {
+      this.database.prepare(`
+        INSERT INTO execution_receipts(
+          id, project_id, command, cwd, execution_kind, status, exit_code, timed_out, signal,
+          duration_ms, stdout_bytes, stderr_bytes, output, original_chars, final_chars, redactions,
+          git_head, dirty_diff_hash, source_sync_revision, source_revision,
+          test_summary_json, artifact_summary_json, external, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        receipt.id,
+        receipt.projectId,
+        receipt.command,
+        receipt.cwd,
+        receipt.executionKind,
+        receipt.status,
+        receipt.exitCode,
+        Number(receipt.timedOut),
+        receipt.signal,
+        receipt.durationMs,
+        receipt.stdoutBytes,
+        receipt.stderrBytes,
+        receipt.output,
+        receipt.originalChars,
+        receipt.finalChars,
+        receipt.redactions,
+        receipt.gitHead,
+        receipt.dirtyDiffHash,
+        receipt.sourceSyncRevision,
+        receipt.sourceRevision,
+        JSON.stringify(receipt.testSummary),
+        JSON.stringify(receipt.artifactSummary),
+        Number(receipt.external),
+        now()
+      );
+    });
     return {
-      success: exitCode === 0 && !result.error,
+      executionId,
+      durationMs: receipt.durationMs,
+      stdoutBytes: receipt.stdoutBytes,
+      stderrBytes: receipt.stderrBytes,
+      executionKind: receipt.executionKind,
+      gitHead: receipt.gitHead,
+      dirtyDiffHash: receipt.dirtyDiffHash,
+      testSummary: receipt.testSummary,
+      artifactSummary: receipt.artifactSummary,
+      external: receipt.external,
+      success,
       command: safeCommand,
       cwd: relativeCwd || ".",
       exitCode,
@@ -31595,16 +31971,30 @@ function withProject(input, callback) {
   }
   return data;
 }
-function readResult(data, markdown, includeStructured = false) {
+function operationEnvelope(data, structured, operation, budget = null) {
+  if (structured === void 0) return void 0;
+  const truncated = Boolean(structured?.truncated);
+  return {
+    ok: data?.success === false ? false : data?.valid === false ? false : !Boolean(data?.error),
+    operation: operation ?? data?.operation ?? null,
+    graphRevision: data?.graphRevision ?? null,
+    sourceSyncRevision: data?.sourceSync?.revision ?? data?.sourceSyncRevision ?? null,
+    changed: data?.sourceSync?.changed ?? data?.changed ?? false,
+    truncated,
+    budget: budget ?? data?.budget ?? structured?.budget ?? null,
+    data: structured
+  };
+}
+function readResult(data, markdown, includeStructured = false, operation = null) {
   const bounded = boundTaskResponse({
     taskContextId: data?.__taskContextId,
     markdown,
     data,
     includeStructured
   });
-  return response(data, bounded.markdown, bounded.structured);
+  return response(data, bounded.markdown, operationEnvelope(data, bounded.structured, operation, bounded.budget));
 }
-function writeResult(data, markdown, includeStructured = false) {
+function writeResult(data, markdown, includeStructured = false, operation = null) {
   const text = markdown ?? data?.markdown ?? writeReceiptMarkdown(data);
   const bounded = boundTaskResponse({
     taskContextId: data?.__taskContextId,
@@ -31612,7 +32002,7 @@ function writeResult(data, markdown, includeStructured = false) {
     data,
     includeStructured
   });
-  return response(data, bounded.markdown, bounded.structured);
+  return response(data, bounded.markdown, operationEnvelope(data, bounded.structured, operation, bounded.budget));
 }
 function writeReceiptMarkdown(data = {}) {
   if (data?.changeSetId && Number.isInteger(data?.graphRevision)) {
@@ -31745,6 +32135,88 @@ server.registerTool(
   }
 );
 server.registerTool(
+  "source_binding_suggest",
+  {
+    description: "Suggest source bindings for a Block from AST symbols and project semantics. Suggestions are read-only; use source_binding_accept to persist an explicitly chosen candidate.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: string2().min(1),
+      limit: number2().int().min(1).max(50).optional(),
+      maxFiles: number2().int().min(1).max(2e3).optional(),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.suggestSourceBindings(payload));
+    const md = [
+      `# Source Binding Suggestions: block:${data.blockId}`,
+      `- Scanned files: ${data.scannedFiles}`,
+      `- Candidates: ${data.candidates.length}`,
+      ...data.candidates.length ? ["", ...data.candidates.map((candidate, index) => `${index + 1}. \`${candidate.path}:${candidate.symbol}\` \xB7 ${candidate.role} \xB7 confidence ${candidate.confidence} \xB7 ${candidate.reasons.join("; ")}`)] : ["", "No candidate bindings found."],
+      "",
+      "Suggestions are read-only. Confirm a candidate explicitly with source_binding_accept."
+    ].join("\n");
+    return readResult(data, md, input.includeStructured, "source_binding_suggest");
+  }
+);
+server.registerTool(
+  "source_binding_accept",
+  {
+    description: "Persist explicitly selected AST source binding candidates for a Block. Every candidate is re-resolved against current source before a SourceRef is created.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: string2().min(1),
+      bindings: array(object2({
+        path: string2().min(1),
+        symbol: string2().min(1),
+        role: _enum(["facade", "implementation", "persistence", "renderer", "controller", "test", "config"]).optional()
+      })).min(1).max(20),
+      actor: string2().optional(),
+      reason: string2().optional(),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.acceptSourceBindings(payload));
+    const md = [
+      `# Source Bindings Accepted: block:${data.blockId}`,
+      `- Added: ${data.accepted.length}`,
+      `- Changed: ${data.changed ? "yes" : "no"}`,
+      ...data.accepted.length ? ["", ...data.accepted.map((binding) => `- ${binding.role}: \`${binding.path}:${binding.symbol}\` (${binding.startLine}-${binding.endLine})`)] : [],
+      ...data.sourceSync ? [`- Source sync revision: ${data.sourceSync.revision}`] : []
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured, "source_binding_accept");
+  }
+);
+server.registerTool(
+  "block_seal",
+  {
+    description: "Seal a verified Block implementation as complete. Requires valid current SourceBindings and a fresh passed direct Checkpoint; an executionId, when supplied, must be a successful receipt cited by that Checkpoint.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: string2().min(1),
+      checkpointId: string2().min(1).optional(),
+      executionId: string2().min(1).optional(),
+      actor: string2().optional(),
+      reason: string2().optional(),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.sealBlock(payload));
+    const md = [
+      `# Block Seal: ${data.sealed ? "complete" : "not sealed"}`,
+      `- Block: block:${data.blockId}`,
+      `- Delivery state: ${data.deliveryState ?? "complete"}`,
+      `- Checkpoint: ${data.checkpointId}`,
+      ...data.executionId ? [`- Execution: ${data.executionId}`] : [],
+      `- Changed: ${data.changed ? "yes" : "no"}${data.idempotent ? " (already sealed)" : ""}`,
+      ...data.graphRevision !== void 0 ? [`- Graph revision: ${data.graphRevision}`] : []
+    ].join("\n");
+    return writeResult(data, md, input.includeStructured, "block_seal");
+  }
+);
+server.registerTool(
   "run_command",
   {
     description: "Run one project-local command and return only a redacted, compressed terminal summary. Raw stdout/stderr never enters the MCP response; use this gateway for tests, builds, and mutation verification.",
@@ -31754,6 +32226,7 @@ server.registerTool(
       cwd: string2().min(1).optional(),
       timeoutMs: number2().int().min(100).max(12e4).optional(),
       maxChars: number2().int().min(100).max(1e4).optional(),
+      executionKind: _enum(["command", "test", "build"]).optional(),
       includeStructured: boolean2().default(false)
     }
   },
@@ -31761,6 +32234,7 @@ server.registerTool(
     const data = withProject(input, (service, payload) => service.runCommand(payload));
     const markdown = [
       `# Command Result: ${data.success ? "PASSED" : "FAILED"}`,
+      `- Execution: ${data.executionId} \xB7 Kind: ${data.executionKind} \xB7 Duration: ${data.durationMs}ms`,
       `- Command: \`${data.command}\``,
       `- Exit code: ${data.exitCode} \xB7 Output: ${data.originalChars} \u2192 ${data.finalChars} chars \xB7 Redactions: ${data.redactions}`,
       "",
@@ -31768,7 +32242,7 @@ server.registerTool(
       data.output,
       "```"
     ].join("\n");
-    return readResult(data, markdown, input.includeStructured);
+    return readResult(data, markdown, input.includeStructured, "run_command");
   }
 );
 server.registerTool(
@@ -32259,6 +32733,7 @@ server.registerTool(
       requiredEvidenceLevel: _enum(["none", "static", "simulated", "integration", "real_target", "human_review"]).optional(),
       coverage: _enum(["complete", "partial"]).optional(),
       evidence: array(record(string2(), unknown())).optional(),
+      evidenceExecutionIds: array(string2().min(1)).optional(),
       invalidatedAt: string2().nullable().optional(),
       expectedRevision: number2().int().optional(),
       planId: string2().optional(),
@@ -32269,7 +32744,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service, payload) => service.recordCheckpoint(payload));
-    return writeResult(data, `Recorded checkpoint ${data.checkpoint.id} for ${data.checkpoint.status}. Graph revision ${data.graphRevision}.`, input.includeStructured);
+    return writeResult(data, `Recorded checkpoint ${data.checkpoint.id} for ${data.checkpoint.status}. Graph revision ${data.graphRevision}.`, input.includeStructured, "checkpoint_record");
   }
 );
 server.registerTool(
@@ -32280,7 +32755,7 @@ server.registerTool(
   },
   async (input) => {
     const data = withProject(input, (service) => service.validate());
-    return writeResult(data, void 0, input.includeStructured);
+    return writeResult(data, void 0, input.includeStructured, "graph_validate");
   }
 );
 server.registerTool(

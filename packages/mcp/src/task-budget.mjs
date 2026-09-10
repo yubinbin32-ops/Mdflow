@@ -63,6 +63,22 @@ function truncateMarkdown(markdown, maxChars, suffix) {
   return `${text.slice(0, maxChars - marker.length)}${marker}`;
 }
 
+function compactState(data, entry) {
+  return {
+    taskContextId: entry.id,
+    graphRevision: data?.graphRevision ?? null,
+    sourceSyncRevision: data?.sourceSync?.revision ?? data?.sourceSyncRevision ?? null,
+    sourceRevision: data?.sourceSync?.sourceRevision ?? data?.sourceRevision ?? null,
+    success: typeof data?.success === "boolean" ? data.success : null,
+    valid: typeof data?.valid === "boolean" ? data.valid : null,
+    changed: data?.sourceSync?.changed ?? data?.changed ?? false,
+    executionId: data?.executionId ?? null,
+    changeSetId: data?.changeSetId ?? null,
+    truncated: true,
+    reason: "detail projection exceeded the remaining task budget",
+  };
+}
+
 export function boundTaskResponse({ taskContextId, markdown, data, includeStructured = false } = {}) {
   const entry = taskContextId ? budgets.get(taskContextId) : null;
   if (!entry) return { markdown, structured: includeStructured ? data : undefined, budget: null };
@@ -79,15 +95,10 @@ export function boundTaskResponse({ taskContextId, markdown, data, includeStruct
   } else if (markdownText.length + structuredText.length <= available) {
     structured = data;
   } else {
-    const receipt = {
-      taskContextId: entry.id,
-      budget: snapshot(entry),
-      truncated: true,
-      reason: "structured projection exceeded the remaining task budget",
-    };
+    const receipt = { ...compactState(data, entry), budget: snapshot(entry) };
     structured = JSON.stringify(receipt).length <= available
       ? receipt
-      : { taskContextId: entry.id, truncated: true };
+      : compactState(data, entry);
   }
   if (includeStructured) {
     const structuredChars = JSON.stringify(structured).length;

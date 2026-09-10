@@ -12,6 +12,7 @@ test("task budget is shared across focused reads and caps structured duplication
     includeStructured: true,
   });
   assert.equal(first.structured.truncated, true);
+  assert.equal(first.structured.graphRevision, null);
   const second = boundTaskResponse({
     taskContextId: budget.taskContextId,
     markdown: "c".repeat(350),
@@ -20,5 +21,29 @@ test("task budget is shared across focused reads and caps structured duplication
   });
   assert.ok(second.markdown.length < 350);
   assert.ok(taskBudget(budget.taskContextId).consumedChars <= 600);
+  resetTaskBudgets();
+});
+
+test("budget truncation preserves compact operation state", () => {
+  resetTaskBudgets();
+  const budget = startTaskBudget({ projectRoot: ".", budgetChars: 400 });
+  const result = boundTaskResponse({
+    taskContextId: budget.taskContextId,
+    markdown: "m".repeat(300),
+    data: {
+      graphRevision: 42,
+      sourceSync: { revision: 7, sourceRevision: "source-hash", changed: true },
+      success: true,
+      executionId: "exec_123",
+      output: "x".repeat(2000),
+    },
+    includeStructured: true,
+  });
+  assert.equal(result.structured.truncated, true);
+  assert.equal(result.structured.graphRevision, 42);
+  assert.equal(result.structured.sourceSyncRevision, 7);
+  assert.equal(result.structured.changed, true);
+  assert.equal(result.structured.success, true);
+  assert.equal(result.structured.executionId, "exec_123");
   resetTaskBudgets();
 });

@@ -201,3 +201,43 @@ test("standalone Blocks and Chains do not create implicit verification gates", a
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("source binding suggestions are read-only and accepted candidates become fresh bindings", async () => {
+  const { projectRoot } = await makeProject(
+    "mdflow-test-source-suggest-",
+    "export function processPayment(amount: number) {\n  return amount + 1;\n}\n\nexport function unrelated() {\n  return false;\n}\n",
+  );
+  const service = new MdflowService({ projectRoot });
+  try {
+    service.mutate({
+      reason: "create unbound payment block",
+      operations: [{
+        action: "create_block",
+        id: "unbound-payment-service",
+        fields: {
+          title: "Payment service",
+          kind: "service",
+          summary: "Processes payments",
+          contract: "processPayment(amount) -> number",
+        },
+      }],
+    });
+    const suggestions = service.suggestSourceBindings({ blockId: "unbound-payment-service" });
+    assert.ok(suggestions.candidates.some((candidate) => candidate.symbol === "processPayment"));
+    assert.equal(service.database.prepare("SELECT count(*) AS count FROM source_refs WHERE block_id = ?").get("unbound-payment-service").count, 0);
+
+    const candidate = suggestions.candidates.find((item) => item.symbol === "processPayment");
+    const accepted = service.acceptSourceBindings({
+      blockId: "unbound-payment-service",
+      bindings: [{ path: candidate.path, symbol: candidate.symbol, role: candidate.role }],
+    });
+    assert.equal(accepted.accepted.length, 1);
+    assert.equal(accepted.sourceSync.invalidBindingCount, 0);
+    const binding = service.syncSourceBindings({ includeUnchanged: true }).bindings.find((item) => item.blockId === "unbound-payment-service");
+    assert.equal(binding.bindingStatus, "fresh");
+    assert.equal(binding.symbol, "processPayment");
+  } finally {
+    service.close();
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

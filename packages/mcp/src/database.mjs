@@ -284,6 +284,35 @@ CREATE TABLE IF NOT EXISTS checkpoints (
   updated_at TEXT NOT NULL
 );
 
+-- Runtime evidence produced by the controlled command gateway.  Receipts are
+-- deliberately compact: raw stdout/stderr never enters the graph projection.
+CREATE TABLE IF NOT EXISTS execution_receipts (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  command TEXT NOT NULL,
+  cwd TEXT NOT NULL DEFAULT '.',
+  execution_kind TEXT NOT NULL DEFAULT 'command',
+  status TEXT NOT NULL,
+  exit_code INTEGER,
+  timed_out INTEGER NOT NULL DEFAULT 0,
+  signal TEXT,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  stdout_bytes INTEGER NOT NULL DEFAULT 0,
+  stderr_bytes INTEGER NOT NULL DEFAULT 0,
+  output TEXT NOT NULL DEFAULT '',
+  original_chars INTEGER NOT NULL DEFAULT 0,
+  final_chars INTEGER NOT NULL DEFAULT 0,
+  redactions INTEGER NOT NULL DEFAULT 0,
+  git_head TEXT,
+  dirty_diff_hash TEXT,
+  source_sync_revision INTEGER,
+  source_revision TEXT,
+  test_summary_json TEXT NOT NULL DEFAULT '{}',
+  artifact_summary_json TEXT NOT NULL DEFAULT '{}',
+  external INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS checkpoint_bindings (
   checkpoint_id TEXT NOT NULL REFERENCES checkpoints(id) ON DELETE CASCADE,
   subject_type TEXT NOT NULL CHECK(subject_type IN ('block', 'link', 'chain', 'plan', 'plan_change', 'plan_chain_scope')),
@@ -668,6 +697,9 @@ export const GRAPH_TABLES = [
   { name: "plan_changes", orderBy: "plan_id, position, id" },
   { name: "plan_chain_change_refs", orderBy: "chain_scope_id, plan_change_id" },
   { name: "checkpoints", orderBy: "id" },
+  // Execution receipts are runtime evidence, not architecture. Keep them in
+  // the project database so checkpoints can reference them, but do not copy
+  // command output into graph.json or every architecture diff becomes noisy.
   { name: "checkpoint_bindings", orderBy: "checkpoint_id, position, subject_type, subject_id, role" },
   { name: "checkpoint_dependencies", orderBy: "parent_checkpoint_id, position, child_checkpoint_id" },
   { name: "localized_text", orderBy: "entity_type, entity_id, locale, field" },
@@ -827,4 +859,3 @@ export function setSyncMeta(database, key, value) {
     // ignore
   }
 }
-

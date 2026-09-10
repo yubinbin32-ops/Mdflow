@@ -78,6 +78,7 @@ export function recordCheckpoint(service, {
   evidenceLevel, requiredEvidenceLevel = "static", coverage = "complete",
   evidence = [], invalidatedAt = null, expectedRevision,
   planId = null, chainScopeId = null, gitHead = null,
+  evidenceExecutionIds = [],
 } = {}) {
   if (!["block", "chain", "link", "plan"].includes(targetType)) throw new Error(`Invalid targetType: ${targetType}`);
   if (!title?.trim()) throw new Error("title is required");
@@ -86,7 +87,19 @@ export function recordCheckpoint(service, {
   if (!entityExists(service.database, service.paths.descriptor.id, targetType, targetId)) {
     throw new Error(`${targetType}:${targetId} not found`);
   }
-  const resolvedEvidenceLevel = evidenceLevel ?? (status === "passed" ? "static" : "none");
+  if (!Array.isArray(evidenceExecutionIds)) throw new Error("evidenceExecutionIds must be an array");
+  const receipts = evidenceExecutionIds.map((executionId) => {
+    const receipt = service.database.prepare(
+      "SELECT * FROM execution_receipts WHERE id = ? AND project_id = ?",
+    ).get(executionId, service.paths.descriptor.id);
+    if (!receipt) throw new Error(`Execution receipt not found in project: ${executionId}`);
+    return receipt;
+  });
+  if (status === "passed") {
+    const failedReceipt = receipts.find((receipt) => receipt.status !== "passed" || receipt.exit_code !== 0);
+    if (failedReceipt) throw new Error(`Passed checkpoint cannot use failed execution receipt: ${failedReceipt.id}`);
+  }
+  const resolvedEvidenceLevel = evidenceLevel ?? (receipts.length > 0 ? "integration" : (status === "passed" ? "static" : "none"));
   assertAllowed(resolvedEvidenceLevel, EVIDENCE_LEVELS, "evidence level");
   assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
   if (!["complete", "partial"].includes(coverage)) throw new Error(`Invalid checkpoint coverage: ${coverage}`);
@@ -99,10 +112,29 @@ export function recordCheckpoint(service, {
   }
   const checkpointId = id ?? identifier("checkpoint");
   const timestamp = now();
+  const receiptEvidence = receipts.map((receipt) => ({
+    kind: "execution_receipt",
+    executionId: receipt.id,
+    command: receipt.command,
+    cwd: receipt.cwd,
+    executionKind: receipt.execution_kind,
+    status: receipt.status,
+    exitCode: receipt.exit_code,
+    durationMs: receipt.duration_ms,
+    originalChars: receipt.original_chars,
+    finalChars: receipt.final_chars,
+    redactions: receipt.redactions,
+    gitHead: receipt.git_head,
+    dirtyDiffHash: receipt.dirty_diff_hash,
+    sourceSyncRevision: receipt.source_sync_revision,
+    sourceRevision: receipt.source_revision,
+    testSummary: JSON.parse(receipt.test_summary_json || "{}"),
+    artifactSummary: JSON.parse(receipt.artifact_summary_json || "{}"),
+  }));
   const checkpointEvidence = withCheckpointIdentity(service, {
     targetType,
     targetId,
-    evidence,
+    evidence: [...evidence, ...receiptEvidence],
     gitHead,
   });
   const changeSetId = identifier("change");
@@ -139,7 +171,7 @@ export function recordCheckpoint(service, {
         .run(
           title, criteria, status, checkpointKind, JSON.stringify(aggregationPolicy ?? {}), Number(Boolean(eligibleAfterChildren)),
           resolvedEvidenceLevel, requiredEvidenceLevel, coverage,
-          JSON.stringify(checkpointEvidence), invalidatedAt, revision, timestamp, checkpointId,
+      JSON.stringify(checkpointEvidence), invalidatedAt, revision, timestamp, checkpointId,
         );
     } else {
       service.database
@@ -182,7 +214,7 @@ export function recordCheckpoint(service, {
       "title", "criteria", "status", "checkpointKind", "aggregationPolicy", "eligibleAfterChildren",
       "evidenceLevel", "requiredEvidenceLevel", "coverage", "evidence", "invalidatedAt",
     ]);
-    const evidenceRefs = [...new Set(evidence.flatMap((item) =>
+    const evidenceRefs = [...new Set([...evidence, ...receiptEvidence].flatMap((item) =>
       [item.ref, item.path, item.command, item.url].filter((value) => typeof value === "string" && value.trim()),
     ))];
     const affectedRefs = [
@@ -221,6 +253,7 @@ export function recordCheckpoint(service, {
         id: checkpointId, revision, status, checkpointKind, aggregationPolicy,
         eligibleAfterChildren: Boolean(eligibleAfterChildren), evidenceLevel: resolvedEvidenceLevel,
         requiredEvidenceLevel, coverage,
+        executionIds: receipts.map((receipt) => receipt.id),
       },
     };
   });

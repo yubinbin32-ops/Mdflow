@@ -1,7 +1,87 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { detectLanguage, extractSymbolSlice } from "./ast.mjs";
+import { detectLanguage, extractSymbols, extractSymbolSlice } from "./ast.mjs";
+
+const DISCOVERY_IGNORES = new Set([".git", ".mdflow", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
+const SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".swift", ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".cc", ".cpp", ".h", ".hpp"]);
+
+function discoveryTerms(value) {
+  return [...new Set(String(value ?? "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((term) => term.length >= 3))];
+}
+
+function sourceFiles(projectRoot, maxFiles) {
+  const files = [];
+  const visit = (directory) => {
+    if (files.length >= maxFiles) return;
+    let entries = [];
+    try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (files.length >= maxFiles) break;
+      if (entry.name.startsWith(".") && entry.name !== ".github") continue;
+      if (DISCOVERY_IGNORES.has(entry.name)) continue;
+      const candidate = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(candidate);
+      else if (entry.isFile() && SOURCE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) files.push(candidate);
+    }
+  };
+  visit(projectRoot);
+  return files;
+}
+
+function candidateRole(relative, symbol) {
+  const text = `${relative} ${symbol.kind} ${symbol.name}`.toLowerCase();
+  if (/(^|\/)(test|tests|spec|specs)(\/|\.)|\.test\.|\.spec\./.test(text)) return "test";
+  if (/database|storage|repository|persist|sqlite|schema/.test(text)) return "persistence";
+  if (/server|router|controller|handler|api/.test(text)) return "controller";
+  if (/config|setting|manifest/.test(text)) return "config";
+  if (/render|view|screen|canvas|ui/.test(text)) return "renderer";
+  if (/index|facade|client/.test(text)) return "facade";
+  return "implementation";
+}
+
+export function suggestSourceBindings({ projectRoot, block, existingRefs = [], limit = 12, maxFiles = 600 } = {}) {
+  if (!block?.id) throw new Error("block is required");
+  const terms = discoveryTerms([block.id, block.title, block.summary, block.contract, ...(block.tags ?? [])].join(" "));
+  const existing = new Set(existingRefs.map((ref) => `${ref.path}:${ref.symbol ?? ""}`));
+  const candidates = [];
+  const files = sourceFiles(projectRoot, maxFiles);
+  for (const absolutePath of files) {
+    const relative = path.relative(projectRoot, absolutePath).split(path.sep).join("/");
+    let content;
+    try { content = fs.readFileSync(absolutePath, "utf8"); } catch { continue; }
+    for (const symbol of extractSymbols(content, { filePath: relative })) {
+      if (existing.has(`${relative}:${symbol.qualifiedName ?? symbol.name}`) || existing.has(`${relative}:${symbol.name}`)) continue;
+      const haystack = `${relative} ${symbol.qualifiedName ?? symbol.name} ${symbol.signature ?? ""}`.toLowerCase();
+      const matchedTerms = terms.filter((term) => haystack.includes(term));
+      const exactName = discoveryTerms(symbol.qualifiedName ?? symbol.name).some((term) => terms.includes(term));
+      const pathMatches = terms.filter((term) => relative.toLowerCase().includes(term)).length;
+      const score = matchedTerms.length * 12 + pathMatches * 5 + (exactName ? 18 : 0);
+      if (score < 12) continue;
+      candidates.push({
+        path: relative,
+        symbol: symbol.qualifiedName ?? symbol.name,
+        role: candidateRole(relative, symbol),
+        confidence: Math.min(0.98, Number((0.35 + score / 100).toFixed(2))),
+        reasons: [
+          ...(matchedTerms.length ? [`matched terms: ${matchedTerms.slice(0, 6).join(", ")}`] : []),
+          ...(pathMatches ? ["source path matches Block semantics"] : []),
+          ...(exactName ? ["symbol name matches Block semantics"] : []),
+        ],
+        signature: symbol.signature ?? null,
+        startLine: symbol.startLine,
+        endLine: symbol.endLine,
+        score,
+      });
+    }
+  }
+  candidates.sort((left, right) => right.score - left.score || left.path.localeCompare(right.path) || left.symbol.localeCompare(right.symbol));
+  return { blockId: block.id, scannedFiles: files.length, candidates: candidates.slice(0, limit).map(({ score: _score, ...item }) => item) };
+}
 
 function hashText(value) {
   return crypto.createHash("sha256").update(String(value ?? "")).digest("hex");
