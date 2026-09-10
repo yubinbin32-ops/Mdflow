@@ -40,6 +40,15 @@ enum PluginInstaller {
 
     static let fallbackVersion = "0.3.4"
 
+    static var canonicalServerDirectoryURL: URL {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return home.appending(path: ".mdflow/server", directoryHint: .isDirectory)
+    }
+
+    static var canonicalServerScriptURL: URL {
+        canonicalServerDirectoryURL.appending(path: "mdflow-mcp.mjs")
+    }
+
     private static let buildFiles = [
         ".codex-plugin/plugin.json",
         "server/mdflow-mcp.mjs",
@@ -233,11 +242,32 @@ enum PluginInstaller {
         let targetBuild = bundledPluginBuildID(marketplaceRoot: marketplaceRoot)
         let appVersion = bundledAppVersion(marketplaceRoot: marketplaceRoot)
         guard appVersion == targetVersion else {
-            throw CommandFailure(output: "mdflow app v\(appVersion) and plugin v\(targetVersion) are different; rebuild or re-sync from one matching bundle.")
+            throw CommandFailure(output: "mdflow app v\(appVersion) 与内置插件 v\(targetVersion) 版本不一致；请重新构建或同步同一 bundle。")
         }
-        let serverScript = marketplaceRoot
+
+        // 1. Locate source server script inside App resources
+        let sourceServerScript = marketplaceRoot
             .appending(path: "plugins/mdflow/server/mdflow-mcp.mjs")
-            .standardizedFileURL.path
+            .standardizedFileURL
+        guard FileManager.default.fileExists(atPath: sourceServerScript.path) else {
+            throw CommandFailure(output: "未在 App 内部找到 MCP 服务端脚本: \(sourceServerScript.path)")
+        }
+
+        // 2. Deploy canonical user-level server script: ~/.mdflow/server/mdflow-mcp.mjs
+        // Always delete old canonical file first, then copy fresh file
+        let canonicalDir = canonicalServerDirectoryURL
+        let canonicalServer = canonicalServerScriptURL
+        try? FileManager.default.createDirectory(at: canonicalDir, withIntermediateDirectories: true)
+        if FileManager.default.fileExists(atPath: canonicalServer.path) {
+            try? FileManager.default.removeItem(at: canonicalServer)
+        }
+        do {
+            try FileManager.default.copyItem(at: sourceServerScript, to: canonicalServer)
+        } catch {
+            throw CommandFailure(output: "部署 MCP 服务端到 \(canonicalServer.path) 失败: \(error.localizedDescription)")
+        }
+        let serverScript = canonicalServer.path
+
         let skillSource = marketplaceRoot
             .appending(path: "plugins/mdflow/skills/mdflow")
             .standardizedFileURL
@@ -247,49 +277,71 @@ enum PluginInstaller {
         case "claude":
             let claudeConfigURL = home.appending(path: "Library/Application Support/Claude/claude_desktop_config.json")
             try? FileManager.default.createDirectory(at: claudeConfigURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            cleanJsonMcp(at: claudeConfigURL)
             _ = configureJsonMcp(at: claudeConfigURL, serverScript: serverScript, version: targetVersion, build: targetBuild)
 
         case "cursor":
-            // 1. User/Global Cursor config ONLY
+            // 1. Clean old skill and MCP config
             let userCursorDir = home.appending(path: ".cursor")
+            let userSkillDest = userCursorDir.appending(path: "skills/mdflow")
+            let userMcpConfig = userCursorDir.appending(path: "mcp.json")
             try? FileManager.default.createDirectory(at: userCursorDir, withIntermediateDirectories: true)
-            _ = configureJsonMcp(at: userCursorDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
-            syncDirectory(from: skillSource, to: userCursorDir.appending(path: "skills/mdflow"))
+            try? FileManager.default.removeItem(at: userSkillDest)
+            cleanJsonMcp(at: userMcpConfig)
 
-            // 2. Only update project root IF .cursor directory already explicitly existed
+            // 2. Copy fresh skill and write fresh MCP config
+            syncDirectory(from: skillSource, to: userSkillDest)
+            _ = configureJsonMcp(at: userMcpConfig, serverScript: serverScript, version: targetVersion, build: targetBuild)
+
+            // 3. Update project root IF .cursor directory already explicitly existed
             if let root = projectRoot {
                 let projectCursorDir = root.appending(path: ".cursor")
                 if FileManager.default.fileExists(atPath: projectCursorDir.path) {
+                    cleanJsonMcp(at: projectCursorDir.appending(path: "mcp.json"))
                     _ = configureJsonMcp(at: projectCursorDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
             }
 
         case "antigravity":
-            // 1. User/Global Antigravity config ONLY
+            // 1. Clean old skill and MCP config
             let geminiConfigDir = home.appending(path: ".gemini/config")
+            let userSkillDest = geminiConfigDir.appending(path: "skills/mdflow")
+            let userMcpConfig = geminiConfigDir.appending(path: "mcp_config.json")
             try? FileManager.default.createDirectory(at: geminiConfigDir, withIntermediateDirectories: true)
-            _ = configureJsonMcp(at: geminiConfigDir.appending(path: "mcp_config.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
-            syncDirectory(from: skillSource, to: geminiConfigDir.appending(path: "skills/mdflow"))
+            try? FileManager.default.removeItem(at: userSkillDest)
+            cleanJsonMcp(at: userMcpConfig)
 
-            // 2. Only update project root IF .agents/mcp_config.json already explicitly existed
+            // 2. Copy fresh skill and write fresh MCP config
+            syncDirectory(from: skillSource, to: userSkillDest)
+            _ = configureJsonMcp(at: userMcpConfig, serverScript: serverScript, version: targetVersion, build: targetBuild)
+
+            // 3. Update project root IF .agents/mcp_config.json already explicitly existed
             if let root = projectRoot {
                 let projectAgentsConfig = root.appending(path: ".agents/mcp_config.json")
                 if FileManager.default.fileExists(atPath: projectAgentsConfig.path) {
+                    cleanJsonMcp(at: projectAgentsConfig)
                     _ = configureJsonMcp(at: projectAgentsConfig, serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
             }
 
         case "opencode":
-            // 1. User/Global OpenCode config ONLY
+            // 1. Clean old skill and MCP config
             let userOpencodeDir = home.appending(path: ".config/opencode")
+            let userSkillDest = userOpencodeDir.appending(path: "skills/mdflow")
+            let userMcpConfig = userOpencodeDir.appending(path: "mcp.json")
             try? FileManager.default.createDirectory(at: userOpencodeDir, withIntermediateDirectories: true)
-            _ = configureJsonMcp(at: userOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
-            syncDirectory(from: skillSource, to: userOpencodeDir.appending(path: "skills/mdflow"))
+            try? FileManager.default.removeItem(at: userSkillDest)
+            cleanJsonMcp(at: userMcpConfig)
 
-            // 2. Only update project root IF .opencode directory already explicitly existed
+            // 2. Copy fresh skill and write fresh MCP config
+            syncDirectory(from: skillSource, to: userSkillDest)
+            _ = configureJsonMcp(at: userOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
+
+            // 3. Update project root IF .opencode directory already explicitly existed
             if let root = projectRoot {
                 let projectOpencodeDir = root.appending(path: ".opencode")
                 if FileManager.default.fileExists(atPath: projectOpencodeDir.path) {
+                    cleanJsonMcp(at: projectOpencodeDir.appending(path: "mcp.json"))
                     _ = configureJsonMcp(at: projectOpencodeDir.appending(path: "mcp.json"), serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
             }
@@ -300,15 +352,20 @@ enum PluginInstaller {
             let personalMarketplaceDir = home.appending(path: ".agents/plugins")
             let personalMarketplaceURL = personalMarketplaceDir.appending(path: "marketplace.json")
 
-            // 1. Clean up legacy marketplace mdflow-development if present
+            // 1. Clean up legacy marketplace and cache
             cleanCodexLegacyMarketplace(configURL: codexConfigURL)
             try? FileManager.default.removeItem(at: home.appending(path: ".codex/plugins/cache/mdflow-development"))
+            try? FileManager.default.removeItem(at: home.appending(path: ".codex/plugins/cache/mdflow-personal"))
             if let executable = try? codexExecutable() {
+                _ = try? run(executable, arguments: ["plugin", "remove", "mdflow@personal", "--json"])
                 _ = try? run(executable, arguments: ["plugin", "remove", "mdflow@mdflow-development", "--json"])
                 _ = try? run(executable, arguments: ["plugin", "marketplace", "remove", "mdflow-development", "--json"])
             }
 
-            // 2. Sync plugin bundle to ~/plugins/mdflow
+            // 2. Delete old plugins/mdflow completely
+            try? FileManager.default.removeItem(at: userPluginsMdflow)
+
+            // 3. Sync fresh plugin bundle to ~/plugins/mdflow
             let pluginSource = marketplaceRoot.appending(path: "plugins/mdflow")
             syncDirectory(from: pluginSource, to: userPluginsMdflow)
 
@@ -322,7 +379,7 @@ enum PluginInstaller {
                 }
             }
 
-            // 3. Ensure ~/.agents/plugins/marketplace.json has personal marketplace with mdflow
+            // 4. Ensure ~/.agents/plugins/marketplace.json has personal marketplace with mdflow
             try? FileManager.default.createDirectory(at: personalMarketplaceDir, withIntermediateDirectories: true)
             let marketplaceEntry: [String: Any] = [
                 "name": "personal",
@@ -348,20 +405,13 @@ enum PluginInstaller {
                 try? mpData.write(to: personalMarketplaceURL)
             }
 
-            // 4. Install plugin via official codex plugin add mdflow@personal
+            // 5. Install plugin via official codex plugin add mdflow@personal
             if let executable = try? codexExecutable() {
                 let installResult = try? run(executable, arguments: ["plugin", "add", "mdflow@personal", "--json"])
                 if installResult?.status != 0 {
                     configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
-            }
-
-            // 5. The plugin manifest owns its MCP server. Registering the same
-            // server again with `codex mcp add` creates duplicate tool surfaces
-            // and makes the agent choose between stale and current instances.
-            // Keep the legacy TOML fallback only when the Codex executable is
-            // unavailable and the native plugin cannot be installed.
-            if (try? codexExecutable()) == nil {
+            } else {
                 configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion, build: targetBuild)
             }
 
@@ -394,15 +444,32 @@ enum PluginInstaller {
               let mdflow = servers["mdflow"] as? [String: Any] else {
             return (nil, nil)
         }
+        // Verify that the configured server script actually exists on disk!
+        if let args = mdflow["args"] as? [String], let script = args.first {
+            guard FileManager.default.fileExists(atPath: script) else {
+                return (nil, nil)
+            }
+        }
         var version: String?
         if let ver = mdflow["_version"] as? String {
             version = ver
         } else if let ver = mdflow["version"] as? String {
             version = ver
         }
-        // A server entry without an mdflow version is legacy/unknown, not
-        // proof that the installed plugin matches the current App bundle.
         return (version, mdflow["_build"] as? String)
+    }
+
+    private static func cleanJsonMcp(at configURL: URL) {
+        guard FileManager.default.fileExists(atPath: configURL.path),
+              let data = try? Data(contentsOf: configURL),
+              var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              var mcpServers = json["mcpServers"] as? [String: Any] else { return }
+        if mcpServers.removeValue(forKey: "mdflow") != nil {
+            json["mcpServers"] = mcpServers
+            if let outputData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) {
+                try? outputData.write(to: configURL)
+            }
+        }
     }
 
     private static func configureJsonMcp(at configURL: URL, serverScript: String, version: String, build: String) -> Bool {
@@ -498,6 +565,14 @@ enum PluginInstaller {
             return (false, false, false, nil, nil)
         }
 
+        // Verify installed script exists on disk if plugin is registered
+        let userScript = home.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs")
+        let canonicalScript = canonicalServerScriptURL
+        let hasScriptOnDisk = FileManager.default.fileExists(atPath: userScript.path) || FileManager.default.fileExists(atPath: canonicalScript.path)
+        guard hasScriptOnDisk else {
+            return (false, false, false, nil, nil)
+        }
+
         var detectedVer: String? = nil
         var detectedBuild: String? = nil
         let installedPluginRoot = home.appending(path: "plugins/mdflow", directoryHint: .isDirectory)
@@ -565,20 +640,40 @@ enum PluginInstaller {
         try? cleanedLines.joined(separator: "\n").write(to: configURL, atomically: true, encoding: .utf8)
     }
 
-    private static func configureTomlMcp(at configURL: URL, serverScript: String, version: String, build: String) {
-        var content = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        if !content.contains("[mcp_servers.mdflow]") {
-            content += """
-            
-            [mcp_servers.mdflow]
-            command = "node"
-            args = ["--no-warnings=ExperimentalWarning", "\(serverScript)"]
-            
-            [mcp_servers.mdflow.env]
-            MDFLOW_VERSION = "\(version)"
-            MDFLOW_BUILD = "\(build)"
-            """
-            try? content.write(to: configURL, atomically: true, encoding: .utf8)
+    private static func cleanTomlMcp(at configURL: URL) {
+        guard let content = try? String(contentsOf: configURL, encoding: .utf8),
+              content.contains("[mcp_servers.mdflow]") else { return }
+        var cleanedLines: [String] = []
+        var skip = false
+        for line in content.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "[mcp_servers.mdflow]" {
+                skip = true
+                continue
+            }
+            if skip && trimmed.hasPrefix("[") {
+                skip = false
+            }
+            if !skip {
+                cleanedLines.append(line)
+            }
         }
+        try? cleanedLines.joined(separator: "\n").write(to: configURL, atomically: true, encoding: .utf8)
+    }
+
+    private static func configureTomlMcp(at configURL: URL, serverScript: String, version: String, build: String) {
+        cleanTomlMcp(at: configURL)
+        var content = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        content += """
+        
+        [mcp_servers.mdflow]
+        command = "node"
+        args = ["--no-warnings=ExperimentalWarning", "\(serverScript)"]
+        
+        [mcp_servers.mdflow.env]
+        MDFLOW_VERSION = "\(version)"
+        MDFLOW_BUILD = "\(build)"
+        """
+        try? content.write(to: configURL, atomically: true, encoding: .utf8)
     }
 }

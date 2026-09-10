@@ -22,6 +22,8 @@ final class GraphStore: ObservableObject {
     @Published var settingsPresented = false
     @Published private(set) var pluginInstallStatus: PluginInstallStatus = .checking
     @Published private(set) var editorStatuses: [EditorPlatformStatus] = []
+    @Published var syncingPlatformId: String?
+    @Published var syncErrorMessage: String?
     @Published var canvasScale: CGFloat = 1
     @Published var canvasOffset: CGSize = .zero
     @Published private(set) var hasRestoredCamera = false
@@ -834,7 +836,7 @@ final class GraphStore: ObservableObject {
             "overview":"整体网络", "plans":"计划", "chains":"链路", "settings":"设置", "done":"完成",
             "summary":"摘要", "details":"详情", "contract":"契约", "files":"文件与代码", "checkpoints":"检查点", "history":"历史",
             "plugin":"多平台 AI 编辑器同步", "pluginHelp":"管理各大 AI 客户端（Claude、Cursor、Antigravity、OpenCode、Codex）的 MCP 直连配置。更新 Bundle 或重新同步后，需重启对应编辑器以重载常驻 MCP 进程。",
-            "syncAll":"一键同步全部", "syncSingle":"同步配置", "updateSingle":"更新", "resync":"重新同步", "versionMismatch":"版本不一致", "bundleChanged":"Bundle 已变化", "synced":"已就绪", "notSynced":"未连接", "notDetected":"未检测到客户端", "notConfigured":"待同步", "skipped":"未安装", "latest":"最新", "updateAvailable":"可更新", "syncing":"正在同步…",
+            "syncAll":"一键同步全部", "syncSingle":"同步配置", "updateSingle":"更新", "resync":"重新同步", "reinstall":"重新安装", "versionMismatch":"版本不一致", "bundleChanged":"Bundle 已变化", "synced":"已就绪", "notSynced":"未连接", "notDetected":"未检测到客户端", "notConfigured":"待同步", "skipped":"未安装", "latest":"最新", "updateAvailable":"可更新", "syncing":"正在同步…",
             "installPlugin":"一键安装", "installingPlugin":"正在安装…", "checkingPlugin":"正在检查编辑器状态…", "pluginNotInstalled":"尚未安装", "pluginInstalled":"已安装；新任务中即可使用", "pluginInstallFailed":"安装失败",
             "liveData":"实时数据内核", "liveHelp":"底层图数据变动自动秒级热重载，无需手动刷新。", "language":"界面语言", "appearance":"外观模式", "system":"跟随系统", "light":"浅色", "dark":"深色",
             "english":"English", "chinese":"中文", "link":"关系", "input":"输入", "output":"输出",
@@ -848,7 +850,7 @@ final class GraphStore: ObservableObject {
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
             "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
             "plugin":"AI EDITOR MCP BRIDGES", "pluginHelp":"Sync mdflow architecture context to Claude Desktop, Cursor, Antigravity, OpenCode, and Codex. After re-syncing, restart editor clients to reload running MCP processes.",
-            "syncAll":"Sync All", "syncSingle":"Sync", "updateSingle":"Update", "resync":"Re-sync", "versionMismatch":"Version mismatch", "bundleChanged":"Bundle changed", "synced":"Connected", "notSynced":"Not Connected", "notDetected":"Not Detected", "notConfigured":"Not Configured", "skipped":"Skipped", "latest":"Latest", "updateAvailable":"Update", "syncing":"Syncing…",
+            "syncAll":"Sync All", "syncSingle":"Sync", "updateSingle":"Update", "resync":"Re-sync", "reinstall":"Reinstall", "versionMismatch":"Version mismatch", "bundleChanged":"Bundle changed", "synced":"Connected", "notSynced":"Not Connected", "notDetected":"Not Detected", "notConfigured":"Not Configured", "skipped":"Skipped", "latest":"Latest", "updateAvailable":"Update", "syncing":"Syncing…",
             "installPlugin":"Install Plugin", "installingPlugin":"Installing…", "checkingPlugin":"Checking editor statuses…", "pluginNotInstalled":"Not installed", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
             "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "appearance":"Appearance", "system":"System", "light":"Light", "dark":"Dark",
             "english":"English", "chinese":"中文", "link":"Link", "input":"Input", "output":"Output",
@@ -1031,13 +1033,31 @@ final class GraphStore: ObservableObject {
     }
 
     func syncEditor(id: String) {
-        guard let marketplaceRoot else { return }
+        syncErrorMessage = nil
+        guard let marketplaceRoot else {
+            syncErrorMessage = activeLocale == "zh-Hans"
+                ? "未在 App 内部资源中找到插件包 (MarketplaceRoot)，请确认应用完整性。"
+                : "Cannot find bundled plugin package inside App Resources (MarketplaceRoot)."
+            return
+        }
+        syncingPlatformId = id
         let root = location?.root
-        do {
-            try PluginInstaller.syncPlatform(id: id, projectRoot: root, marketplaceRoot: marketplaceRoot)
-            refreshEditorStatuses()
-        } catch {
-            errorMessage = error.localizedDescription
+        Task {
+            do {
+                try await Task.detached {
+                    try PluginInstaller.syncPlatform(id: id, projectRoot: root, marketplaceRoot: marketplaceRoot)
+                }.value
+                await MainActor.run {
+                    self.refreshEditorStatuses()
+                    self.syncingPlatformId = nil
+                }
+            } catch {
+                await MainActor.run {
+                    self.syncErrorMessage = error.localizedDescription
+                    self.errorMessage = error.localizedDescription
+                    self.syncingPlatformId = nil
+                }
+            }
         }
     }
 
@@ -1081,12 +1101,28 @@ final class GraphStore: ObservableObject {
 
     private var marketplaceRoot: URL? {
         let manager = FileManager.default
+        // 1. Embedded inside App Bundle Resources
         if let resources = Bundle.main.resourceURL {
             let embedded = resources.appending(path: "MarketplaceRoot", directoryHint: .isDirectory)
-            if manager.fileExists(atPath: embedded.appending(path: ".agents/plugins/marketplace.json").path) { return embedded }
+            if manager.fileExists(atPath: embedded.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+                return embedded
+            }
         }
+        // 2. Direct Contents/Resources/MarketplaceRoot
+        let bundleMarketplace = Bundle.main.bundleURL.appending(path: "Contents/Resources/MarketplaceRoot", directoryHint: .isDirectory)
+        if manager.fileExists(atPath: bundleMarketplace.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+            return bundleMarketplace
+        }
+        // 3. Workspace root (when developing mdflow itself)
         if let root = location?.root,
-           manager.fileExists(atPath: root.appending(path: ".agents/plugins/marketplace.json").path) { return root }
+           manager.fileExists(atPath: root.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+            return root
+        }
+        // 4. Current working directory fallback
+        let cwd = URL(fileURLWithPath: manager.currentDirectoryPath)
+        if manager.fileExists(atPath: cwd.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+            return cwd
+        }
         return nil
     }
 

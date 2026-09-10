@@ -395,20 +395,31 @@ private struct SettingsView: View {
 
                 // Group 2: AI 编辑器集成 (AI CLIENT MCP BRIDGES)
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        sectionHeader(store.text("plugin").uppercased())
-                        Spacer()
-                        Button(action: { store.syncAllEditors() }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 9.5, weight: .bold))
-                                Text(store.text("syncAll"))
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    sectionHeader(store.text("plugin").uppercased())
+
+                    if let syncError = store.syncErrorMessage {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(MdflowTheme.failure)
+                            Text(syncError)
+                                .font(.system(size: 10, design: .rounded))
+                                .foregroundStyle(MdflowTheme.failure)
+                                .lineLimit(3)
+                            Spacer()
+                            Button {
+                                store.syncErrorMessage = nil
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(MdflowTheme.muted)
                             }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(MdflowTheme.focus)
-                        .padding(.trailing, 4)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(MdflowTheme.failure.opacity(0.1)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(MdflowTheme.failure.opacity(0.3), lineWidth: 0.8))
                     }
 
                     VStack(spacing: 0) {
@@ -606,16 +617,37 @@ private struct EditorPlatformRow: View {
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(MdflowTheme.muted.opacity(0.6))
                         .frame(width: 54, alignment: .trailing)
-                } else if status.isSynced {
+                } else if store.syncingPlatformId == status.id {
                     HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(MdflowTheme.success)
-                        Text(store.text("synced"))
-                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        ProgressView()
+                            .controlSize(.mini)
+                        Text(store.text("syncing"))
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
                             .foregroundStyle(MdflowTheme.muted)
                     }
-                    .frame(width: 64, alignment: .trailing)
+                } else if status.isSynced {
+                    HStack(spacing: 6) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(MdflowTheme.success)
+                            Text(store.text("synced"))
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(MdflowTheme.muted)
+                        }
+                        Button(action: {
+                            store.syncEditor(id: status.id)
+                        }) {
+                            HStack(spacing: 2) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 8.5, weight: .bold))
+                                Text(store.text("reinstall"))
+                                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                    }
                 } else if status.isOutdated || status.isAppVersionMismatch || status.isBuildMismatch {
                     Button(action: {
                         store.syncEditor(id: status.id)
@@ -631,12 +663,18 @@ private struct EditorPlatformRow: View {
                     .tint(.orange)
                     .controlSize(.mini)
                 } else {
-                    Button(store.text("syncSingle")) {
+                    Button(action: {
                         store.syncEditor(id: status.id)
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "plus.circle")
+                                .font(.system(size: 8.5, weight: .bold))
+                            Text(store.text("syncSingle"))
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.mini)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
                 }
             }
         }
