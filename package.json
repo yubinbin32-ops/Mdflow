@@ -1,6 +1,6 @@
 {
   "name": "mdflow",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "A context operating system for AI coding agents: architecture graphs, AST code streams, verified mutation, and rollback.",
   "license": "MIT",
   "type": "module",
