@@ -83,7 +83,7 @@ import {
   extractCheckpointIdentity,
   stripCheckpointIdentity,
 } from "./checkpoint-freshness.mjs";
-import { bindingIdentity, scanSourceBindings, suggestSourceBindings } from "./source-binding.mjs";
+import { bindingIdentity, scanSourceBindings, suggestSourceBindings, suggestBindingsForChangedFiles } from "./source-binding.mjs";
 import {
   renderProjectMap,
   listDecisions,
@@ -274,6 +274,16 @@ export class MdflowService {
         .all(change.blockId)
         .forEach((row) => chainIds.add(row.chain_id));
     }
+    const changedPaths = [...new Set(historicalChanges.map((item) => item.path).filter(Boolean))];
+    const unboundCandidates = changedPaths.length
+      ? suggestBindingsForChangedFiles({
+        projectRoot: this.paths.projectRoot,
+        blocks: this.snapshot().blocks.filter((block) => SOURCE_BACKED_BLOCK_KINDS.has(block.kind)),
+        existingRefs: this.database.prepare("SELECT path, symbol FROM source_refs").all(),
+        changedPaths,
+        limit: 8,
+      })
+      : [];
     return {
       ...report,
       sourceSyncRevision: report.revision,
@@ -281,6 +291,10 @@ export class MdflowService {
       changed: historicalChanges.length > 0,
       affectedBlockIds: [...new Set(historicalChanges.map((item) => item.blockId).filter(Boolean))],
       affectedChainIds: [...chainIds],
+      unboundCandidates,
+      editPath: unboundCandidates.length
+        ? "native-edit-then-accept"
+        : (report.invalidBindingCount ? "rebind-before-mutate" : "bound-symbol-mutate"),
     };
   }
 
@@ -696,7 +710,10 @@ export class MdflowService {
       let sourceHash = null;
 
       if (sourceRefs.length > 0) {
-        const ref = sourceRefs.find((candidate) => candidate.role === "implementation") || sourceRefs[0];
+        const ref = sourceRefs.find((candidate) => candidate.role === "implementation" && candidate.symbol)
+          || sourceRefs.find((candidate) => candidate.symbol)
+          || sourceRefs.find((candidate) => candidate.role === "implementation")
+          || sourceRefs[0];
         const binding = this.sourceBindingState.get(ref.id);
         filePath = binding?.relativePath ?? ref.path;
         symbol = ref.symbol;
@@ -723,6 +740,7 @@ export class MdflowService {
             code = mode === "slice" && slice.found ? slice.code : null;
           }
         }
+        if (!ref.symbol && sourceStatus === "anchored") sourceStatus = "line_only";
       }
 
       streamNodes.push({
@@ -885,6 +903,39 @@ export class MdflowService {
     };
   }
 
+  checkpointRefreshCandidates({ executionId = null } = {}) {
+    this.ensureSynced();
+    const snapshot = this.snapshot();
+    const stale = snapshot.checkpoints.filter((checkpoint) =>
+      checkpoint.status === "retest_required" || checkpoint.freshness?.status === "stale",
+    );
+    const changedBlockIds = new Set((snapshot.sourceSync?.changes ?? this.syncSourceBindings().changes ?? []).map((item) => item.blockId).filter(Boolean));
+    const receipt = executionId
+      ? this.database.prepare("SELECT id, status, command, exit_code FROM execution_receipts WHERE id = ? AND project_id = ?").get(executionId, this.paths.descriptor.id)
+      : null;
+    const candidates = stale.filter((checkpoint) =>
+      checkpoint.targetType !== "block" || changedBlockIds.size === 0 || changedBlockIds.has(checkpoint.targetId),
+    ).slice(0, 20).map((checkpoint) => ({
+      checkpointId: checkpoint.id,
+      targetType: checkpoint.targetType,
+      targetId: checkpoint.targetId,
+      title: checkpoint.title,
+      status: checkpoint.status,
+    }));
+    return {
+      executionId: receipt?.id ?? null,
+      receiptStatus: receipt?.status ?? null,
+      changedBlockIds: [...changedBlockIds],
+      candidates,
+      markdown: [
+        "# Checkpoint refresh candidates",
+        `- Execution: ${receipt?.id ?? "none"}`,
+        `- Candidates: ${candidates.length}`,
+        ...candidates.map((item) => `- ${item.targetType}:${item.targetId} · checkpoint:${item.checkpointId} · ${item.title}`),
+      ].join("\n"),
+    };
+  }
+
   mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null, expectedSourceHash = null } = {}) {
     if (!blockId?.trim()) throw new Error("blockId is required");
     if (!symbol?.trim()) throw new Error("symbol is required");
@@ -898,12 +949,12 @@ export class MdflowService {
 
     const sourceRefs = snapshot.sourceRefs.filter((ref) => ref.blockId === block.id);
     if (!sourceRefs.length) {
-      throw new Error(`Block "${blockId}" has no bound source files (virtual blueprint)`);
+      throw new Error(`Block "${blockId}" has no bound source files. Use native edit, then source_binding_suggest/accept.`);
     }
 
     const ref = sourceRefs.find((r) => r.symbol === symbol);
     if (!ref) {
-      throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}"`);
+      throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}". Use native edit for new symbols, then source_binding_accept.`);
     }
     const filePath = ref.path;
     const fullPath = path.isAbsolute(filePath)
@@ -912,7 +963,7 @@ export class MdflowService {
 
     const currentBinding = this.sourceBindingState.get(ref.id);
     if (currentBinding && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(currentBinding.bindingStatus)) {
-      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rescan/rebind before mutating`);
+      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rebind with source_binding_suggest/accept before block_code_mutate`);
     }
 
     if (!fs.existsSync(fullPath)) {

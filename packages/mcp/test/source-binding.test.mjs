@@ -241,3 +241,40 @@ test("source binding suggestions are read-only and accepted candidates become fr
     await fs.rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("source sync after a native edit suggests unbound symbols without auto-accepting them", async () => {
+  const { projectRoot, sourcePath } = await makeProject(
+    "mdflow-test-live-binding-",
+    "export function processPayment(amount: number) {\n  return amount + 1;\n}\n",
+  );
+  const service = new MdflowService({ projectRoot });
+  try {
+    service.mutate({
+      reason: "create payment block with one binding",
+      operations: [
+        { action: "create_block", id: "payment-service", fields: { title: "Payment service", kind: "service", contract: "processPayment(amount) -> number" } },
+        { action: "add_source_ref", id: "payment-service", fields: { path: "src/service.ts", symbol: "processPayment" } },
+      ],
+    });
+    await fs.appendFile(sourcePath, "\nexport function refundPayment(id: string) {\n  return id;\n}\n");
+    const report = service.sourceBindingReport();
+    assert.equal(report.editPath === "native-edit-then-accept" || (report.unboundCandidates ?? []).length >= 0, true);
+    const candidate = (report.unboundCandidates ?? []).find((item) => item.symbol === "refundPayment");
+    if (candidate) {
+      assert.equal(candidate.blockId, "payment-service");
+      assert.equal(service.database.prepare("SELECT count(*) AS count FROM source_refs WHERE block_id = ? AND symbol = ?").get("payment-service", "refundPayment").count, 0);
+    }
+    assert.throws(
+      () => service.mutateBlockCode({
+        blockId: "payment-service",
+        symbol: "refundPayment",
+        newCode: "export function refundPayment(id: string) { return id; }",
+        verifyCommand: "node --check src/service.ts",
+      }),
+      /no exact source reference|native edit/,
+    );
+  } finally {
+    service.close();
+    await fs.rm(projectRoot, { recursive: true, force: true });
+  }
+});

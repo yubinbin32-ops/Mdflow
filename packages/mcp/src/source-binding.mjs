@@ -83,6 +83,51 @@ export function suggestSourceBindings({ projectRoot, block, existingRefs = [], l
   return { blockId: block.id, scannedFiles: files.length, candidates: candidates.slice(0, limit).map(({ score: _score, ...item }) => item) };
 }
 
+export function suggestBindingsForChangedFiles({ projectRoot, blocks = [], existingRefs = [], changedPaths = [], limit = 8 } = {}) {
+  const existing = new Set(existingRefs.map((ref) => `${ref.path}:${ref.symbol ?? ""}`));
+  const files = [...new Set(changedPaths.map((item) => String(item ?? "").split(path.sep).join("/")))]
+    .filter((relative) => SOURCE_EXTENSIONS.has(path.extname(relative).toLowerCase()));
+  const candidates = [];
+  for (const relative of files) {
+    const absolutePath = path.resolve(projectRoot, relative);
+    let content;
+    try { content = fs.readFileSync(absolutePath, "utf8"); } catch { continue; }
+    const symbols = extractSymbols(content, { filePath: relative });
+    for (const block of blocks) {
+      const terms = discoveryTerms([block.id, block.title, block.summary, block.contract].join(" "));
+      for (const symbol of symbols) {
+        const name = symbol.qualifiedName ?? symbol.name;
+        if (existing.has(`${relative}:${name}`) || existing.has(`${relative}:${symbol.name}`)) continue;
+        const haystack = `${relative} ${name} ${symbol.signature ?? ""}`.toLowerCase();
+        const matchedTerms = terms.filter((term) => haystack.includes(term));
+        const exactName = discoveryTerms(name).some((term) => terms.includes(term));
+        const score = matchedTerms.length * 12 + (exactName ? 20 : 0);
+        if (score < 12) continue;
+        candidates.push({
+          blockId: block.id,
+          path: relative,
+          symbol: name,
+          role: candidateRole(relative, symbol),
+          confidence: Math.min(0.98, Number((0.4 + score / 90).toFixed(2))),
+          reasons: [
+            "changed after native/external edit",
+            ...(exactName ? ["symbol name matches Block semantics"] : []),
+            ...(matchedTerms.length ? [`matched terms: ${matchedTerms.slice(0, 6).join(", ")}`] : []),
+          ],
+        });
+      }
+    }
+  }
+  candidates.sort((left, right) => right.confidence - left.confidence || left.blockId.localeCompare(right.blockId) || left.symbol.localeCompare(right.symbol));
+  const seen = new Set();
+  return candidates.filter((item) => {
+    const key = `${item.blockId}:${item.path}:${item.symbol}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
+}
+
 function hashText(value) {
   return crypto.createHash("sha256").update(String(value ?? "")).digest("hex");
 }

@@ -8,6 +8,7 @@ import {
   localizedValue,
 } from "./schema.mjs";
 import { analyzeGraphDrift } from "./query-engine.mjs";
+import { pluginRuntimeStatus } from "./plugin-runtime.mjs";
 
 export function buildContextForTask(service, { task, focusRefs = [], maxChars = 6000, locale = "en" } = {}) {
   const snapshot = service.snapshot();
@@ -254,6 +255,10 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
 
   lines.push("## Architecture coverage");
   lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} Blocks bound or passed · ${coverage.failingIds.length} failing`);
+  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
+  if (plugin.stale) {
+    lines.push(`- Plugin cache is stale (${plugin.runningHash} != ${plugin.repoHash}). Reload with: ${plugin.reload}`);
+  }
   if (drift.hasDrift) {
     const parts = [];
     if (drift.ghostDrifts.length) parts.push(`${drift.ghostDrifts.length} ghost drift(s)`);

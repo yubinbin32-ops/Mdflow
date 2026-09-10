@@ -3258,8 +3258,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path12) {
-      let input = path12;
+    function removeDotSegments(path13) {
+      let input = path13;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3668,8 +3668,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path12 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path12 && path12 !== "/" ? path12 : void 0;
+        const path13 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7181,12 +7181,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs11, exportName) {
+    function addFormats(ajv, list, fs12, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs11[f]);
+        ajv.addFormat(f, fs12[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7568,8 +7568,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path12, errorMaps, issueData } = params;
-  const fullPath = [...path12, ...issueData.path || []];
+  const { data, path: path13, errorMaps, issueData } = params;
+  const fullPath = [...path13, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7684,11 +7684,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path12, key) {
+  constructor(parent, value, path13, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path12;
+    this._path = path13;
     this._key = key;
   }
   get path() {
@@ -11270,10 +11270,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path12) {
-  if (!path12)
+function getElementAtPath(obj, path13) {
+  if (!path13)
     return obj;
-  return path12.reduce((acc, key) => acc?.[key], obj);
+  return path13.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11685,11 +11685,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path12, issues) {
+function prefixIssues(path13, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path12);
+    iss.path.unshift(path13);
     return iss;
   });
 }
@@ -12118,16 +12118,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path12 = []) => {
+  const processError = (error3, path13 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path12, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path13, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path12, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path12, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
       } else {
-        const fullpath = [...path12, ...issue2.path];
+        const fullpath = [...path13, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -16632,11 +16632,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path12) {
-  if (path12.length === 0) {
+function getDotPath(path13) {
+  if (path13.length === 0) {
     return "object root";
   }
-  return path12.reduce((acc, seg, index) => {
+  return path13.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23203,13 +23203,13 @@ var StdioServerTransport = class {
 };
 
 // packages/mcp/src/project-router.mjs
-import path10 from "node:path";
-import fs9 from "node:fs";
+import path11 from "node:path";
+import fs10 from "node:fs";
 
 // packages/mcp/src/service.mjs
-import crypto6 from "node:crypto";
-import fs8 from "node:fs";
-import path9 from "node:path";
+import crypto7 from "node:crypto";
+import fs9 from "node:fs";
+import path10 from "node:path";
 import { spawnSync as spawnSync2 } from "node:child_process";
 
 // packages/mcp/src/database.mjs
@@ -24561,6 +24561,9 @@ function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4e3, mode = "co
       `// Lines: ${startLine && endLine ? `${startLine}-${endLine}` : "\u2014"}`,
       `// Contract: ${contract || "(not declared)"}`
     ];
+    if (sourceStatus2 === "line_only") {
+      bodyLines.splice(1, 0, "// Warning: line-only binding; do not treat this range as a symbol facade");
+    }
     if (includeCode && code) bodyLines.push("", code);
     if (includeCode && !code && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus2)) {
       bodyLines.push("", `// No current source slice available (${sourceStatus2}; rebind before reading implementation)`);
@@ -25970,8 +25973,39 @@ function foundationBlockGroups(snapshot2, blocks) {
 }
 
 // packages/mcp/src/query-engine.mjs
+import fs5 from "node:fs";
+import path6 from "node:path";
+
+// packages/mcp/src/plugin-runtime.mjs
+import crypto4 from "node:crypto";
 import fs4 from "node:fs";
 import path5 from "node:path";
+import { fileURLToPath } from "node:url";
+function hashFile(filePath) {
+  try {
+    return crypto4.createHash("sha256").update(fs4.readFileSync(filePath)).digest("hex").slice(0, 16);
+  } catch {
+    return null;
+  }
+}
+function pluginRuntimeStatus(projectRoot = process.cwd()) {
+  const runningPath = process.argv[1] ? path5.resolve(process.argv[1]) : fileURLToPath(import.meta.url);
+  const repoBundle = path5.join(projectRoot, "plugins/mdflow/server/mdflow-mcp.mjs");
+  const runningHash = hashFile(runningPath);
+  const repoHash = hashFile(repoBundle);
+  const runningIsBundle = path5.basename(runningPath) === "mdflow-mcp.mjs";
+  const stale = Boolean(runningIsBundle && runningHash && repoHash && runningHash !== repoHash);
+  return {
+    runningPath,
+    repoBundle,
+    runningHash,
+    repoHash,
+    stale,
+    reload: stale ? "codex plugin remove mdflow@mdflow-development && codex plugin add mdflow@mdflow-development" : null
+  };
+}
+
+// packages/mcp/src/query-engine.mjs
 function renderProjectMap(service, { locale = "en" } = {}) {
   const snapshot2 = service.snapshot();
   const coverage = architectureCoverage(snapshot2);
@@ -26596,9 +26630,9 @@ function analyzeGraphDrift(service, snapshot2 = service.snapshot()) {
       const bindings = snapshot2.sourceRefs.filter((ref) => ref.blockId === block.id);
       for (const ref of bindings) {
         if (!ref.path) continue;
-        const fullPath = path5.isAbsolute(ref.path) ? ref.path : path5.join(projectRoot, ref.path);
+        const fullPath = path6.isAbsolute(ref.path) ? ref.path : path6.join(projectRoot, ref.path);
         try {
-          if (fs4.existsSync(fullPath) && fs4.statSync(fullPath).isFile()) {
+          if (fs5.existsSync(fullPath) && fs5.statSync(fullPath).isFile()) {
             ghostDrifts.push({
               blockId: block.id,
               title: block.title,
@@ -26630,7 +26664,7 @@ function collectSemanticReviews(service, snapshot2) {
   let rows = [];
   try {
     rows = service.database.prepare(`
-      SELECT h.entity_type, h.entity_id, h.revision, h.changed_fields_json, h.created_at, h.summary
+      SELECT h.entity_type, h.entity_id, h.action, h.revision, h.changed_fields_json, h.created_at, h.summary
         FROM history h
        WHERE h.entity_type IN ('block', 'chain', 'link', 'decision')
          AND h.action IN ('updated', 'created')
@@ -26651,6 +26685,7 @@ function collectSemanticReviews(service, snapshot2) {
   }
   const reviews = [];
   for (const item of latest.values()) {
+    if (item.action === "created") continue;
     const related = relatedArchitecture(snapshot2, item.entity_type, item.entity_id);
     if (!related.links.length && !related.decisions.length && !related.planChanges.length) continue;
     reviews.push({
@@ -26691,12 +26726,14 @@ function renderGraphStatus(service, { locale = "en" } = {}) {
   const totalLinks = snapshot2.links.length;
   const totalCheckpoints = snapshot2.checkpoints.length;
   const passedCheckpoints = snapshot2.checkpoints.filter((c) => c.status === "passed").length;
+  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
   const lines = [
     `# mdflow Architecture & Sync Status`,
     `- Project: ${snapshot2.project.name || snapshot2.project.id} (rev ${snapshot2.project.graphRevision})`,
     `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
     `- Chains: ${totalChains} \xB7 Links: ${totalLinks}`,
     `- Checkpoints: ${passedCheckpoints}/${totalCheckpoints} passed`,
+    `- Plugin: ${plugin.stale ? "stale cache" : "in sync"}`,
     ""
   ];
   if (drift.hasDrift) {
@@ -26736,6 +26773,13 @@ function renderGraphStatus(service, { locale = "en" } = {}) {
     lines.push("- Zero ghost drift (all implemented source files correspond to solid blocks).");
     lines.push("- All checkpoints are fresh and aligned.");
     lines.push("- All isolated blocks reviewed (standalone nodes permitted; connect any intended for active workflows).");
+    lines.push("");
+  }
+  if (plugin.stale) {
+    lines.push("## \u26A0\uFE0F Plugin cache is stale");
+    lines.push(`- Running: \`${plugin.runningHash}\``);
+    lines.push(`- Repo bundle: \`${plugin.repoHash}\``);
+    lines.push(`- Reload: \`${plugin.reload}\``);
     lines.push("");
   }
   const activePlans = snapshot2.plans.filter((p) => p.status === "active" || p.status === "draft");
@@ -26885,15 +26929,15 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     if (selectedPlanIds.has(scope.planId)) selectedChainIds.add(scope.chainId);
   }
   for (const chainId of selectedChainIds) {
-    const path12 = snapshot2.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
+    const path13 = snapshot2.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
     if (focusChainIds.has(chainId)) {
-      for (const blockId of path12.slice(0, 10)) selectedBlockIds.add(blockId);
+      for (const blockId of path13.slice(0, 10)) selectedBlockIds.add(blockId);
       continue;
     }
-    const matchingPositions = path12.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
+    const matchingPositions = path13.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
     for (const position of matchingPositions) {
       for (const index of [position - 1, position, position + 1]) {
-        if (path12[index]) selectedBlockIds.add(path12[index]);
+        if (path13[index]) selectedBlockIds.add(path13[index]);
       }
     }
   }
@@ -26947,6 +26991,10 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
   const drift = analyzeGraphDrift(service, snapshot2);
   lines.push("## Architecture coverage");
   lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} Blocks bound or passed \xB7 ${coverage.failingIds.length} failing`);
+  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
+  if (plugin.stale) {
+    lines.push(`- Plugin cache is stale (${plugin.runningHash} != ${plugin.repoHash}). Reload with: ${plugin.reload}`);
+  }
   if (drift.hasDrift) {
     const parts = [];
     if (drift.ghostDrifts.length) parts.push(`${drift.ghostDrifts.length} ghost drift(s)`);
@@ -27057,8 +27105,8 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     lines.push("## Target chains");
     for (const chain of relevantChains) {
       const title = localizedValue(translations, "chain", chain.id, locale, "title", chain.title);
-      const path12 = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
-      lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path12 ? ` \xB7 path ${path12}` : ""}`);
+      const path13 = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
+      lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path13 ? ` \xB7 path ${path13}` : ""}`);
       const intent = localizedValue(translations, "chain", chain.id, locale, "intent", chain.intent);
       if (intent && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  ${intent}`);
     }
@@ -27352,9 +27400,9 @@ function renderPlanContext(service, { id, locale = "en", maxChars = 12e3 } = {})
           appendBlockers(binding, "    ");
         }
       } else if (change.targetCheckpoints.length) {
-        lines.push(`  - Warning: Block checkpoints exist but none is bound to this PlanChange: ${change.targetCheckpoints.map((checkpoint) => `checkpoint:${checkpoint.id}`).join(", ")}`);
+        lines.push(`  - Independent verification: ${change.targetCheckpoints.map((checkpoint) => `[${checkpoint.status}] ${checkpoint.title}`).join("; ")}`);
       } else {
-        lines.push("  - Warning: this Block has no checkpoint.");
+        lines.push("  - No checkpoint recorded yet.");
       }
     }
   } else {
@@ -27658,15 +27706,15 @@ function createFoundationPlan(service, {
 }
 
 // packages/mcp/src/checkpoint-freshness.mjs
-import crypto5 from "node:crypto";
-import fs6 from "node:fs";
-import path7 from "node:path";
+import crypto6 from "node:crypto";
+import fs7 from "node:fs";
+import path8 from "node:path";
 import { spawnSync } from "node:child_process";
 
 // packages/mcp/src/source-binding.mjs
-import crypto4 from "node:crypto";
-import fs5 from "node:fs";
-import path6 from "node:path";
+import crypto5 from "node:crypto";
+import fs6 from "node:fs";
+import path7 from "node:path";
 var DISCOVERY_IGNORES = /* @__PURE__ */ new Set([".git", ".mdflow", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
 var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".swift", ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".cc", ".cpp", ".h", ".hpp"]);
 function discoveryTerms(value) {
@@ -27678,7 +27726,7 @@ function sourceFiles(projectRoot, maxFiles) {
     if (files.length >= maxFiles) return;
     let entries = [];
     try {
-      entries = fs5.readdirSync(directory, { withFileTypes: true });
+      entries = fs6.readdirSync(directory, { withFileTypes: true });
     } catch {
       return;
     }
@@ -27686,9 +27734,9 @@ function sourceFiles(projectRoot, maxFiles) {
       if (files.length >= maxFiles) break;
       if (entry.name.startsWith(".") && entry.name !== ".github") continue;
       if (DISCOVERY_IGNORES.has(entry.name)) continue;
-      const candidate = path6.join(directory, entry.name);
+      const candidate = path7.join(directory, entry.name);
       if (entry.isDirectory()) visit(candidate);
-      else if (entry.isFile() && SOURCE_EXTENSIONS.has(path6.extname(entry.name).toLowerCase())) files.push(candidate);
+      else if (entry.isFile() && SOURCE_EXTENSIONS.has(path7.extname(entry.name).toLowerCase())) files.push(candidate);
     }
   };
   visit(projectRoot);
@@ -27711,10 +27759,10 @@ function suggestSourceBindings({ projectRoot, block, existingRefs = [], limit = 
   const candidates = [];
   const files = sourceFiles(projectRoot, maxFiles);
   for (const absolutePath of files) {
-    const relative = path6.relative(projectRoot, absolutePath).split(path6.sep).join("/");
+    const relative = path7.relative(projectRoot, absolutePath).split(path7.sep).join("/");
     let content;
     try {
-      content = fs5.readFileSync(absolutePath, "utf8");
+      content = fs6.readFileSync(absolutePath, "utf8");
     } catch {
       continue;
     }
@@ -27746,31 +27794,78 @@ function suggestSourceBindings({ projectRoot, block, existingRefs = [], limit = 
   candidates.sort((left, right) => right.score - left.score || left.path.localeCompare(right.path) || left.symbol.localeCompare(right.symbol));
   return { blockId: block.id, scannedFiles: files.length, candidates: candidates.slice(0, limit).map(({ score: _score, ...item }) => item) };
 }
+function suggestBindingsForChangedFiles({ projectRoot, blocks = [], existingRefs = [], changedPaths = [], limit = 8 } = {}) {
+  const existing = new Set(existingRefs.map((ref) => `${ref.path}:${ref.symbol ?? ""}`));
+  const files = [...new Set(changedPaths.map((item) => String(item ?? "").split(path7.sep).join("/")))].filter((relative) => SOURCE_EXTENSIONS.has(path7.extname(relative).toLowerCase()));
+  const candidates = [];
+  for (const relative of files) {
+    const absolutePath = path7.resolve(projectRoot, relative);
+    let content;
+    try {
+      content = fs6.readFileSync(absolutePath, "utf8");
+    } catch {
+      continue;
+    }
+    const symbols = extractSymbols(content, { filePath: relative });
+    for (const block of blocks) {
+      const terms = discoveryTerms([block.id, block.title, block.summary, block.contract].join(" "));
+      for (const symbol of symbols) {
+        const name = symbol.qualifiedName ?? symbol.name;
+        if (existing.has(`${relative}:${name}`) || existing.has(`${relative}:${symbol.name}`)) continue;
+        const haystack = `${relative} ${name} ${symbol.signature ?? ""}`.toLowerCase();
+        const matchedTerms = terms.filter((term) => haystack.includes(term));
+        const exactName = discoveryTerms(name).some((term) => terms.includes(term));
+        const score = matchedTerms.length * 12 + (exactName ? 20 : 0);
+        if (score < 12) continue;
+        candidates.push({
+          blockId: block.id,
+          path: relative,
+          symbol: name,
+          role: candidateRole(relative, symbol),
+          confidence: Math.min(0.98, Number((0.4 + score / 90).toFixed(2))),
+          reasons: [
+            "changed after native/external edit",
+            ...exactName ? ["symbol name matches Block semantics"] : [],
+            ...matchedTerms.length ? [`matched terms: ${matchedTerms.slice(0, 6).join(", ")}`] : []
+          ]
+        });
+      }
+    }
+  }
+  candidates.sort((left, right) => right.confidence - left.confidence || left.blockId.localeCompare(right.blockId) || left.symbol.localeCompare(right.symbol));
+  const seen = /* @__PURE__ */ new Set();
+  return candidates.filter((item) => {
+    const key = `${item.blockId}:${item.path}:${item.symbol}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, limit);
+}
 function hashText(value) {
-  return crypto4.createHash("sha256").update(String(value ?? "")).digest("hex");
+  return crypto5.createHash("sha256").update(String(value ?? "")).digest("hex");
 }
 function normalizeCode(value) {
   return String(value ?? "").replace(/\r\n/g, "\n").trim();
 }
 function relativePath(projectRoot, filePath) {
-  const absolute = path6.resolve(projectRoot, filePath);
-  const relative = path6.relative(projectRoot, absolute);
-  if (!relative || relative.startsWith("..") || path6.isAbsolute(relative)) return null;
-  return relative.split(path6.sep).join("/");
+  const absolute = path7.resolve(projectRoot, filePath);
+  const relative = path7.relative(projectRoot, absolute);
+  if (!relative || relative.startsWith("..") || path7.isAbsolute(relative)) return null;
+  return relative.split(path7.sep).join("/");
 }
 function refKey(ref, index) {
   return ref.id || `${ref.blockId ?? "block"}:${ref.path}:${ref.symbol ?? "line"}:${index}`;
 }
 function readFileCached(projectRoot, ref, fileCache) {
   const rawPath = String(ref.path ?? "");
-  const absolutePath = path6.isAbsolute(rawPath) ? rawPath : path6.resolve(projectRoot, rawPath);
+  const absolutePath = path7.isAbsolute(rawPath) ? rawPath : path7.resolve(projectRoot, rawPath);
   const relative = relativePath(projectRoot, absolutePath);
   if (!relative) {
     return { absolutePath, relativePath: null, status: "outside_project" };
   }
   let stat;
   try {
-    stat = fs5.statSync(absolutePath);
+    stat = fs6.statSync(absolutePath);
     if (!stat.isFile()) return { absolutePath, relativePath: relative, status: "missing" };
   } catch {
     return { absolutePath, relativePath: relative, status: "missing" };
@@ -27779,7 +27874,7 @@ function readFileCached(projectRoot, ref, fileCache) {
   const cached2 = fileCache.get(relative);
   if (cached2?.signature === signature) return cached2;
   try {
-    const content = fs5.readFileSync(absolutePath, "utf8");
+    const content = fs6.readFileSync(absolutePath, "utf8");
     const next = {
       absolutePath,
       relativePath: relative,
@@ -27933,14 +28028,14 @@ function bindingIdentity(binding) {
 // packages/mcp/src/checkpoint-freshness.mjs
 var CHECKPOINT_IDENTITY_KIND = "mdflow-identity";
 function projectRootFor(service) {
-  return path7.resolve(service.paths.projectRoot);
+  return path8.resolve(service.paths.projectRoot);
 }
 function relativeProjectPath(root, candidate) {
   if (typeof candidate !== "string" || !candidate.trim()) return null;
-  const resolved = path7.resolve(root, candidate);
-  const relative = path7.relative(root, resolved);
-  if (!relative || relative.startsWith("..") || path7.isAbsolute(relative)) return null;
-  return relative.split(path7.sep).join("/");
+  const resolved = path8.resolve(root, candidate);
+  const relative = path8.relative(root, resolved);
+  if (!relative || relative.startsWith("..") || path8.isAbsolute(relative)) return null;
+  return relative.split(path8.sep).join("/");
 }
 function gitHead(projectRoot) {
   const result = spawnSync("git", ["rev-parse", "HEAD"], {
@@ -27955,8 +28050,8 @@ function gitHead(projectRoot) {
 }
 function fileHash(filePath) {
   try {
-    if (!fs6.statSync(filePath).isFile()) return null;
-    return crypto5.createHash("sha256").update(fs6.readFileSync(filePath)).digest("hex");
+    if (!fs7.statSync(filePath).isFile()) return null;
+    return crypto6.createHash("sha256").update(fs7.readFileSync(filePath)).digest("hex");
   } catch {
     return null;
   }
@@ -28023,7 +28118,7 @@ function checkpointFiles(service, targetType, targetId, evidence) {
     const relative = relativeProjectPath(root, ref.path);
     const key = relative ?? `!${String(ref.path)}`;
     if (files.has(key)) continue;
-    const absolute = relative ? path7.join(root, relative) : null;
+    const absolute = relative ? path8.join(root, relative) : null;
     files.set(key, {
       path: relative ?? String(ref.path),
       hash: absolute ? fileHash(absolute) : null
@@ -28113,7 +28208,7 @@ function evaluateCheckpointFreshness(service, identity, context = null) {
       continue;
     }
     if (!freshnessContext.fileHashes.has(relative)) {
-      freshnessContext.fileHashes.set(relative, fileHash(path7.join(root, relative)));
+      freshnessContext.fileHashes.set(relative, fileHash(path8.join(root, relative)));
     }
     const currentHash = freshnessContext.fileHashes.get(relative);
     if (!currentHash) reasons.push(`source file is missing: ${relative}`);
@@ -28520,8 +28615,8 @@ function executeRecordCheckpointOperation(service, operation, { timestamp }) {
 }
 
 // packages/mcp/src/mutation-engine.mjs
-import fs7 from "node:fs";
-import path8 from "node:path";
+import fs8 from "node:fs";
+import path9 from "node:path";
 
 // packages/mcp/src/patch.mjs
 var HEADER_PATTERN = /^mdflow\/(\d+)(?:\s+(.*))?$/;
@@ -30167,10 +30262,10 @@ function addSourceRef(service, operation, { timestamp }) {
   let startLine = fields.startLine ?? null;
   let endLine = fields.endLine ?? null;
   if ((!startLine || !endLine) && service.paths?.projectRoot) {
-    const fullPath = path8.isAbsolute(resolvedPath) ? resolvedPath : path8.resolve(service.paths.projectRoot, resolvedPath);
+    const fullPath = path9.isAbsolute(resolvedPath) ? resolvedPath : path9.resolve(service.paths.projectRoot, resolvedPath);
     try {
-      if (fs7.existsSync(fullPath)) {
-        const content = fs7.readFileSync(fullPath, "utf8");
+      if (fs8.existsSync(fullPath)) {
+        const content = fs8.readFileSync(fullPath, "utf8");
         const symbols = extractSymbols(content, { filePath: resolvedPath });
         const matched = resolvedSymbol ? symbols.find((s) => s.name === resolvedSymbol || s.name.endsWith(`.${resolvedSymbol}`)) : symbols[0];
         if (matched) {
@@ -30670,13 +30765,13 @@ function executeRevertChangeSet(service, {
 
 // packages/mcp/src/service.mjs
 function writeFileAtomically(filePath, content) {
-  const temporaryPath = `${filePath}.mdflow-tmp-${process.pid}-${crypto6.randomUUID()}`;
-  fs8.writeFileSync(temporaryPath, content, "utf8");
+  const temporaryPath = `${filePath}.mdflow-tmp-${process.pid}-${crypto7.randomUUID()}`;
+  fs9.writeFileSync(temporaryPath, content, "utf8");
   try {
-    fs8.renameSync(temporaryPath, filePath);
+    fs9.renameSync(temporaryPath, filePath);
   } catch (error2) {
     try {
-      fs8.rmSync(temporaryPath, { force: true });
+      fs9.rmSync(temporaryPath, { force: true });
     } catch {
     }
     throw error2;
@@ -30697,7 +30792,7 @@ function executionGitIdentity(projectRoot) {
   const diff = gitCommand(projectRoot, ["diff", "--binary", "HEAD"]);
   return {
     gitHead: head,
-    dirtyDiffHash: diff == null ? null : crypto6.createHash("sha256").update(diff).digest("hex")
+    dirtyDiffHash: diff == null ? null : crypto7.createHash("sha256").update(diff).digest("hex")
   };
 }
 function parseExecutionSummary(command, output, success) {
@@ -30732,7 +30827,7 @@ var MdflowService = class {
   ensureSynced() {
     const graphJsonPath = this.paths.graphJsonPath;
     if (!graphJsonPath) return false;
-    if (!fs8.existsSync(graphJsonPath)) {
+    if (!fs9.existsSync(graphJsonPath)) {
       const hasProject2 = this.database.prepare("SELECT count(*) as count FROM projects").get()?.count > 0;
       if (hasProject2) {
         exportGraphToJson(this.database, graphJsonPath);
@@ -30740,7 +30835,7 @@ var MdflowService = class {
       }
       return false;
     }
-    const stat = fs8.statSync(graphJsonPath);
+    const stat = fs9.statSync(graphJsonPath);
     const meta2 = getSyncMeta(this.database);
     const hasProject = this.database.prepare("SELECT count(*) as count FROM projects").get()?.count > 0;
     if (!hasProject) {
@@ -30750,8 +30845,8 @@ var MdflowService = class {
     if (meta2.graph_json_mtime && Math.abs(stat.mtimeMs - Number(meta2.graph_json_mtime)) < 10) {
       return false;
     }
-    const content = fs8.readFileSync(graphJsonPath, "utf8");
-    const currentHash = crypto6.createHash("sha256").update(content).digest("hex");
+    const content = fs9.readFileSync(graphJsonPath, "utf8");
+    const currentHash = crypto7.createHash("sha256").update(content).digest("hex");
     if (meta2.graph_json_hash !== currentHash) {
       importGraphFromJson(this.database, graphJsonPath);
       return true;
@@ -30852,13 +30947,23 @@ var MdflowService = class {
     for (const change of historicalChanges) {
       this.database.prepare("SELECT chain_id FROM chain_nodes WHERE block_id = ?").all(change.blockId).forEach((row) => chainIds.add(row.chain_id));
     }
+    const changedPaths = [...new Set(historicalChanges.map((item) => item.path).filter(Boolean))];
+    const unboundCandidates = changedPaths.length ? suggestBindingsForChangedFiles({
+      projectRoot: this.paths.projectRoot,
+      blocks: this.snapshot().blocks.filter((block) => SOURCE_BACKED_BLOCK_KINDS.has(block.kind)),
+      existingRefs: this.database.prepare("SELECT path, symbol FROM source_refs").all(),
+      changedPaths,
+      limit: 8
+    }) : [];
     return {
       ...report,
       sourceSyncRevision: report.revision,
       changes: historicalChanges,
       changed: historicalChanges.length > 0,
       affectedBlockIds: [...new Set(historicalChanges.map((item) => item.blockId).filter(Boolean))],
-      affectedChainIds: [...chainIds]
+      affectedChainIds: [...chainIds],
+      unboundCandidates,
+      editPath: unboundCandidates.length ? "native-edit-then-accept" : report.invalidBindingCount ? "rebind-before-mutate" : "bound-symbol-mutate"
     };
   }
   suggestSourceBindings({ blockId, limit = 12, maxFiles = 600 } = {}) {
@@ -30889,11 +30994,11 @@ var MdflowService = class {
     const accepted = [];
     for (const candidate of bindings) {
       if (!candidate?.path?.trim() || !candidate?.symbol?.trim()) throw new Error("Each binding requires path and symbol");
-      const absolutePath = path9.resolve(this.paths.projectRoot, candidate.path);
-      const relativePath2 = path9.relative(this.paths.projectRoot, absolutePath);
-      if (relativePath2.startsWith("..") || path9.isAbsolute(relativePath2)) throw new Error(`Binding path must stay inside project: ${candidate.path}`);
-      if (!fs8.existsSync(absolutePath)) throw new Error(`Binding source file not found: ${candidate.path}`);
-      const content = fs8.readFileSync(absolutePath, "utf8");
+      const absolutePath = path10.resolve(this.paths.projectRoot, candidate.path);
+      const relativePath2 = path10.relative(this.paths.projectRoot, absolutePath);
+      if (relativePath2.startsWith("..") || path10.isAbsolute(relativePath2)) throw new Error(`Binding path must stay inside project: ${candidate.path}`);
+      if (!fs9.existsSync(absolutePath)) throw new Error(`Binding source file not found: ${candidate.path}`);
+      const content = fs9.readFileSync(absolutePath, "utf8");
       const slice = extractSymbolSlice(content, {
         symbol: candidate.symbol,
         language: detectLanguage(absolutePath),
@@ -30901,7 +31006,7 @@ var MdflowService = class {
         maxLines: 4
       });
       if (!slice.found) throw new Error(`Binding symbol is ${slice.reason ?? "missing"}: ${candidate.path}:${candidate.symbol}`);
-      const normalizedPath = relativePath2.split(path9.sep).join("/");
+      const normalizedPath = relativePath2.split(path10.sep).join("/");
       const key = `${normalizedPath}:${candidate.symbol}`;
       if (existing.has(key)) continue;
       existing.add(key);
@@ -31208,7 +31313,7 @@ var MdflowService = class {
       let sourceStatus2 = "virtual";
       let sourceHash = null;
       if (sourceRefs.length > 0) {
-        const ref = sourceRefs.find((candidate) => candidate.role === "implementation") || sourceRefs[0];
+        const ref = sourceRefs.find((candidate) => candidate.role === "implementation" && candidate.symbol) || sourceRefs.find((candidate) => candidate.symbol) || sourceRefs.find((candidate) => candidate.role === "implementation") || sourceRefs[0];
         const binding = this.sourceBindingState.get(ref.id);
         filePath = binding?.relativePath ?? ref.path;
         symbol = ref.symbol;
@@ -31235,6 +31340,7 @@ var MdflowService = class {
             code = mode === "slice" && slice.found ? slice.code : null;
           }
         }
+        if (!ref.symbol && sourceStatus2 === "anchored") sourceStatus2 = "line_only";
       }
       streamNodes.push({
         blockId: block.id,
@@ -31281,10 +31387,10 @@ var MdflowService = class {
     if (!command?.trim()) throw new Error("command is required");
     this.ensureSynced();
     this.syncSourceBindings();
-    const projectRoot = path9.resolve(this.paths.projectRoot);
-    const targetCwd = path9.resolve(projectRoot, cwd || ".");
-    const relativeCwd = path9.relative(projectRoot, targetCwd);
-    if (relativeCwd.startsWith("..") || path9.isAbsolute(relativeCwd)) {
+    const projectRoot = path10.resolve(this.paths.projectRoot);
+    const targetCwd = path10.resolve(projectRoot, cwd || ".");
+    const relativeCwd = path10.relative(projectRoot, targetCwd);
+    if (relativeCwd.startsWith("..") || path10.isAbsolute(relativeCwd)) {
       throw new Error("cwd must stay inside the registered project");
     }
     const startedAt = Date.now();
@@ -31404,6 +31510,36 @@ ${stderr}` : ""].filter(Boolean).join("\n");
       }
     };
   }
+  checkpointRefreshCandidates({ executionId = null } = {}) {
+    this.ensureSynced();
+    const snapshot2 = this.snapshot();
+    const stale = snapshot2.checkpoints.filter(
+      (checkpoint) => checkpoint.status === "retest_required" || checkpoint.freshness?.status === "stale"
+    );
+    const changedBlockIds = new Set((snapshot2.sourceSync?.changes ?? this.syncSourceBindings().changes ?? []).map((item) => item.blockId).filter(Boolean));
+    const receipt = executionId ? this.database.prepare("SELECT id, status, command, exit_code FROM execution_receipts WHERE id = ? AND project_id = ?").get(executionId, this.paths.descriptor.id) : null;
+    const candidates = stale.filter(
+      (checkpoint) => checkpoint.targetType !== "block" || changedBlockIds.size === 0 || changedBlockIds.has(checkpoint.targetId)
+    ).slice(0, 20).map((checkpoint) => ({
+      checkpointId: checkpoint.id,
+      targetType: checkpoint.targetType,
+      targetId: checkpoint.targetId,
+      title: checkpoint.title,
+      status: checkpoint.status
+    }));
+    return {
+      executionId: receipt?.id ?? null,
+      receiptStatus: receipt?.status ?? null,
+      changedBlockIds: [...changedBlockIds],
+      candidates,
+      markdown: [
+        "# Checkpoint refresh candidates",
+        `- Execution: ${receipt?.id ?? "none"}`,
+        `- Candidates: ${candidates.length}`,
+        ...candidates.map((item) => `- ${item.targetType}:${item.targetId} \xB7 checkpoint:${item.checkpointId} \xB7 ${item.title}`)
+      ].join("\n")
+    };
+  }
   mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null, expectedSourceHash = null } = {}) {
     if (!blockId?.trim()) throw new Error("blockId is required");
     if (!symbol?.trim()) throw new Error("symbol is required");
@@ -31415,23 +31551,23 @@ ${stderr}` : ""].filter(Boolean).join("\n");
     if (!block) throw new Error(`Block not found: ${blockId}`);
     const sourceRefs = snapshot2.sourceRefs.filter((ref2) => ref2.blockId === block.id);
     if (!sourceRefs.length) {
-      throw new Error(`Block "${blockId}" has no bound source files (virtual blueprint)`);
+      throw new Error(`Block "${blockId}" has no bound source files. Use native edit, then source_binding_suggest/accept.`);
     }
     const ref = sourceRefs.find((r) => r.symbol === symbol);
     if (!ref) {
-      throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}"`);
+      throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}". Use native edit for new symbols, then source_binding_accept.`);
     }
     const filePath = ref.path;
-    const fullPath = path9.isAbsolute(filePath) ? filePath : path9.resolve(this.paths.projectRoot, filePath);
+    const fullPath = path10.isAbsolute(filePath) ? filePath : path10.resolve(this.paths.projectRoot, filePath);
     const currentBinding = this.sourceBindingState.get(ref.id);
     if (currentBinding && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(currentBinding.bindingStatus)) {
-      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rescan/rebind before mutating`);
+      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rebind with source_binding_suggest/accept before block_code_mutate`);
     }
-    if (!fs8.existsSync(fullPath)) {
+    if (!fs9.existsSync(fullPath)) {
       throw new Error(`Source file not found at ${fullPath}`);
     }
-    const originalCode = fs8.readFileSync(fullPath, "utf8");
-    const originalHash = crypto6.createHash("sha256").update(originalCode).digest("hex");
+    const originalCode = fs9.readFileSync(fullPath, "utf8");
+    const originalHash = crypto7.createHash("sha256").update(originalCode).digest("hex");
     if (expectedSourceHash && expectedSourceHash !== originalHash) {
       throw new Error(`Source drift detected for ${filePath}; expected ${expectedSourceHash}, found ${originalHash}`);
     }
@@ -31472,7 +31608,7 @@ ${stderr}` : ""].filter(Boolean).join("\n");
       symbol,
       filePath,
       replacedLines,
-      sourceHash: crypto6.createHash("sha256").update(updatedCode).digest("hex"),
+      sourceHash: crypto7.createHash("sha256").update(updatedCode).digest("hex"),
       sourceSync: {
         revision: sourceSync.revision,
         changedBindingCount: sourceSync.changedBindingCount,
@@ -31594,7 +31730,7 @@ function createService(options = {}) {
 // packages/mcp/src/project-router.mjs
 function databaseFileIdentity(databasePath) {
   try {
-    const stat = fs9.statSync(databasePath);
+    const stat = fs10.statSync(databasePath);
     return `${stat.dev}:${stat.ino}`;
   } catch {
     return null;
@@ -31626,7 +31762,7 @@ var ProjectServiceRouter = class {
         throw err;
       }
     }
-    const key = path10.resolve(paths.projectRoot);
+    const key = path11.resolve(paths.projectRoot);
     this.activeProjectRoot = key;
     const cached2 = this.services.get(key);
     if (cached2) {
@@ -31658,7 +31794,7 @@ var ProjectServiceRouter = class {
     const registered = registerProject(input);
     this.activeProjectRoot = registered.projectRoot;
     const service = this.serviceFor({ projectRoot: registered.projectRoot });
-    if (!fs9.existsSync(service.paths.graphJsonPath)) {
+    if (!fs10.existsSync(service.paths.graphJsonPath)) {
       service.ensureSynced();
     }
     return registered;
@@ -31671,9 +31807,9 @@ var ProjectServiceRouter = class {
 };
 
 // packages/mcp/src/cli.mjs
-import fs10 from "node:fs";
+import fs11 from "node:fs";
 import os from "node:os";
-import path11 from "node:path";
+import path12 from "node:path";
 var VERSION = "0.3.5";
 var HELP = `
 mdflow v${VERSION}: A context operating system for AI coding agents.
@@ -31749,7 +31885,7 @@ async function runCli(args, router2) {
     const projectRoot = process.cwd();
     const shouldScan = args.includes("--scan") || args.includes("-s");
     try {
-      const reg = registerProject({ projectRoot, name: path11.basename(projectRoot) });
+      const reg = registerProject({ projectRoot, name: path12.basename(projectRoot) });
       console.log(`\u2713 ${reg.created ? "Initialized new" : "Opened existing"} mdflow project at ${projectRoot}`);
       const service = router2.serviceFor({ projectRoot });
       if (shouldScan && reg.created) {
@@ -31757,7 +31893,7 @@ async function runCli(args, router2) {
         const bootstrapped = bootstrapProject(service, projectRoot);
         console.log(`\u2713 Created ${bootstrapped.blocks} initial blocks and 1 baseline chain.`);
       }
-      if (!fs10.existsSync(service.paths.graphJsonPath)) {
+      if (!fs11.existsSync(service.paths.graphJsonPath)) {
         exportGraphToJson(service.database, service.paths.graphJsonPath);
         console.log(`\u2713 Created .mdflow/graph.json text source of truth`);
       }
@@ -31802,15 +31938,15 @@ async function runCli(args, router2) {
 }
 function bootstrapProject(service, projectRoot) {
   const operations = [];
-  const pkgPath = path11.join(projectRoot, "package.json");
+  const pkgPath = path12.join(projectRoot, "package.json");
   let pkg = {};
-  if (fs10.existsSync(pkgPath)) {
+  if (fs11.existsSync(pkgPath)) {
     try {
-      pkg = JSON.parse(fs10.readFileSync(pkgPath, "utf8"));
+      pkg = JSON.parse(fs11.readFileSync(pkgPath, "utf8"));
     } catch {
     }
   }
-  const projectName = pkg.name || path11.basename(projectRoot);
+  const projectName = pkg.name || path12.basename(projectRoot);
   const coreBlockId = "core-application";
   operations.push({
     action: "create_block",
@@ -31823,7 +31959,7 @@ function bootstrapProject(service, projectRoot) {
       scope: "general"
     }
   });
-  const dirs = fs10.readdirSync(projectRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "node_modules").map((d) => d.name);
+  const dirs = fs11.readdirSync(projectRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "node_modules").map((d) => d.name);
   if (dirs.some((d) => ["src", "app", "lib"].includes(d))) {
     operations.push({
       action: "create_block",
@@ -31883,14 +32019,14 @@ function bootstrapProject(service, projectRoot) {
 function setupEditors() {
   const cwd = process.cwd();
   console.log("=== Setting up Mdflow MCP Server ===");
-  const cursorDir = path11.join(cwd, ".cursor");
-  const cursorMcpFile = path11.join(cursorDir, "mcp.json");
+  const cursorDir = path12.join(cwd, ".cursor");
+  const cursorMcpFile = path12.join(cursorDir, "mcp.json");
   try {
-    fs10.mkdirSync(cursorDir, { recursive: true });
+    fs11.mkdirSync(cursorDir, { recursive: true });
     let cursorConfig = { mcpServers: {} };
-    if (fs10.existsSync(cursorMcpFile)) {
+    if (fs11.existsSync(cursorMcpFile)) {
       try {
-        cursorConfig = JSON.parse(fs10.readFileSync(cursorMcpFile, "utf8"));
+        cursorConfig = JSON.parse(fs11.readFileSync(cursorMcpFile, "utf8"));
       } catch {
       }
     }
@@ -31899,18 +32035,18 @@ function setupEditors() {
       command: "npx",
       args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     };
-    fs10.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
+    fs11.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
     console.log(`\u2713 Configured Cursor: ${cursorMcpFile}`);
   } catch (err) {
     console.log(`- Cursor setup skipped: ${err.message}`);
   }
-  const claudeConfigPath = path11.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
+  const claudeConfigPath = path12.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
   try {
-    if (fs10.existsSync(path11.dirname(claudeConfigPath))) {
+    if (fs11.existsSync(path12.dirname(claudeConfigPath))) {
       let claudeConfig = { mcpServers: {} };
-      if (fs10.existsSync(claudeConfigPath)) {
+      if (fs11.existsSync(claudeConfigPath)) {
         try {
-          claudeConfig = JSON.parse(fs10.readFileSync(claudeConfigPath, "utf8"));
+          claudeConfig = JSON.parse(fs11.readFileSync(claudeConfigPath, "utf8"));
         } catch {
         }
       }
@@ -31919,7 +32055,7 @@ function setupEditors() {
         command: "npx",
         args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
       };
-      fs10.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
+      fs11.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
       console.log(`\u2713 Configured Claude Desktop: ${claudeConfigPath}`);
     }
   } catch (err) {
@@ -31935,7 +32071,7 @@ function setupEditors() {
 }
 
 // packages/mcp/src/task-budget.mjs
-import crypto7 from "node:crypto";
+import crypto8 from "node:crypto";
 var budgets = /* @__PURE__ */ new Map();
 function snapshot(entry) {
   return {
@@ -31954,7 +32090,7 @@ function startTaskBudget({ projectRoot = ".", taskContextId = null, budgetChars 
     if (existing.projectRoot === projectRoot) return snapshot(existing);
   }
   const entry = {
-    id: taskContextId || `task_${crypto7.randomUUID()}`,
+    id: taskContextId || `task_${crypto8.randomUUID()}`,
     projectRoot,
     budgetChars: Math.max(100, Math.floor(Number(budgetChars) || 12e3)),
     consumedChars: 0,
@@ -32254,7 +32390,7 @@ server.registerTool(
 server.registerTool(
   "decision_open",
   {
-    description: "Open one project-scoped Decision. Returns its rationale, alternatives, consequences, scope, supersession, and compact History; never projects it onto Canvas.",
+    description: "Open one architecture Decision. Returns its rationale, alternatives, consequences, scope, supersession, and compact History.",
     inputSchema: { ...projectRootInput, id: string2().min(1), historyLimit: number2().int().min(0).max(30).optional(), locale: _enum(["en", "zh-Hans"]).optional(), includeStructured: boolean2().default(false) }
   },
   async (input) => {
@@ -32299,7 +32435,9 @@ server.registerTool(
       `- Revision: ${data.sourceSyncRevision} \xB7 Bindings: ${data.bindingCount} \xB7 Invalid: ${data.invalidBindingCount}`,
       ...data.affectedBlockIds?.length ? [`- Affected Blocks: ${data.affectedBlockIds.map((id) => `block:${id}`).join(", ")}`] : [],
       ...data.affectedChainIds?.length ? [`- Affected Chains: ${data.affectedChainIds.map((id) => `chain:${id}`).join(", ")}`] : [],
-      ...data.changes?.length ? ["", "## Changes", ...data.changes.slice(0, 20).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : []
+      ...data.changes?.length ? ["", "## Changes", ...data.changes.slice(0, 20).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : [],
+      ...data.unboundCandidates?.length ? ["", "## Unbound candidates", ...data.unboundCandidates.map((candidate) => `- block:${candidate.blockId} \`${candidate.path}:${candidate.symbol}\` \xB7 ${candidate.role} \xB7 ${candidate.confidence}`)] : [],
+      ...data.editPath ? [`- Edit path: ${data.editPath}`] : []
     ].join("\n");
     return readResult(data, md, input.includeStructured);
   }
@@ -32416,6 +32554,21 @@ server.registerTool(
   }
 );
 server.registerTool(
+  "checkpoint_refresh_candidates",
+  {
+    description: "List stale checkpoints that a recorded execution receipt can refresh. Does not auto-pass checkpoints; it only maps changed bindings onto retest_required items.",
+    inputSchema: {
+      ...projectRootInput,
+      executionId: string2().min(1).optional(),
+      includeStructured: boolean2().default(false)
+    }
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.checkpointRefreshCandidates(payload));
+    return readResult(data, data.markdown, input.includeStructured, "checkpoint_refresh_candidates");
+  }
+);
+server.registerTool(
   "log_sanitize",
   {
     description: "Sanitize build, test, or terminal command outputs. Strips ANSI noise, collapses routine compiler stdout, and isolates actionable failure stack traces to protect context window from token flooding.",
@@ -32447,7 +32600,7 @@ server.registerTool(
 server.registerTool(
   "block_code_mutate",
   {
-    description: "Atomically mutate a specific AST symbol's implementation bound to an architecture Block. Replaces only the targeted symbol body, runs automated verification with terminal log sanitization, and automatically rolls back if tests fail.",
+    description: "Replace one already-bound AST symbol body. Not a general editor: new files, new symbols, tests, and multi-file edits should use the host editor, then source_sync and source_binding_accept.",
     inputSchema: {
       ...projectRootInput,
       blockId: string2().min(1),
@@ -32665,7 +32818,7 @@ server.registerTool(
 server.registerTool(
   "entity_open",
   {
-    description: "Open one Block, Chain, Link, Plan, or project-scoped Decision with only relevant details and recent History. Decision bodies are never Canvas nodes.",
+    description: "Open one Block, Chain, Link, Plan, or Decision with only relevant details and recent History.",
     inputSchema: {
       ...projectRootInput,
       type: _enum(["block", "chain", "link", "plan", "decision"]),

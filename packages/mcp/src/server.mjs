@@ -161,7 +161,7 @@ server.registerTool(
 server.registerTool(
   "decision_open",
   {
-    description: "Open one project-scoped Decision. Returns its rationale, alternatives, consequences, scope, supersession, and compact History; never projects it onto Canvas.",
+    description: "Open one architecture Decision. Returns its rationale, alternatives, consequences, scope, supersession, and compact History.",
     inputSchema: { ...projectRootInput, id: z.string().min(1), historyLimit: z.number().int().min(0).max(30).optional(), locale: z.enum(["en", "zh-Hans"]).optional(), includeStructured: z.boolean().default(false) },
   },
   async (input) => {
@@ -211,6 +211,9 @@ server.registerTool(
       ...(data.affectedChainIds?.length ? [`- Affected Chains: ${data.affectedChainIds.map((id) => `chain:${id}`).join(", ")}`] : []),
       ...(data.changes?.length ? ["", "## Changes", ...data.changes.slice(0, 20).map((change) =>
         `- block:${change.blockId} ${change.symbol ?? change.path} · ${change.kinds.join(", ")}`)] : []),
+      ...(data.unboundCandidates?.length ? ["", "## Unbound candidates", ...data.unboundCandidates.map((candidate) =>
+        `- block:${candidate.blockId} \`${candidate.path}:${candidate.symbol}\` · ${candidate.role} · ${candidate.confidence}`)] : []),
+      ...(data.editPath ? [`- Edit path: ${data.editPath}`] : []),
     ].join("\n");
     return readResult(data, md, input.includeStructured);
   },
@@ -337,6 +340,23 @@ server.registerTool(
 );
 
 server.registerTool(
+  "checkpoint_refresh_candidates",
+  {
+    description:
+      "List stale checkpoints that a recorded execution receipt can refresh. Does not auto-pass checkpoints; it only maps changed bindings onto retest_required items.",
+    inputSchema: {
+      ...projectRootInput,
+      executionId: z.string().min(1).optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.checkpointRefreshCandidates(payload));
+    return readResult(data, data.markdown, input.includeStructured, "checkpoint_refresh_candidates");
+  },
+);
+
+server.registerTool(
   "log_sanitize",
   {
     description: "Sanitize build, test, or terminal command outputs. Strips ANSI noise, collapses routine compiler stdout, and isolates actionable failure stack traces to protect context window from token flooding.",
@@ -372,7 +392,7 @@ server.registerTool(
   "block_code_mutate",
   {
     description:
-      "Atomically mutate a specific AST symbol's implementation bound to an architecture Block. Replaces only the targeted symbol body, runs automated verification with terminal log sanitization, and automatically rolls back if tests fail.",
+      "Replace one already-bound AST symbol body. Not a general editor: new files, new symbols, tests, and multi-file edits should use the host editor, then source_sync and source_binding_accept.",
     inputSchema: {
       ...projectRootInput,
       blockId: z.string().min(1),
@@ -598,7 +618,7 @@ server.registerTool(
 server.registerTool(
   "entity_open",
   {
-    description: "Open one Block, Chain, Link, Plan, or project-scoped Decision with only relevant details and recent History. Decision bodies are never Canvas nodes.",
+    description: "Open one Block, Chain, Link, Plan, or Decision with only relevant details and recent History.",
     inputSchema: {
       ...projectRootInput,
       type: z.enum(["block", "chain", "link", "plan", "decision"]),

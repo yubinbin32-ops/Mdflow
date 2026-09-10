@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { pluginRuntimeStatus } from "./plugin-runtime.mjs";
 import {
   architectureCoverage,
   assertAllowed,
@@ -737,7 +738,7 @@ function collectSemanticReviews(service, snapshot) {
   let rows = [];
   try {
     rows = service.database.prepare(`
-      SELECT h.entity_type, h.entity_id, h.revision, h.changed_fields_json, h.created_at, h.summary
+      SELECT h.entity_type, h.entity_id, h.action, h.revision, h.changed_fields_json, h.created_at, h.summary
         FROM history h
        WHERE h.entity_type IN ('block', 'chain', 'link', 'decision')
          AND h.action IN ('updated', 'created')
@@ -758,6 +759,7 @@ function collectSemanticReviews(service, snapshot) {
   }
   const reviews = [];
   for (const item of latest.values()) {
+    if (item.action === "created") continue;
     const related = relatedArchitecture(snapshot, item.entity_type, item.entity_id);
     if (!related.links.length && !related.decisions.length && !related.planChanges.length) continue;
     reviews.push({
@@ -807,6 +809,7 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
   const totalLinks = snapshot.links.length;
   const totalCheckpoints = snapshot.checkpoints.length;
   const passedCheckpoints = snapshot.checkpoints.filter((c) => c.status === "passed").length;
+  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
 
   const lines = [
     `# mdflow Architecture & Sync Status`,
@@ -814,6 +817,7 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
     `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
     `- Chains: ${totalChains} · Links: ${totalLinks}`,
     `- Checkpoints: ${passedCheckpoints}/${totalCheckpoints} passed`,
+    `- Plugin: ${plugin.stale ? "stale cache" : "in sync"}`,
     "",
   ];
 
@@ -854,6 +858,13 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
     lines.push("- Zero ghost drift (all implemented source files correspond to solid blocks).");
     lines.push("- All checkpoints are fresh and aligned.");
     lines.push("- All isolated blocks reviewed (standalone nodes permitted; connect any intended for active workflows).");
+    lines.push("");
+  }
+  if (plugin.stale) {
+    lines.push("## ⚠️ Plugin cache is stale");
+    lines.push(`- Running: \`${plugin.runningHash}\``);
+    lines.push(`- Repo bundle: \`${plugin.repoHash}\``);
+    lines.push(`- Reload: \`${plugin.reload}\``);
     lines.push("");
   }
 

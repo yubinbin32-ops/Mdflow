@@ -98,11 +98,11 @@ Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit com
 ### ⚡ Trigger 4: When Modifying Code & Running Builds
 * **Your Natural Habit (WRONG)**: Performing raw regex or string replacements across large files; if the build fails, leaving broken code behind.
 * **The mdflow Reflex (MANDATORY)**:
-  1. **AST-bounded mutation**:
-     - Call `block_code_mutate(blockId="...", symbol="...", newCode="...", verifyCommand="...", expectedSourceHash="...")`:
-       - Accurately replaces only the target symbol's AST node.
-       - `verifyCommand` is required. If the command fails, **mdflow rolls back the file automatically**, ensuring zero broken intermediate states.
-       - When editing a file that may have changed since it was read, request the latest Chain stream with `includeStructured=true` and pass its full `sourceHash` as `expectedSourceHash`.
+  1. **Choose the edit path from the binding, not from habit**:
+     - Use `block_code_mutate` only when the Block already has an exact SourceBinding for that symbol. It replaces one function/method body, requires `verifyCommand`, and rolls back that file if verification fails.
+     - If the stream is `line_only`, `stale`, `missing`, or `ambiguous`, do not mutate. Rebind with `source_binding_suggest` / `source_binding_accept` first.
+     - New files, new symbols, tests, and multi-file edits may use the host editor. After those edits, call `source_sync` and accept any new binding candidates before recording a checkpoint.
+     - `block_code_mutate` is a bound-symbol patch tool, not a general editor.
   2. **Command output gateway**:
       - Use `run_command(command="...")` for tests and builds. It captures stdout/stderr, redacts credentials and local paths, compresses routine output, and returns no raw terminal stream.
       - Use `log_sanitize(rawOutput="...")` only for output already supplied by an external tool; it is not the normal command runner.

@@ -532,6 +532,9 @@ export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000, mo
       `// Lines: ${startLine && endLine ? `${startLine}-${endLine}` : "—"}`,
       `// Contract: ${contract || "(not declared)"}`,
     ];
+    if (sourceStatus === "line_only") {
+      bodyLines.splice(1, 0, "// Warning: line-only binding; do not treat this range as a symbol facade");
+    }
     if (includeCode && code) bodyLines.push("", code);
     if (includeCode && !code && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus)) {
       bodyLines.push("", `// No current source slice available (${sourceStatus}; rebind before reading implementation)`);

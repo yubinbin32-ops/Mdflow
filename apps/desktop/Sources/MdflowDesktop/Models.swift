@@ -241,9 +241,7 @@ struct BackgroundScope: Equatable {
     let scopeValue: String
 }
 
-/// A Decision is project memory, not a Canvas node.  Only its scoped index is
-/// loaded into the navigation context; the rationale and alternatives are
-/// expanded in the detail drawer.
+/// Architecture decisions are shown in the Decisions list and detail drawer.
 struct DecisionItem: Identifiable, Equatable {
     let id: String
     let title: String

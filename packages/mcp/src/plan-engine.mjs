@@ -188,9 +188,9 @@ export function renderPlanContext(service, { id, locale = "en", maxChars = 12000
           appendBlockers(binding, "    ");
         }
       } else if (change.targetCheckpoints.length) {
-        lines.push(`  - Warning: Block checkpoints exist but none is bound to this PlanChange: ${change.targetCheckpoints.map((checkpoint) => `checkpoint:${checkpoint.id}`).join(", ")}`);
+        lines.push(`  - Independent verification: ${change.targetCheckpoints.map((checkpoint) => `[${checkpoint.status}] ${checkpoint.title}`).join("; ")}`);
       } else {
-        lines.push("  - Warning: this Block has no checkpoint.");
+        lines.push("  - No checkpoint recorded yet.");
       }
     }
   } else {

@@ -137,6 +137,14 @@ test("ast: buildChainCodeStream produces unified code stream across materialized
       contract: "evaluateRisk(userId, amount) -> RiskLevel",
       sourceStatus: "virtual",
     },
+    {
+      blockId: "legacy-range",
+      title: "旧行号绑定",
+      filePath: "src/legacy.ts",
+      startLine: 12,
+      endLine: 40,
+      sourceStatus: "line_only",
+    },
   ];
   const stream = buildChainCodeStream(nodes);
 
@@ -146,6 +154,7 @@ test("ast: buildChainCodeStream produces unified code stream across materialized
   assert.ok(stream.includes("[Node: risk-evaluator]"));
   assert.ok(stream.includes("Contract:"));
   assert.ok(stream.includes("evaluateRisk"));
+  assert.ok(stream.includes("line-only binding"));
 
   const sliceStream = buildChainCodeStream(nodes, { mode: "slice" });
   assert.ok(sliceStream.includes("export async function login"));
@@ -234,4 +243,3 @@ pub async fn execute_order(order: Order) -> bool {
   assert.ok(javaSymbols.find(s => s.name === "PaymentService" && s.kind === "class"));
   assert.ok(javaSymbols.find(s => s.name === "processPayment" && s.kind === "method"));
 });
-

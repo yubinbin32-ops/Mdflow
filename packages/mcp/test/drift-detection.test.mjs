@@ -130,3 +130,24 @@ test("graph drift detection: semantic field changes request related architecture
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
+
+test("creating a block does not emit semantic review noise", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-semantic-create-"));
+  registerProject({ projectRoot: tmpDir, name: "semantic-create" });
+  const service = createService({ projectRoot: tmpDir });
+  try {
+    service.mutate({
+      reason: "create related architecture without later semantic edits",
+      operations: [
+        { action: "create_block", id: "payment", fields: { title: "Payment", kind: "service", contract: "charge(card)" } },
+        { action: "create_block", id: "ledger", fields: { title: "Ledger", kind: "service" } },
+        { action: "create_link", id: "payment-ledger", fields: { sourceType: "block", sourceId: "payment", targetType: "block", targetId: "ledger", kind: "calls", contract: "charge then record" } },
+      ],
+    });
+    const drift = analyzeGraphDrift(service);
+    assert.equal((drift.semanticReviews ?? []).some((item) => item.entityId === "payment"), false);
+  } finally {
+    service.close();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
