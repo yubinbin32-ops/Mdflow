@@ -121,6 +121,11 @@ Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit com
      - Call `step_advance(summary="...")` to mark the plan step as completed and push the project cursor forward.
   3. **Sync timeline**:
      - Call `timeline_sync(nowDoing="", nextUp="...")` so the next interaction resumes seamlessly.
+  4. **Drift & Completion Gate Check (CRITICAL)**:
+     - Call `graph_status` or `graph_validate` before declaring completion.
+     - **Zero-Ghost Rule**: If code was implemented on disk, the corresponding Block must have `deliveryState: "complete"`. Never leave implemented blocks as `proposed` (Ghost).
+     - **Zero-Isolation Rule**: Every Block must belong to at least one Chain (`chain_nodes`) or have directional Links. Never leave degree-0 orphan nodes.
+     - Resolve any reported Architecture Drift Alerts before telling the user you are finished.
 
 ---
 
@@ -139,6 +144,7 @@ Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit com
 | Category | Tool | Mandatory Trigger Moment (WHEN) | Key Arguments |
 |---|---|---|---|
 | **Orientation** | `context_for_task` | **Task start** — before touching any files. Returns a shared `taskContextId`. | `task`, `projectRoot`, `focusRefs`, `budgetChars` |
+| | `graph_status` | **Task start or pre-completion** — inspect architecture drift, ghost nodes, isolated blocks, and gates. | `locale`, `projectRoot` |
 | | `entity_open` | Deep-diving into a specific Block, Chain, or Plan contract. | `type`, `id` |
 | | `graph_search` | Locating existing architecture elements without loading whole files. | `query`, `kinds` |
 | **Architecture** | `graph_patch` | **Design phase** — before adding or modifying code modules. | `patch`, `projectRoot` |

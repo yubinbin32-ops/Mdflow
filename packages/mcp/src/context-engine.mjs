@@ -7,6 +7,7 @@ import {
   localizedSearchText,
   localizedValue,
 } from "./schema.mjs";
+import { analyzeGraphDrift } from "./query-engine.mjs";
 
 export function buildContextForTask(service, { task, focusRefs = [], maxChars = 6000, locale = "en" } = {}) {
   const snapshot = service.snapshot();
@@ -249,8 +250,21 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
   }
   lines.push("");
 
+  const drift = analyzeGraphDrift(service, snapshot);
+
   lines.push("## Architecture coverage");
   lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} Blocks bound or passed · ${coverage.failingIds.length} failing`);
+  if (drift.hasDrift) {
+    const parts = [];
+    if (drift.ghostDrifts.length) parts.push(`${drift.ghostDrifts.length} ghost drift(s)`);
+    if (drift.isolatedBlocks.length) parts.push(`${drift.isolatedBlocks.length} isolated block(s)`);
+    if (drift.retestRequired.length) parts.push(`${drift.retestRequired.length} retest(s)`);
+    lines.push(`- Drift alerts: ${parts.join(", ")} · Call graph_status for details.`);
+    const relevantDrifts = drift.ghostDrifts.filter((g) => relevantBlocks.some((b) => b.id === g.blockId));
+    if (relevantDrifts.length > 0) {
+      lines.push(`- Relevant block drift: ${relevantDrifts.map((g) => `block:${g.blockId} (marked '${g.deliveryState}' but code exists; update to 'complete')`).join(", ")}`);
+    }
+  }
   if (taskMentionsPlan && coverage.unplannedIds.length) {
     lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks are in the current Plan; other Blocks remain independent architecture.`);
   }
@@ -489,6 +503,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       scopes: applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id)
         .map((scope) => ({ type: scope.scopeType, value: scope.scopeValue })),
     })),
+    drift,
     markdown,
   };
 }

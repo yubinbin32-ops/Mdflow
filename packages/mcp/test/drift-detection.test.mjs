@@ -1,0 +1,98 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import { createService } from "../src/service.mjs";
+import { registerProject } from "../src/paths.mjs";
+import { analyzeGraphDrift, renderGraphStatus } from "../src/query-engine.mjs";
+
+test("graph drift detection: detects ghost blocks with code and isolated blocks", async () => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-drift-test-"));
+  registerProject({ projectRoot: tmpDir, name: "drift-test" });
+  const service = createService({ projectRoot: tmpDir });
+
+  try {
+    // 1. Create a dummy code file
+    const srcDir = path.join(tmpDir, "src");
+    await fs.mkdir(srcDir, { recursive: true });
+    await fs.writeFile(path.join(srcDir, "auth.js"), "export function login() {}\n", "utf8");
+
+    // 2. Create an isolated ghost block that points to existing code
+    service.mutate({
+      reason: "Create test ghost block",
+      operations: [
+        {
+          action: "create_block",
+          id: "ghost-block",
+          fields: {
+            title: "Ghost Auth Service",
+            kind: "service",
+            deliveryState: "proposed",
+            architectureLayer: "application",
+            summary: "Proposed ghost auth service",
+          },
+        },
+      ],
+    });
+
+    service.graphPatch({
+      patch: `mdflow/1 reason="bind source"
+source block:ghost-block path="src/auth.js" symbol="login"`,
+    });
+
+    // 3. Analyze drift
+    const drift = analyzeGraphDrift(service);
+    assert.equal(drift.hasDrift, true);
+    assert.equal(drift.isolatedBlocks.length, 1);
+    assert.equal(drift.isolatedBlocks[0].id, "ghost-block");
+    assert.equal(drift.ghostDrifts.length, 1);
+    assert.equal(drift.ghostDrifts[0].blockId, "ghost-block");
+
+    // 4. Test renderGraphStatus
+    const status = renderGraphStatus(service);
+    assert.equal(status.health, "drift_detected");
+    assert.ok(status.markdown.includes("Ghost Blocks with Existing Code"));
+    assert.ok(status.markdown.includes("Isolated Blocks"));
+
+    // 5. Test contextForTask alert
+    const ctx = service.contextForTask({ task: "修复 Ghost Auth 模块" });
+    assert.ok(ctx.markdown.includes("Drift alerts: 1 ghost drift(s), 1 isolated block(s)"));
+    assert.ok(ctx.markdown.includes("Relevant block drift: block:ghost-block"));
+
+    // 6. Remediate: connect to a chain and set deliveryState to complete
+    service.mutate({
+      reason: "Remediate ghost block and connect to chain",
+      operations: [
+        {
+          action: "update_block",
+          id: "ghost-block",
+          expectedRevision: 1,
+          fields: { deliveryState: "complete" },
+        },
+        {
+          action: "create_chain",
+          id: "auth-chain",
+          fields: { title: "Auth Pipeline", intent: "Handle user authentication" },
+        },
+        {
+          action: "set_chain_path",
+          id: "auth-chain",
+          expectedRevision: 1,
+          fields: { nodeIds: ["ghost-block"] },
+        },
+      ],
+    });
+
+    const remediatedDrift = analyzeGraphDrift(service);
+    assert.equal(remediatedDrift.isolatedBlocks.length, 0);
+    assert.equal(remediatedDrift.ghostDrifts.length, 0);
+
+    const remediatedStatus = renderGraphStatus(service);
+    assert.equal(remediatedStatus.health, "healthy");
+    assert.ok(remediatedStatus.markdown.includes("Architecture Health: Clean & Synchronized"));
+  } finally {
+    service.close();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});

@@ -776,6 +776,22 @@ server.registerTool(
   },
 );
 
+server.registerTool(
+  "graph_status",
+  {
+    description: "Inspect project architecture health, live drift detection, isolated blocks, ghost blocks with code, and pending verification gates.",
+    inputSchema: {
+      ...projectRootInput,
+      locale: z.enum(["en", "zh-Hans"]).optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.graphStatus(payload));
+    return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
 const cliArgs = process.argv.slice(2);
 if (cliArgs.length > 0 && cliArgs[0] !== "serve" && !cliArgs[0].startsWith("--mcp")) {
   await runCli(cliArgs, router);

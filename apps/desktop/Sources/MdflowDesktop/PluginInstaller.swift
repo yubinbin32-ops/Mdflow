@@ -62,7 +62,13 @@ enum PluginInstaller {
             guard let data = try? Data(contentsOf: fileURL) else { return nil }
             hasher.update(data: Data(relativePath.utf8))
             hasher.update(data: Data([0]))
-            hasher.update(data: data)
+            if relativePath.hasSuffix(".json"),
+               let json = try? JSONSerialization.jsonObject(with: data),
+               let canonicalData = try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys, .withoutEscapingSlashes]) {
+                hasher.update(data: canonicalData)
+            } else {
+                hasher.update(data: data)
+            }
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
@@ -369,13 +375,16 @@ enum PluginInstaller {
             let pluginSource = marketplaceRoot.appending(path: "plugins/mdflow")
             syncDirectory(from: pluginSource, to: userPluginsMdflow)
 
-            // Update version in ~/plugins/mdflow/.codex-plugin/plugin.json
+            // Update version in ~/plugins/mdflow/.codex-plugin/plugin.json only if changed
             let pluginJsonURL = userPluginsMdflow.appending(path: ".codex-plugin/plugin.json")
             if let data = try? Data(contentsOf: pluginJsonURL),
                var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
-                json["version"] = targetVersion
-                if let updatedData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) {
-                    try? updatedData.write(to: pluginJsonURL)
+                let currentVer = (json["version"] as? String)?.components(separatedBy: "+").first
+                if currentVer != targetVersion {
+                    json["version"] = targetVersion
+                    if let updatedData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) {
+                        try? updatedData.write(to: pluginJsonURL)
+                    }
                 }
             }
 
@@ -614,9 +623,10 @@ enum PluginInstaller {
         guard let ver = detectedVer else {
             return (true, false, false, nil, detectedBuild)
         }
-        let isSynced = (ver == targetVersion)
+        let buildMatches = targetBuild.isEmpty || (detectedBuild == targetBuild)
+        let isSynced = (ver == targetVersion) && buildMatches
         let isOutdated = (ver != targetVersion)
-        return (true, isSynced && detectedBuild == targetBuild, isOutdated, ver, detectedBuild)
+        return (true, isSynced, isOutdated, ver, detectedBuild)
     }
 
     private static func cleanCodexLegacyMarketplace(configURL: URL) {

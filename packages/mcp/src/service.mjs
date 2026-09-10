@@ -54,6 +54,8 @@ import {
   openEntity,
   getChangesSince,
   validateGraph,
+  renderGraphStatus,
+  analyzeGraphDrift,
 } from "./query-engine.mjs";
 import {
   executeMutate,
@@ -872,6 +874,10 @@ export class MdflowService {
 
   validateGraph() {
     return this.validate();
+  }
+
+  graphStatus(options = {}) {
+    return renderGraphStatus(this, options);
   }
 }
 

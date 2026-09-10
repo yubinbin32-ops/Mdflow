@@ -256,6 +256,7 @@ struct ContentView: View {
                     .padding(.horizontal, 9).frame(height: 30)
             }
             .buttonStyle(.plain)
+            .keyboardShortcut(",", modifiers: .command)
         }
         .padding(.horizontal, 16).frame(height: 50)
         .background(MdflowTheme.surface.opacity(0.96))

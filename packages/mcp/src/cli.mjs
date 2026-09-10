@@ -60,6 +60,19 @@ export async function runCli(args, router) {
           console.log(`  - [${p.id}] ${p.title} (${p.status})`);
         }
       }
+      const statusReport = service.graphStatus();
+      if (statusReport.drift?.hasDrift) {
+        console.log(`\n⚠️  Architecture Drift Alerts:`);
+        for (const g of statusReport.drift.ghostDrifts) {
+          console.log(`  - 👻 Ghost with code: block:${g.blockId} (${g.path}) -> update deliveryState to complete`);
+        }
+        for (const b of statusReport.drift.isolatedBlocks) {
+          console.log(`  - ⛓️  Isolated block: block:${b.id} -> connect to chain/link`);
+        }
+        for (const r of statusReport.drift.retestRequired) {
+          console.log(`  - 🔄 Retest required: checkpoint:${r.id}`);
+        }
+      }
     } catch (err) {
       console.error(`Failed to read status: ${err.message}`);
       process.exitCode = 1;

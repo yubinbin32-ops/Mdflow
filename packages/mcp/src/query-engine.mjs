@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import {
   architectureCoverage,
   assertAllowed,
@@ -656,5 +658,154 @@ export function validateGraph(service) {
     const hasStep = snapshot.planSteps.some((item) => item.planId === plan.id);
     if (!hasChain && !hasChange && !hasStep) warnings.push(`Plan has no declared work target: plan:${plan.id}`);
   }
-  return { valid: errors.length === 0, errors, warnings, graphRevision: snapshot.project.graphRevision };
+  const drift = analyzeGraphDrift(service, snapshot);
+  return { valid: errors.length === 0, errors, warnings, graphRevision: snapshot.project.graphRevision, drift };
 }
+
+export function analyzeGraphDrift(service, snapshot = service.snapshot()) {
+  const projectRoot = service.paths?.projectRoot ?? process.cwd();
+  const chainBlockIds = new Set(snapshot.chainNodes.map((node) => node.blockId));
+  const linkBlockIds = new Set(
+    snapshot.links.flatMap((link) => [
+      link.sourceType === "block" ? link.sourceId : null,
+      link.targetType === "block" ? link.targetId : null,
+    ]).filter(Boolean),
+  );
+
+  // 1. Isolated blocks (degree 0: not in any chain and has no links)
+  const isolatedBlocks = snapshot.blocks
+    .filter((b) => b.kind !== "decision" && !chainBlockIds.has(b.id) && !linkBlockIds.has(b.id))
+    .map((b) => ({
+      id: b.id,
+      title: b.title,
+      kind: b.kind,
+      deliveryState: b.deliveryState,
+      layer: b.architectureLayer,
+    }));
+
+  // 2. Ghost blocks with implemented source code on disk
+  const ghostDrifts = [];
+  for (const block of snapshot.blocks) {
+    if (block.kind === "decision") continue;
+    if (block.deliveryState === "proposed" || block.deliveryState === "planned") {
+      const bindings = snapshot.sourceRefs.filter((ref) => ref.blockId === block.id);
+      for (const ref of bindings) {
+        if (!ref.path) continue;
+        const fullPath = path.isAbsolute(ref.path) ? ref.path : path.join(projectRoot, ref.path);
+        try {
+          if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+            ghostDrifts.push({
+              blockId: block.id,
+              title: block.title,
+              deliveryState: block.deliveryState,
+              path: ref.path,
+              symbol: ref.symbol,
+            });
+            break;
+          }
+        } catch {
+          // ignore fs access error
+        }
+      }
+    }
+  }
+
+  // 3. Checkpoints requiring attention
+  const retestRequired = snapshot.checkpoints
+    .filter((cp) => cp.status === "retest_required" || (cp.recordedStatus === "passed" && cp.freshness?.status === "stale"))
+    .map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId }));
+
+  const pendingCheckpoints = snapshot.checkpoints
+    .filter((cp) => cp.status === "pending" || cp.status === "failed" || cp.status === "blocked")
+    .map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId, status: cp.status }));
+
+  return {
+    isolatedBlocks,
+    ghostDrifts,
+    retestRequired,
+    pendingCheckpoints,
+    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0,
+  };
+}
+
+export function renderGraphStatus(service, { locale = "en" } = {}) {
+  const snapshot = service.snapshot();
+  const drift = analyzeGraphDrift(service, snapshot);
+  const totalBlocks = snapshot.blocks.filter((b) => b.kind !== "decision").length;
+  const solidBlocks = snapshot.blocks.filter(
+    (b) => b.kind !== "decision" && b.deliveryState !== "proposed" && b.deliveryState !== "planned",
+  ).length;
+  const ghostBlocks = totalBlocks - solidBlocks;
+  const totalChains = snapshot.chains.length;
+  const totalLinks = snapshot.links.length;
+  const totalCheckpoints = snapshot.checkpoints.length;
+  const passedCheckpoints = snapshot.checkpoints.filter((c) => c.status === "passed").length;
+
+  const lines = [
+    `# mdflow Architecture & Sync Status`,
+    `- Project: ${snapshot.project.name || snapshot.project.id} (rev ${snapshot.project.graphRevision})`,
+    `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
+    `- Chains: ${totalChains} · Links: ${totalLinks}`,
+    `- Checkpoints: ${passedCheckpoints}/${totalCheckpoints} passed`,
+    "",
+  ];
+
+  if (drift.hasDrift) {
+    lines.push("## ⚠️ Architecture Drift & Actionable Alerts");
+    if (drift.ghostDrifts.length > 0) {
+      lines.push("### 👻 Ghost Blocks with Existing Code (Update deliveryState to complete)");
+      for (const g of drift.ghostDrifts) {
+        lines.push(`- **block:${g.blockId}** (${g.title}) · State: \`${g.deliveryState}\` · Source: \`${g.path}\`${g.symbol ? ` (#${g.symbol})` : ""}`);
+        lines.push(`  *Action*: Call \`graph_mutate\` to update \`deliveryState: "complete"\`.`);
+      }
+    }
+    if (drift.isolatedBlocks.length > 0) {
+      lines.push("### ⛓️ Isolated Blocks (No Chains and No Links)");
+      for (const b of drift.isolatedBlocks) {
+        lines.push(`- **block:${b.id}** (${b.title}) · Kind: \`${b.kind}\` · Layer: \`${b.layer}\``);
+        lines.push(`  *Action*: Connect to a Chain via \`graph_flow\` or create links with arrow syntax.`);
+      }
+    }
+    if (drift.retestRequired.length > 0) {
+      lines.push("### 🔄 Checkpoints Requiring Retest");
+      for (const r of drift.retestRequired) {
+        lines.push(`- **checkpoint:${r.id}** for ${r.targetType}:${r.targetId} (${r.title})`);
+        lines.push(`  *Action*: Re-run tests and record evidence with \`checkpoint_record\`.`);
+      }
+    }
+    lines.push("");
+  } else {
+    lines.push("## ✅ Architecture Health: Clean & Synchronized");
+    lines.push("- Zero isolated blocks (all nodes are connected into chains or links).");
+    lines.push("- Zero ghost drift (all implemented source files correspond to solid blocks).");
+    lines.push("- All checkpoints are fresh and aligned.");
+    lines.push("");
+  }
+
+  const activePlans = snapshot.plans.filter((p) => p.status === "active" || p.status === "draft");
+  if (activePlans.length > 0) {
+    lines.push("## 📋 Active Plans");
+    for (const p of activePlans) {
+      lines.push(`- [${p.status}] **plan:${p.id}** ${p.title}${p.nextAction ? ` · Next: ${p.nextAction}` : ""}`);
+    }
+    lines.push("");
+  }
+
+  return {
+    projectId: snapshot.project.id,
+    graphRevision: snapshot.project.graphRevision,
+    health: drift.hasDrift ? "drift_detected" : "healthy",
+    metrics: {
+      totalBlocks,
+      solidBlocks,
+      ghostBlocks,
+      totalChains,
+      totalLinks,
+      passedCheckpoints,
+      totalCheckpoints,
+    },
+    drift,
+    markdown: lines.join("\n"),
+  };
+}
+
