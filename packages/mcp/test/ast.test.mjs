@@ -156,8 +156,7 @@ test("ast: buildChainCodeStream produces unified code stream across materialized
   assert.ok(stream.includes("evaluateRisk"));
   assert.ok(stream.includes("line-only binding"));
 
-  const sliceStream = buildChainCodeStream(nodes, { mode: "slice" });
-  assert.ok(sliceStream.includes("export async function login"));
+  assert.ok(!stream.includes("return 'ok'"));
 });
 
 test("ast: replaceSymbolSlice replaces targeted function and preserves surrounding code", () => {

@@ -65,15 +65,17 @@ test("source binding follows a moved symbol and reports external implementation 
       ],
     });
 
-    const initial = service.chainCodeStream({ chainId: "payment-chain", mode: "slice" });
+    const initial = service.chainCodeStream({ chainId: "payment-chain" });
     assert.equal(initial.nodes[0].sourceStatus, "anchored");
-    assert.match(initial.codeStream, /return amount \+ 1/);
+    assert.doesNotMatch(initial.codeStream, /return amount \+ 1/);
+    assert.match(initial.codeStream, /processPayment/);
 
     await fs.writeFile(sourcePath, "// moved without changing the symbol\n\nexport function processPayment(amount: number) {\n  return amount + 1;\n}\n");
-    const moved = service.chainCodeStream({ chainId: "payment-chain", mode: "slice" });
+    const moved = service.chainCodeStream({ chainId: "payment-chain" });
     assert.equal(moved.nodes[0].sourceStatus, "moved");
     assert.equal(moved.nodes[0].startLine, 3);
-    assert.match(moved.codeStream, /return amount \+ 1/);
+    assert.doesNotMatch(moved.codeStream, /return amount \+ 1/);
+    assert.match(moved.codeStream, /processPayment/);
     assert.equal(moved.sourceSync.changed, true);
     assert.ok(moved.sourceSync.changes[0].kinds.includes("binding_moved"));
 
@@ -148,9 +150,9 @@ test("duplicate symbol names never fall back to an unrelated source slice", asyn
         },
       ],
     });
-    const stream = service.chainCodeStream({ chainId: "ambiguous-chain", mode: "slice" });
+    const stream = service.chainCodeStream({ chainId: "ambiguous-chain" });
     assert.equal(stream.nodes[0].sourceStatus, "ambiguous");
-    assert.match(stream.codeStream, /No current source slice available/);
+    assert.match(stream.codeStream, /Locator is ambiguous/);
     assert.doesNotMatch(stream.codeStream, /return 1/);
     assert.doesNotMatch(stream.codeStream, /return 2/);
   } finally {
@@ -264,15 +266,6 @@ test("source sync after a native edit suggests unbound symbols without auto-acce
       assert.equal(candidate.blockId, "payment-service");
       assert.equal(service.database.prepare("SELECT count(*) AS count FROM source_refs WHERE block_id = ? AND symbol = ?").get("payment-service", "refundPayment").count, 0);
     }
-    assert.throws(
-      () => service.mutateBlockCode({
-        blockId: "payment-service",
-        symbol: "refundPayment",
-        newCode: "export function refundPayment(id: string) { return id; }",
-        verifyCommand: "node --check src/service.ts",
-      }),
-      /no exact source reference|native edit/,
-    );
   } finally {
     service.close();
     await fs.rm(projectRoot, { recursive: true, force: true });

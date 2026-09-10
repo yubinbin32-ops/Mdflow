@@ -24549,7 +24549,6 @@ function resolveSymbolMatch(sourceCode, { symbol, language = null, filePath = ""
 function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4e3, mode = "contract" } = {}) {
   const sections = [];
   let currentChars = 0;
-  const includeCode = mode === "slice";
   for (const node2 of chainNodes) {
     const { blockId, title, filePath, symbol, code, contract, signature, sourceStatus: sourceStatus2, startLine, endLine } = node2;
     const header = `// -------------------------------------------------------------
@@ -24564,9 +24563,8 @@ function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4e3, mode = "co
     if (sourceStatus2 === "line_only") {
       bodyLines.splice(1, 0, "// Warning: line-only binding; do not treat this range as a symbol facade");
     }
-    if (includeCode && code) bodyLines.push("", code);
-    if (includeCode && !code && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus2)) {
-      bodyLines.push("", `// No current source slice available (${sourceStatus2}; rebind before reading implementation)`);
+    if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus2)) {
+      bodyLines.push(`// Locator is ${sourceStatus2}; rebind before opening implementation`);
     }
     const section = `${header}
 ${bodyLines.join("\n")}
@@ -24579,27 +24577,6 @@ ${bodyLines.join("\n")}
     currentChars += section.length;
   }
   return sections.join("\n");
-}
-function replaceSymbolSlice(sourceCode, { symbol, newCode, language = null }) {
-  const resolution = resolveSymbolMatch(sourceCode, { symbol, language: language || "typescript" });
-  if (!resolution.matched) {
-    const suffix = resolution.reason === "ambiguous" ? `; candidates: ${resolution.candidates.join(", ")}` : "";
-    throw new Error(`Symbol "${symbol}" ${resolution.reason === "ambiguous" ? "is ambiguous" : "not found in source code"}${suffix}`);
-  }
-  const matched = resolution.matched;
-  const lines = sourceCode.split(/\r?\n/);
-  const before = lines.slice(0, matched.startLine - 1);
-  const after = lines.slice(matched.endLine);
-  const newLines = newCode.split(/\r?\n/);
-  return {
-    updatedCode: [...before, ...newLines, ...after].join("\n"),
-    replacedLines: {
-      startLine: matched.startLine,
-      oldEndLine: matched.endLine,
-      newEndLine: matched.startLine + newLines.length - 1
-    },
-    symbol: matched.qualifiedName ?? matched.name
-  };
 }
 
 // packages/mcp/src/sanitizer.mjs
@@ -26376,9 +26353,9 @@ function openEntity(service, rawPayload = {}) {
   if (sourceRefs.length) {
     lines.push("", "## Files & Code");
     for (const source of sourceRefs) {
-      lines.push(
-        `- ${source.role}: ${source.path}${source.startLine ? `:${source.startLine}` : ""}${source.symbol ? ` (${source.symbol})` : ""}`
-      );
+      const locator = source.symbol ? `${source.path} :: ${source.symbol}` : source.path;
+      const range = source.startLine && source.endLine ? ` L${source.startLine}-L${source.endLine}` : "";
+      lines.push(`- ${source.role}: ${locator}${range}`);
     }
   }
   if (checkpoints.length) {
@@ -27135,8 +27112,8 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
       lines.push(`${index + 1}. [block:${block.id}] ${title} \u2014 ${stateTag} \xB7 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
       const sources = snapshot2.sourceRefs?.filter((s) => s.blockId === block.id) ?? [];
       if (sources.length > 0) {
-        const primary = sources[0];
-        lines.push(`  Facade: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` (L${primary.startLine}-L${primary.endLine})` : ""}`);
+        const primary = sources.find((item) => item.role === "implementation" && item.symbol) || sources.find((item) => item.symbol) || sources[0];
+        lines.push(`  Locator: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` L${primary.startLine}-L${primary.endLine}` : ""}`);
       }
       const incoming = snapshot2.links.filter((l) => l.targetType === "block" && l.targetId === block.id);
       const outgoing = snapshot2.links.filter((l) => l.sourceType === "block" && l.sourceId === block.id);
@@ -30764,19 +30741,6 @@ function executeRevertChangeSet(service, {
 }
 
 // packages/mcp/src/service.mjs
-function writeFileAtomically(filePath, content) {
-  const temporaryPath = `${filePath}.mdflow-tmp-${process.pid}-${crypto7.randomUUID()}`;
-  fs9.writeFileSync(temporaryPath, content, "utf8");
-  try {
-    fs9.renameSync(temporaryPath, filePath);
-  } catch (error2) {
-    try {
-      fs9.rmSync(temporaryPath, { force: true });
-    } catch {
-    }
-    throw error2;
-  }
-}
 function gitCommand(projectRoot, args) {
   const result = spawnSync2("git", args, {
     cwd: projectRoot,
@@ -31292,7 +31256,8 @@ var MdflowService = class {
   }
   chainCodeStream({ chainId, maxTotalChars = 4e3, mode = "contract", maxLinesPerSymbol = 12 } = {}) {
     if (!chainId?.trim()) throw new Error("chainId is required");
-    if (!["contract", "slice"].includes(mode)) throw new Error('mode must be "contract" or "slice"');
+    if (mode && mode !== "contract") throw new Error("chain_code_stream is locator-only; implementation bodies are not returned");
+    mode = "contract";
     this.ensureSynced();
     const snapshot2 = this.snapshot();
     const sourceSync = snapshot2.sourceSync ?? this.syncSourceBindings();
@@ -31337,7 +31302,7 @@ var MdflowService = class {
             signature = slice.signature;
             startLine = slice.startLine;
             endLine = slice.endLine;
-            code = mode === "slice" && slice.found ? slice.code : null;
+            code = null;
           }
         }
         if (!ref.symbol && sourceStatus2 === "anchored") sourceStatus2 = "line_only";
@@ -31372,7 +31337,7 @@ var MdflowService = class {
       codeStream,
       markdown: [
         `# Chain Code Stream: ${chain.title} (${chain.id})`,
-        `Nodes: ${streamNodes.length} \xB7 Sliced from AST symbol facades`,
+        `Nodes: ${streamNodes.length} \xB7 Locator-only path + symbol indexes`,
         `Source sync: r${sourceSync.revision} \xB7 ${sourceSync.changedBindingCount} binding change(s) \xB7 ${sourceSync.invalidBindingCount} invalid`,
         ...sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 8).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : [],
         "",
@@ -31538,86 +31503,6 @@ ${stderr}` : ""].filter(Boolean).join("\n");
         `- Candidates: ${candidates.length}`,
         ...candidates.map((item) => `- ${item.targetType}:${item.targetId} \xB7 checkpoint:${item.checkpointId} \xB7 ${item.title}`)
       ].join("\n")
-    };
-  }
-  mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null, expectedSourceHash = null } = {}) {
-    if (!blockId?.trim()) throw new Error("blockId is required");
-    if (!symbol?.trim()) throw new Error("symbol is required");
-    if (typeof newCode !== "string") throw new Error("newCode is required");
-    if (!verifyCommand?.trim()) throw new Error("verifyCommand is required for atomic code mutation");
-    this.ensureSynced();
-    const snapshot2 = this.snapshot();
-    const block = snapshot2.blocks.find((b) => b.id === blockId);
-    if (!block) throw new Error(`Block not found: ${blockId}`);
-    const sourceRefs = snapshot2.sourceRefs.filter((ref2) => ref2.blockId === block.id);
-    if (!sourceRefs.length) {
-      throw new Error(`Block "${blockId}" has no bound source files. Use native edit, then source_binding_suggest/accept.`);
-    }
-    const ref = sourceRefs.find((r) => r.symbol === symbol);
-    if (!ref) {
-      throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}". Use native edit for new symbols, then source_binding_accept.`);
-    }
-    const filePath = ref.path;
-    const fullPath = path10.isAbsolute(filePath) ? filePath : path10.resolve(this.paths.projectRoot, filePath);
-    const currentBinding = this.sourceBindingState.get(ref.id);
-    if (currentBinding && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(currentBinding.bindingStatus)) {
-      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rebind with source_binding_suggest/accept before block_code_mutate`);
-    }
-    if (!fs9.existsSync(fullPath)) {
-      throw new Error(`Source file not found at ${fullPath}`);
-    }
-    const originalCode = fs9.readFileSync(fullPath, "utf8");
-    const originalHash = crypto7.createHash("sha256").update(originalCode).digest("hex");
-    if (expectedSourceHash && expectedSourceHash !== originalHash) {
-      throw new Error(`Source drift detected for ${filePath}; expected ${expectedSourceHash}, found ${originalHash}`);
-    }
-    const lang = detectLanguage(fullPath);
-    const { updatedCode, replacedLines } = replaceSymbolSlice(originalCode, {
-      symbol,
-      newCode,
-      language: lang
-    });
-    writeFileAtomically(fullPath, updatedCode);
-    const verification = this.runCommand({ command: verifyCommand, maxChars: 3e3 });
-    if (!verification.success) {
-      writeFileAtomically(fullPath, originalCode);
-      return {
-        success: false,
-        blockId,
-        symbol,
-        filePath,
-        error: "Verification failed; source code was automatically rolled back.",
-        verification: {
-          passed: false,
-          ...verification
-        }
-      };
-    }
-    const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
-    const updatedBinding = this.sourceBindingState.get(ref.id);
-    if (updatedBinding?.bindingStatus === "fresh" || updatedBinding?.bindingStatus === "moved") {
-      this.database.prepare("UPDATE source_refs SET start_line = ?, end_line = ? WHERE id = ?").run(updatedBinding.startLine, updatedBinding.endLine, ref.id);
-      try {
-        exportGraphToJson(this.database, this.paths.graphJsonPath);
-      } catch {
-      }
-    }
-    return {
-      success: true,
-      blockId,
-      symbol,
-      filePath,
-      replacedLines,
-      sourceHash: crypto7.createHash("sha256").update(updatedCode).digest("hex"),
-      sourceSync: {
-        revision: sourceSync.revision,
-        changedBindingCount: sourceSync.changedBindingCount,
-        affectedBlockIds: sourceSync.affectedBlockIds
-      },
-      verification: {
-        passed: true,
-        ...verification
-      }
     };
   }
   projectMap(options = {}) {
@@ -32401,12 +32286,12 @@ server.registerTool(
 server.registerTool(
   "chain_code_stream",
   {
-    description: "Extract a contract-first stream along an architectural Chain. The default returns symbols, signatures, source status, line ranges, and contracts; use mode=slice only for an explicit bounded implementation slice.",
+    description: "Return locator-only source indexes along a Chain: path, symbol, signature, derived line range, source status, and contract. Never returns implementation bodies.",
     inputSchema: {
       ...projectRootInput,
       chainId: string2().min(1),
       maxTotalChars: number2().int().min(100).max(2e4).optional(),
-      mode: _enum(["contract", "slice"]).default("contract"),
+      mode: _enum(["contract"]).default("contract"),
       maxLinesPerSymbol: number2().int().min(4).max(40).optional(),
       includeStructured: boolean2().default(false)
     }
@@ -32595,41 +32480,6 @@ server.registerTool(
       "```"
     ].join("\n");
     return readResult(data, markdown, input.includeStructured);
-  }
-);
-server.registerTool(
-  "block_code_mutate",
-  {
-    description: "Replace one already-bound AST symbol body. Not a general editor: new files, new symbols, tests, and multi-file edits should use the host editor, then source_sync and source_binding_accept.",
-    inputSchema: {
-      ...projectRootInput,
-      blockId: string2().min(1),
-      symbol: string2().min(1),
-      newCode: string2().min(1),
-      verifyCommand: string2().min(1),
-      expectedSourceHash: string2().length(64).optional(),
-      includeStructured: boolean2().default(false)
-    }
-  },
-  async (input) => {
-    const data = withProject(input, (service, payload) => service.mutateBlockCode(payload));
-    const status = data.success ? "Successfully updated" : "Failed to update (rolled back)";
-    const md = [
-      `# Block Code Mutation: ${status}`,
-      `- Block: ${data.blockId}`,
-      `- Symbol: ${data.symbol}`,
-      `- File: ${data.filePath ?? "?"}`,
-      ...data.replacedLines ? [`- Lines: ${data.replacedLines.startLine} - ${data.replacedLines.newEndLine}`] : [],
-      ...data.error ? [`
-## Error
-${data.error}`] : [],
-      ...data.verification ? [`
-## Verification (${data.verification.passed ? "PASSED" : "FAILED"})
-\`\`\`text
-${data.verification.output}
-\`\`\``] : []
-    ].join("\n");
-    return writeResult(data, md, input.includeStructured);
   }
 );
 server.registerTool(

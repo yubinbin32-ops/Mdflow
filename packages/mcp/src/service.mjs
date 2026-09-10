@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { openDatabase, exportGraphToJson, importGraphFromJson, getSyncMeta, setSyncMeta, transaction } from "./database.mjs";
 import { resolveProjectPaths } from "./paths.mjs";
-import { extractSymbolSlice, buildChainCodeStream, replaceSymbolSlice, detectLanguage } from "./ast.mjs";
+import { extractSymbolSlice, buildChainCodeStream, detectLanguage } from "./ast.mjs";
 import { redactSensitiveText, sanitizeTerminalOutput } from "./sanitizer.mjs";
 import { getTimelineState, syncTimeline, advanceStep } from "./timeline.mjs";
 import { applyArrowFlow } from "./flow.mjs";
@@ -679,7 +679,8 @@ export class MdflowService {
 
   chainCodeStream({ chainId, maxTotalChars = 4000, mode = "contract", maxLinesPerSymbol = 12 } = {}) {
     if (!chainId?.trim()) throw new Error("chainId is required");
-    if (!["contract", "slice"].includes(mode)) throw new Error('mode must be "contract" or "slice"');
+    if (mode && mode !== "contract") throw new Error("chain_code_stream is locator-only; implementation bodies are not returned");
+    mode = "contract";
     this.ensureSynced();
     const snapshot = this.snapshot();
     const sourceSync = snapshot.sourceSync ?? this.syncSourceBindings();
@@ -737,7 +738,7 @@ export class MdflowService {
             signature = slice.signature;
             startLine = slice.startLine;
             endLine = slice.endLine;
-            code = mode === "slice" && slice.found ? slice.code : null;
+            code = null;
           }
         }
         if (!ref.symbol && sourceStatus === "anchored") sourceStatus = "line_only";
@@ -774,7 +775,7 @@ export class MdflowService {
       codeStream,
       markdown: [
         `# Chain Code Stream: ${chain.title} (${chain.id})`,
-        `Nodes: ${streamNodes.length} · Sliced from AST symbol facades`,
+        `Nodes: ${streamNodes.length} · Locator-only path + symbol indexes`,
         `Source sync: r${sourceSync.revision} · ${sourceSync.changedBindingCount} binding change(s) · ${sourceSync.invalidBindingCount} invalid`,
         ...(sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 8).map((change) =>
           `- block:${change.blockId} ${change.symbol ?? change.path} · ${change.kinds.join(", ")}`)] : []),
@@ -933,101 +934,6 @@ export class MdflowService {
         `- Candidates: ${candidates.length}`,
         ...candidates.map((item) => `- ${item.targetType}:${item.targetId} · checkpoint:${item.checkpointId} · ${item.title}`),
       ].join("\n"),
-    };
-  }
-
-  mutateBlockCode({ blockId, symbol, newCode, verifyCommand = null, expectedSourceHash = null } = {}) {
-    if (!blockId?.trim()) throw new Error("blockId is required");
-    if (!symbol?.trim()) throw new Error("symbol is required");
-    if (typeof newCode !== "string") throw new Error("newCode is required");
-    if (!verifyCommand?.trim()) throw new Error("verifyCommand is required for atomic code mutation");
-
-    this.ensureSynced();
-    const snapshot = this.snapshot();
-    const block = snapshot.blocks.find((b) => b.id === blockId);
-    if (!block) throw new Error(`Block not found: ${blockId}`);
-
-    const sourceRefs = snapshot.sourceRefs.filter((ref) => ref.blockId === block.id);
-    if (!sourceRefs.length) {
-      throw new Error(`Block "${blockId}" has no bound source files. Use native edit, then source_binding_suggest/accept.`);
-    }
-
-    const ref = sourceRefs.find((r) => r.symbol === symbol);
-    if (!ref) {
-      throw new Error(`Block "${blockId}" has no exact source reference for symbol "${symbol}". Use native edit for new symbols, then source_binding_accept.`);
-    }
-    const filePath = ref.path;
-    const fullPath = path.isAbsolute(filePath)
-      ? filePath
-      : path.resolve(this.paths.projectRoot, filePath);
-
-    const currentBinding = this.sourceBindingState.get(ref.id);
-    if (currentBinding && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(currentBinding.bindingStatus)) {
-      throw new Error(`Source binding for ${filePath} is ${currentBinding.bindingStatus}; rebind with source_binding_suggest/accept before block_code_mutate`);
-    }
-
-    if (!fs.existsSync(fullPath)) {
-      throw new Error(`Source file not found at ${fullPath}`);
-    }
-
-    const originalCode = fs.readFileSync(fullPath, "utf8");
-    const originalHash = crypto.createHash("sha256").update(originalCode).digest("hex");
-    if (expectedSourceHash && expectedSourceHash !== originalHash) {
-      throw new Error(`Source drift detected for ${filePath}; expected ${expectedSourceHash}, found ${originalHash}`);
-    }
-    const lang = detectLanguage(fullPath);
-    const { updatedCode, replacedLines } = replaceSymbolSlice(originalCode, {
-      symbol,
-      newCode,
-      language: lang,
-    });
-
-    writeFileAtomically(fullPath, updatedCode);
-    const verification = this.runCommand({ command: verifyCommand, maxChars: 3000 });
-    if (!verification.success) {
-      writeFileAtomically(fullPath, originalCode);
-      return {
-        success: false,
-        blockId,
-        symbol,
-        filePath,
-        error: "Verification failed; source code was automatically rolled back.",
-        verification: {
-          passed: false,
-          ...verification,
-        },
-      };
-    }
-
-    const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
-    const updatedBinding = this.sourceBindingState.get(ref.id);
-    if (updatedBinding?.bindingStatus === "fresh" || updatedBinding?.bindingStatus === "moved") {
-      this.database
-        .prepare("UPDATE source_refs SET start_line = ?, end_line = ? WHERE id = ?")
-        .run(updatedBinding.startLine, updatedBinding.endLine, ref.id);
-      try {
-        exportGraphToJson(this.database, this.paths.graphJsonPath);
-      } catch {
-        // Derived coordinates are still available in the live binding index.
-      }
-    }
-
-    return {
-      success: true,
-      blockId,
-      symbol,
-      filePath,
-      replacedLines,
-      sourceHash: crypto.createHash("sha256").update(updatedCode).digest("hex"),
-      sourceSync: {
-        revision: sourceSync.revision,
-        changedBindingCount: sourceSync.changedBindingCount,
-        affectedBlockIds: sourceSync.affectedBlockIds,
-      },
-      verification: {
-        passed: true,
-        ...verification,
-      },
     };
   }
 

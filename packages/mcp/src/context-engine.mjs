@@ -426,8 +426,8 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       lines.push(`${index + 1}. [block:${block.id}] ${title} — ${stateTag} · ${block.architectureLayer}/${block.scope} · ${block.deliveryState}/${block.healthState}`);
       const sources = snapshot.sourceRefs?.filter((s) => s.blockId === block.id) ?? [];
       if (sources.length > 0) {
-        const primary = sources[0];
-        lines.push(`  Facade: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` (L${primary.startLine}-L${primary.endLine})` : ""}`);
+        const primary = sources.find((item) => item.role === "implementation" && item.symbol) || sources.find((item) => item.symbol) || sources[0];
+        lines.push(`  Locator: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` L${primary.startLine}-L${primary.endLine}` : ""}`);
       }
       const incoming = snapshot.links.filter((l) => l.targetType === "block" && l.targetId === block.id);
       const outgoing = snapshot.links.filter((l) => l.sourceType === "block" && l.sourceId === block.id);

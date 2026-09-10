@@ -20,12 +20,12 @@ try {
   await client.connect(transport);
   const listing = await client.listTools();
   const names = new Set(listing.tools.map((tool) => tool.name));
-  for (const required of ["context_for_task", "chain_code_stream", "source_sync", "run_command", "log_sanitize", "block_code_mutate"]) {
+  for (const required of ["context_for_task", "chain_code_stream", "source_sync", "run_command", "log_sanitize"]) {
     assert.ok(names.has(required), `missing MCP tool: ${required}`);
   }
 
   const chainTool = listing.tools.find((tool) => tool.name === "chain_code_stream");
-  assert.ok(chainTool.inputSchema.properties.mode, "chain_code_stream must expose mode");
+  assert.ok(!listing.tools.some((tool) => tool.name === "block_code_mutate"), "block_code_mutate must be removed");
   assert.ok(listing.tools.find((tool) => tool.name === "changes_since").inputSchema.properties.sourceSyncRevision, "changes_since must expose sourceSyncRevision");
   assert.ok(listing.tools.find((tool) => tool.name === "context_for_task").inputSchema.properties.budgetChars, "context_for_task must expose budgetChars");
   const contextResult = await client.callTool({

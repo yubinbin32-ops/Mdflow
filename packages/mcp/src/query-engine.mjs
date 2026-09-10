@@ -443,9 +443,9 @@ export function openEntity(service, rawPayload = {}) {
   if (sourceRefs.length) {
     lines.push("", "## Files & Code");
     for (const source of sourceRefs) {
-      lines.push(
-        `- ${source.role}: ${source.path}${source.startLine ? `:${source.startLine}` : ""}${source.symbol ? ` (${source.symbol})` : ""}`,
-      );
+      const locator = source.symbol ? `${source.path} :: ${source.symbol}` : source.path;
+      const range = source.startLine && source.endLine ? ` L${source.startLine}-L${source.endLine}` : "";
+      lines.push(`- ${source.role}: ${locator}${range}`);
     }
   }
   if (checkpoints.length) {

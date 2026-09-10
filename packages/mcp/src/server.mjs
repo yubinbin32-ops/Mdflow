@@ -173,12 +173,12 @@ server.registerTool(
 server.registerTool(
   "chain_code_stream",
   {
-    description: "Extract a contract-first stream along an architectural Chain. The default returns symbols, signatures, source status, line ranges, and contracts; use mode=slice only for an explicit bounded implementation slice.",
+    description: "Return locator-only source indexes along a Chain: path, symbol, signature, derived line range, source status, and contract. Never returns implementation bodies.",
     inputSchema: {
       ...projectRootInput,
       chainId: z.string().min(1),
       maxTotalChars: z.number().int().min(100).max(20000).optional(),
-      mode: z.enum(["contract", "slice"]).default("contract"),
+      mode: z.enum(["contract"]).default("contract"),
       maxLinesPerSymbol: z.number().int().min(4).max(40).optional(),
       includeStructured: z.boolean().default(false),
     },
@@ -385,37 +385,6 @@ server.registerTool(
       "```",
     ].join("\n");
     return readResult(data, markdown, input.includeStructured);
-  },
-);
-
-server.registerTool(
-  "block_code_mutate",
-  {
-    description:
-      "Replace one already-bound AST symbol body. Not a general editor: new files, new symbols, tests, and multi-file edits should use the host editor, then source_sync and source_binding_accept.",
-    inputSchema: {
-      ...projectRootInput,
-      blockId: z.string().min(1),
-      symbol: z.string().min(1),
-      newCode: z.string().min(1),
-      verifyCommand: z.string().min(1),
-      expectedSourceHash: z.string().length(64).optional(),
-      includeStructured: z.boolean().default(false),
-    },
-  },
-  async (input) => {
-    const data = withProject(input, (service, payload) => service.mutateBlockCode(payload));
-    const status = data.success ? "Successfully updated" : "Failed to update (rolled back)";
-    const md = [
-      `# Block Code Mutation: ${status}`,
-      `- Block: ${data.blockId}`,
-      `- Symbol: ${data.symbol}`,
-      `- File: ${data.filePath ?? "?"}`,
-      ...(data.replacedLines ? [`- Lines: ${data.replacedLines.startLine} - ${data.replacedLines.newEndLine}`] : []),
-      ...(data.error ? [`\n## Error\n${data.error}`] : []),
-      ...(data.verification ? [`\n## Verification (${data.verification.passed ? "PASSED" : "FAILED"})\n\`\`\`text\n${data.verification.output}\n\`\`\``] : []),
-    ].join("\n");
-    return writeResult(data, md, input.includeStructured);
   },
 );
 

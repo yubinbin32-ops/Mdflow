@@ -90,11 +90,11 @@ Planned features live as **Ghost Blueprints** without fake file bindings. As imp
 
 ### Code context at symbol boundaries
 
-`chain_code_stream` follows an execution path across files. Its default `mode="contract"` returns only symbols, signatures, source status, line ranges, and contracts; an explicit `mode="slice"` is required before bounded implementation bodies are returned.
+`chain_code_stream` follows an execution path across files. It returns locator-only path, symbol, signature, derived line range, source status, and contract. It never returns implementation bodies; open the locator in the host editor.
 
 ### Code changes with a verification boundary
 
-`block_code_mutate` locates an exact bound symbol, checks an optional source hash, replaces it atomically, requires a verification command, and restores the original file when verification fails.
+Code edits use the host editor at Block locators (`path` + `symbol`). After editing, call `source_sync` and accept new bindings if needed.
 
 ### Evidence as part of architecture
 

@@ -1,11 +1,11 @@
 ---
 name: mdflow
-description: Context operating system for AI coding agents. Call context_for_task at task start, keep source bindings synchronized, stream AST code along chains with chain_code_stream, design architecture from 0 with graph_flow/graph_patch, and apply verified code mutations with block_code_mutate.
+description: Context operating system for AI coding agents. Call context_for_task at task start, keep source locators synchronized, inspect path+symbol indexes along chains with chain_code_stream, and edit code with the host editor using those locators.
 ---
 
 # mdflow: Context Operating System for AI Coding Agents
 
-mdflow is the canonical development operating system for AI coding agents. It provides a structured, token-budgeted architecture map, AST-level code slicing, and safe verified mutation with automatic rollback.
+mdflow is the canonical development operating system for AI coding agents. It provides a structured, token-budgeted architecture map and path+symbol locators so agents can open only the method they need.
 
 > [!IMPORTANT]
 > **Core Mission**: mdflow is your **living runtime OS**, not an archive to update after the fact.
@@ -24,8 +24,8 @@ stateDiagram-v2
     [*] --> 1_TaskReceived: User gives requirement or bug
     1_TaskReceived --> 2_DesignReflex: Context retrieved & cursor anchored
     2_DesignReflex --> 3_TraceReflex: Decision & Blocks registered
-    3_TraceReflex --> 4_MutationReflex: Chain AST slices inspected
-    4_MutationReflex --> 5_SealReflex: Code verified & tests pass
+    3_TraceReflex --> 4_MutationReflex: Chain locators inspected
+    4_MutationReflex --> 5_SealReflex: Host edit verified & tests pass
     5_SealReflex --> [*]: Checkpoint recorded & step advanced
 ```
 
@@ -79,30 +79,28 @@ Keep these concepts separate; do not invent a Plan or a Chain gate merely becaus
 
 Source synchronization follows one stable rule: the file plus `symbol`/method name is the binding identity; `startLine`/`endLine` are derived coordinates. At mdflow boundaries (`context_for_task`, `chain_code_stream`, `graph_validate`, checkpoint evaluation, and `run_command`), active bindings are rescanned. `moved` means the symbol was found at a new range, `changed` means its current implementation differs, and `missing`/`ambiguous`/`unreadable` means the current implementation is unsafe to stream or mutate.
 
-Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit compact delta. `chain_code_stream(mode="slice")` must resolve the current symbol before returning a body and must never fall back to an old slice. An external host shell/IDE edit is allowed when explicitly needed; treat it as an untracked boundary and let the next mdflow boundary detect it, or call `source_sync` immediately.
+Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit compact delta. `chain_code_stream` returns locators only and never implementation bodies. Edit with the host editor at `path` + `symbol`; then call `source_sync` and accept new bindings if needed.
 
 ---
 
 ### ⚡ Trigger 3: When Tracing Multi-Module Execution Chains
 * **Your Natural Habit (WRONG)**: Reading 3–5 full source files (1,000–3,000 lines), wasting 80% of your context window on boilerplate imports, formatting, and unrelated helpers.
 * **The mdflow Reflex (MANDATORY)**:
-  - **Trigger**: Call `chain_code_stream(chainId="...", mode="contract")`:
-    - The default stream is **contract-first**: symbol, signature, source status, line range, and declared contract only.
-    - Request `mode="slice"` only for the smallest implementation body needed for a concrete edit; never use it as a substitute for a full-file dump.
-    - Treat `sourceStatus="stale"|"missing"|"unreadable"|"ambiguous"` as a stop signal instead of guessing from adjacent code. `moved` and `changed` are current-source results; refresh the stream before mutating or relying on old evidence.
-    - This keeps the normal trace small and makes the token budget observable rather than claiming a fixed percentage.
-    - Pass the `taskContextId` returned by `context_for_task` so Chain expansion shares the task budget; omitting it is an explicit unbounded escape hatch.
+  - **Trigger**: Call `chain_code_stream(chainId="...")`:
+    - The stream is locator-only: path, symbol, signature, derived line range, source status, and contract.
+    - Do not expect implementation bodies. Open `path` at the derived line in the host editor.
+    - Treat `sourceStatus="stale"|"missing"|"unreadable"|"ambiguous"` as a stop signal. If it is `ambiguous`, choose an explicit candidate with `source_binding_accept`.
+    - Pass the `taskContextId` returned by `context_for_task` so Chain expansion shares the task budget.
 
 ---
 
 ### ⚡ Trigger 4: When Modifying Code & Running Builds
 * **Your Natural Habit (WRONG)**: Performing raw regex or string replacements across large files; if the build fails, leaving broken code behind.
 * **The mdflow Reflex (MANDATORY)**:
-  1. **Choose the edit path from the binding, not from habit**:
-     - Use `block_code_mutate` only when the Block already has an exact SourceBinding for that symbol. It replaces one function/method body, requires `verifyCommand`, and rolls back that file if verification fails.
-     - If the stream is `line_only`, `stale`, `missing`, or `ambiguous`, do not mutate. Rebind with `source_binding_suggest` / `source_binding_accept` first.
-     - New files, new symbols, tests, and multi-file edits may use the host editor. After those edits, call `source_sync` and accept any new binding candidates before recording a checkpoint.
-     - `block_code_mutate` is a bound-symbol patch tool, not a general editor.
+  1. **Edit from locators, never from dumped source**:
+     - Open the host editor at the Block locator `path` + `symbol`. Do not read the whole file unless the locator is missing.
+     - If the locator is `line_only`, `stale`, `missing`, or `ambiguous`, rebind with `source_binding_suggest` / `source_binding_accept` first.
+     - After host edits, call `source_sync` and accept any new binding candidates before recording a checkpoint.
   2. **Command output gateway**:
       - Use `run_command(command="...")` for tests and builds. It captures stdout/stderr, redacts credentials and local paths, compresses routine output, and returns no raw terminal stream.
       - Use `log_sanitize(rawOutput="...")` only for output already supplied by an external tool; it is not the normal command runner.
@@ -132,7 +130,7 @@ Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit com
 
 1. **NEVER edit code before updating the graph**: If a new function, struct, or service does not exist in `.mdflow`, create the Block first.
 2. **NEVER pollute project roots**: Tool and editor configs (e.g. Cursor, OpenCode, Claude) must only be written to their canonical user/global application support directories unless the project explicitly maintains them.
-3. **NEVER dump full files when AST streams exist**: Always prefer `chain_code_stream` over reading entire multi-hundred-line files.
+3. **NEVER dump full files when a locator exists**: Use `path` + `symbol` from the Block/Chain index and open only that method.
 4. **NEVER close a required gate without current evidence**: Record a passing Checkpoint for the declared Block, Chain, or Plan gate. Do not create artificial Plan membership or Chain gates just to make standalone architecture look complete.
 5. **NEVER use a stale implementation body**: If a source binding is missing, unreadable, or ambiguous, rebind or ask for a decision; never paste the previous slice back into context or mutation.
 
@@ -150,8 +148,7 @@ Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit com
 | | `graph_flow` | Connecting pipeline stages via arrow syntax (`A -> B -> C`). | `flow`, `projectRoot` |
 | | `graph_mutate` | Fine-grained programmatic operations (e.g. creating decisions). | `operations`, `reason` |
 | | `graph_validate` | Verifying architecture integrity after any graph mutation. | `projectRoot` |
-| **AST Code** | `chain_code_stream` | **Logic tracing** — contract-first flow; expand one slice only when needed. | `chainId`, `mode`, `maxTotalChars` |
-| | `block_code_mutate` | **Implementation phase** — exact symbol mutation + source-drift check + auto-rollback. | `blockId`, `symbol`, `newCode`, `verifyCommand`, `expectedSourceHash` |
+| **Source locators** | `chain_code_stream` | **Logic tracing** — locator-only path+symbol index along a Chain. | `chainId`, `maxTotalChars` |
 | | `run_command` | **Normal test/build gateway** — execute inside the project and return sanitized output only. | `command`, `cwd`, `timeoutMs`, `maxChars` |
 | | `log_sanitize` | Processing large external compiler/test outputs. | `rawOutput`, `exitCode` |
 | **Synchronization** | `source_sync` | **After external edits or when a delta is needed** — rescan active bindings and return compact source changes. | `sinceRevision`, `includeUnchanged` |

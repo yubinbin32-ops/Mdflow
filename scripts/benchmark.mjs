@@ -437,10 +437,8 @@ async function runBenchmark() {
   console.log("  PART C: AST 门面与链代码流切片实测 (Chain Code Stream)");
   console.log("----------------------------------------------------------------\n");
 
-  const contractStreamResult = realService.chainCodeStream({ chainId: "chain-context-os", mode: "contract" });
-  const sliceStreamResult = realService.chainCodeStream({ chainId: "chain-context-os", mode: "slice" });
+  const contractStreamResult = realService.chainCodeStream({ chainId: "chain-context-os" });
   const contractTokens = estimateTokens(contractStreamResult.codeStream);
-  const sliceTokens = estimateTokens(sliceStreamResult.codeStream);
 
   // 计算这 4 个模块对应的全量源码文件 Token 总量
   const fullSourceFiles = [
@@ -456,7 +454,6 @@ async function runBenchmark() {
   }
   const fullFilesTokens = estimateTokens("a".repeat(totalFullSourceChars));
   const contractSavingRatio = ((1 - contractTokens / fullFilesTokens) * 100).toFixed(1);
-  const sliceSavingRatio = ((1 - sliceTokens / fullFilesTokens) * 100).toFixed(1);
 
   console.log(`>>> 全链路代码上下文体积对比 (4 个跨层核心模块):`);
   console.log(`    - 传统 AI 遍历全量文件读取: ${totalFullSourceChars} 字符 | 约 ${fullFilesTokens} Tokens`);

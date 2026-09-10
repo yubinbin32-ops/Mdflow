@@ -518,7 +518,6 @@ export function resolveSymbolMatch(sourceCode, { symbol, language = null, filePa
 export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000, mode = "contract" } = {}) {
   const sections = [];
   let currentChars = 0;
-  const includeCode = mode === "slice";
 
   for (const node of chainNodes) {
     const { blockId, title, filePath, symbol, code, contract, signature, sourceStatus, startLine, endLine } = node;
@@ -535,9 +534,8 @@ export function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4000, mo
     if (sourceStatus === "line_only") {
       bodyLines.splice(1, 0, "// Warning: line-only binding; do not treat this range as a symbol facade");
     }
-    if (includeCode && code) bodyLines.push("", code);
-    if (includeCode && !code && ["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus)) {
-      bodyLines.push("", `// No current source slice available (${sourceStatus}; rebind before reading implementation)`);
+    if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus)) {
+      bodyLines.push(`// Locator is ${sourceStatus}; rebind before opening implementation`);
     }
 
     const section = `${header}\n${bodyLines.join("\n")}\n`;
