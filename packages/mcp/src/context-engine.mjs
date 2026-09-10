@@ -264,6 +264,10 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     if (relevantDrifts.length > 0) {
       lines.push(`- Relevant block drift: ${relevantDrifts.map((g) => `block:${g.blockId} (marked '${g.deliveryState}' but code exists; update to 'complete')`).join(", ")}`);
     }
+    const relevantIsolated = drift.isolatedBlocks.filter((b) => relevantBlocks.some((rb) => rb.id === b.id));
+    if (relevantIsolated.length > 0) {
+      lines.push(`- Relevant isolated block(s): ${relevantIsolated.map((b) => `block:${b.id}`).join(", ")} · Evaluate: keep standalone if intentional, or connect to workflow if meant to be integrated.`);
+    }
   }
   if (taskMentionsPlan && coverage.unplannedIds.length) {
     lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks are in the current Plan; other Blocks remain independent architecture.`);

@@ -26616,7 +26616,7 @@ function renderGraphStatus(service, { locale = "en" } = {}) {
       lines.push("### \u26D3\uFE0F Isolated Blocks (No Chains and No Links)");
       for (const b of drift.isolatedBlocks) {
         lines.push(`- **block:${b.id}** (${b.title}) \xB7 Kind: \`${b.kind}\` \xB7 Layer: \`${b.layer}\``);
-        lines.push(`  *Action*: Connect to a Chain via \`graph_flow\` or create links with arrow syntax.`);
+        lines.push(`  *Action*: Review if intended as standalone, or connect to a Chain via \`graph_flow\` / \`architecture_connect\` if part of a workflow.`);
       }
     }
     if (drift.retestRequired.length > 0) {
@@ -26629,9 +26629,9 @@ function renderGraphStatus(service, { locale = "en" } = {}) {
     lines.push("");
   } else {
     lines.push("## \u2705 Architecture Health: Clean & Synchronized");
-    lines.push("- Zero isolated blocks (all nodes are connected into chains or links).");
     lines.push("- Zero ghost drift (all implemented source files correspond to solid blocks).");
     lines.push("- All checkpoints are fresh and aligned.");
+    lines.push("- All isolated blocks reviewed (standalone nodes permitted; connect any intended for active workflows).");
     lines.push("");
   }
   const activePlans = snapshot2.plans.filter((p) => p.status === "active" || p.status === "draft");
@@ -26852,6 +26852,10 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
     const relevantDrifts = drift.ghostDrifts.filter((g) => relevantBlocks.some((b) => b.id === g.blockId));
     if (relevantDrifts.length > 0) {
       lines.push(`- Relevant block drift: ${relevantDrifts.map((g) => `block:${g.blockId} (marked '${g.deliveryState}' but code exists; update to 'complete')`).join(", ")}`);
+    }
+    const relevantIsolated = drift.isolatedBlocks.filter((b) => relevantBlocks.some((rb) => rb.id === b.id));
+    if (relevantIsolated.length > 0) {
+      lines.push(`- Relevant isolated block(s): ${relevantIsolated.map((b) => `block:${b.id}`).join(", ")} \xB7 Evaluate: keep standalone if intentional, or connect to workflow if meant to be integrated.`);
     }
   }
   if (taskMentionsPlan && coverage.unplannedIds.length) {

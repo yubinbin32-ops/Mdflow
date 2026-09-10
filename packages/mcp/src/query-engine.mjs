@@ -763,7 +763,7 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
       lines.push("### ⛓️ Isolated Blocks (No Chains and No Links)");
       for (const b of drift.isolatedBlocks) {
         lines.push(`- **block:${b.id}** (${b.title}) · Kind: \`${b.kind}\` · Layer: \`${b.layer}\``);
-        lines.push(`  *Action*: Connect to a Chain via \`graph_flow\` or create links with arrow syntax.`);
+        lines.push(`  *Action*: Review if intended as standalone, or connect to a Chain via \`graph_flow\` / \`architecture_connect\` if part of a workflow.`);
       }
     }
     if (drift.retestRequired.length > 0) {
@@ -776,9 +776,9 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
     lines.push("");
   } else {
     lines.push("## ✅ Architecture Health: Clean & Synchronized");
-    lines.push("- Zero isolated blocks (all nodes are connected into chains or links).");
     lines.push("- Zero ghost drift (all implemented source files correspond to solid blocks).");
     lines.push("- All checkpoints are fresh and aligned.");
+    lines.push("- All isolated blocks reviewed (standalone nodes permitted; connect any intended for active workflows).");
     lines.push("");
   }
 

@@ -124,7 +124,6 @@ Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit com
   4. **Drift & Completion Gate Check (CRITICAL)**:
      - Call `graph_status` or `graph_validate` before declaring completion.
      - **Zero-Ghost Rule**: If code was implemented on disk, the corresponding Block must have `deliveryState: "complete"`. Never leave implemented blocks as `proposed` (Ghost).
-     - **Zero-Isolation Rule**: Every Block must belong to at least one Chain (`chain_nodes`) or have directional Links. Never leave degree-0 orphan nodes.
      - Resolve any reported Architecture Drift Alerts before telling the user you are finished.
 
 ---
