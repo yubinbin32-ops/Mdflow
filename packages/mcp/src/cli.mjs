@@ -4,10 +4,10 @@ import path from "node:path";
 import { registerProject, resolveProjectPaths } from "./paths.mjs";
 import { exportGraphToJson, importGraphFromJson } from "./database.mjs";
 
-const VERSION = "0.3.7";
+const VERSION = "0.3.8";
 
 const HELP = `
-mdflow v${VERSION}: A context operating system for AI coding agents.
+ContextOS v${VERSION}: A context operating system for AI coding agents.
 
 Usage:
   mdflow [command] [options]
@@ -34,7 +34,7 @@ export async function runCli(args, router) {
   }
 
   if (command === "-v" || command === "--version" || command === "version") {
-    console.log(`mdflow v${VERSION}`);
+    console.log(`ContextOS v${VERSION}`);
     return;
   }
 

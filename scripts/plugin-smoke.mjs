@@ -9,7 +9,7 @@ const transport = new StdioClientTransport({
   args: ["plugins/mdflow/server/mdflow-mcp.mjs"],
   cwd: projectRoot,
 });
-const client = new Client({ name: "mdflow-plugin-smoke", version: "0.3.7" });
+const client = new Client({ name: "mdflow-plugin-smoke", version: "0.3.8" });
 const packageVersion = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
 const pluginVersion = JSON.parse(fs.readFileSync("plugins/mdflow/.codex-plugin/plugin.json", "utf8")).version;
 const appVersion = fs.readFileSync("apps/desktop/Resources/Info.plist", "utf8").match(/CFBundleShortVersionString<\/key>\s*<string>([^<]+)/)?.[1];

@@ -38,7 +38,7 @@ enum PluginInstaller {
         var errorDescription: String? { output }
     }
 
-    static let fallbackVersion = "0.3.7"
+    static let fallbackVersion = "0.3.8"
 
     static var canonicalServerDirectoryURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -397,7 +397,7 @@ enum PluginInstaller {
                 ],
                 "plugins": [
                     [
-                        "name": "mdflow",
+                        "name": "contextos",
                         "source": [
                             "source": "local",
                             "path": "./plugins/mdflow"
@@ -450,7 +450,7 @@ enum PluginInstaller {
               let data = try? Data(contentsOf: configURL),
               let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let servers = json["mcpServers"] as? [String: Any],
-              let mdflow = servers["mdflow"] as? [String: Any] else {
+              let mdflow = (servers["contextos"] ?? servers["mdflow"]) as? [String: Any] else {
             return (nil, nil)
         }
         // Verify that the configured server script actually exists on disk!
@@ -473,7 +473,10 @@ enum PluginInstaller {
               let data = try? Data(contentsOf: configURL),
               var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               var mcpServers = json["mcpServers"] as? [String: Any] else { return }
-        if mcpServers.removeValue(forKey: "mdflow") != nil {
+        var removed = false
+        if mcpServers.removeValue(forKey: "contextos") != nil { removed = true }
+        if mcpServers.removeValue(forKey: "mdflow") != nil { removed = true }
+        if removed {
             json["mcpServers"] = mcpServers
             if let outputData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) {
                 try? outputData.write(to: configURL)
@@ -489,7 +492,8 @@ enum PluginInstaller {
             json = existing
         }
         var mcpServers = json["mcpServers"] as? [String: Any] ?? [:]
-        mcpServers["mdflow"] = [
+        mcpServers.removeValue(forKey: "mdflow")
+        mcpServers["contextos"] = [
             "command": "node",
             "args": [serverScript],
             "_version": version,
@@ -568,8 +572,8 @@ enum PluginInstaller {
         }
 
         // The plugin is only considered installed if actively registered in ~/.codex/config.toml
-        let hasPlugin = content.contains("[plugins.\"mdflow@personal\"]") || content.contains("[plugins.\"mdflow")
-        let hasMcp = content.contains("[mcp_servers.mdflow]")
+        let hasPlugin = content.contains("[plugins.\"contextos@personal\"]") || content.contains("[plugins.\"contextos") || content.contains("[plugins.\"mdflow@personal\"]") || content.contains("[plugins.\"mdflow")
+        let hasMcp = content.contains("[mcp_servers.contextos]") || content.contains("[mcp_servers.mdflow]")
         guard hasPlugin || hasMcp else {
             return (false, false, false, nil, nil)
         }
@@ -636,7 +640,7 @@ enum PluginInstaller {
         var skipSection = false
         for line in configContent.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed == "[marketplaces.mdflow-development]" || trimmed == "[plugins.\"mdflow@mdflow-development\"]" {
+            if trimmed == "[marketplaces.mdflow-development]" || trimmed == "[plugins.\"mdflow@mdflow-development\"]" || trimmed == "[marketplaces.contextos-development]" || trimmed == "[plugins.\"contextos@contextos-development\"]" {
                 skipSection = true
                 continue
             }
@@ -652,12 +656,12 @@ enum PluginInstaller {
 
     private static func cleanTomlMcp(at configURL: URL) {
         guard let content = try? String(contentsOf: configURL, encoding: .utf8),
-              content.contains("[mcp_servers.mdflow]") else { return }
+              (content.contains("[mcp_servers.contextos]") || content.contains("[mcp_servers.mdflow]")) else { return }
         var cleanedLines: [String] = []
         var skip = false
         for line in content.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed == "[mcp_servers.mdflow]" {
+            if trimmed == "[mcp_servers.contextos]" || trimmed == "[mcp_servers.mdflow]" {
                 skip = true
                 continue
             }
@@ -676,11 +680,11 @@ enum PluginInstaller {
         var content = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         content += """
         
-        [mcp_servers.mdflow]
+        [mcp_servers.contextos]
         command = "node"
         args = ["--no-warnings=ExperimentalWarning", "\(serverScript)"]
         
-        [mcp_servers.mdflow.env]
+        [mcp_servers.contextos.env]
         MDFLOW_VERSION = "\(version)"
         MDFLOW_BUILD = "\(build)"
         """

@@ -1,6 +1,6 @@
 {
   "name": "mdflow",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Spatial architecture canvas and context optimization OS for AI coding agents. AST-sliced task contexts (99.4% token reduction), persistent architecture graphs across sessions, and test-gated verification via MCP.",
   "license": "MIT",
   "type": "module",

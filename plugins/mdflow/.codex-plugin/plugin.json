@@ -1,16 +1,16 @@
 {
-  "name": "mdflow",
-  "version": "0.3.7",
-  "description": "Keep project architecture, implementation progress, checkpoints, and code references synchronized through a task-scoped graph.",
+  "name": "contextos",
+  "version": "0.3.8",
+  "description": "Context optimization OS for AI coding agents. AST-sliced task contexts, persistent architecture graphs, and test-gated verification via MCP.",
   "author": {
-    "name": "mdflow"
+    "name": "ContextOS"
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "mdflow",
+    "displayName": "ContextOS",
     "shortDescription": "Task-scoped project context and live architecture sync.",
     "longDescription": "Read only the project context needed for the current task, then keep blocks, chains, links, code references, progress, and checkpoints synchronized as the implementation changes.",
-    "developerName": "mdflow",
+    "developerName": "ContextOS",
     "brandColor": "#111111",
     "composerIcon": "./assets/topic-logo.png",
     "logo": "./assets/topic-logo.png",
@@ -28,7 +28,7 @@
       "Checkpoint evidence"
     ],
     "defaultPrompt": [
-      "Use mdflow to understand this task and keep its project graph synchronized."
+      "Use ContextOS to understand this task and keep its project graph synchronized."
     ]
   },
   "mcpServers": "./.mcp.json"

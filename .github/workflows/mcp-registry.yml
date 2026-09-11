@@ -54,9 +54,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/yubinbin32-ops/mdflow:${{ steps.release.outputs.version }}
+          tags: ghcr.io/yubinbin32-ops/contextos:${{ steps.release.outputs.version }}
           labels: |
-            io.modelcontextprotocol.server.name=io.github.yubinbin32-ops/mdflow
+            io.modelcontextprotocol.server.name=io.github.yubinbin32-ops/contextos
             org.opencontainers.image.source=https://github.com/yubinbin32-ops/Mdflow-Canvas
             org.opencontainers.image.version=${{ steps.release.outputs.version }}
 

@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "mdflow": {
+    "contextos": {
       "command": "node",
       "args": [
         "--no-warnings=ExperimentalWarning",

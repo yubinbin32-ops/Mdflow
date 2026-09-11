@@ -3,7 +3,7 @@ import SwiftUI
 @main
 struct MdflowDesktopApp: App {
     var body: some Scene {
-        WindowGroup("mdflow") {
+        WindowGroup("ContextOS") {
             ContentView()
         }
         .windowStyle(.hiddenTitleBar)

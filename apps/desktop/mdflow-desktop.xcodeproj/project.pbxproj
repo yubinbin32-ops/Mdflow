@@ -328,8 +328,8 @@
 					"$(inherited)",
 					"-lsqlite3",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mdflow.desktop;
-				PRODUCT_NAME = mdflow;
+				PRODUCT_BUNDLE_IDENTIFIER = com.contextos.desktop;
+				PRODUCT_NAME = ContextOS;
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Sources/CSQLite";
@@ -427,8 +427,8 @@
 					"$(inherited)",
 					"-lsqlite3",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mdflow.desktop;
-				PRODUCT_NAME = mdflow;
+				PRODUCT_BUNDLE_IDENTIFIER = com.contextos.desktop;
+				PRODUCT_NAME = ContextOS;
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
