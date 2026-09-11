@@ -1,6 +1,6 @@
 {
   "name": "contextos",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Context optimization OS for AI coding agents. AST-sliced task contexts, persistent architecture graphs, and test-gated verification via MCP.",
   "author": {
     "name": "ContextOS"
