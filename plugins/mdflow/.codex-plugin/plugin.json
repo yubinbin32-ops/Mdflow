@@ -1,6 +1,6 @@
 {
   "name": "mdflow",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Keep project architecture, implementation progress, checkpoints, and code references synchronized through a task-scoped graph.",
   "author": {
     "name": "mdflow"
@@ -22,7 +22,7 @@
       "Live source binding synchronization",
       "Task-scoped shared context budgets",
       "Redacted project-local command gateway",
-      "Verified AST mutation with source-drift protection",
+      "AST locators and source-drift protection",
       "Checkpoint freshness and retest gating",
       "Architecture and progress synchronization",
       "Checkpoint evidence"

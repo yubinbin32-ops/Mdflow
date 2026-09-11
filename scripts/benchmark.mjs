@@ -458,7 +458,6 @@ async function runBenchmark() {
   console.log(`>>> 全链路代码上下文体积对比 (4 个跨层核心模块):`);
   console.log(`    - 传统 AI 遍历全量文件读取: ${totalFullSourceChars} 字符 | 约 ${fullFilesTokens} Tokens`);
   console.log(`    - mdflow AST 契约流 (默认):   ${contractStreamResult.codeStream.length} 字符 | 约 ${contractTokens} Tokens | 节省 ${contractSavingRatio}%`);
-  console.log(`    - mdflow AST 实现切片 (显式): ${sliceStreamResult.codeStream.length} 字符 | 约 ${sliceTokens} Tokens | 节省 ${sliceSavingRatio}%`);
   console.log(`    - 链路节点数/源状态:          ${contractStreamResult.nodes.length} 个 / ${contractStreamResult.nodes.map((node) => node.sourceStatus).join(", ")}`);
   console.log(`    - 默认契约流不含函数体:        ${contractStreamResult.codeStream.split("\n").filter((line) => line.trim() && !line.trim().startsWith("//") && !line.startsWith("#")).length === 0 ? "✓ YES" : "✗ NO"}`);
 

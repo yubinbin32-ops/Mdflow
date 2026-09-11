@@ -159,7 +159,7 @@ export function withCheckpointIdentity(service, { targetType, targetId, evidence
 
 export function createCheckpointFreshnessContext(service) {
   const root = projectRootFor(service);
-  return { root, gitHead: gitHead(root), fileHashes: new Map() };
+  return { root, gitHead: gitHead(root), fileHashes: new Map(), sourceBindings: null };
 }
 
 export function evaluateCheckpointFreshness(service, identity, context = null) {
@@ -176,9 +176,12 @@ export function evaluateCheckpointFreshness(service, identity, context = null) {
     else if (currentHead !== identity.gitHead) reasons.push("git HEAD changed");
   }
   if (identity.version >= 2 && Array.isArray(identity.bindings) && identity.bindings.length > 0) {
-    const current = typeof service.syncSourceBindings === "function"
-      ? service.syncSourceBindings({ includeUnchanged: true })
-      : { bindings: [] };
+    if (!freshnessContext.sourceBindings) {
+      freshnessContext.sourceBindings = typeof service.syncSourceBindings === "function"
+        ? service.syncSourceBindings({ includeUnchanged: true })
+        : { bindings: [] };
+    }
+    const current = freshnessContext.sourceBindings;
     const currentById = new Map((current.bindings ?? []).map((binding) => [binding.id, binding]));
     for (const expected of identity.bindings) {
       const actual = currentById.get(expected.id);

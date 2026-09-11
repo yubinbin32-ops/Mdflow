@@ -11,7 +11,7 @@ const CLI_PATH = path.resolve("packages/mcp/src/server.mjs");
 
 test("cli: --version and --help", async () => {
   const { stdout: versionOut } = await execFileAsync(process.execPath, [CLI_PATH, "--version"]);
-  assert.match(versionOut, /mdflow v0\.3\.5/);
+  assert.match(versionOut, /mdflow v0\.3\.7/);
 
   const { stdout: helpOut } = await execFileAsync(process.execPath, [CLI_PATH, "--help"]);
   assert.match(helpOut, /Usage:/);
