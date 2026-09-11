@@ -30,7 +30,7 @@ struct GraphCanvasView: View {
             }
             .clipped()
             .contentShape(Rectangle())
-            .background(MdflowTheme.canvas)
+            .background(ContextOSTheme.canvas)
             .simultaneousGesture(
                 SpatialTapGesture().onEnded { value in
                     let point = worldPoint(from: value.location)
@@ -148,7 +148,7 @@ struct GraphCanvasView: View {
                     path.addEllipse(in: CGRect(x: x, y: y, width: 1, height: 1))
                 }
             }
-            context.fill(path, with: .color(MdflowTheme.hairline.opacity(0.42)))
+            context.fill(path, with: .color(ContextOSTheme.hairline.opacity(0.42)))
         }
         .frame(width: max(1, viewportSize.width), height: max(1, viewportSize.height))
         .allowsHitTesting(false)
@@ -325,7 +325,7 @@ struct GraphCanvasView: View {
                 guard let points = scene.layout.routes[link.id], points.count > 1 else { continue }
                 let isRelated = related == nil || (related!.contains(link.sourceId) && related!.contains(link.targetId))
                 let opacity: Double = isRelated ? 0.86 : 0.10
-                let color = MdflowTheme.linkKindColor(link.kind)
+                let color = ContextOSTheme.linkKindColor(link.kind)
                 let dash = differentiateWithoutColor ? differentiatedLinkDash(link.kind) : semanticLinkDash(link.kind)
                 context.stroke(
                     streetPath(points), with: .color(color.opacity(opacity)),
@@ -400,8 +400,8 @@ struct GraphCanvasView: View {
     private func blockCard(_ block: BlockItem) -> some View {
         let selected = store.selection == GraphSelection(type: .block, id: block.id)
         let changed = store.recentlyChangedRefs.contains("block:\(block.id)")
-        let typeColor = MdflowTheme.blockKindColor(block.kind)
-        let stateColor = MdflowTheme.deliveryColor(block.deliveryState)
+        let typeColor = ContextOSTheme.blockKindColor(block.kind)
+        let stateColor = ContextOSTheme.deliveryColor(block.deliveryState)
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         let isGhost = block.isGhost
         let sources = store.sourceReferences(for: block.id)
@@ -436,10 +436,10 @@ struct GraphCanvasView: View {
                             Text("AST")
                                 .font(.system(size: 7, weight: .black, design: .monospaced))
                         }
-                        .foregroundStyle(MdflowTheme.focus)
+                        .foregroundStyle(ContextOSTheme.focus)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1.5)
-                        .background(MdflowTheme.focus.opacity(0.12), in: Capsule())
+                        .background(ContextOSTheme.focus.opacity(0.12), in: Capsule())
                     }
                     Image(systemName: deliverySymbol(block.deliveryState))
                         .font(.system(size: 9, weight: .bold))
@@ -447,16 +447,16 @@ struct GraphCanvasView: View {
                     if !["unknown", "healthy"].contains(block.healthState) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(MdflowTheme.healthColor(block.healthState))
+                            .foregroundStyle(ContextOSTheme.healthColor(block.healthState))
                     }
                 }
                 Text(store.blockText(block, field: "title"))
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(MdflowTheme.ink)
+                    .foregroundStyle(ContextOSTheme.ink)
                     .lineLimit(2)
                 Text(store.blockText(block, field: "summary"))
                     .font(.system(size: 9.5, design: .rounded))
-                    .foregroundStyle(MdflowTheme.muted)
+                    .foregroundStyle(ContextOSTheme.muted)
                     .lineLimit(2)
                 Spacer(minLength: 0)
                 HStack {
@@ -468,7 +468,7 @@ struct GraphCanvasView: View {
                     if let first = sources.first(where: { $0.symbol != nil }), let sym = first.symbol {
                         Text(sym)
                             .font(.system(size: 7.5, weight: .medium, design: .monospaced))
-                            .foregroundStyle(MdflowTheme.muted)
+                            .foregroundStyle(ContextOSTheme.muted)
                             .lineLimit(1)
                     }
                 }
@@ -476,7 +476,7 @@ struct GraphCanvasView: View {
             .padding(11)
             .frame(width: scene.cardSize.width, height: scene.cardSize.height, alignment: .topLeading)
             .background(
-                shape.fill(isGhost ? MdflowTheme.surface.opacity(0.72) : MdflowTheme.surface)
+                shape.fill(isGhost ? ContextOSTheme.surface.opacity(0.72) : ContextOSTheme.surface)
                     .overlay(alignment: .leading) {
                         Rectangle()
                             .fill(typeColor)
@@ -486,7 +486,7 @@ struct GraphCanvasView: View {
                     }
                     .overlay(
                         shape.stroke(
-                            changed ? MdflowTheme.focus : selected ? typeColor : typeColor.opacity(isGhost ? 0.38 : 0.28),
+                            changed ? ContextOSTheme.focus : selected ? typeColor : typeColor.opacity(isGhost ? 0.38 : 0.28),
                             style: StrokeStyle(
                                 lineWidth: changed ? 3 : selected ? 2 : 1.1,
                                 dash: isGhost ? [5, 3] : []

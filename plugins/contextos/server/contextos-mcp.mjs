@@ -24048,6 +24048,14 @@ var localDataIgnore = [
   "*.sqlite3-*",
   ""
 ].join("\n");
+var DATA_DIRECTORY = ".contextos";
+var DATABASE_FILE = "contextos.sqlite";
+function resolveDescriptorDirectory(projectRoot) {
+  return path2.join(projectRoot, DATA_DIRECTORY);
+}
+function databaseFile(projectDataDirectory) {
+  return path2.join(projectDataDirectory, DATABASE_FILE);
+}
 function ensureLocalDataIgnore(descriptorDirectory) {
   const ignorePath = path2.join(descriptorDirectory, ".gitignore");
   if (!fs2.existsSync(ignorePath)) fs2.writeFileSync(ignorePath, localDataIgnore, { flag: "wx" });
@@ -24055,12 +24063,12 @@ function ensureLocalDataIgnore(descriptorDirectory) {
 function findProjectRoot(startDirectory = process.cwd()) {
   let current = path2.resolve(startDirectory);
   while (true) {
-    if (fs2.existsSync(path2.join(current, ".mdflow", "project.json"))) {
+    if (fs2.existsSync(path2.join(current, DATA_DIRECTORY, "project.json"))) {
       return current;
     }
     const parent = path2.dirname(current);
     if (parent === current) {
-      throw new Error(`No .mdflow/project.json found above ${startDirectory}`);
+      throw new Error(`No ${DATA_DIRECTORY}/project.json found above ${startDirectory}`);
     }
     current = parent;
   }
@@ -24069,7 +24077,7 @@ function findTargetProjectRoot(startDirectory = process.cwd()) {
   let current = path2.resolve(startDirectory);
   let gitRoot = null;
   while (true) {
-    if (fs2.existsSync(path2.join(current, ".mdflow", "project.json"))) {
+    if (fs2.existsSync(path2.join(current, DATA_DIRECTORY, "project.json"))) {
       return current;
     }
     if (!gitRoot && fs2.existsSync(path2.join(current, ".git"))) {
@@ -24082,7 +24090,7 @@ function findTargetProjectRoot(startDirectory = process.cwd()) {
   return gitRoot ?? path2.resolve(startDirectory);
 }
 function readProjectDescriptor(projectRoot) {
-  const descriptorPath = path2.join(projectRoot, ".mdflow", "project.json");
+  const descriptorPath = path2.join(resolveDescriptorDirectory(projectRoot), "project.json");
   const descriptor = JSON.parse(fs2.readFileSync(descriptorPath, "utf8"));
   if (!descriptor.id || !descriptor.name) {
     throw new Error(`${descriptorPath} must contain id and name`);
@@ -24090,13 +24098,14 @@ function readProjectDescriptor(projectRoot) {
   return descriptor;
 }
 function registerProject(options = {}) {
-  if (!options.projectRoot) throw new Error("projectRoot is required to register an mdflow project");
+  if (!options.projectRoot) throw new Error("projectRoot is required to register an contextos project");
   const projectRoot = fs2.realpathSync(path2.resolve(options.projectRoot));
   if (!fs2.statSync(projectRoot).isDirectory()) throw new Error(`${projectRoot} is not a directory`);
-  const descriptorDirectory = path2.join(projectRoot, ".mdflow");
-  const descriptorPath = path2.join(descriptorDirectory, "project.json");
+  const existingDirectory = resolveDescriptorDirectory(projectRoot);
+  const descriptorDir = fs2.existsSync(path2.join(existingDirectory, "project.json")) ? existingDirectory : path2.join(projectRoot, DATA_DIRECTORY);
+  const descriptorPath = path2.join(descriptorDir, "project.json");
   if (fs2.existsSync(descriptorPath)) {
-    ensureLocalDataIgnore(descriptorDirectory);
+    ensureLocalDataIgnore(descriptorDir);
     return { projectRoot, descriptor: readProjectDescriptor(projectRoot), created: false };
   }
   const name = String(options.name ?? path2.basename(projectRoot)).trim();
@@ -24107,8 +24116,8 @@ function registerProject(options = {}) {
     name,
     schemaVersion: 1
   };
-  fs2.mkdirSync(descriptorDirectory, { recursive: true });
-  ensureLocalDataIgnore(descriptorDirectory);
+  fs2.mkdirSync(descriptorDir, { recursive: true });
+  ensureLocalDataIgnore(descriptorDir);
   const temporaryPath = `${descriptorPath}.tmp-${process.pid}-${crypto2.randomUUID()}`;
   fs2.writeFileSync(temporaryPath, `${JSON.stringify(descriptor, null, 2)}
 `, { flag: "wx" });
@@ -24117,11 +24126,11 @@ function registerProject(options = {}) {
 }
 function resolveProjectPaths(options = {}) {
   const projectRoot = findProjectRoot(
-    options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT ?? process.cwd()
+    options.projectRoot ?? process.env.CONTEXTOS_PROJECT_ROOT ?? process.cwd()
   );
   const descriptor = readProjectDescriptor(projectRoot);
-  const configuredDataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
-  const dataRoot = configuredDataRoot ? path2.resolve(configuredDataRoot) : path2.join(projectRoot, ".mdflow");
+  const configuredDataRoot = options.dataRoot ?? process.env.CONTEXTOS_DATA_DIR;
+  const dataRoot = configuredDataRoot ? path2.resolve(configuredDataRoot) : resolveDescriptorDirectory(projectRoot);
   const projectDataDirectory = configuredDataRoot ? path2.join(dataRoot, descriptor.id) : dataRoot;
   fs2.mkdirSync(projectDataDirectory, { recursive: true });
   return {
@@ -24129,7 +24138,7 @@ function resolveProjectPaths(options = {}) {
     descriptor,
     dataRoot,
     projectDataDirectory,
-    databasePath: path2.join(projectDataDirectory, "mdflow.sqlite"),
+    databasePath: databaseFile(projectDataDirectory),
     graphJsonPath: path2.join(projectDataDirectory, "graph.json")
   };
 }
@@ -25967,10 +25976,10 @@ function hashFile(filePath) {
 }
 function pluginRuntimeStatus(projectRoot = process.cwd()) {
   const runningPath = process.argv[1] ? path5.resolve(process.argv[1]) : fileURLToPath(import.meta.url);
-  const repoBundle = path5.join(projectRoot, "plugins/mdflow/server/mdflow-mcp.mjs");
+  const repoBundle = path5.join(projectRoot, "plugins/contextos/server/contextos-mcp.mjs");
   const runningHash = hashFile(runningPath);
   const repoHash = hashFile(repoBundle);
-  const runningIsBundle = path5.basename(runningPath) === "mdflow-mcp.mjs";
+  const runningIsBundle = path5.basename(runningPath) === "contextos-mcp.mjs";
   const stale = Boolean(runningIsBundle && runningHash && repoHash && runningHash !== repoHash);
   return {
     runningPath,
@@ -25978,7 +25987,7 @@ function pluginRuntimeStatus(projectRoot = process.cwd()) {
     runningHash,
     repoHash,
     stale,
-    reload: stale ? "codex plugin remove mdflow@mdflow-development && codex plugin add mdflow@mdflow-development" : null
+    reload: stale ? "codex plugin remove contextos@contextos-development && codex plugin add contextos@contextos-development" : null
   };
 }
 
@@ -26705,7 +26714,7 @@ function renderGraphStatus(service, { locale = "en" } = {}) {
   const passedCheckpoints = snapshot2.checkpoints.filter((c) => c.status === "passed").length;
   const plugin = pluginRuntimeStatus(service.paths.projectRoot);
   const lines = [
-    `# mdflow Architecture & Sync Status`,
+    `# contextos Architecture & Sync Status`,
     `- Project: ${snapshot2.project.name || snapshot2.project.id} (rev ${snapshot2.project.graphRevision})`,
     `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
     `- Chains: ${totalChains} \xB7 Links: ${totalLinks}`,
@@ -26996,7 +27005,7 @@ function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, lo
   if (snapshot2.sourceSync) {
     lines.push(`- Source sync: r${snapshot2.sourceSync.revision} \xB7 ${snapshot2.sourceSync.bindingCount} bindings \xB7 ${snapshot2.sourceSync.invalidBindingCount} needing relocation`);
     if (snapshot2.sourceSync.changes?.length) {
-      lines.push(`- Code changes since the previous mdflow boundary: ${snapshot2.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot2.sourceSync.changes.length > 8 ? " \u2026" : ""}`);
+      lines.push(`- Code changes since the previous contextos boundary: ${snapshot2.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot2.sourceSync.changes.length > 8 ? " \u2026" : ""}`);
     }
   }
   lines.push("");
@@ -27692,7 +27701,7 @@ import { spawnSync } from "node:child_process";
 import crypto5 from "node:crypto";
 import fs6 from "node:fs";
 import path7 from "node:path";
-var DISCOVERY_IGNORES = /* @__PURE__ */ new Set([".git", ".mdflow", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
+var DISCOVERY_IGNORES = /* @__PURE__ */ new Set([".git", ".contextos", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
 var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".swift", ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".cc", ".cpp", ".h", ".hpp"]);
 function discoveryTerms(value) {
   return [...new Set(String(value ?? "").replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((term) => term.length >= 3))];
@@ -28003,7 +28012,7 @@ function bindingIdentity(binding) {
 }
 
 // packages/mcp/src/checkpoint-freshness.mjs
-var CHECKPOINT_IDENTITY_KIND = "mdflow-identity";
+var CHECKPOINT_IDENTITY_KIND = "contextos-identity";
 function projectRootFor(service) {
   return path8.resolve(service.paths.projectRoot);
 }
@@ -28599,7 +28608,7 @@ import fs8 from "node:fs";
 import path9 from "node:path";
 
 // packages/mcp/src/patch.mjs
-var HEADER_PATTERN = /^mdflow\/(\d+)(?:\s+(.*))?$/;
+var HEADER_PATTERN = /^contextos\/(\d+)(?:\s+(.*))?$/;
 var TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_step|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
 function tokenize(input, lineNumber) {
   const tokens = [];
@@ -28715,9 +28724,9 @@ function assignField(operation, parsed, scalarValue) {
 }
 function parseHeader(line, lineNumber) {
   const match = HEADER_PATTERN.exec(line.trim());
-  if (!match) throw new Error(`Compact patch must start with mdflow/1 (line ${lineNumber})`);
+  if (!match) throw new Error(`Compact patch must start with contextos/1 (line ${lineNumber})`);
   const version2 = Number(match[1]);
-  if (version2 !== 1) throw new Error(`Unsupported compact patch version mdflow/${version2}`);
+  if (version2 !== 1) throw new Error(`Unsupported compact patch version contextos/${version2}`);
   const inline = parseInlineFields(match[2] ? tokenize(match[2], lineNumber) : [], lineNumber);
   return { version: version2, metadata: inline.fields };
 }
@@ -30584,7 +30593,7 @@ function executeGraphPatch(service, {
   const validation = service.validate();
   const markdown = [
     "# Graph patch",
-    "- Protocol: mdflow/1",
+    "- Protocol: contextos/1",
     `- ChangeSet: ${mutation.changeSetId}`,
     `- Graph revision: ${before.project.graphRevision} \u2192 ${mutation.graphRevision}`,
     `- Applied: ${mutation.receipts.length} operation(s)`,
@@ -30775,7 +30784,7 @@ function parseExecutionSummary(command, output, success) {
 }
 var SOURCE_BACKED_BLOCK_KINDS = /* @__PURE__ */ new Set(["flow", "ui", "service", "function", "integration", "api", "data", "database"]);
 var INVALID_BINDING_STATUSES = /* @__PURE__ */ new Set(["missing", "unreadable", "outside_project", "stale", "ambiguous"]);
-var MdflowService = class {
+var ContextOSService = class {
   constructor(options = {}) {
     const resolvedOptions = typeof options === "string" ? { projectRoot: options } : options;
     this.paths = resolveProjectPaths(resolvedOptions);
@@ -30845,7 +30854,7 @@ var MdflowService = class {
   /**
    * Scan only files already bound by SourceRefs.  This is deliberately a
    * read-time fence: external editor/exec/git changes become visible at the
-   * next mdflow boundary without requiring a fragile filesystem watcher.
+   * next contextos boundary without requiring a fragile filesystem watcher.
    * Line ranges are refreshed in memory from the current symbol; callers may
    * persist derived coordinates after an explicit code mutation.
    */
@@ -31612,7 +31621,7 @@ ${stderr}` : ""].filter(Boolean).join("\n");
   }
 };
 function createService(options = {}) {
-  return new MdflowService(options);
+  return new ContextOSService(options);
 }
 
 // packages/mcp/src/project-router.mjs
@@ -31626,9 +31635,9 @@ function databaseFileIdentity(databasePath) {
 }
 var ProjectServiceRouter = class {
   constructor(options = {}) {
-    this.defaultProjectRoot = options.projectRoot ?? process.env.MDFLOW_PROJECT_ROOT;
+    this.defaultProjectRoot = options.projectRoot ?? process.env.CONTEXTOS_PROJECT_ROOT;
     this.activeProjectRoot = this.defaultProjectRoot;
-    this.dataRoot = options.dataRoot ?? process.env.MDFLOW_DATA_DIR;
+    this.dataRoot = options.dataRoot ?? process.env.CONTEXTOS_DATA_DIR;
     this.maxEntries = options.maxEntries ?? 3;
     this.services = /* @__PURE__ */ new Map();
     this.serviceIdentities = /* @__PURE__ */ new Map();
@@ -31642,7 +31651,7 @@ var ProjectServiceRouter = class {
     try {
       paths = resolveProjectPaths({ projectRoot: rawRoot, dataRoot: this.dataRoot });
     } catch (err) {
-      if (input.autoRegister !== false && err.message?.includes("No .mdflow/project.json found")) {
+      if (input.autoRegister !== false && err.message?.includes("project.json found")) {
         const rootToRegister = findTargetProjectRoot(rawRoot);
         registerProject({ projectRoot: rootToRegister });
         paths = resolveProjectPaths({ projectRoot: rootToRegister, dataRoot: this.dataRoot });
@@ -31703,14 +31712,14 @@ var HELP = `
 ContextOS v${VERSION}: A context operating system for AI coding agents.
 
 Usage:
-  mdflow [command] [options]
+  contextos [command] [options]
 
 Commands:
   serve                 Start MCP stdio server (default when invoked by AI editors)
-  init [--scan]         Initialize .mdflow project (optionally scan code to seed blocks)
+  init [--scan]         Initialize .contextos project (optionally scan code to seed blocks)
   status                Show graph revision, blocks, chains, and active plans
-  export                Export .mdflow/graph.json from local SQLite cache
-  import                Import .mdflow/graph.json into local SQLite cache
+  export                Export .contextos/graph.json from local SQLite cache
+  import                Import .contextos/graph.json into local SQLite cache
   setup                 Configure MCP in Cursor, Claude Desktop, and VS Code
 
 Options:
@@ -31774,7 +31783,7 @@ async function runCli(args, router2) {
     const shouldScan = args.includes("--scan") || args.includes("-s");
     try {
       const reg = registerProject({ projectRoot, name: path12.basename(projectRoot) });
-      console.log(`\u2713 ${reg.created ? "Initialized new" : "Opened existing"} mdflow project at ${projectRoot}`);
+      console.log(`\u2713 ${reg.created ? "Initialized new" : "Opened existing"} contextos project at ${projectRoot}`);
       const service = router2.serviceFor({ projectRoot });
       if (shouldScan && reg.created) {
         console.log("Scanning repository structure to bootstrap initial architecture...");
@@ -31783,9 +31792,9 @@ async function runCli(args, router2) {
       }
       if (!fs11.existsSync(service.paths.graphJsonPath)) {
         exportGraphToJson(service.database, service.paths.graphJsonPath);
-        console.log(`\u2713 Created .mdflow/graph.json text source of truth`);
+        console.log(`\u2713 Created .contextos/graph.json text source of truth`);
       }
-      console.log("\nReady! Launch the Mdflow Desktop App or connect your AI editor via MCP.");
+      console.log("\nReady! Launch the ContextOS Desktop App or connect your AI editor via MCP.");
     } catch (err) {
       console.error(`Failed to initialize project: ${err.message}`);
       process.exitCode = 1;
@@ -31797,7 +31806,7 @@ async function runCli(args, router2) {
     try {
       const service = router2.serviceFor({ projectRoot });
       const res = exportGraphToJson(service.database, service.paths.graphJsonPath);
-      console.log(`\u2713 Exported .mdflow/graph.json (revision ${res.graphRevision}, hash: ${res.hash.slice(0, 12)})`);
+      console.log(`\u2713 Exported .contextos/graph.json (revision ${res.graphRevision}, hash: ${res.hash.slice(0, 12)})`);
     } catch (err) {
       console.error(`Export failed: ${err.message}`);
       process.exitCode = 1;
@@ -31809,7 +31818,7 @@ async function runCli(args, router2) {
     try {
       const service = router2.serviceFor({ projectRoot });
       const res = importGraphFromJson(service.database, service.paths.graphJsonPath);
-      console.log(`\u2713 Imported .mdflow/graph.json (revision ${res.graphRevision}, hash: ${res.hash.slice(0, 12)})`);
+      console.log(`\u2713 Imported .contextos/graph.json (revision ${res.graphRevision}, hash: ${res.hash.slice(0, 12)})`);
     } catch (err) {
       console.error(`Import failed: ${err.message}`);
       process.exitCode = 1;
@@ -31906,7 +31915,7 @@ function bootstrapProject(service, projectRoot) {
 }
 function setupEditors() {
   const cwd = process.cwd();
-  console.log("=== Setting up Mdflow MCP Server ===");
+  console.log("=== Setting up ContextOS MCP Server ===");
   const cursorDir = path12.join(cwd, ".cursor");
   const cursorMcpFile = path12.join(cursorDir, "mcp.json");
   try {
@@ -31919,9 +31928,9 @@ function setupEditors() {
       }
     }
     cursorConfig.mcpServers = cursorConfig.mcpServers || {};
-    cursorConfig.mcpServers.mdflow = {
+    cursorConfig.mcpServers.contextos = {
       command: "npx",
-      args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
+      args: ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
     };
     fs11.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
     console.log(`\u2713 Configured Cursor: ${cursorMcpFile}`);
@@ -31939,9 +31948,9 @@ function setupEditors() {
         }
       }
       claudeConfig.mcpServers = claudeConfig.mcpServers || {};
-      claudeConfig.mcpServers.mdflow = {
+      claudeConfig.mcpServers.contextos = {
         command: "npx",
-        args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
+        args: ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
       };
       fs11.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
       console.log(`\u2713 Configured Claude Desktop: ${claudeConfigPath}`);
@@ -31951,9 +31960,9 @@ function setupEditors() {
   }
   console.log("\nMCP server configuration for other tools (Windsurf / VS Code / Roo Code):");
   console.log(JSON.stringify({
-    mdflow: {
+    contextos: {
       command: "npx",
-      args: ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
+      args: ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
     }
   }, null, 2));
 }
@@ -32149,7 +32158,7 @@ var router = new ProjectServiceRouter();
 var server = new McpServer(
   { name: "contextos", version: "0.3.8" },
   {
-    instructions: "mdflow is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next mdflow boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
+    instructions: "contextos is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next contextos boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }
 );
 var projectRootInput = {
@@ -32230,7 +32239,7 @@ function writeReceiptMarkdown(data = {}) {
       ...data.warnings?.length ? ["", "## Warnings", ...data.warnings.map((item) => `- ${item}`)] : []
     ].join("\n");
   }
-  return "# mdflow operation\n- Completed";
+  return "# contextos operation\n- Completed";
 }
 function response(data, markdown, structuredContent) {
   const output = { content: [{ type: "text", text: markdown ?? JSON.stringify(data) }] };
@@ -32240,7 +32249,7 @@ function response(data, markdown, structuredContent) {
 server.registerTool(
   "project_register",
   {
-    description: "Register an existing directory as an mdflow project. This creates only .mdflow/project.json and is idempotent when the descriptor already exists.",
+    description: "Register an existing directory as an contextos project. This creates only .contextos/project.json and is idempotent when the descriptor already exists.",
     inputSchema: {
       projectRoot: string2().min(1),
       name: string2().min(1).optional(),
@@ -32796,7 +32805,7 @@ server.registerTool(
 server.registerTool(
   "graph_patch",
   {
-    description: "Apply a compact mdflow/1 Markdown-like patch. The server expands it into the same atomic ChangeSet used by graph_mutate, preserves omitted fields, and can create an atomic Block checkpoint with checkpoint=auto.",
+    description: "Apply a compact contextos/1 Markdown-like patch. The server expands it into the same atomic ChangeSet used by graph_mutate, preserves omitted fields, and can create an atomic Block checkpoint with checkpoint=auto.",
     inputSchema: {
       ...projectRootInput,
       patch: string2().min(1).max(65536),

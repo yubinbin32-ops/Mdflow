@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3C039C48178109589A97B3AF"
-               BuildableName = "mdflow.app"
-               BlueprintName = "mdflow-desktop"
-               ReferencedContainer = "container:mdflow-desktop.xcodeproj">
+               BuildableName = "contextos.app"
+               BlueprintName = "contextos-desktop"
+               ReferencedContainer = "container:contextos-desktop.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -31,9 +31,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3C039C48178109589A97B3AF"
-            BuildableName = "mdflow.app"
-            BlueprintName = "mdflow-desktop"
-            ReferencedContainer = "container:mdflow-desktop.xcodeproj">
+            BuildableName = "contextos.app"
+            BlueprintName = "contextos-desktop"
+            ReferencedContainer = "container:contextos-desktop.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -54,9 +54,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3C039C48178109589A97B3AF"
-            BuildableName = "mdflow.app"
-            BlueprintName = "mdflow-desktop"
-            ReferencedContainer = "container:mdflow-desktop.xcodeproj">
+            BuildableName = "contextos.app"
+            BlueprintName = "contextos-desktop"
+            ReferencedContainer = "container:contextos-desktop.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -71,9 +71,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3C039C48178109589A97B3AF"
-            BuildableName = "mdflow.app"
-            BlueprintName = "mdflow-desktop"
-            ReferencedContainer = "container:mdflow-desktop.xcodeproj">
+            BuildableName = "contextos.app"
+            BlueprintName = "contextos-desktop"
+            ReferencedContainer = "container:contextos-desktop.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

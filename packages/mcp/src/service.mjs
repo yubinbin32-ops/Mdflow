@@ -11,7 +11,7 @@ import { applyArrowFlow } from "./flow.mjs";
 import { suggestLinksForBlock, connectBlocks } from "./architecture-link.mjs";
 
 function writeFileAtomically(filePath, content) {
-  const temporaryPath = `${filePath}.mdflow-tmp-${process.pid}-${crypto.randomUUID()}`;
+  const temporaryPath = `${filePath}.contextos-tmp-${process.pid}-${crypto.randomUUID()}`;
   fs.writeFileSync(temporaryPath, content, "utf8");
   try {
     fs.renameSync(temporaryPath, filePath);
@@ -110,7 +110,7 @@ export * from "./checkpoint-engine.mjs";
 export * from "./query-engine.mjs";
 export * from "./mutation-engine.mjs";
 
-export class MdflowService {
+export class ContextOSService {
   constructor(options = {}) {
     const resolvedOptions = typeof options === "string" ? { projectRoot: options } : options;
     this.paths = resolveProjectPaths(resolvedOptions);
@@ -194,7 +194,7 @@ export class MdflowService {
   /**
    * Scan only files already bound by SourceRefs.  This is deliberately a
    * read-time fence: external editor/exec/git changes become visible at the
-   * next mdflow boundary without requiring a fragile filesystem watcher.
+   * next contextos boundary without requiring a fragile filesystem watcher.
    * Line ranges are refreshed in memory from the current symbol; callers may
    * persist derived coordinates after an explicit code mutation.
    */
@@ -793,7 +793,7 @@ export class MdflowService {
     if (!command?.trim()) throw new Error("command is required");
     // Establish a source baseline before an external command can edit files;
     // the post-command scan then turns exec/git/script edits into a compact
-    // mdflow-visible change receipt.
+    // contextos-visible change receipt.
     this.ensureSynced();
     this.syncSourceBindings();
     const projectRoot = path.resolve(this.paths.projectRoot);
@@ -1070,5 +1070,5 @@ export class MdflowService {
 }
 
 export function createService(options = {}) {
-  return new MdflowService(options);
+  return new ContextOSService(options);
 }

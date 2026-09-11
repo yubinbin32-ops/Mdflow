@@ -371,7 +371,7 @@ struct GraphSnapshot: Equatable {
     let history: [HistoryItem]
     let latestChanges: [ChangeItem]
 
-    static func empty(name: String = "mdflow", root: String = "") -> GraphSnapshot {
+    static func empty(name: String = "contextos", root: String = "") -> GraphSnapshot {
         GraphSnapshot(
             project: ProjectInfo(id: "", name: name, root: root, graphRevision: 0),
             changeSequence: 0,

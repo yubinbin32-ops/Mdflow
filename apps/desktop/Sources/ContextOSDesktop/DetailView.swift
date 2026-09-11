@@ -19,7 +19,7 @@ struct DetailView: View {
                 HStack(alignment: .top) {
                     Text(store.title(for: selection))
                         .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundStyle(MdflowTheme.ink)
+                        .foregroundStyle(ContextOSTheme.ink)
                         .lineLimit(3)
                     Spacer()
                     Button { store.clearSelection() } label: {
@@ -37,7 +37,7 @@ struct DetailView: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 16)
         }
-        .background(MdflowTheme.surface)
+        .background(ContextOSTheme.surface)
     }
 
     @ViewBuilder
@@ -80,10 +80,10 @@ struct DetailView: View {
                                 : (store.activeLocale == "zh-Hans" ? "实体落地 (Solid Anchored)" : "Solid Anchored"))
                         }
                         .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(MdflowTheme.success)
+                        .foregroundStyle(ContextOSTheme.success)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3.5)
-                        .background(MdflowTheme.success.opacity(0.12), in: Capsule())
+                        .background(ContextOSTheme.success.opacity(0.12), in: Capsule())
                     }
                 }
                 section(store.text("summary").uppercased(), text: store.blockText(block, field: "summary"))
@@ -137,7 +137,7 @@ struct DetailView: View {
                     metadataSeparator
                     Text(plan.derivedStatus.uppercased())
                         .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .foregroundStyle(MdflowTheme.planColor(plan.derivedStatus))
+                        .foregroundStyle(ContextOSTheme.planColor(plan.derivedStatus))
                 }
                 planProgress(plan)
                 if !plan.statusReason.isEmpty { section(store.activeLocale == "zh-Hans" ? "状态原因" : "STATE REASON", text: plan.statusReason) }
@@ -152,13 +152,13 @@ struct DetailView: View {
                             Button { store.focusPlan(dependency.id) } label: {
                                 HStack {
                                     Image(systemName: dependency.derivedStatus == "complete" ? "checkmark.circle.fill" : "clock.fill")
-                                        .foregroundStyle(MdflowTheme.planColor(dependency.derivedStatus))
+                                        .foregroundStyle(ContextOSTheme.planColor(dependency.derivedStatus))
                                     Text(store.planText(dependency, field: "title")); Spacer(); Text(dependency.derivedStatus.uppercased())
-                                        .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.planColor(dependency.derivedStatus))
+                                        .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(ContextOSTheme.planColor(dependency.derivedStatus))
                                 }
-                                .font(.system(size: 11.5, weight: .medium, design: .rounded)).foregroundStyle(MdflowTheme.ink)
+                                .font(.system(size: 11.5, weight: .medium, design: .rounded)).foregroundStyle(ContextOSTheme.ink)
                                 .padding(.vertical, 7)
-                                .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
+                                .overlay(alignment: .bottom) { Rectangle().fill(ContextOSTheme.hairline).frame(height: 1) }
                             }.buttonStyle(.plain)
                         }
                     }
@@ -174,13 +174,13 @@ struct DetailView: View {
         Text(value.uppercased())
             .font(.system(size: 8, weight: .bold, design: .monospaced))
             .tracking(0.7)
-            .foregroundStyle(MdflowTheme.muted)
+            .foregroundStyle(ContextOSTheme.muted)
     }
 
     private var metadataSeparator: some View {
         Text("·")
             .font(.system(size: 9, weight: .bold, design: .monospaced))
-            .foregroundStyle(MdflowTheme.hairline)
+            .foregroundStyle(ContextOSTheme.hairline)
     }
 
     @ViewBuilder
@@ -193,18 +193,18 @@ struct DetailView: View {
             sectionLabel(store.activeLocale == "zh-Hans" ? "架构覆盖" : "ARCHITECTURE COVERAGE")
             Text("\(coverage.verifiedBlocks)/\(coverage.totalBlocks) \(store.text("verified")) · \(coverage.plannedBlocks)/\(coverage.totalBlocks) \(store.activeLocale == "zh-Hans" ? "由此 Plan 覆盖" : "covered by this Plan")")
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(MdflowTheme.ink.opacity(0.82))
+                .foregroundStyle(ContextOSTheme.ink.opacity(0.82))
             if !coverage.requiredCheckpointMissingIDs.isEmpty {
                 Text("\(store.activeLocale == "zh-Hans" ? "验证待补" : "Verification needed"): \(coverage.requiredCheckpointMissingIDs.prefix(6).joined(separator: ", "))")
-                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.pending)
+                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(ContextOSTheme.pending)
             }
             if !coverage.failingIDs.isEmpty {
                 Text("\(store.activeLocale == "zh-Hans" ? "验证失败" : "Verification failing"): \(coverage.failingIDs.prefix(6).joined(separator: ", "))")
-                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.failure)
+                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(ContextOSTheme.failure)
             }
             if !coverage.chainGateMissingIDs.isEmpty {
                 Text("\(store.activeLocale == "zh-Hans" ? "缺少 Chain integration gate" : "Missing Chain integration gates"): \(coverage.chainGateMissingIDs.prefix(6).joined(separator: ", "))")
-                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(MdflowTheme.pending)
+                    .font(.system(size: 9.5, design: .monospaced)).foregroundStyle(ContextOSTheme.pending)
             }
         }
         if !steps.isEmpty {
@@ -219,24 +219,24 @@ struct DetailView: View {
                                 .padding(.top, 3)
                             Text(String(format: "%02d", step.position + 1))
                                 .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .foregroundStyle(MdflowTheme.planColor(step.status))
+                                .foregroundStyle(ContextOSTheme.planColor(step.status))
                                 .frame(width: 22, alignment: .leading)
                                 .padding(.top, 3)
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                                     Text(step.title)
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(MdflowTheme.ink)
+                                        .foregroundStyle(ContextOSTheme.ink)
                                         .lineLimit(2)
                                     Spacer(minLength: 8)
                                     Text(step.status.uppercased())
                                         .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(MdflowTheme.planColor(step.status))
+                                        .foregroundStyle(ContextOSTheme.planColor(step.status))
                                 }
                                 if !step.action.isEmpty {
                                     Text(step.action)
                                         .font(.system(size: 10, design: .rounded))
-                                        .foregroundStyle(MdflowTheme.muted)
+                                        .foregroundStyle(ContextOSTheme.muted)
                                         .lineLimit(expandedStepIDs.contains(step.id) ? nil : 2)
                                 }
                             }
@@ -274,10 +274,10 @@ struct DetailView: View {
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                .foregroundStyle(MdflowTheme.pending)
+                .foregroundStyle(ContextOSTheme.pending)
                 .padding(.vertical, 6)
                 .padding(.leading, 10)
-                .overlay(alignment: .leading) { Rectangle().fill(MdflowTheme.pending).frame(width: 1) }
+                .overlay(alignment: .leading) { Rectangle().fill(ContextOSTheme.pending).frame(width: 1) }
             }
         }
         if !directChanges.isEmpty {
@@ -301,7 +301,7 @@ struct DetailView: View {
                                 .padding(.top, 3)
                             Text(String(format: "%02d", scope.position + 1))
                                 .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .foregroundStyle(MdflowTheme.planColor(scope.status))
+                                .foregroundStyle(ContextOSTheme.planColor(scope.status))
                                 .frame(width: 22, alignment: .leading)
                                 .padding(.top, 3)
                             VStack(alignment: .leading, spacing: 3) {
@@ -309,11 +309,11 @@ struct DetailView: View {
                                     .font(.system(size: 12.5, weight: .semibold, design: .rounded))
                                 Text(store.snapshot.chains.first(where: { $0.id == scope.chainId }).map { store.chainText($0, field: "title") } ?? scope.chainId)
                                     .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(MdflowTheme.muted)
+                                    .foregroundStyle(ContextOSTheme.muted)
                                 if !scope.summary.isEmpty {
                                     Text(scope.summary)
                                         .font(.system(size: 10.5, design: .rounded))
-                                        .foregroundStyle(MdflowTheme.muted)
+                                        .foregroundStyle(ContextOSTheme.muted)
                                         .lineLimit(2)
                                         .padding(.top, 1)
                                 }
@@ -321,7 +321,7 @@ struct DetailView: View {
                             Spacer(minLength: 8)
                             Text(scope.status.uppercased())
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .foregroundStyle(MdflowTheme.planColor(scope.status))
+                                .foregroundStyle(ContextOSTheme.planColor(scope.status))
                                 .padding(.top, 3)
                         }
                         .contentShape(Rectangle())
@@ -346,7 +346,7 @@ struct DetailView: View {
                             let changes = store.planChanges(for: scope)
                             if changes.isEmpty {
                                 Text(store.activeLocale == "zh-Hans" ? "尚未声明此链路中的具体 Block / Link 修改。" : "No concrete Block or Link change has been declared for this Chain scope.")
-                                    .font(.system(size: 11, design: .rounded)).foregroundStyle(MdflowTheme.pending)
+                                    .font(.system(size: 11, design: .rounded)).foregroundStyle(ContextOSTheme.pending)
                             }
                             ForEach(changes) { change in
                                 planChangeCard(change)
@@ -381,7 +381,7 @@ struct DetailView: View {
                         .padding(.top, 2)
                     Text(change.entityType.uppercased())
                         .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .foregroundStyle(MdflowTheme.focus)
+                        .foregroundStyle(ContextOSTheme.focus)
                         .frame(width: 42, alignment: .leading)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
@@ -390,14 +390,14 @@ struct DetailView: View {
                         if !change.summary.isEmpty {
                             Text(change.summary)
                                 .font(.system(size: 10.5, design: .rounded))
-                                .foregroundStyle(MdflowTheme.muted)
+                                .foregroundStyle(ContextOSTheme.muted)
                                 .lineLimit(2)
                         }
                     }
                     Spacer(minLength: 6)
                     Image(systemName: checkpointSymbol(change.status))
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(MdflowTheme.planColor(change.status))
+                        .foregroundStyle(ContextOSTheme.planColor(change.status))
                         .padding(.top, 2)
                 }
                 .contentShape(Rectangle())
@@ -422,7 +422,7 @@ struct DetailView: View {
                 } label: {
                     Label(store.activeLocale == "zh-Hans" ? "在 Canvas 中定位" : "Locate on Canvas", systemImage: "scope")
                         .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(MdflowTheme.focus)
+                        .foregroundStyle(ContextOSTheme.focus)
                 }
                 .buttonStyle(.plain)
             }
@@ -435,7 +435,7 @@ struct DetailView: View {
         .padding(.vertical, 5)
         .padding(.leading, 9)
         .overlay(alignment: .leading) {
-            Rectangle().fill(MdflowTheme.hairline).frame(width: 1)
+            Rectangle().fill(ContextOSTheme.hairline).frame(width: 1)
         }
         .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: expandedChangeIDs)
     }
@@ -445,7 +445,7 @@ struct DetailView: View {
         if !value.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 sectionLabel(label.uppercased())
-                Text(value).font(.system(size: 11.5, design: .rounded)).foregroundStyle(MdflowTheme.ink.opacity(0.86)).lineSpacing(3).textSelection(.enabled)
+                Text(value).font(.system(size: 11.5, design: .rounded)).foregroundStyle(ContextOSTheme.ink.opacity(0.86)).lineSpacing(3).textSelection(.enabled)
             }
         }
     }
@@ -455,18 +455,18 @@ struct DetailView: View {
         let blockers = store.checkpointBlockers(checkpoint.id)
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: checkpointSymbol(checkpoint.status)).foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+                Image(systemName: checkpointSymbol(checkpoint.status)).foregroundStyle(ContextOSTheme.checkpointColor(checkpoint.status))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(checkpoint.title).font(.system(size: 11, weight: .medium, design: .rounded))
                     Text("\(checkpoint.status) · \(checkpoint.evidenceLevel)/\(checkpoint.requiredEvidenceLevel)")
-                        .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+                        .font(.system(size: 8, weight: .bold, design: .monospaced)).foregroundStyle(ContextOSTheme.muted)
                 }
             }
             if !blockers.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(store.activeLocale == "zh-Hans" ? "被以下必需检查阻塞" : "BLOCKED BY REQUIRED CHECKS")
                         .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .foregroundStyle(MdflowTheme.pending)
+                        .foregroundStyle(ContextOSTheme.pending)
                     ForEach(blockers.prefix(6)) { blocker in
                         HStack(spacing: 6) {
                             Image(systemName: checkpointSymbol(blocker.status))
@@ -476,12 +476,12 @@ struct DetailView: View {
                                 .font(.system(size: 7.5, weight: .bold, design: .monospaced))
                         }
                         .font(.system(size: 9.5, design: .rounded))
-                        .foregroundStyle(MdflowTheme.checkpointColor(blocker.status))
+                        .foregroundStyle(ContextOSTheme.checkpointColor(blocker.status))
                     }
                     if blockers.count > 6 {
                         Text("+ \(blockers.count - 6)")
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundStyle(MdflowTheme.muted)
+                            .foregroundStyle(ContextOSTheme.muted)
                     }
                 }
                 .padding(.leading, 25)
@@ -504,15 +504,15 @@ struct DetailView: View {
                                 Text(store.chainText(chain, field: "title"))
                                 Text("\((position?.index ?? 0) + 1) / \(position?.count ?? 0) · \(chain.deliveryState.uppercased())")
                                     .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(MdflowTheme.muted)
+                                    .foregroundStyle(ContextOSTheme.muted)
                             }
                             Spacer()
                             Image(systemName: "arrow.right")
                         }
                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(MdflowTheme.ink)
+                        .foregroundStyle(ContextOSTheme.ink)
                         .padding(.vertical, 7)
-                        .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
+                        .overlay(alignment: .bottom) { Rectangle().fill(ContextOSTheme.hairline).frame(height: 1) }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(store.chainText(chain, field: "title")), step \((position?.index ?? 0) + 1) of \(position?.count ?? 0)")
@@ -531,19 +531,19 @@ struct DetailView: View {
                     Button { store.select(GraphSelection(type: .link, id: link.id)) } label: {
                         HStack(alignment: .top, spacing: 9) {
                             Image(systemName: link.sourceId == blockID ? "arrow.right" : "arrow.left")
-                                .foregroundStyle(MdflowTheme.healthColor(link.healthState))
+                                .foregroundStyle(ContextOSTheme.healthColor(link.healthState))
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(store.block(otherID).map { store.blockText($0, field: "title") } ?? otherID)
                                 Text((link.label.isEmpty ? link.kind : link.label).uppercased())
                                     .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(MdflowTheme.muted)
+                                    .foregroundStyle(ContextOSTheme.muted)
                             }
                             Spacer()
                         }
                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(MdflowTheme.ink)
+                        .foregroundStyle(ContextOSTheme.ink)
                         .padding(.vertical, 7)
-                        .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
+                        .overlay(alignment: .bottom) { Rectangle().fill(ContextOSTheme.hairline).frame(height: 1) }
                     }
                     .buttonStyle(.plain)
                 }
@@ -560,17 +560,17 @@ struct DetailView: View {
                 ForEach(plans) { plan in
                     Button { store.select(GraphSelection(type: .plan, id: plan.id)) } label: {
                         HStack {
-                            Circle().fill(MdflowTheme.planColor(plan.status)).frame(width: 7, height: 7)
+                            Circle().fill(ContextOSTheme.planColor(plan.status)).frame(width: 7, height: 7)
                             Text(store.planText(plan, field: "title")).lineLimit(2)
                             Spacer()
                             Text(plan.status.uppercased())
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .foregroundStyle(MdflowTheme.planColor(plan.status))
+                                .foregroundStyle(ContextOSTheme.planColor(plan.status))
                         }
                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(MdflowTheme.ink)
+                        .foregroundStyle(ContextOSTheme.ink)
                         .padding(.vertical, 7)
-                        .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
+                        .overlay(alignment: .bottom) { Rectangle().fill(ContextOSTheme.hairline).frame(height: 1) }
                     }
                     .buttonStyle(.plain)
                 }
@@ -608,11 +608,11 @@ struct DetailView: View {
                                         }
                                     }
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(MdflowTheme.muted)
+                                    .foregroundStyle(ContextOSTheme.muted)
                                     if !store.blockText(block, field: "summary").isEmpty {
                                         Text(store.blockText(block, field: "summary"))
                                             .font(.system(size: 10.5, design: .rounded))
-                                            .foregroundStyle(MdflowTheme.muted)
+                                            .foregroundStyle(ContextOSTheme.muted)
                                             .lineLimit(3)
                                     }
                                 }
@@ -622,9 +622,9 @@ struct DetailView: View {
                             Spacer(minLength: 6)
                             Image(systemName: "arrow.up.right")
                                 .font(.system(size: 9, weight: .medium))
-                                .foregroundStyle(MdflowTheme.muted)
+                                .foregroundStyle(ContextOSTheme.muted)
                         }
-                        .foregroundStyle(MdflowTheme.ink)
+                        .foregroundStyle(ContextOSTheme.ink)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -635,17 +635,17 @@ struct DetailView: View {
                        }) {
                         HStack(alignment: .top, spacing: 7) {
                             Rectangle()
-                                .fill(MdflowTheme.linkKindColor(link.kind))
+                                .fill(ContextOSTheme.linkKindColor(link.kind))
                                 .frame(width: 1, height: 28)
                                 .padding(.leading, 9)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text((link.label.isEmpty ? link.kind : link.label).uppercased())
                                     .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(MdflowTheme.linkKindColor(link.kind))
+                                    .foregroundStyle(ContextOSTheme.linkKindColor(link.kind))
                                 if !link.contract.isEmpty {
                                     Text(link.contract)
                                         .font(.system(size: 9.5, design: .rounded))
-                                        .foregroundStyle(MdflowTheme.muted)
+                                        .foregroundStyle(ContextOSTheme.muted)
                                         .lineLimit(2)
                                 }
                             }
@@ -663,12 +663,12 @@ struct DetailView: View {
             HStack(spacing: 7) {
                 endpointButton(link.sourceId)
                 Image(systemName: "arrow.right")
-                    .foregroundStyle(MdflowTheme.healthColor(link.healthState))
+                    .foregroundStyle(ContextOSTheme.healthColor(link.healthState))
                 endpointButton(link.targetId)
             }
             Text((link.label.isEmpty ? link.kind : link.label).uppercased() + " · " + link.healthState.uppercased())
                 .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                .foregroundStyle(MdflowTheme.muted)
+                .foregroundStyle(ContextOSTheme.muted)
         }
     }
 
@@ -679,7 +679,7 @@ struct DetailView: View {
             Text(store.block(blockID).map { store.blockText($0, field: "title") } ?? blockID)
                 .lineLimit(2)
                 .padding(.vertical, 5)
-                .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
+                .overlay(alignment: .bottom) { Rectangle().fill(ContextOSTheme.hairline).frame(height: 1) }
         }
         .buttonStyle(.plain)
     }
@@ -697,7 +697,7 @@ struct DetailView: View {
             Spacer()
             Text("r\(revision)")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundStyle(MdflowTheme.muted)
+                .foregroundStyle(ContextOSTheme.muted)
         }
     }
 
@@ -708,7 +708,7 @@ struct DetailView: View {
                 sectionLabel(title)
                 Text(text)
                     .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundStyle(MdflowTheme.ink.opacity(0.86))
+                    .foregroundStyle(ContextOSTheme.ink.opacity(0.86))
                     .lineSpacing(2)
                     .textSelection(.enabled)
             }
@@ -725,7 +725,7 @@ struct DetailView: View {
                     Spacer()
                     Text(store.activeLocale == "zh-Hans" ? "AST 门面映射" : "AST Facade Anchors")
                         .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(MdflowTheme.focus)
+                        .foregroundStyle(ContextOSTheme.focus)
                 }
                 ForEach(sources) { source in
                     VStack(alignment: .leading, spacing: 4) {
@@ -735,7 +735,7 @@ struct DetailView: View {
                             HStack(alignment: .top, spacing: 9) {
                                 Image(systemName: source.symbol != nil ? "curlybraces" : "doc.text")
                                     .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(source.symbol != nil ? MdflowTheme.focus : MdflowTheme.ink)
+                                    .foregroundStyle(source.symbol != nil ? ContextOSTheme.focus : ContextOSTheme.ink)
                                 VStack(alignment: .leading, spacing: 3) {
                                     HStack(spacing: 6) {
                                         Text(source.path)
@@ -744,28 +744,28 @@ struct DetailView: View {
                                         if let start = source.startLine, let end = source.endLine {
                                             Text("L\(start)-L\(end)")
                                                 .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                                                .foregroundStyle(MdflowTheme.muted)
+                                                .foregroundStyle(ContextOSTheme.muted)
                                                 .padding(.horizontal, 4)
                                                 .padding(.vertical, 1.5)
-                                                .background(MdflowTheme.hairline.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
+                                                .background(ContextOSTheme.hairline.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
                                         }
                                     }
                                     if let symbol = source.symbol {
                                         Text(symbol)
                                             .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                            .foregroundStyle(MdflowTheme.focus)
+                                            .foregroundStyle(ContextOSTheme.focus)
                                     } else {
                                         Text(source.role)
                                             .font(.system(size: 10, design: .monospaced))
-                                            .foregroundStyle(MdflowTheme.muted)
+                                            .foregroundStyle(ContextOSTheme.muted)
                                     }
                                 }
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
                                     .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(MdflowTheme.muted)
+                                    .foregroundStyle(ContextOSTheme.muted)
                             }
-                            .foregroundStyle(MdflowTheme.ink)
+                            .foregroundStyle(ContextOSTheme.ink)
                             .padding(.vertical, 5)
                         }
                         .buttonStyle(.plain)
@@ -776,18 +776,18 @@ struct DetailView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "bolt.shield.fill")
                                     .font(.system(size: 8))
-                                    .foregroundStyle(MdflowTheme.success)
+                                    .foregroundStyle(ContextOSTheme.success)
                                 Text(store.activeLocale == "zh-Hans"
                                      ? "Token 节约: 仅切片 \(lineCount) 行 (~约 \(sliceTokens) tokens), 降低上下文膨胀 >85%"
                                      : "Token Saving: ~\(sliceTokens) tokens slice (\(lineCount) LOC), avoids full-file overhead")
                                     .font(.system(size: 8.5, design: .monospaced))
-                                    .foregroundStyle(MdflowTheme.muted)
+                                    .foregroundStyle(ContextOSTheme.muted)
                             }
                             .padding(.leading, 20)
                             .padding(.bottom, 4)
                         }
                     }
-                    .overlay(alignment: .bottom) { Rectangle().fill(MdflowTheme.hairline).frame(height: 1) }
+                    .overlay(alignment: .bottom) { Rectangle().fill(ContextOSTheme.hairline).frame(height: 1) }
                 }
             }
         }
@@ -810,17 +810,17 @@ struct DetailView: View {
                     if stats.savingsPercent > 0 {
                         Text("\(stats.savingsPercent)% SAVED")
                             .font(.system(size: 8.5, weight: .black, design: .monospaced))
-                            .foregroundStyle(MdflowTheme.success)
+                            .foregroundStyle(ContextOSTheme.success)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(MdflowTheme.success.opacity(0.12), in: Capsule())
+                            .background(ContextOSTheme.success.opacity(0.12), in: Capsule())
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 12) {
                         HStack(spacing: 4) {
-                            Circle().fill(MdflowTheme.success).frame(width: 6, height: 6)
+                            Circle().fill(ContextOSTheme.success).frame(width: 6, height: 6)
                             Text(store.activeLocale == "zh-Hans" ? "\(solidCount) 实体落地" : "\(solidCount) Solid")
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                         }
@@ -830,23 +830,23 @@ struct DetailView: View {
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                         }
                     }
-                    .foregroundStyle(MdflowTheme.ink)
+                    .foregroundStyle(ContextOSTheme.ink)
 
                     HStack(spacing: 6) {
                         Image(systemName: "gauge.with.dots.needle.bottom.50percent")
                             .font(.system(size: 10))
-                            .foregroundStyle(MdflowTheme.focus)
+                            .foregroundStyle(ContextOSTheme.focus)
                         Text(store.activeLocale == "zh-Hans"
                              ? "AST 契约流: ~\(stats.streamTokens) tokens (全量文件约 ~\(stats.fullTokens) tokens)"
                              : "AST Contract Stream: ~\(stats.streamTokens) tokens (vs ~\(stats.fullTokens) tokens full-files)")
                             .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                            .foregroundStyle(MdflowTheme.muted)
+                            .foregroundStyle(ContextOSTheme.muted)
                     }
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(MdflowTheme.surface.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(MdflowTheme.hairline, lineWidth: 1))
+                .background(ContextOSTheme.surface.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(ContextOSTheme.hairline, lineWidth: 1))
 
                 HStack(spacing: 8) {
                     Button {
@@ -867,10 +867,10 @@ struct DetailView: View {
                                  : (store.activeLocale == "zh-Hans" ? "复制链契约流" : "Copy Contract Stream"))
                         }
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(copiedStreamChainID == chain.id ? MdflowTheme.success : MdflowTheme.ink)
+                        .foregroundStyle(copiedStreamChainID == chain.id ? ContextOSTheme.success : ContextOSTheme.ink)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(MdflowTheme.hairline.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                        .background(ContextOSTheme.hairline.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
 
@@ -886,7 +886,7 @@ struct DetailView: View {
                                  : (store.activeLocale == "zh-Hans" ? "预览契约流" : "Preview Contract Stream"))
                         }
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(MdflowTheme.focus)
+                        .foregroundStyle(ContextOSTheme.focus)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
                     }
@@ -897,12 +897,12 @@ struct DetailView: View {
                     let streamText = buildChainCodeStream(chain: chain)
                     Text(streamText)
                         .font(.system(size: 9.5, design: .monospaced))
-                        .foregroundStyle(MdflowTheme.ink)
+                        .foregroundStyle(ContextOSTheme.ink)
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color(nsColor: NSColor.textBackgroundColor))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(MdflowTheme.hairline, lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(ContextOSTheme.hairline, lineWidth: 1))
                 }
             }
             .padding(.vertical, 4)
@@ -996,13 +996,13 @@ struct DetailView: View {
                             disclosureChevron(expandedCheckpointIDs.contains(checkpoint.id))
                             Image(systemName: checkpointSymbol(checkpoint.status))
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+                                .foregroundStyle(ContextOSTheme.checkpointColor(checkpoint.status))
                             Text(checkpoint.title)
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
                             Spacer(minLength: 6)
                             Text(checkpoint.status.uppercased())
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+                                .foregroundStyle(ContextOSTheme.checkpointColor(checkpoint.status))
                         }
                         .contentShape(Rectangle())
                     }
@@ -1018,11 +1018,11 @@ struct DetailView: View {
                                 }
                             }
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundStyle(MdflowTheme.checkpointColor(checkpoint.status))
+                            .foregroundStyle(ContextOSTheme.checkpointColor(checkpoint.status))
                             if !checkpoint.criteria.isEmpty { Text(checkpoint.criteria) }
                             ForEach(structuredItems(checkpoint.evidence)) { item in
                                 HStack(alignment: .top, spacing: 7) {
-                                    Circle().fill(MdflowTheme.focus.opacity(0.65)).frame(width: 4, height: 4).padding(.top, 6)
+                                    Circle().fill(ContextOSTheme.focus.opacity(0.65)).frame(width: 4, height: 4).padding(.top, 6)
                                     VStack(alignment: .leading, spacing: 2) {
                                         if let eyebrow = item.eyebrow {
                                             Text(localizedType(eyebrow))
@@ -1035,7 +1035,7 @@ struct DetailView: View {
                             }
                         }
                         .font(.system(size: 11.5, design: .rounded))
-                        .foregroundStyle(MdflowTheme.muted)
+                        .foregroundStyle(ContextOSTheme.muted)
                         .padding(.top, 7)
                         .padding(.leading, 34)
                         .transition(.opacity)
@@ -1063,16 +1063,16 @@ struct DetailView: View {
                                 disclosureChevron(expanded)
                                 Text("r\(item.revision)")
                                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(MdflowTheme.muted)
+                                    .foregroundStyle(ContextOSTheme.muted)
                                     .frame(width: 28, alignment: .leading)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(item.summary)
                                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                                        .foregroundStyle(MdflowTheme.ink)
+                                        .foregroundStyle(ContextOSTheme.ink)
                                     Text(item.action.uppercased())
                                         .font(.system(size: 8.5, weight: .bold, design: .monospaced))
                                         .tracking(1)
-                                        .foregroundStyle(MdflowTheme.muted)
+                                        .foregroundStyle(ContextOSTheme.muted)
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -1107,7 +1107,7 @@ struct DetailView: View {
             }
         }
         .font(.system(size: 9.5, design: .monospaced))
-        .foregroundStyle(MdflowTheme.muted)
+        .foregroundStyle(ContextOSTheme.muted)
     }
 
     private func historyMetadata(_ label: String, _ value: String) -> some View {
@@ -1121,13 +1121,13 @@ struct DetailView: View {
         Text(value)
             .font(.system(size: 9, weight: .bold, design: .monospaced))
             .tracking(1.4)
-            .foregroundStyle(MdflowTheme.muted)
+            .foregroundStyle(ContextOSTheme.muted)
     }
 
     private func disclosureChevron(_ expanded: Bool) -> some View {
         Image(systemName: "chevron.right")
             .font(.system(size: 8, weight: .bold))
-            .foregroundStyle(MdflowTheme.muted.opacity(0.7))
+            .foregroundStyle(ContextOSTheme.muted.opacity(0.7))
             .frame(width: 11, height: 14)
             .rotationEffect(.degrees(expanded ? 90 : 0))
     }
@@ -1164,19 +1164,19 @@ struct DetailView: View {
                 Spacer()
                 Text("\(plan.progress.completedSteps)/\(plan.progress.totalSteps) \(unit) · \(plan.progress.passedRequiredCheckpoints)/\(plan.progress.totalRequiredCheckpoints) gates")
             }
-            .font(.system(size: 8.5, weight: .bold, design: .monospaced)).foregroundStyle(MdflowTheme.muted)
+            .font(.system(size: 8.5, weight: .bold, design: .monospaced)).foregroundStyle(ContextOSTheme.muted)
             Text("Block \(plan.progress.directBlockChanges.completed)/\(plan.progress.directBlockChanges.total) · Chain \(plan.progress.chainChanges.completed)/\(plan.progress.chainChanges.total) · Link \(plan.progress.linkChanges.completed)/\(plan.progress.linkChanges.total)")
                 .font(.system(size: 8, weight: .medium, design: .monospaced))
-                .foregroundStyle(MdflowTheme.muted)
+                .foregroundStyle(ContextOSTheme.muted)
             Text("Chain gates \(plan.progress.chainIntegrationGates.passed)/\(plan.progress.chainIntegrationGates.total) · Plan gates \(plan.progress.planAcceptanceGates.passed)/\(plan.progress.planAcceptanceGates.total)")
                 .font(.system(size: 8, weight: .medium, design: .monospaced))
-                .foregroundStyle(MdflowTheme.muted)
+                .foregroundStyle(ContextOSTheme.muted)
             GeometryReader { geometry in
                 let total = max(1, plan.progress.totalSteps + plan.progress.totalRequiredCheckpoints)
                 let complete = plan.progress.completedSteps + plan.progress.passedRequiredCheckpoints
                 ZStack(alignment: .leading) {
-                    Capsule().fill(MdflowTheme.hairline)
-                    Capsule().fill(MdflowTheme.planColor(plan.derivedStatus)).frame(width: geometry.size.width * CGFloat(complete) / CGFloat(total))
+                    Capsule().fill(ContextOSTheme.hairline)
+                    Capsule().fill(ContextOSTheme.planColor(plan.derivedStatus)).frame(width: geometry.size.width * CGFloat(complete) / CGFloat(total))
                 }
             }.frame(height: 3)
         }
@@ -1194,13 +1194,13 @@ struct DetailView: View {
                             Text("[\(localizedType(eyebrow))]")
                                 .font(.system(size: 8, weight: .bold, design: .monospaced))
                                 .tracking(0.7)
-                                .foregroundStyle(MdflowTheme.focus)
+                                .foregroundStyle(ContextOSTheme.focus)
                         } else {
-                            Circle().fill(MdflowTheme.focus.opacity(0.65)).frame(width: 5, height: 5).padding(.top, 7)
+                            Circle().fill(ContextOSTheme.focus.opacity(0.65)).frame(width: 5, height: 5).padding(.top, 7)
                         }
                         Text(item.text)
                             .font(.system(size: 11.5, design: .rounded))
-                            .foregroundStyle(MdflowTheme.ink.opacity(0.86))
+                            .foregroundStyle(ContextOSTheme.ink.opacity(0.86))
                             .lineSpacing(3)
                             .textSelection(.enabled)
                     }

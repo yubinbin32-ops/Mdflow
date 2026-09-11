@@ -4,12 +4,12 @@
       "command": "node",
       "args": [
         "--no-warnings=ExperimentalWarning",
-        "./server/mdflow-mcp.mjs"
+        "./server/contextos-mcp.mjs"
       ],
       "cwd": ".",
       "env_vars": [
-        "MDFLOW_PROJECT_ROOT",
-        "MDFLOW_DATA_DIR"
+        "CONTEXTOS_PROJECT_ROOT",
+        "CONTEXTOS_DATA_DIR"
       ],
       "startup_timeout_sec": 20
     }

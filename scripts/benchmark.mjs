@@ -1,4 +1,4 @@
-import { MdflowService } from "../packages/mcp/src/service.mjs";
+import { ContextOSService } from "../packages/mcp/src/service.mjs";
 import { exportGraphToJson } from "../packages/mcp/src/database.mjs";
 import { sanitizeTerminalOutput } from "../packages/mcp/src/sanitizer.mjs";
 import { boundTaskResponse, startTaskBudget, resetTaskBudgets } from "../packages/mcp/src/task-budget.mjs";
@@ -23,7 +23,7 @@ function estimateTokens(str) {
 
 async function runBenchmark() {
   console.log("\n================================================================");
-  console.log("  MDFLOW EMPIRICAL BENCHMARK & REAL-WORLD VALIDATION SUITE");
+  console.log("  CONTEXTOS EMPIRICAL BENCHMARK & REAL-WORLD VALIDATION SUITE");
   console.log("================================================================\n");
 
   const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -35,9 +35,9 @@ async function runBenchmark() {
   console.log("  PART A: 从零构建系统全生命周期验证 (8个核心模块、链路与契约)");
   console.log("----------------------------------------------------------------\n");
 
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-live-benchmark-"));
-  const mdflowDir = path.join(tmpDir, ".mdflow");
-  await fs.mkdir(mdflowDir, { recursive: true });
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-live-benchmark-"));
+  const contextosDir = path.join(tmpDir, ".contextos");
+  await fs.mkdir(contextosDir, { recursive: true });
 
   const projectJson = {
     schemaVersion: "2.0.0",
@@ -46,9 +46,9 @@ async function runBenchmark() {
     defaultLocale: "zh-CN",
     supportedLocales: ["zh-CN", "en"],
   };
-  await fs.writeFile(path.join(mdflowDir, "project.json"), JSON.stringify(projectJson, null, 2));
+  await fs.writeFile(path.join(contextosDir, "project.json"), JSON.stringify(projectJson, null, 2));
 
-  const service = new MdflowService({ projectRoot: tmpDir, autoSync: true });
+  const service = new ContextOSService({ projectRoot: tmpDir, autoSync: true });
 
   // TEST 1: 0-to-1 架构入库性能
   console.log(">>> [1/4] 测试从零构建项目：写入 8 个核心模块与有向拓扑关系...");
@@ -300,25 +300,25 @@ async function runBenchmark() {
 `;
 
   const targetTask = "修改支付回调接口，解决微信支付流水回写失败问题";
-  const mdflowContextResult = service.contextForTask({ task: targetTask, maxChars: 4000 });
-  const mdflowContextText = mdflowContextResult.markdown;
+  const contextosContextResult = service.contextForTask({ task: targetTask, maxChars: 4000 });
+  const contextosContextText = contextosContextResult.markdown;
 
   const fullDocTokens = estimateTokens(traditionalMarkdownDoc);
-  const mdflowTokens = estimateTokens(mdflowContextText);
-  const tokenSaving = ((1 - mdflowTokens / fullDocTokens) * 100).toFixed(1);
+  const contextosTokens = estimateTokens(contextosContextText);
+  const tokenSaving = ((1 - contextosTokens / fullDocTokens) * 100).toFixed(1);
 
   console.log(`- 传统 Markdown 全量文档体积:  ${traditionalMarkdownDoc.length} 字符 | 约 ${fullDocTokens} Tokens`);
-  console.log(`- mdflow 精准任务切片体积:      ${mdflowContextText.length} 字符 | 约 ${mdflowTokens} Tokens`);
+  console.log(`- contextos 精准任务切片体积:      ${contextosContextText.length} 字符 | 约 ${contextosTokens} Tokens`);
   console.log(`- Token 节约率 (Context Saved):  ${tokenSaving}%`);
 
   console.log("\n  [失真度与抗干扰检验 (Fidelity Check)]:");
-  const refs = mdflowContextResult.refs;
-  const containsPayment = refs.includes("block:payment-service") || mdflowContextText.includes("payment-service");
-  const containsInventoryDetails = mdflowContextText.includes("reserve(sku_id, count, order_id)");
+  const refs = contextosContextResult.refs;
+  const containsPayment = refs.includes("block:payment-service") || contextosContextText.includes("payment-service");
+  const containsInventoryDetails = contextosContextText.includes("reserve(sku_id, count, order_id)");
   const isolatedInventory = !refs.includes("block:inventory-service") && !containsInventoryDetails;
 
   console.log(`    * 核心目标 [payment-service] 命中:     ${containsPayment ? "✓ YES (精准锁定目标域)" : "✗ NO"}`);
-  console.log(`    * 契约定义与接口规格完整提取:            ${mdflowContextText.includes("pay(order_id") ? "✓ YES (接口契约零失真)" : "✗ NO"}`);
+  console.log(`    * 契约定义与接口规格完整提取:            ${contextosContextText.includes("pay(order_id") ? "✓ YES (接口契约零失真)" : "✗ NO"}`);
   console.log(`    * 无关模块细节 [inventory-service] 隔离: ${isolatedInventory ? "✓ YES (零噪声，注意力无污染)" : "✗ 隔离失败"}`);
 
   // TEST 4: 动态演进、检查点固化与 Git Discard 回退一致性
@@ -334,7 +334,7 @@ async function runBenchmark() {
   });
   console.log(`✓ 检查点成功固化：ID = ${cpRecord.checkpoint.id}, status = ${cpRecord.checkpoint.status}`);
 
-  const graphJsonPath = path.join(mdflowDir, "graph.json");
+  const graphJsonPath = path.join(contextosDir, "graph.json");
   exportGraphToJson(service.database, graphJsonPath);
   const jsonExport = await fs.readFile(graphJsonPath, "utf8");
   console.log(`✓ 已生成 Git 跟踪文本真理源: ${graphJsonPath} (${jsonExport.length} 字节)`);
@@ -367,13 +367,13 @@ async function runBenchmark() {
   await fs.rm(tmpDir, { recursive: true, force: true });
 
   // -------------------------------------------------------------
-  // PART B: 真实中大型工程实测 (Current mdflow Project: 27 Blocks, 700+ Revisions)
+  // PART B: 真实中大型工程实测 (Current contextos Project: 27 Blocks, 700+ Revisions)
   // -------------------------------------------------------------
   console.log("\n----------------------------------------------------------------");
-  console.log("  PART B: 真实中大型工程实测 (当前 mdflow 仓库：27 Blocks, 700+ Revisions)");
+  console.log("  PART B: 真实中大型工程实测 (当前 contextos 仓库：27 Blocks, 700+ Revisions)");
   console.log("----------------------------------------------------------------\n");
 
-  const realService = new MdflowService({ projectRoot: repoRoot });
+  const realService = new ContextOSService({ projectRoot: repoRoot });
   const snapshot = realService.snapshot();
   console.log(`>>> 真实工程规模:`);
   console.log(`    - Blocks 实体数:     ${snapshot.blocks.length}`);
@@ -381,7 +381,7 @@ async function runBenchmark() {
   console.log(`    - Links 拓扑边数:    ${snapshot.links.length}`);
   console.log(`    - Checkpoints 凭据:  ${snapshot.checkpoints.length}`);
 
-  const fullGraphJson = await fs.readFile(path.join(repoRoot, ".mdflow", "graph.json"), "utf8");
+  const fullGraphJson = await fs.readFile(path.join(repoRoot, ".contextos", "graph.json"), "utf8");
   const fullGraphTokens = estimateTokens(fullGraphJson);
 
   const realQueries = [
@@ -445,7 +445,7 @@ async function runBenchmark() {
     "packages/mcp/src/ast.mjs",
     "packages/mcp/src/service.mjs",
     "packages/mcp/src/sanitizer.mjs",
-    "apps/desktop/Sources/MdflowDesktop/DetailView.swift",
+    "apps/desktop/Sources/ContextOSDesktop/DetailView.swift",
   ];
   let totalFullSourceChars = 0;
   for (const f of fullSourceFiles) {
@@ -457,7 +457,7 @@ async function runBenchmark() {
 
   console.log(`>>> 全链路代码上下文体积对比 (4 个跨层核心模块):`);
   console.log(`    - 传统 AI 遍历全量文件读取: ${totalFullSourceChars} 字符 | 约 ${fullFilesTokens} Tokens`);
-  console.log(`    - mdflow AST 契约流 (默认):   ${contractStreamResult.codeStream.length} 字符 | 约 ${contractTokens} Tokens | 节省 ${contractSavingRatio}%`);
+  console.log(`    - contextos AST 契约流 (默认):   ${contractStreamResult.codeStream.length} 字符 | 约 ${contractTokens} Tokens | 节省 ${contractSavingRatio}%`);
   console.log(`    - 链路节点数/源状态:          ${contractStreamResult.nodes.length} 个 / ${contractStreamResult.nodes.map((node) => node.sourceStatus).join(", ")}`);
   console.log(`    - 默认契约流不含函数体:        ${contractStreamResult.codeStream.split("\n").filter((line) => line.trim() && !line.trim().startsWith("//") && !line.startsWith("#")).length === 0 ? "✓ YES" : "✗ NO"}`);
 
@@ -492,7 +492,7 @@ async function runBenchmark() {
   for (let i = 1; i <= 50; i++) {
     rawBuildLog += `✓ test_${i}.mjs passed in ${Math.random() * 10}ms\n`;
   }
-  rawBuildLog += "Error: Cannot find module '@mdflow/missing-engine'\n";
+  rawBuildLog += "Error: Cannot find module '@contextos/missing-engine'\n";
   rawBuildLog += "    at Function.Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)\n";
   rawBuildLog += "    at Module._load (node:internal/modules/cjs/loader:1051:27)\n";
   rawBuildLog += "Command failed with exit code 1.\n";

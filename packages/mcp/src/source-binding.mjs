@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { detectLanguage, extractSymbols, extractSymbolSlice } from "./ast.mjs";
 
-const DISCOVERY_IGNORES = new Set([".git", ".mdflow", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
+const DISCOVERY_IGNORES = new Set([".git", ".contextos", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
 const SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".swift", ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".cc", ".cpp", ".h", ".hpp"]);
 
 function discoveryTerms(value) {

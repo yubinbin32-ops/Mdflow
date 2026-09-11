@@ -1,6 +1,6 @@
 # Checkpoints and Verification Gates Reference
 
-In mdflow, healthy delivery and completion must be backed by passed Checkpoint evidence rather than prose claims.
+In contextos, healthy delivery and completion must be backed by passed Checkpoint evidence rather than prose claims.
 
 ## Evidence Hierarchy
 

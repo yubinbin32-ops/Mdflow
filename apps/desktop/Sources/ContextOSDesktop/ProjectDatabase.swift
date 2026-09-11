@@ -41,7 +41,7 @@ final class ProjectDatabase {
         self.location = location
         guard FileManager.default.fileExists(atPath: location.database.path) else {
             throw CocoaError(.fileNoSuchFile, userInfo: [
-                NSLocalizedDescriptionKey: "The mdflow database does not exist yet. Connect the mdflow MCP server to this project first."
+                NSLocalizedDescriptionKey: "The contextos database does not exist yet. Connect the contextos MCP server to this project first."
             ])
         }
         // WAL readers need permission to create or reuse the shared-memory sidecar.

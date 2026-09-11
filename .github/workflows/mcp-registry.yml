@@ -49,7 +49,7 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push mdflow image
+      - name: Build and push contextos image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -57,14 +57,14 @@ jobs:
           tags: ghcr.io/yubinbin32-ops/contextos:${{ steps.release.outputs.version }}
           labels: |
             io.modelcontextprotocol.server.name=io.github.yubinbin32-ops/contextos
-            org.opencontainers.image.source=https://github.com/yubinbin32-ops/Mdflow-Canvas
+            org.opencontainers.image.source=https://github.com/yubinbin32-ops/ContextOS
             org.opencontainers.image.version=${{ steps.release.outputs.version }}
 
       - name: Resolve release version in server metadata
         shell: bash
         run: |
           version="${{ steps.release.outputs.version }}"
-          image="ghcr.io/yubinbin32-ops/mdflow:${version}"
+          image="ghcr.io/yubinbin32-ops/contextos:${version}"
           jq --arg version "$version" --arg image "$image" \
             '.version = $version | del(.packages[0].version) | .packages[0].identifier = $image' \
             server.json > server.release.json
@@ -79,5 +79,5 @@ jobs:
       - name: Authenticate to MCP Registry with GitHub OIDC
         run: ./mcp-publisher login github-oidc
 
-      - name: Publish mdflow metadata
+      - name: Publish contextos metadata
         run: ./mcp-publisher publish

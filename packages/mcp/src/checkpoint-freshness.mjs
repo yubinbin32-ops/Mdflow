@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { bindingIdentity } from "./source-binding.mjs";
 
-export const CHECKPOINT_IDENTITY_KIND = "mdflow-identity";
+export const CHECKPOINT_IDENTITY_KIND = "contextos-identity";
 
 function projectRootFor(service) {
   return path.resolve(service.paths.projectRoot);

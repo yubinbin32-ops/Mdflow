@@ -33,7 +33,7 @@ final class GraphStore: ObservableObject {
     /// Canvas scene because the canonical snapshot contents may differ.
     @Published private(set) var snapshotPresentationID = UUID()
     @Published var language: AppLanguage {
-        didSet { UserDefaults.standard.set(language.rawValue, forKey: "mdflow.language") }
+        didSet { UserDefaults.standard.set(language.rawValue, forKey: "contextos.language") }
     }
 
     private var location: ProjectLocation?
@@ -58,7 +58,7 @@ final class GraphStore: ObservableObject {
     }
 
     init() {
-        self.language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "mdflow.language") ?? "system") ?? .system
+        self.language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "contextos.language") ?? "system") ?? .system
         self.recentProjects = ProjectLocation.recentProjects()
         do {
             let resolvedLocation = try ProjectLocation.resolve()
@@ -188,7 +188,7 @@ final class GraphStore: ObservableObject {
     }
 
     private func cameraStateKey(for projectID: String, component: String) -> String {
-        "mdflow.camera.\(projectID).\(component)"
+        "contextos.camera.\(projectID).\(component)"
     }
 
     private func persistCameraState(for projectID: String) {
@@ -212,7 +212,7 @@ final class GraphStore: ObservableObject {
     }
 
     private func sidebarStateKey(for projectID: String) -> String {
-        "mdflow.sidebar.\(projectID).collapsed"
+        "contextos.sidebar.\(projectID).collapsed"
     }
 
     private func loadSidebarState(for projectID: String) -> Set<SidebarSection> {
@@ -226,7 +226,7 @@ final class GraphStore: ObservableObject {
     }
 
     private static func log(_ error: Error, context: String) {
-        let message = "mdflow: \(context): \(error.localizedDescription)\n"
+        let message = "contextos: \(context): \(error.localizedDescription)\n"
         FileHandle.standardError.write(Data(message.utf8))
     }
 
@@ -605,7 +605,7 @@ final class GraphStore: ObservableObject {
         refreshDebounceTask = nil
         watchedDescriptor = -1
         guard let location else { return }
-        let directory = location.root.appending(path: ".mdflow", directoryHint: .isDirectory).path
+        let directory = location.root.appending(path: ".contextos", directoryHint: .isDirectory).path
         let descriptor = open(directory, O_EVTONLY)
         guard descriptor >= 0 else { return }
         watchedDescriptor = descriptor
@@ -746,7 +746,7 @@ final class GraphStore: ObservableObject {
 
     func chainColor(_ chainID: String) -> Color {
         let ordered = snapshot.chains.map(\.id).sorted()
-        return MdflowTheme.chainColor(index: ordered.firstIndex(of: chainID) ?? 0)
+        return ContextOSTheme.chainColor(index: ordered.firstIndex(of: chainID) ?? 0)
     }
 
     func incomingLinks(for blockID: String) -> [LinkItem] {
@@ -843,13 +843,13 @@ final class GraphStore: ObservableObject {
             "goal":"目标", "nextAction":"下一步", "targetChains":"目标 Chain", "proposedDelta":"计划中的图变更", "blockers":"阻塞",
             "upstream":"直接上游", "downstream":"直接下游", "memberships":"所在 Chain", "relatedPlans":"关联 Plan", "path":"路径", "revision":"版本",
             "fitNetwork":"适配全图", "focusMode":"聚焦", "exitFocus":"退出聚焦", "isolate":"仅显示关联", "projectRules":"项目规则", "decisions":"架构决策",
-            "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .mdflow/project.json 的项目目录。", "open":"打开",
+            "openProject":"打开项目", "changeProject":"切换项目", "recentProjects":"最近项目", "openProjectHelp":"请选择包含 .contextos/project.json 的项目目录。", "open":"打开",
             "all":"全部", "verification":"验证", "unassigned":"独立验证", "verified":"已验证", "checkpointsPassed":"检查点通过", "noCheckpoints":"0 检查点", "directBlockWork":"直接 Block 工作", "principle":"原则", "product":"产品", "requirement":"需求", "decision":"决策", "flow":"流程", "ui":"界面", "service":"服务", "function":"函数", "api":"API", "integration":"集成", "data":"数据", "database":"数据库", "risk":"风险", "test":"测试", "checkpoint":"检查点"
         ]
         let en: [String: String] = [
             "overview":"Full Network", "plans":"Plans", "chains":"Chains", "settings":"Settings", "done":"Done",
             "summary":"Summary", "details":"Details", "contract":"Contract", "files":"Files & Code", "checkpoints":"Checkpoints", "history":"History",
-            "plugin":"AI EDITOR MCP BRIDGES", "pluginHelp":"Sync mdflow architecture context to Claude Desktop, Cursor, Antigravity, OpenCode, and Codex. After re-syncing, restart editor clients to reload running MCP processes.",
+            "plugin":"AI EDITOR MCP BRIDGES", "pluginHelp":"Sync contextos architecture context to Claude Desktop, Cursor, Antigravity, OpenCode, and Codex. After re-syncing, restart editor clients to reload running MCP processes.",
             "syncAll":"Sync All", "syncSingle":"Sync", "updateSingle":"Update", "resync":"Re-sync", "reinstall":"Reinstall", "versionMismatch":"Version mismatch", "bundleChanged":"Bundle changed", "synced":"Connected", "notSynced":"Not Connected", "notDetected":"Not Detected", "notConfigured":"Not Configured", "skipped":"Skipped", "latest":"Latest", "updateAvailable":"Update", "syncing":"Syncing…",
             "installPlugin":"Install Plugin", "installingPlugin":"Installing…", "checkingPlugin":"Checking editor statuses…", "pluginNotInstalled":"Not installed", "pluginInstalled":"Installed; available in new tasks", "pluginInstallFailed":"Installation failed",
             "liveData":"LIVE DATA", "liveHelp":"Changes appear automatically; no refresh is required.", "language":"Language", "appearance":"Appearance", "system":"System", "light":"Light", "dark":"Dark",
@@ -857,7 +857,7 @@ final class GraphStore: ObservableObject {
             "goal":"Goal", "nextAction":"Next Action", "targetChains":"Target Chains", "proposedDelta":"Proposed Graph Delta", "blockers":"Blockers",
             "upstream":"Direct Upstream", "downstream":"Direct Downstream", "memberships":"Chain Memberships", "relatedPlans":"Related Plans", "path":"Path", "revision":"Revision",
             "fitNetwork":"Fit Network", "focusMode":"Focus", "exitFocus":"Exit Focus", "isolate":"Related Only", "projectRules":"Project Rules", "decisions":"Architecture Decisions",
-            "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .mdflow/project.json.", "open":"Open",
+            "openProject":"Open Project", "changeProject":"Change Project", "recentProjects":"Recent Projects", "openProjectHelp":"Choose a project folder containing .contextos/project.json.", "open":"Open",
             "all":"All", "verification":"Verification", "unassigned":"Standalone checks", "verified":"Verified", "checkpointsPassed":"checkpoints passed", "noCheckpoints":"0 Checkpoints", "directBlockWork":"Direct Block work", "principle":"Principle", "product":"Product", "requirement":"Requirement", "decision":"Decision", "flow":"Flow", "ui":"UI", "service":"Service", "function":"Function", "api":"API", "integration":"Integration", "data":"Data", "database":"Database", "risk":"Risk", "test":"Test", "checkpoint":"Checkpoint"
         ]
         return (activeLocale == "zh-Hans" ? zh : en)[key] ?? key
@@ -1104,23 +1104,23 @@ final class GraphStore: ObservableObject {
         // 1. Embedded inside App Bundle Resources
         if let resources = Bundle.main.resourceURL {
             let embedded = resources.appending(path: "MarketplaceRoot", directoryHint: .isDirectory)
-            if manager.fileExists(atPath: embedded.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+            if manager.fileExists(atPath: embedded.appending(path: "plugins/contextos/server/contextos-mcp.mjs").path) {
                 return embedded
             }
         }
         // 2. Direct Contents/Resources/MarketplaceRoot
         let bundleMarketplace = Bundle.main.bundleURL.appending(path: "Contents/Resources/MarketplaceRoot", directoryHint: .isDirectory)
-        if manager.fileExists(atPath: bundleMarketplace.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+        if manager.fileExists(atPath: bundleMarketplace.appending(path: "plugins/contextos/server/contextos-mcp.mjs").path) {
             return bundleMarketplace
         }
-        // 3. Workspace root (when developing mdflow itself)
+        // 3. Workspace root (when developing contextos itself)
         if let root = location?.root,
-           manager.fileExists(atPath: root.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+           manager.fileExists(atPath: root.appending(path: "plugins/contextos/server/contextos-mcp.mjs").path) {
             return root
         }
         // 4. Current working directory fallback
         let cwd = URL(fileURLWithPath: manager.currentDirectoryPath)
-        if manager.fileExists(atPath: cwd.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs").path) {
+        if manager.fileExists(atPath: cwd.appending(path: "plugins/contextos/server/contextos-mcp.mjs").path) {
             return cwd
         }
         return nil

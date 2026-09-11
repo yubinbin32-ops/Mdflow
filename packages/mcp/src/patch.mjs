@@ -1,4 +1,4 @@
-const HEADER_PATTERN = /^mdflow\/(\d+)(?:\s+(.*))?$/;
+const HEADER_PATTERN = /^contextos\/(\d+)(?:\s+(.*))?$/;
 const TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_step|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
 
 function tokenize(input, lineNumber) {
@@ -124,9 +124,9 @@ function assignField(operation, parsed, scalarValue) {
 
 function parseHeader(line, lineNumber) {
   const match = HEADER_PATTERN.exec(line.trim());
-  if (!match) throw new Error(`Compact patch must start with mdflow/1 (line ${lineNumber})`);
+  if (!match) throw new Error(`Compact patch must start with contextos/1 (line ${lineNumber})`);
   const version = Number(match[1]);
-  if (version !== 1) throw new Error(`Unsupported compact patch version mdflow/${version}`);
+  if (version !== 1) throw new Error(`Unsupported compact patch version contextos/${version}`);
   const inline = parseInlineFields(match[2] ? tokenize(match[2], lineNumber) : [], lineNumber);
   return { version, metadata: inline.fields };
 }

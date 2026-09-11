@@ -8,7 +8,7 @@ import { registerProject } from "../src/paths.mjs";
 import { analyzeGraphDrift, renderGraphStatus } from "../src/query-engine.mjs";
 
 test("graph drift detection: detects ghost blocks with code and isolated blocks", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-drift-test-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-drift-test-"));
   registerProject({ projectRoot: tmpDir, name: "drift-test" });
   const service = createService({ projectRoot: tmpDir });
 
@@ -37,7 +37,7 @@ test("graph drift detection: detects ghost blocks with code and isolated blocks"
     });
 
     service.graphPatch({
-      patch: `mdflow/1 reason="bind source"
+      patch: `contextos/1 reason="bind source"
 source block:ghost-block path="src/auth.js" symbol="login"`,
     });
 
@@ -98,7 +98,7 @@ source block:ghost-block path="src/auth.js" symbol="login"`,
 });
 
 test("graph drift detection: semantic field changes request related architecture review", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-semantic-drift-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-semantic-drift-"));
   registerProject({ projectRoot: tmpDir, name: "semantic-drift" });
   const service = createService({ projectRoot: tmpDir });
   try {
@@ -132,7 +132,7 @@ test("graph drift detection: semantic field changes request related architecture
 });
 
 test("creating a block does not emit semantic review noise", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-semantic-create-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-semantic-create-"));
   registerProject({ projectRoot: tmpDir, name: "semantic-create" });
   const service = createService({ projectRoot: tmpDir });
   try {

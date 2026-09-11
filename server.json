@@ -1,24 +1,24 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.yubinbin32-ops/mdflow",
+  "name": "io.github.yubinbin32-ops/contextos",
   "title": "ContextOS — Spatial Architecture Canvas & Context OS for AI Coding Agents",
-  "description": "Spatial architecture canvas and context optimization OS for AI coding agents. AST-sliced task contexts (99.4% token reduction), persistent architecture graphs across sessions, and test-gated verification via MCP.",
+  "description": "Spatial architecture canvas and context optimization OS for AI coding agents.",
   "repository": {
-    "url": "https://github.com/yubinbin32-ops/Mdflow-Canvas",
+    "url": "https://github.com/yubinbin32-ops/ContextOS",
     "source": "github"
   },
   "version": "0.3.8",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/yubinbin32-ops/mdflow:0.3.8",
+      "identifier": "ghcr.io/yubinbin32-ops/contextos:0.3.8",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "MDFLOW_PROJECT_ROOT",
-          "description": "Absolute path of the mounted project directory containing .mdflow.",
+          "name": "CONTEXTOS_PROJECT_ROOT",
+          "description": "Absolute path of the mounted project directory containing .contextos.",
           "isRequired": false,
           "format": "string",
           "isSecret": false

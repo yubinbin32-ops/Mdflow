@@ -22,7 +22,7 @@ test("flow: parseFlowExpression parses basic and annotated arrows", () => {
 });
 
 test("flow: applyArrowFlow and architecture connections", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-flow-test-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-flow-test-"));
   const router = new ProjectServiceRouter();
   router.register({ projectRoot: tmpDir, name: "flow-test" });
   const service = router.serviceFor({ projectRoot: tmpDir });
@@ -99,7 +99,7 @@ test("flow: applyArrowFlow and architecture connections", async () => {
 });
 
 test("flow: graphPatch supports inline flow directives with newly created blocks", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-patch-flow-test-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-patch-flow-test-"));
   const router = new ProjectServiceRouter();
   router.register({ projectRoot: tmpDir, name: "patch-flow-test" });
   const service = router.serviceFor({ projectRoot: tmpDir });
@@ -118,7 +118,7 @@ test("flow: graphPatch supports inline flow directives with newly created blocks
 
   // Patch creating a new block AND connecting it via flow: in the same patch
   const patchText = [
-    "mdflow/1 reason=\"Add auth and connect to gateway\"",
+    "contextos/1 reason=\"Add auth and connect to gateway\"",
     "create block:auth-service title=\"Auth Service\" kind=service",
     "flow: gateway -[calls]-> auth-service",
   ].join("\n");

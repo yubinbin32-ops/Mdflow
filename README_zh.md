@@ -7,15 +7,15 @@
   </p>
   <p>
     <a href="README.md">English</a> ·
-    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest"><strong>下载 macOS 原生客户端</strong></a> ·
+    <a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>下载 macOS 原生客户端</strong></a> ·
     <a href="#无头模式与跨平台-cli--windows--linux">无头模式 CLI / Windows</a> ·
     <a href="#实测基准数据-empirical-benchmarks">实测基准数据</a> ·
-    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/Mdflow-Canvas">MCP 目录</a>
+    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/ContextOS">MCP 目录</a>
   </p>
   <p>
-    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/yubinbin32-ops/Mdflow-Canvas?style=flat-square&color=111111" /></a>
-    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/yubinbin32-ops/Mdflow-Canvas/release.yml?style=flat-square&label=build" /></a>
-    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/yubinbin32-ops/Mdflow-Canvas?style=flat-square" /></a>
+    <a href="https://github.com/yubinbin32-ops/ContextOS/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/yubinbin32-ops/ContextOS?style=flat-square&color=111111" /></a>
+    <a href="https://github.com/yubinbin32-ops/ContextOS/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/yubinbin32-ops/ContextOS/release.yml?style=flat-square&label=build" /></a>
+    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/yubinbin32-ops/ContextOS?style=flat-square" /></a>
     <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-43853d?style=flat-square" />
     <img alt="MCP compatible" src="https://img.shields.io/badge/MCP-compatible-7c3aed?style=flat-square" />
     <img alt="Zero Runtime Deps" src="https://img.shields.io/badge/Runtime%20NPM%20Deps-0-brightgreen?style=flat-square" />
@@ -23,7 +23,7 @@
 </div>
 
 <p align="center">
-  <img src="assets/mdflow-demo.gif" alt="ContextOS 空间画布演示：筛选架构块、追踪影响路径并查看验证凭据" width="100%" />
+  <img src="assets/contextos-demo.gif" alt="ContextOS 空间画布演示：筛选架构块、追踪影响路径并查看验证凭据" width="100%" />
 </p>
 
 <p align="center"><sub>探索空间架构 → 追踪执行链路 → 向 Agent 传递符号级坐标 → 固化确定性验证凭据。</sub></p>
@@ -72,8 +72,8 @@
 
 ### 📥 下载原生客户端
 从 GitHub Releases 直接下载独立免安装应用包：
-- **[ContextOS for macOS (ContextOS-macos.zip)](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest)**  
-*(支持 macOS 14.0+，解压即可运行 `mdflow.app`。纯净 ZIP 打包，完全规避 DMG 挂载易读写冲突与 Gatekeeper 转译问题)。*
+- **[ContextOS for macOS (ContextOS-macos.zip)](https://github.com/yubinbin32-ops/ContextOS/releases/latest)**  
+*(支持 macOS 14.0+，解压即可运行 `contextos.app`。纯净 ZIP 打包，完全规避 DMG 挂载易读写冲突与 Gatekeeper 转译问题)。*
 
 ---
 
@@ -102,13 +102,13 @@ npm run benchmark
 
 ```bash
 # 1. 初始化并自动扫描已有工程拓扑
-npx -y github:yubinbin32-ops/Mdflow-Canvas init --scan
+npx -y github:yubinbin32-ops/ContextOS init --scan
 
 # 2. 检查工程架构健康度、同步状态与验证门禁
-npx -y github:yubinbin32-ops/Mdflow-Canvas status
+npx -y github:yubinbin32-ops/ContextOS status
 
 # 3. 自动配置本地各大 IDE 的 MCP 插件集成
-npx -y github:yubinbin32-ops/Mdflow-Canvas setup
+npx -y github:yubinbin32-ops/ContextOS setup
 ```
 
 ---
@@ -117,7 +117,7 @@ npx -y github:yubinbin32-ops/Mdflow-Canvas setup
 
 ```mermaid
 flowchart LR
-  Human["开发者\n原生空间画布"] <--> Plaintext[".mdflow/graph.json\nGit 追踪的真理源"]
+  Human["开发者\n原生空间画布"] <--> Plaintext[".contextos/graph.json\nGit 追踪的真理源"]
   Plaintext <--> Engine["本地 SQLite 缓存\n上下文引擎"]
   Engine --> Slice["AST 任务切片\n(path::symbol 坐标)"]
   Slice --> Agent["AI 编码 Agent\n(通过 MCP)"]
@@ -131,7 +131,7 @@ flowchart LR
 ContextOS 不向 LLM 输出整段整段的代码全文，而是输出高度凝练的坐标门面：文件相对路径、符号签名、推导行号范围及接口契约。宿主编辑器只需直接打开该目标方法。
 
 ### 2. Git 原生纯文本真理源（`graph.json`）
-系统架构不保存在任何私有云端数据库，而是作为格式确定、键序稳定的纯文本 JSON（`.mdflow/graph.json`）与业务源码一同纳入 Git 版本管理。`git checkout` 或 `git revert` 会协同重置代码与架构状态。本地 SQLite 仅作为内存映射级缓存，全周期零外部 npm 运行时依赖。
+系统架构不保存在任何私有云端数据库，而是作为格式确定、键序稳定的纯文本 JSON（`.contextos/graph.json`）与业务源码一同纳入 Git 版本管理。`git checkout` 或 `git revert` 会协同重置代码与架构状态。本地 SQLite 仅作为内存映射级缓存，全周期零外部 npm 运行时依赖。
 
 ### 3. 凭据驱动的检查点与新鲜度门禁
 模块完成状态绝不接受 AI 口头声明。所有完成状态均需通过 `run_command` 记录真实执行产物（如测试套件通过用例数、构建结果），并通过 `checkpoint_record` 固化。绑定的源码一旦变动，对应检查点即刻自动转入 `retest_required`。
@@ -154,7 +154,7 @@ ContextOS 通过标准 Stdio MCP 与主流 AI 编码环境无缝对接。
   "mcpServers": {
     "contextos": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
     }
   }
 }
@@ -167,9 +167,9 @@ ContextOS 通过标准 Stdio MCP 与主流 AI 编码环境无缝对接。
   "mcpServers": {
     "contextos": {
       "command": "node",
-      "args": ["/绝对路径/mdflow-mcp.mjs"],
+      "args": ["/绝对路径/contextos-mcp.mjs"],
       "env": {
-        "MDFLOW_PROJECT_ROOT": "${workspaceFolder}"
+        "CONTEXTOS_PROJECT_ROOT": "${workspaceFolder}"
       }
     }
   }
@@ -184,7 +184,7 @@ ContextOS 通过标准 Stdio MCP 与主流 AI 编码环境无缝对接。
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yubinbin32-ops/Mdflow-Canvas.git && cd Mdflow-Canvas
+git clone https://github.com/yubinbin32-ops/ContextOS.git && cd ContextOS
 
 # 安装构建依赖
 npm ci

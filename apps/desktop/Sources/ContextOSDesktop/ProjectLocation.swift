@@ -1,8 +1,7 @@
 import Foundation
 
 struct ProjectLocation {
-    private static let recentProjectsKey = "mdflow.recentProjects"
-    private static let legacyRecentProjectKey = "mdflow.recentProjectRoot"
+    private static let recentProjectsKey = "contextos.recentProjects"
 
     let root: URL
     let descriptor: ProjectDescriptor
@@ -19,7 +18,7 @@ struct ProjectLocation {
         if let explicitRoot {
             return try resolve(startingAt: URL(fileURLWithPath: explicitRoot, isDirectory: true))
         }
-        if let environmentRoot = ProcessInfo.processInfo.environment["MDFLOW_PROJECT_ROOT"] {
+        if let environmentRoot = ProcessInfo.processInfo.environment["CONTEXTOS_PROJECT_ROOT"] {
             return try resolve(startingAt: URL(fileURLWithPath: environmentRoot, isDirectory: true))
         }
         if let recentRoot = recentProjects().first?.path,
@@ -36,21 +35,21 @@ struct ProjectLocation {
         var candidate = root.standardizedFileURL
 
         while candidate.path != "/" {
-            let descriptorURL = candidate.appending(path: ".mdflow/project.json")
+            let descriptorURL = candidate.appending(path: ".contextos/project.json")
             if FileManager.default.fileExists(atPath: descriptorURL.path) {
                 let data = try Data(contentsOf: descriptorURL)
                 let descriptor = try JSONDecoder().decode(ProjectDescriptor.self, from: data)
                 let dataRoot: URL
-                if let override = ProcessInfo.processInfo.environment["MDFLOW_DATA_DIR"] {
+                if let override = ProcessInfo.processInfo.environment["CONTEXTOS_DATA_DIR"] {
                     dataRoot = URL(fileURLWithPath: override, isDirectory: true)
                         .appending(path: descriptor.id, directoryHint: .isDirectory)
                 } else {
-                    dataRoot = candidate.appending(path: ".mdflow", directoryHint: .isDirectory)
+                    dataRoot = candidate.appending(path: ".contextos", directoryHint: .isDirectory)
                 }
                 let location = ProjectLocation(
                     root: candidate,
                     descriptor: descriptor,
-                    database: dataRoot.appending(path: "mdflow.sqlite")
+                    database: dataRoot.appending(path: "contextos.sqlite")
                 )
                 remember(location)
                 return location
@@ -58,7 +57,7 @@ struct ProjectLocation {
             candidate.deleteLastPathComponent()
         }
         throw CocoaError(.fileNoSuchFile, userInfo: [
-            NSLocalizedDescriptionKey: "No .mdflow/project.json found. Open mdflow from a registered project."
+            NSLocalizedDescriptionKey: "No .contextos/project.json found. Open ContextOS from a registered project."
         ])
     }
 
@@ -67,12 +66,10 @@ struct ProjectLocation {
         if let data = UserDefaults.standard.data(forKey: recentProjectsKey),
            let decoded = try? JSONDecoder().decode([RecentProject].self, from: data) {
             projects = decoded
-        } else if let legacyPath = UserDefaults.standard.string(forKey: legacyRecentProjectKey) {
-            let name = URL(fileURLWithPath: legacyPath).lastPathComponent
-            projects = [RecentProject(path: legacyPath, name: name)]
         }
         return projects.filter {
-            FileManager.default.fileExists(atPath: URL(fileURLWithPath: $0.path).appending(path: ".mdflow/project.json").path)
+            let root = URL(fileURLWithPath: $0.path)
+            return FileManager.default.fileExists(atPath: root.appending(path: ".contextos/project.json").path)
         }
     }
 
@@ -86,7 +83,6 @@ struct ProjectLocation {
         if projects.count > 3 { projects.removeLast(projects.count - 3) }
         if let data = try? JSONEncoder().encode(projects) {
             UserDefaults.standard.set(data, forKey: recentProjectsKey)
-            UserDefaults.standard.removeObject(forKey: legacyRecentProjectKey)
         }
     }
 }

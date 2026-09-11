@@ -1,12 +1,12 @@
 {
-  "name": "mdflow",
+  "name": "contextos",
   "version": "0.3.8",
-  "description": "Spatial architecture canvas and context optimization OS for AI coding agents. AST-sliced task contexts (99.4% token reduction), persistent architecture graphs across sessions, and test-gated verification via MCP.",
+  "description": "Spatial architecture canvas and context optimization OS for AI coding agents.",
   "license": "MIT",
   "type": "module",
   "homepage": "https://dashend.cn",
   "bugs": {
-    "url": "https://github.com/yubinbin32-ops/Mdflow-Canvas/issues"
+    "url": "https://github.com/yubinbin32-ops/ContextOS/issues"
   },
   "engines": {
     "node": ">=22"
@@ -30,11 +30,11 @@
     "windsurf"
   ],
   "bin": {
-    "mdflow": "./plugins/mdflow/server/mdflow-mcp.mjs"
+    "contextos": "./plugins/contextos/server/contextos-mcp.mjs"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yubinbin32-ops/Mdflow-Canvas.git"
+    "url": "https://github.com/yubinbin32-ops/ContextOS.git"
   },
   "workspaces": [
     "packages/*"
@@ -43,10 +43,10 @@
     "mcp": "node packages/mcp/src/server.mjs",
     "test": "node --test packages/mcp/test/*.test.mjs",
     "benchmark": "node scripts/benchmark.mjs",
-    "plugin:build": "esbuild packages/mcp/src/server.mjs --bundle --platform=node --format=esm --target=node22 --outfile=plugins/mdflow/server/mdflow-mcp.mjs",
+    "plugin:build": "esbuild packages/mcp/src/server.mjs --bundle --platform=node --format=esm --target=node22 --outfile=plugins/contextos/server/contextos-mcp.mjs",
     "plugin:verify": "npm run plugin:build && node scripts/plugin-smoke.mjs",
     "desktop:build": "swift build --package-path apps/desktop",
-    "desktop:run": "swift run --package-path apps/desktop mdflow-desktop"
+    "desktop:run": "swift run --package-path apps/desktop contextos-desktop"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

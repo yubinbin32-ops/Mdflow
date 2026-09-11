@@ -3,19 +3,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { MdflowService } from "../src/service.mjs";
+import { ContextOSService } from "../src/service.mjs";
 
 test("context retrieval: CJK tokens and field-weighted relevance ranking", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-test-retrieval-"));
-  const mdflowDir = path.join(tmpDir, ".mdflow");
-  await fs.mkdir(mdflowDir, { recursive: true });
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-test-retrieval-"));
+  const contextosDir = path.join(tmpDir, ".contextos");
+  await fs.mkdir(contextosDir, { recursive: true });
 
   await fs.writeFile(
-    path.join(mdflowDir, "project.json"),
+    path.join(contextosDir, "project.json"),
     JSON.stringify({ id: "retrieval-test", name: "Retrieval Test" }, null, 2)
   );
 
-  const service = new MdflowService({ projectRoot: tmpDir });
+  const service = new ContextOSService({ projectRoot: tmpDir });
 
   // Create blocks with different field matches
   service.mutate({

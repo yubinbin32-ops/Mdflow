@@ -13,10 +13,10 @@ function hashFile(filePath) {
 
 export function pluginRuntimeStatus(projectRoot = process.cwd()) {
   const runningPath = process.argv[1] ? path.resolve(process.argv[1]) : fileURLToPath(import.meta.url);
-  const repoBundle = path.join(projectRoot, "plugins/mdflow/server/mdflow-mcp.mjs");
+  const repoBundle = path.join(projectRoot, "plugins/contextos/server/contextos-mcp.mjs");
   const runningHash = hashFile(runningPath);
   const repoHash = hashFile(repoBundle);
-  const runningIsBundle = path.basename(runningPath) === "mdflow-mcp.mjs";
+  const runningIsBundle = path.basename(runningPath) === "contextos-mcp.mjs";
   const stale = Boolean(runningIsBundle && runningHash && repoHash && runningHash !== repoHash);
   return {
     runningPath,
@@ -25,7 +25,7 @@ export function pluginRuntimeStatus(projectRoot = process.cwd()) {
     repoHash,
     stale,
     reload: stale
-      ? "codex plugin remove mdflow@mdflow-development && codex plugin add mdflow@mdflow-development"
+      ? "codex plugin remove contextos@contextos-development && codex plugin add contextos@contextos-development"
       : null,
   };
 }

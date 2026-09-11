@@ -1,11 +1,11 @@
-# mdflow/1 Patch Syntax Reference
+# contextos/1 Patch Syntax Reference
 
 `graph_patch` accepts a compact Markdown-like patch and atomically expands it into the standard ChangeSet operations.
 
 ## Header Syntax
 
 ```text
-mdflow/1 [base=<revision>] [plan=<planId>] [scope=<chainScopeId>] [reason="<string>"]
+contextos/1 [base=<revision>] [plan=<planId>] [scope=<chainScopeId>] [reason="<string>"]
 ```
 - `base`: Expected graph revision. The server rejects the patch on revision mismatch to prevent lost updates.
 - `plan`: Owning Plan ID for inline PlanChanges and checkpoint bindings.

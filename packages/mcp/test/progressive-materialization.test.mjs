@@ -3,17 +3,17 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { MdflowService } from "../src/service.mjs";
+import { ContextOSService } from "../src/service.mjs";
 
 test("progressive materialization: virtual blueprint vs anchored code facades", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-test-materialization-"));
-  const mdflowDir = path.join(tmpDir, ".mdflow");
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-test-materialization-"));
+  const contextosDir = path.join(tmpDir, ".contextos");
   const srcDir = path.join(tmpDir, "src");
-  await fs.mkdir(mdflowDir, { recursive: true });
+  await fs.mkdir(contextosDir, { recursive: true });
   await fs.mkdir(srcDir, { recursive: true });
 
   await fs.writeFile(
-    path.join(mdflowDir, "project.json"),
+    path.join(contextosDir, "project.json"),
     JSON.stringify({
       schemaVersion: "2.0.0",
       id: "materialization-test",
@@ -33,7 +33,7 @@ export class PaymentService {
 `;
   await fs.writeFile(path.join(srcDir, "payment.ts"), tsCode);
 
-  const service = new MdflowService({ projectRoot: tmpDir, autoSync: true });
+  const service = new ContextOSService({ projectRoot: tmpDir, autoSync: true });
 
   // 1. Create a virtual (Ghost) block for a future feature and a solid block for payment
   service.mutate({

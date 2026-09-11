@@ -6,12 +6,12 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 const projectRoot = process.cwd();
 const transport = new StdioClientTransport({
   command: "node",
-  args: ["plugins/mdflow/server/mdflow-mcp.mjs"],
+  args: ["plugins/contextos/server/contextos-mcp.mjs"],
   cwd: projectRoot,
 });
-const client = new Client({ name: "mdflow-plugin-smoke", version: "0.3.8" });
+const client = new Client({ name: "contextos-plugin-smoke", version: "0.3.8" });
 const packageVersion = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
-const pluginVersion = JSON.parse(fs.readFileSync("plugins/mdflow/.codex-plugin/plugin.json", "utf8")).version;
+const pluginVersion = JSON.parse(fs.readFileSync("plugins/contextos/.codex-plugin/plugin.json", "utf8")).version;
 const appVersion = fs.readFileSync("apps/desktop/Resources/Info.plist", "utf8").match(/CFBundleShortVersionString<\/key>\s*<string>([^<]+)/)?.[1];
 assert.equal(packageVersion, pluginVersion, "package and plugin versions must match");
 assert.equal(packageVersion, appVersion, "package and desktop app versions must match");
@@ -66,7 +66,7 @@ try {
   assert.ok(!rendered.includes(projectRoot), "run_command leaked the project path");
   assert.match(rendered, /\[REDACTED\]/);
 
-  console.log(`# mdflow plugin smoke\n- MCP tools: ${names.size}\n- Contract-first Chain stream: exposed\n- Source binding sync: exposed\n- Sanitized command gateway: passed\n- Version contract: ${packageVersion}`);
+  console.log(`# contextos plugin smoke\n- MCP tools: ${names.size}\n- Contract-first Chain stream: exposed\n- Source binding sync: exposed\n- Sanitized command gateway: passed\n- Version contract: ${packageVersion}`);
   console.log(`- Shared task budget: exposed (${taskContextId})`);
 } finally {
   await client.close();

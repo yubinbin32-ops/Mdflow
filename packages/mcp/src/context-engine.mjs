@@ -283,7 +283,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
   if (snapshot.sourceSync) {
     lines.push(`- Source sync: r${snapshot.sourceSync.revision} · ${snapshot.sourceSync.bindingCount} bindings · ${snapshot.sourceSync.invalidBindingCount} needing relocation`);
     if (snapshot.sourceSync.changes?.length) {
-      lines.push(`- Code changes since the previous mdflow boundary: ${snapshot.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot.sourceSync.changes.length > 8 ? " …" : ""}`);
+      lines.push(`- Code changes since the previous contextos boundary: ${snapshot.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot.sourceSync.changes.length > 8 ? " …" : ""}`);
     }
   }
   lines.push("");

@@ -19,7 +19,7 @@ test("timeline: normalizePriority handles variants correctly", () => {
 });
 
 test("timeline: getTimelineState, syncTimeline and advanceStep", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-timeline-test-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-timeline-test-"));
   const router = new ProjectServiceRouter();
   router.register({ projectRoot: tmpDir, name: "timeline-test" });
   const service = router.serviceFor({ projectRoot: tmpDir });

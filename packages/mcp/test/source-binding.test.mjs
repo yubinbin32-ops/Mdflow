@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { MdflowService } from "../src/service.mjs";
+import { ContextOSService } from "../src/service.mjs";
 
 async function makeProject(prefix, source) {
   const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
-  await fs.mkdir(path.join(projectRoot, ".mdflow"), { recursive: true });
+  await fs.mkdir(path.join(projectRoot, ".contextos"), { recursive: true });
   await fs.mkdir(path.join(projectRoot, "src"), { recursive: true });
   await fs.writeFile(
-    path.join(projectRoot, ".mdflow", "project.json"),
+    path.join(projectRoot, ".contextos", "project.json"),
     JSON.stringify({
       schemaVersion: "2.0.0",
       id: `${prefix}-project`,
@@ -26,10 +26,10 @@ async function makeProject(prefix, source) {
 
 test("source binding follows a moved symbol and reports external implementation changes", async () => {
   const { projectRoot, sourcePath } = await makeProject(
-    "mdflow-test-source-binding-",
+    "contextos-test-source-binding-",
     "export function processPayment(amount: number) {\n  return amount + 1;\n}\n",
   );
-  const service = new MdflowService({ projectRoot, autoSync: true });
+  const service = new ContextOSService({ projectRoot, autoSync: true });
   try {
     service.mutate({
       reason: "create source-bound chain",
@@ -99,9 +99,9 @@ test("source binding follows a moved symbol and reports external implementation 
     });
     assert.equal(service.snapshot().checkpoints.find((item) => item.id === "payment-checkpoint").status, "passed");
 
-    const exportedGraph = JSON.parse(await fs.readFile(path.join(projectRoot, ".mdflow", "graph.json"), "utf8"));
+    const exportedGraph = JSON.parse(await fs.readFile(path.join(projectRoot, ".contextos", "graph.json"), "utf8"));
     const exportedCheckpoint = exportedGraph.data.checkpoints.find((item) => item.id === "payment-checkpoint");
-    const identity = JSON.parse(exportedCheckpoint.evidence_json).find((item) => item.kind === "mdflow-identity");
+    const identity = JSON.parse(exportedCheckpoint.evidence_json).find((item) => item.kind === "contextos-identity");
     assert.equal(identity.version, 2);
     assert.ok(identity.bindings.some((binding) => binding.symbol === "processPayment"));
 
@@ -119,10 +119,10 @@ test("source binding follows a moved symbol and reports external implementation 
 
 test("duplicate symbol names never fall back to an unrelated source slice", async () => {
   const { projectRoot } = await makeProject(
-    "mdflow-test-source-ambiguous-",
+    "contextos-test-source-ambiguous-",
     "export function run() { return 1; }\nexport function run() { return 2; }\n",
   );
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "create ambiguous source binding",
@@ -163,10 +163,10 @@ test("duplicate symbol names never fall back to an unrelated source slice", asyn
 
 test("standalone Blocks and Chains do not create implicit verification gates", async () => {
   const { projectRoot } = await makeProject(
-    "mdflow-test-architecture-semantics-",
+    "contextos-test-architecture-semantics-",
     "export function healthCheck() { return true; }\n",
   );
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "verify independent architecture semantics",
@@ -206,10 +206,10 @@ test("standalone Blocks and Chains do not create implicit verification gates", a
 
 test("source binding suggestions are read-only and accepted candidates become fresh bindings", async () => {
   const { projectRoot } = await makeProject(
-    "mdflow-test-source-suggest-",
+    "contextos-test-source-suggest-",
     "export function processPayment(amount: number) {\n  return amount + 1;\n}\n\nexport function unrelated() {\n  return false;\n}\n",
   );
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "create unbound payment block",
@@ -246,10 +246,10 @@ test("source binding suggestions are read-only and accepted candidates become fr
 
 test("source sync after a native edit suggests unbound symbols without auto-accepting them", async () => {
   const { projectRoot, sourcePath } = await makeProject(
-    "mdflow-test-live-binding-",
+    "contextos-test-live-binding-",
     "export function processPayment(amount: number) {\n  return amount + 1;\n}\n",
   );
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "create payment block with one binding",

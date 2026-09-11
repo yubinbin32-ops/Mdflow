@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { MdflowService } from "../src/service.mjs";
+import { ContextOSService } from "../src/service.mjs";
 
 test("passed checkpoints become retest_required when bound source changes", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-test-checkpoint-freshness-"));
-  await fs.mkdir(path.join(tmpDir, ".mdflow"), { recursive: true });
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-test-checkpoint-freshness-"));
+  await fs.mkdir(path.join(tmpDir, ".contextos"), { recursive: true });
   await fs.mkdir(path.join(tmpDir, "src"), { recursive: true });
   await fs.writeFile(
-    path.join(tmpDir, ".mdflow", "project.json"),
+    path.join(tmpDir, ".contextos", "project.json"),
     JSON.stringify({
       schemaVersion: "2.0.0",
       id: "checkpoint-freshness-test",
@@ -22,7 +22,7 @@ test("passed checkpoints become retest_required when bound source changes", asyn
   const sourcePath = path.join(tmpDir, "src", "service.ts");
   await fs.writeFile(sourcePath, "export function service() { return true; }\n");
 
-  const service = new MdflowService({ projectRoot: tmpDir, autoSync: true });
+  const service = new ContextOSService({ projectRoot: tmpDir, autoSync: true });
   service.mutate({
     reason: "create source-bound block",
     operations: [

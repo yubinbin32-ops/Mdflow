@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { MdflowService } from "../src/service.mjs";
+import { ContextOSService } from "../src/service.mjs";
 
 async function project() {
-  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-block-seal-"));
-  await fs.mkdir(path.join(projectRoot, ".mdflow"), { recursive: true });
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-block-seal-"));
+  await fs.mkdir(path.join(projectRoot, ".contextos"), { recursive: true });
   await fs.mkdir(path.join(projectRoot, "src"), { recursive: true });
-  await fs.writeFile(path.join(projectRoot, ".mdflow", "project.json"), JSON.stringify({
+  await fs.writeFile(path.join(projectRoot, ".contextos", "project.json"), JSON.stringify({
     schemaVersion: "2.0.0",
     id: "block-seal-test",
     name: "Block Seal Test",
@@ -22,7 +22,7 @@ async function project() {
 
 test("block seal requires current bindings and receipt-backed checkpoint, then is idempotent", async () => {
   const projectRoot = await project();
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "create sealable block",
@@ -73,7 +73,7 @@ test("block seal requires current bindings and receipt-backed checkpoint, then i
 
 test("block seal rejects stale checkpoints and failed execution receipts", async () => {
   const projectRoot = await project();
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "create stale seal block",

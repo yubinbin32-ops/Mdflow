@@ -7,7 +7,7 @@ import { ProjectServiceRouter } from "../src/project-router.mjs";
 import { suggestLinksForBlock, connectBlocks } from "../src/architecture-link.mjs";
 
 test("architecture-link: suggestLinksForBlock with code imports and layer conventions", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-arch-test-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-arch-test-"));
   const router = new ProjectServiceRouter();
   router.register({ projectRoot: tmpDir, name: "arch-test" });
   const service = router.serviceFor({ projectRoot: tmpDir });

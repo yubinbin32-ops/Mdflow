@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { MdflowService } from "../src/service.mjs";
+import { ContextOSService } from "../src/service.mjs";
 
 async function makeProject() {
-  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-exec-receipt-"));
-  await fs.mkdir(path.join(projectRoot, ".mdflow"), { recursive: true });
-  await fs.writeFile(path.join(projectRoot, ".mdflow", "project.json"), JSON.stringify({
+  const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-exec-receipt-"));
+  await fs.mkdir(path.join(projectRoot, ".contextos"), { recursive: true });
+  await fs.writeFile(path.join(projectRoot, ".contextos", "project.json"), JSON.stringify({
     schemaVersion: "2.0.0",
     id: "execution-receipt-test",
     name: "Execution Receipt Test",
@@ -20,7 +20,7 @@ async function makeProject() {
 
 test("runCommand persists a compact execution receipt and checkpoints can cite it", async () => {
   const projectRoot = await makeProject();
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "create receipt test block",
@@ -65,7 +65,7 @@ test("runCommand persists a compact execution receipt and checkpoints can cite i
 
 test("failed execution receipts cannot produce passed checkpoints", async () => {
   const projectRoot = await makeProject();
-  const service = new MdflowService({ projectRoot });
+  const service = new ContextOSService({ projectRoot });
   try {
     service.mutate({
       reason: "create failed receipt test block",

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum MdflowTheme {
+enum ContextOSTheme {
     // AppKit semantic colors resolve dynamically against the window's
     // active appearance, so light/dark mode and system themes update cleanly.
     static var canvas: Color { Color(nsColor: NSColor.controlBackgroundColor) }

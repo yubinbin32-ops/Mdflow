@@ -42,17 +42,17 @@ enum PluginInstaller {
 
     static var canonicalServerDirectoryURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appending(path: ".mdflow/server", directoryHint: .isDirectory)
+        return home.appending(path: ".contextos/server", directoryHint: .isDirectory)
     }
 
     static var canonicalServerScriptURL: URL {
-        canonicalServerDirectoryURL.appending(path: "mdflow-mcp.mjs")
+        canonicalServerDirectoryURL.appending(path: "contextos-mcp.mjs")
     }
 
     private static let buildFiles = [
         ".codex-plugin/plugin.json",
-        "server/mdflow-mcp.mjs",
-        "skills/mdflow/SKILL.md"
+        "server/contextos-mcp.mjs",
+        "skills/contextos/SKILL.md"
     ]
 
     private static func pluginBuildID(pluginRoot: URL) -> String? {
@@ -75,7 +75,7 @@ enum PluginInstaller {
 
     static func bundledPluginBuildID(marketplaceRoot: URL?) -> String {
         guard let marketplaceRoot else { return "" }
-        let pluginRoot = marketplaceRoot.appending(path: "plugins/mdflow", directoryHint: .isDirectory)
+        let pluginRoot = marketplaceRoot.appending(path: "plugins/contextos", directoryHint: .isDirectory)
         return pluginBuildID(pluginRoot: pluginRoot) ?? ""
     }
 
@@ -98,7 +98,7 @@ enum PluginInstaller {
 
     static func bundledTargetVersion(marketplaceRoot: URL?) -> String {
         if let marketplaceRoot {
-            let pluginJsonURL = marketplaceRoot.appending(path: "plugins/mdflow/.codex-plugin/plugin.json")
+            let pluginJsonURL = marketplaceRoot.appending(path: "plugins/contextos/.codex-plugin/plugin.json")
             if let data = try? Data(contentsOf: pluginJsonURL),
                let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
                let ver = json["version"] as? String {
@@ -248,18 +248,18 @@ enum PluginInstaller {
         let targetBuild = bundledPluginBuildID(marketplaceRoot: marketplaceRoot)
         let appVersion = bundledAppVersion(marketplaceRoot: marketplaceRoot)
         guard appVersion == targetVersion else {
-            throw CommandFailure(output: "mdflow app v\(appVersion) 与内置插件 v\(targetVersion) 版本不一致；请重新构建或同步同一 bundle。")
+            throw CommandFailure(output: "contextos app v\(appVersion) 与内置插件 v\(targetVersion) 版本不一致；请重新构建或同步同一 bundle。")
         }
 
         // 1. Locate source server script inside App resources
         let sourceServerScript = marketplaceRoot
-            .appending(path: "plugins/mdflow/server/mdflow-mcp.mjs")
+            .appending(path: "plugins/contextos/server/contextos-mcp.mjs")
             .standardizedFileURL
         guard FileManager.default.fileExists(atPath: sourceServerScript.path) else {
             throw CommandFailure(output: "未在 App 内部找到 MCP 服务端脚本: \(sourceServerScript.path)")
         }
 
-        // 2. Deploy canonical user-level server script: ~/.mdflow/server/mdflow-mcp.mjs
+        // 2. Deploy canonical user-level server script: ~/.contextos/server/contextos-mcp.mjs
         // Always delete old canonical file first, then copy fresh file
         let canonicalDir = canonicalServerDirectoryURL
         let canonicalServer = canonicalServerScriptURL
@@ -275,7 +275,7 @@ enum PluginInstaller {
         let serverScript = canonicalServer.path
 
         let skillSource = marketplaceRoot
-            .appending(path: "plugins/mdflow/skills/mdflow")
+            .appending(path: "plugins/contextos/skills/contextos")
             .standardizedFileURL
         let home = FileManager.default.homeDirectoryForCurrentUser
 
@@ -289,7 +289,7 @@ enum PluginInstaller {
         case "cursor":
             // 1. Clean old skill and MCP config
             let userCursorDir = home.appending(path: ".cursor")
-            let userSkillDest = userCursorDir.appending(path: "skills/mdflow")
+            let userSkillDest = userCursorDir.appending(path: "skills/contextos")
             let userMcpConfig = userCursorDir.appending(path: "mcp.json")
             try? FileManager.default.createDirectory(at: userCursorDir, withIntermediateDirectories: true)
             try? FileManager.default.removeItem(at: userSkillDest)
@@ -311,7 +311,7 @@ enum PluginInstaller {
         case "antigravity":
             // 1. Clean old skill and MCP config
             let geminiConfigDir = home.appending(path: ".gemini/config")
-            let userSkillDest = geminiConfigDir.appending(path: "skills/mdflow")
+            let userSkillDest = geminiConfigDir.appending(path: "skills/contextos")
             let userMcpConfig = geminiConfigDir.appending(path: "mcp_config.json")
             try? FileManager.default.createDirectory(at: geminiConfigDir, withIntermediateDirectories: true)
             try? FileManager.default.removeItem(at: userSkillDest)
@@ -333,7 +333,7 @@ enum PluginInstaller {
         case "opencode":
             // 1. Clean old skill and MCP config
             let userOpencodeDir = home.appending(path: ".config/opencode")
-            let userSkillDest = userOpencodeDir.appending(path: "skills/mdflow")
+            let userSkillDest = userOpencodeDir.appending(path: "skills/contextos")
             let userMcpConfig = userOpencodeDir.appending(path: "mcp.json")
             try? FileManager.default.createDirectory(at: userOpencodeDir, withIntermediateDirectories: true)
             try? FileManager.default.removeItem(at: userSkillDest)
@@ -354,29 +354,35 @@ enum PluginInstaller {
 
         case "codex":
             let codexConfigURL = home.appending(path: ".codex/config.toml")
-            let userPluginsMdflow = home.appending(path: "plugins/mdflow")
+            let userPluginsContextOS = home.appending(path: "plugins/contextos")
             let personalMarketplaceDir = home.appending(path: ".agents/plugins")
             let personalMarketplaceURL = personalMarketplaceDir.appending(path: "marketplace.json")
 
             // 1. Clean up legacy marketplace and cache
             cleanCodexLegacyMarketplace(configURL: codexConfigURL)
-            try? FileManager.default.removeItem(at: home.appending(path: ".codex/plugins/cache/mdflow-development"))
-            try? FileManager.default.removeItem(at: home.appending(path: ".codex/plugins/cache/mdflow-personal"))
+            try? FileManager.default.removeItem(at: home.appending(path: ".codex/plugins/cache/contextos-development"))
+            try? FileManager.default.removeItem(at: home.appending(path: ".codex/plugins/cache/contextos-personal"))
             if let executable = try? codexExecutable() {
-                _ = try? run(executable, arguments: ["plugin", "remove", "mdflow@personal", "--json"])
-                _ = try? run(executable, arguments: ["plugin", "remove", "mdflow@mdflow-development", "--json"])
-                _ = try? run(executable, arguments: ["plugin", "marketplace", "remove", "mdflow-development", "--json"])
+                for plugin in [
+                    "contextos@personal",
+                    "contextos@contextos-development",
+                ] {
+                    _ = try? run(executable, arguments: ["plugin", "remove", plugin, "--json"])
+                }
+                for marketplace in ["contextos-development"] {
+                    _ = try? run(executable, arguments: ["plugin", "marketplace", "remove", marketplace, "--json"])
+                }
             }
 
-            // 2. Delete old plugins/mdflow completely
-            try? FileManager.default.removeItem(at: userPluginsMdflow)
+            // 2. Delete old plugin bundles completely
+            try? FileManager.default.removeItem(at: userPluginsContextOS)
 
-            // 3. Sync fresh plugin bundle to ~/plugins/mdflow
-            let pluginSource = marketplaceRoot.appending(path: "plugins/mdflow")
-            syncDirectory(from: pluginSource, to: userPluginsMdflow)
+            // 3. Sync fresh plugin bundle to ~/plugins/contextos
+            let pluginSource = marketplaceRoot.appending(path: "plugins/contextos")
+            syncDirectory(from: pluginSource, to: userPluginsContextOS)
 
-            // Update version in ~/plugins/mdflow/.codex-plugin/plugin.json only if changed
-            let pluginJsonURL = userPluginsMdflow.appending(path: ".codex-plugin/plugin.json")
+            // Update version in ~/plugins/contextos/.codex-plugin/plugin.json only if changed
+            let pluginJsonURL = userPluginsContextOS.appending(path: ".codex-plugin/plugin.json")
             if let data = try? Data(contentsOf: pluginJsonURL),
                var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
                 let currentVer = (json["version"] as? String)?.components(separatedBy: "+").first
@@ -388,7 +394,7 @@ enum PluginInstaller {
                 }
             }
 
-            // 4. Ensure ~/.agents/plugins/marketplace.json has personal marketplace with mdflow
+            // 4. Ensure ~/.agents/plugins/marketplace.json has personal marketplace with contextos
             try? FileManager.default.createDirectory(at: personalMarketplaceDir, withIntermediateDirectories: true)
             let marketplaceEntry: [String: Any] = [
                 "name": "personal",
@@ -400,7 +406,7 @@ enum PluginInstaller {
                         "name": "contextos",
                         "source": [
                             "source": "local",
-                            "path": "./plugins/mdflow"
+                            "path": "./plugins/contextos"
                         ],
                         "policy": [
                             "installation": "AVAILABLE",
@@ -414,9 +420,9 @@ enum PluginInstaller {
                 try? mpData.write(to: personalMarketplaceURL)
             }
 
-            // 5. Install plugin via official codex plugin add mdflow@personal
+            // 5. Install plugin via official codex plugin add contextos@personal
             if let executable = try? codexExecutable() {
-                let installResult = try? run(executable, arguments: ["plugin", "add", "mdflow@personal", "--json"])
+                let installResult = try? run(executable, arguments: ["plugin", "add", "contextos@personal", "--json"])
                 if installResult?.status != 0 {
                     configureTomlMcp(at: codexConfigURL, serverScript: serverScript, version: targetVersion, build: targetBuild)
                 }
@@ -450,22 +456,22 @@ enum PluginInstaller {
               let data = try? Data(contentsOf: configURL),
               let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let servers = json["mcpServers"] as? [String: Any],
-              let mdflow = (servers["contextos"] ?? servers["mdflow"]) as? [String: Any] else {
+              let contextos = servers["contextos"] as? [String: Any] else {
             return (nil, nil)
         }
         // Verify that the configured server script actually exists on disk!
-        if let args = mdflow["args"] as? [String], let script = args.first {
+        if let args = contextos["args"] as? [String], let script = args.first {
             guard FileManager.default.fileExists(atPath: script) else {
                 return (nil, nil)
             }
         }
         var version: String?
-        if let ver = mdflow["_version"] as? String {
+        if let ver = contextos["_version"] as? String {
             version = ver
-        } else if let ver = mdflow["version"] as? String {
+        } else if let ver = contextos["version"] as? String {
             version = ver
         }
-        return (version, mdflow["_build"] as? String)
+        return (version, contextos["_build"] as? String)
     }
 
     private static func cleanJsonMcp(at configURL: URL) {
@@ -475,7 +481,6 @@ enum PluginInstaller {
               var mcpServers = json["mcpServers"] as? [String: Any] else { return }
         var removed = false
         if mcpServers.removeValue(forKey: "contextos") != nil { removed = true }
-        if mcpServers.removeValue(forKey: "mdflow") != nil { removed = true }
         if removed {
             json["mcpServers"] = mcpServers
             if let outputData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) {
@@ -492,7 +497,7 @@ enum PluginInstaller {
             json = existing
         }
         var mcpServers = json["mcpServers"] as? [String: Any] ?? [:]
-        mcpServers.removeValue(forKey: "mdflow")
+        mcpServers.removeValue(forKey: "contextos")
         mcpServers["contextos"] = [
             "command": "node",
             "args": [serverScript],
@@ -563,7 +568,7 @@ enum PluginInstaller {
 
     private static func readCodexStatus(targetVersion: String, targetBuild: String) -> (isInstalled: Bool, isSynced: Bool, isOutdated: Bool, version: String?, build: String?) {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let pluginJsonURL = home.appending(path: "plugins/mdflow/.codex-plugin/plugin.json")
+        let pluginJsonURL = home.appending(path: "plugins/contextos/.codex-plugin/plugin.json")
         let codexConfigURL = home.appending(path: ".codex/config.toml")
         
         guard FileManager.default.fileExists(atPath: codexConfigURL.path),
@@ -572,14 +577,14 @@ enum PluginInstaller {
         }
 
         // The plugin is only considered installed if actively registered in ~/.codex/config.toml
-        let hasPlugin = content.contains("[plugins.\"contextos@personal\"]") || content.contains("[plugins.\"contextos") || content.contains("[plugins.\"mdflow@personal\"]") || content.contains("[plugins.\"mdflow")
-        let hasMcp = content.contains("[mcp_servers.contextos]") || content.contains("[mcp_servers.mdflow]")
+        let hasPlugin = content.contains("[plugins.\"contextos")
+        let hasMcp = content.contains("[mcp_servers.contextos]")
         guard hasPlugin || hasMcp else {
             return (false, false, false, nil, nil)
         }
 
         // Verify installed script exists on disk if plugin is registered
-        let userScript = home.appending(path: "plugins/mdflow/server/mdflow-mcp.mjs")
+        let userScript = home.appending(path: "plugins/contextos/server/contextos-mcp.mjs")
         let canonicalScript = canonicalServerScriptURL
         let hasScriptOnDisk = FileManager.default.fileExists(atPath: userScript.path) || FileManager.default.fileExists(atPath: canonicalScript.path)
         guard hasScriptOnDisk else {
@@ -588,7 +593,7 @@ enum PluginInstaller {
 
         var detectedVer: String? = nil
         var detectedBuild: String? = nil
-        let installedPluginRoot = home.appending(path: "plugins/mdflow", directoryHint: .isDirectory)
+        let installedPluginRoot = home.appending(path: "plugins/contextos", directoryHint: .isDirectory)
         detectedBuild = pluginBuildID(pluginRoot: installedPluginRoot)
         
         if FileManager.default.fileExists(atPath: pluginJsonURL.path),
@@ -601,7 +606,7 @@ enum PluginInstaller {
         if detectedVer == nil {
             for line in content.components(separatedBy: .newlines) {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.starts(with: "MDFLOW_VERSION") {
+                if trimmed.starts(with: "CONTEXTOS_VERSION") {
                     let parts = trimmed.components(separatedBy: "=")
                     if parts.count >= 2 {
                         detectedVer = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
@@ -614,7 +619,7 @@ enum PluginInstaller {
         if detectedBuild == nil {
             for line in content.components(separatedBy: .newlines) {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.starts(with: "MDFLOW_BUILD") {
+                if trimmed.starts(with: "CONTEXTOS_BUILD") {
                     let parts = trimmed.components(separatedBy: "=")
                     if parts.count >= 2 {
                         detectedBuild = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
@@ -634,13 +639,17 @@ enum PluginInstaller {
     }
 
     private static func cleanCodexLegacyMarketplace(configURL: URL) {
+        let legacySections: Set<String> = [
+            "[marketplaces.contextos-development]",
+            "[plugins.\"contextos@contextos-development\"]",
+        ]
         guard let configContent = try? String(contentsOf: configURL, encoding: .utf8),
-              configContent.contains("mdflow-development") else { return }
+              legacySections.contains(where: { configContent.contains($0) }) else { return }
         var cleanedLines: [String] = []
         var skipSection = false
         for line in configContent.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed == "[marketplaces.mdflow-development]" || trimmed == "[plugins.\"mdflow@mdflow-development\"]" || trimmed == "[marketplaces.contextos-development]" || trimmed == "[plugins.\"contextos@contextos-development\"]" {
+            if legacySections.contains(trimmed) {
                 skipSection = true
                 continue
             }
@@ -656,12 +665,12 @@ enum PluginInstaller {
 
     private static func cleanTomlMcp(at configURL: URL) {
         guard let content = try? String(contentsOf: configURL, encoding: .utf8),
-              (content.contains("[mcp_servers.contextos]") || content.contains("[mcp_servers.mdflow]")) else { return }
+              content.contains("[mcp_servers.contextos]") else { return }
         var cleanedLines: [String] = []
         var skip = false
         for line in content.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed == "[mcp_servers.contextos]" || trimmed == "[mcp_servers.mdflow]" {
+            if trimmed == "[mcp_servers.contextos]" {
                 skip = true
                 continue
             }
@@ -685,8 +694,8 @@ enum PluginInstaller {
         args = ["--no-warnings=ExperimentalWarning", "\(serverScript)"]
         
         [mcp_servers.contextos.env]
-        MDFLOW_VERSION = "\(version)"
-        MDFLOW_BUILD = "\(build)"
+        CONTEXTOS_VERSION = "\(version)"
+        CONTEXTOS_BUILD = "\(build)"
         """
         try? content.write(to: configURL, atomically: true, encoding: .utf8)
     }

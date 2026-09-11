@@ -1934,7 +1934,7 @@ export function executeGraphPatch(service, {
   const validation = service.validate();
   const markdown = [
     "# Graph patch",
-    "- Protocol: mdflow/1",
+    "- Protocol: contextos/1",
     `- ChangeSet: ${mutation.changeSetId}`,
     `- Graph revision: ${before.project.graphRevision} → ${mutation.graphRevision}`,
     `- Applied: ${mutation.receipts.length} operation(s)`,

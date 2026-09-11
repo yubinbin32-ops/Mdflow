@@ -7,15 +7,15 @@
   </p>
   <p>
     <a href="README_zh.md">中文文档</a> ·
-    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest"><strong>Download Native App (macOS 14+)</strong></a> ·
+    <a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>Download Native App (macOS 14+)</strong></a> ·
     <a href="#headless--cross-platform-cli">Headless CLI / Windows</a> ·
     <a href="#empirical-benchmarks">Empirical Benchmarks</a> ·
-    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/Mdflow-Canvas">MCP Directory</a>
+    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/ContextOS">MCP Directory</a>
   </p>
   <p>
-    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/yubinbin32-ops/Mdflow-Canvas?style=flat-square&color=111111" /></a>
-    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/yubinbin32-ops/Mdflow-Canvas/release.yml?style=flat-square&label=build" /></a>
-    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/yubinbin32-ops/Mdflow-Canvas?style=flat-square" /></a>
+    <a href="https://github.com/yubinbin32-ops/ContextOS/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/yubinbin32-ops/ContextOS?style=flat-square&color=111111" /></a>
+    <a href="https://github.com/yubinbin32-ops/ContextOS/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/yubinbin32-ops/ContextOS/release.yml?style=flat-square&label=build" /></a>
+    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/yubinbin32-ops/ContextOS?style=flat-square" /></a>
     <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-43853d?style=flat-square" />
     <img alt="MCP compatible" src="https://img.shields.io/badge/MCP-compatible-7c3aed?style=flat-square" />
     <img alt="Zero Runtime Deps" src="https://img.shields.io/badge/Runtime%20NPM%20Deps-0-brightgreen?style=flat-square" />
@@ -23,7 +23,7 @@
 </div>
 
 <p align="center">
-  <img src="assets/mdflow-demo.gif" alt="ContextOS Spatial Canvas in action: filtering architecture blocks, tracking impact paths, and inspecting verification evidence" width="100%" />
+  <img src="assets/contextos-demo.gif" alt="ContextOS Spatial Canvas in action: filtering architecture blocks, tracking impact paths, and inspecting verification evidence" width="100%" />
 </p>
 
 <p align="center"><sub>Navigate spatial architecture → trace execution chains → deliver symbol locators to agents → verify deterministic evidence.</sub></p>
@@ -72,7 +72,7 @@ Modern AI coding agents (Claude Code, Cursor, Windsurf, Codex, Devin) encounter 
 
 ### 📥 Download Native App
 Download the standalone application package directly from GitHub Releases:
-- **[ContextOS for macOS (ContextOS-macos.zip)](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest)**  
+- **[ContextOS for macOS (ContextOS-macos.zip)](https://github.com/yubinbin32-ops/ContextOS/releases/latest)**  
 *(Requires macOS 14.0+. Distributed as a clean `.zip` application bundle — zero DMG translocation anomalies).*
 
 ---
@@ -102,13 +102,13 @@ For headless CI/CD pipelines, remote servers, Windows, Linux, or users who do no
 
 ```bash
 # 1. Initialize and automatically scan existing codebase topology
-npx -y github:yubinbin32-ops/Mdflow-Canvas init --scan
+npx -y github:yubinbin32-ops/ContextOS init --scan
 
 # 2. Inspect project architecture health, sync state, and verification gates
-npx -y github:yubinbin32-ops/Mdflow-Canvas status
+npx -y github:yubinbin32-ops/ContextOS status
 
 # 3. Configure local MCP client integrations
-npx -y github:yubinbin32-ops/Mdflow-Canvas setup
+npx -y github:yubinbin32-ops/ContextOS setup
 ```
 
 ---
@@ -117,7 +117,7 @@ npx -y github:yubinbin32-ops/Mdflow-Canvas setup
 
 ```mermaid
 flowchart LR
-  Human["Developer\nNative Spatial Canvas"] <--> Plaintext[".mdflow/graph.json\nGit-Tracked Truth"]
+  Human["Developer\nNative Spatial Canvas"] <--> Plaintext[".contextos/graph.json\nGit-Tracked Truth"]
   Plaintext <--> Engine["Local SQLite Cache\nContext Engine"]
   Engine --> Slice["AST-Sliced Task Context\n(path::symbol locators)"]
   Slice --> Agent["AI Coding Agent\n(via MCP)"]
@@ -131,7 +131,7 @@ flowchart LR
 Instead of flooding the LLM context with full file dumps, ContextOS returns compact locators: target path, symbol signature, derived line boundaries, and interface contracts. The host editor opens only the target method.
 
 ### 2. Git-Native Plaintext Truth (`graph.json`)
-The durable source of truth is a formatted, deterministic JSON file (`.mdflow/graph.json`) versioned in Git alongside source code. A `git checkout` or `git revert` simultaneously restores code and architecture. An embedded SQLite engine provides zero-latency indexed queries with zero external runtime npm dependencies.
+The durable source of truth is a formatted, deterministic JSON file (`.contextos/graph.json`) versioned in Git alongside source code. A `git checkout` or `git revert` simultaneously restores code and architecture. An embedded SQLite engine provides zero-latency indexed queries with zero external runtime npm dependencies.
 
 ### 3. Receipt-Backed Checkpoints & Freshness Gating
 Completion states cannot be asserted by AI declaration. They require execution receipts (`npm test`, compiler diagnostics) logged through `run_command` and bound via `checkpoint_record`. Any modification to bound source code automatically transitions dependent checkpoints to `retest_required`.
@@ -154,7 +154,7 @@ Add to your MCP configuration file (e.g. `~/.cursor/mcp.json` or `claude_desktop
   "mcpServers": {
     "contextos": {
       "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
+      "args": ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
     }
   }
 }
@@ -167,9 +167,9 @@ Or point directly to the bundled standalone engine:
   "mcpServers": {
     "contextos": {
       "command": "node",
-      "args": ["/absolute/path/to/mdflow-mcp.mjs"],
+      "args": ["/absolute/path/to/contextos-mcp.mjs"],
       "env": {
-        "MDFLOW_PROJECT_ROOT": "${workspaceFolder}"
+        "CONTEXTOS_PROJECT_ROOT": "${workspaceFolder}"
       }
     }
   }
@@ -184,7 +184,7 @@ ContextOS is built with zero external runtime npm dependencies:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yubinbin32-ops/Mdflow-Canvas.git && cd Mdflow-Canvas
+git clone https://github.com/yubinbin32-ops/ContextOS.git && cd ContextOS
 
 # Install build dependencies
 npm ci

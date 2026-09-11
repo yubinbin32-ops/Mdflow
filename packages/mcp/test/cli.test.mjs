@@ -21,13 +21,13 @@ test("cli: --version and --help", async () => {
 
 test("cli: status on current repo", async () => {
   const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "status"]);
-  assert.match(stdout, /Project: mdflow/);
+  assert.match(stdout, /Project: contextos/);
   assert.match(stdout, /Blocks: \d+/);
   assert.match(stdout, /Chains: \d+/);
 });
 
 test("cli: init --scan in temporary project", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mdflow-cli-scan-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "contextos-cli-scan-"));
   // Create sample directories and files
   await fs.mkdir(path.join(tmpDir, "src"), { recursive: true });
   await fs.mkdir(path.join(tmpDir, "tests"), { recursive: true });
@@ -38,11 +38,11 @@ test("cli: init --scan in temporary project", async () => {
     cwd: tmpDir,
   });
 
-  assert.match(stdout, /Initialized new mdflow project/);
+  assert.match(stdout, /Initialized new contextos project/);
   assert.match(stdout, /Created 3 initial blocks and 1 baseline chain/);
 
-  // Check that .mdflow/graph.json exists
-  const graphJson = JSON.parse(await fs.readFile(path.join(tmpDir, ".mdflow", "graph.json"), "utf8"));
+  // Check that .contextos/graph.json exists
+  const graphJson = JSON.parse(await fs.readFile(path.join(tmpDir, ".contextos", "graph.json"), "utf8"));
   assert.equal(graphJson.data.blocks.length, 3);
   assert.equal(graphJson.data.chains.length, 1);
 

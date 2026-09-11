@@ -812,7 +812,7 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
   const plugin = pluginRuntimeStatus(service.paths.projectRoot);
 
   const lines = [
-    `# mdflow Architecture & Sync Status`,
+    `# contextos Architecture & Sync Status`,
     `- Project: ${snapshot.project.name || snapshot.project.id} (rev ${snapshot.project.graphRevision})`,
     `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
     `- Chains: ${totalChains} · Links: ${totalLinks}`,

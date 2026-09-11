@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct MdflowDesktopApp: App {
+struct ContextOSDesktopApp: App {
     var body: some Scene {
         WindowGroup("ContextOS") {
             ContentView()
