@@ -1,7 +1,7 @@
 {
   "name": "mdflow",
   "version": "0.3.7",
-  "description": "A context operating system for AI coding agents: architecture graphs, AST code streams, verified mutation, and rollback.",
+  "description": "Spatial architecture canvas and context optimization OS for AI coding agents. AST-sliced task contexts (99.4% token reduction), persistent architecture graphs across sessions, and test-gated verification via MCP.",
   "license": "MIT",
   "type": "module",
   "homepage": "https://dashend.cn",
@@ -12,15 +12,22 @@
     "node": ">=22"
   },
   "keywords": [
-    "mcp",
-    "model-context-protocol",
+    "context-window",
+    "context-optimization",
     "ai-coding",
-    "context-engineering",
-    "architecture",
+    "model-context-protocol",
+    "mcp",
+    "agent-memory",
+    "spatial-canvas",
     "ast",
     "developer-tools",
-    "agent-memory",
-    "local-first"
+    "code-navigation",
+    "local-first",
+    "llm-agents",
+    "architecture-graph",
+    "cursor",
+    "claude-code",
+    "windsurf"
   ],
   "bin": {
     "mdflow": "./plugins/mdflow/server/mdflow-mcp.mjs"

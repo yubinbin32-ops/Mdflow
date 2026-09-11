@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.yubinbin32-ops/mdflow",
-  "title": "mdflow — Context OS for AI Coding Agents",
-  "description": "Context OS for AI coding agents: task-scoped AST context, verified mutation, and rollback.",
+  "title": "ContextOS — Spatial Architecture Canvas & Context OS for AI Coding Agents",
+  "description": "Spatial architecture canvas and context optimization OS for AI coding agents. AST-sliced task contexts (99.4% token reduction), persistent architecture graphs across sessions, and test-gated verification via MCP.",
   "repository": {
     "url": "https://github.com/yubinbin32-ops/Mdflow-Canvas",
     "source": "github"

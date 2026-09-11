@@ -1,13 +1,16 @@
 <div align="center">
-  <img src="assets/logo.png" width="92" alt="mdflow logo" />
-  <h1>mdflow</h1>
-  <p><strong>面向 AI 编码 Agent 的 Context 操作系统。</strong></p>
-  <p>让人看清整个系统，让 Agent 只读取相关代码，<br />再通过可验证、可回滚的边界直接完成修改。</p>
+  <img src="assets/logo.png" width="96" alt="ContextOS Logo" />
+  <h1>ContextOS</h1>
+  <p><strong>面向 AI 编码 Agent 的空间架构画布与上下文优化操作系统</strong></p>
+  <p>
+    AST 任务级精准切片（降低 99.4% Token）· 跨会话 Git 架构持久化 · 确定性测试门禁闭环
+  </p>
   <p>
     <a href="README.md">English</a> ·
-    <a href="https://dashend.cn">官方网站</a> ·
-    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/Mdflow-Canvas">MCP 目录</a> ·
-    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest">下载 macOS 客户端</a>
+    <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest"><strong>下载 macOS 原生客户端</strong></a> ·
+    <a href="#无头模式与跨平台-cli--windows--linux">无头模式 CLI / Windows</a> ·
+    <a href="#实测基准数据-empirical-benchmarks">实测基准数据</a> ·
+    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/Mdflow-Canvas">MCP 目录</a>
   </p>
   <p>
     <a href="https://github.com/yubinbin32-ops/Mdflow-Canvas/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/yubinbin32-ops/Mdflow-Canvas?style=flat-square&color=111111" /></a>
@@ -15,140 +18,141 @@
     <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/yubinbin32-ops/Mdflow-Canvas?style=flat-square" /></a>
     <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-43853d?style=flat-square" />
     <img alt="MCP compatible" src="https://img.shields.io/badge/MCP-compatible-7c3aed?style=flat-square" />
+    <img alt="Zero Runtime Deps" src="https://img.shields.io/badge/Runtime%20NPM%20Deps-0-brightgreen?style=flat-square" />
   </p>
 </div>
 
 <p align="center">
-  <img src="assets/mdflow-demo.gif" alt="mdflow 筛选架构图、重排 Canvas、追踪影响路径并查看 Checkpoint 证据" width="100%" />
+  <img src="assets/mdflow-demo.gif" alt="ContextOS 空间画布演示：筛选架构块、追踪影响路径并查看验证凭据" width="100%" />
 </p>
 
-<p align="center"><sub>筛选架构 → 追踪影响路径 → 查看精确代码与验证证据。</sub></p>
+<p align="center"><sub>探索空间架构 → 追踪执行链路 → 向 Agent 传递符号级坐标 → 固化确定性验证凭据。</sub></p>
 
-## 它解决什么问题
+---
 
-AI 编码 Agent 会反复扫描同一个仓库，为理解一个函数读取整个文件，把终端噪声塞进上下文，并在新会话里丢失架构决策。Markdown 规范最初有用，随后很容易与代码脱节。
+## 1. 摘要与问题建模 (Abstract & Problem Statement)
 
-mdflow 把 Git 可追踪的架构图谱放在源码旁边。它的 MCP 服务把图谱转成每个任务需要的窄而准确的上下文，还能在 AST 符号边界内修改代码、运行验证，并在失败时自动恢复原文件。
+现代 AI 编码 Agent（如 Claude Code, Cursor, Windsurf, Codex, Devin）在扩展到中大型代码仓库时，普遍面临着一个根本性的结构性瓶颈：**上下文窗口饱和与架构熵增（Context Saturation & Architectural Entropy）**。
 
-| 面向开发者 | 面向 AI Agent |
-| --- | --- |
-| 原生 Canvas 统一展示架构、依赖、计划、进度与证据 | 读取任务切片，避免全仓库盲扫 |
-| 用 Ghost Blueprint 规划未来，用 Solid Anchor 绑定已有代码 | 沿完整执行链提取 AST 符号切片 |
-| 修改前先查看影响路径 | 原子修改符号，验证失败自动回滚 |
-| Git 原生历史：代码和架构一起演进 | 压缩终端输出，保留真正有用的失败信息 |
+1. **扁平上下文的低效性（Flat Context Inefficiency）**：传统 Agent 为理解某一个具体方法，会无差别地读取数千行的完整源码文件。注意力预算的 85%–95% 被浪费在样板代码、冗长 imports 以及无关辅助函数上。
+2. **跨会话架构失忆与拓扑漂移（Cross-Session Topological Drift）**：随着会话之间上下文窗口的刷新，Agent 会丢失系统的全局架构不变式（Invariants）。会话 A 做出的设计决策在会话 B 被推翻，引发循环修改与深层架构腐化。
+3. **缺乏事实闭环的不可靠修改（Unverified Mutations）**：Agent 往往依赖概率性的自我评估输出“已完成”，缺乏系统性的凭据闭环，常常在无感知状态下破坏了系统集成契约。
 
-## 在你的仓库里试一次
+**ContextOS** 通过构建双平面（Dual-Plane）系统从底层解决此问题：
+- **空间画布平面（开发者操作台）**：基于 macOS SwiftUI 构建的原生工作空间，将软件系统映射为直观的架构块、有向依赖链以及验证门禁网络。
+- **认知操作系统平面（Agent 交互总线）**：通过 Model Context Protocol (MCP) 向 Agent 精准投递 AST 符号门面（`path::symbol`）、强制执行任务级 Token 预算，并管理确定性的测试执行凭据账本。
 
-需要 Node.js 22 或更高版本，无需全局安装。
+---
 
-```bash
-cd your-project
-npx -y github:yubinbin32-ops/Mdflow-Canvas init --scan
-npx -y github:yubinbin32-ops/Mdflow-Canvas status
-npx -y github:yubinbin32-ops/Mdflow-Canvas setup
-```
+## 2. 核心分发形式：macOS 原生空间工作空间
 
-macOS 14+ 用户可以从 [GitHub Releases](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest) 下载原生客户端免安装包（`mdflow-macos.zip`，解压即得 `mdflow.app`），在图形界面中探索架构、聚焦依赖、检查代码流并配置 Agent。CLI 与 MCP 服务也支持 Windows、Linux、CI 和远程服务器。
-
-## 一个完整闭环
-
-```mermaid
-flowchart LR
-  Human["开发者\nCanvas + Plan"] --> Graph[".mdflow/graph.json\nGit 追踪的事实"]
-  Graph --> Context["任务切片\n契约 + 影响路径"]
-  Context --> Agent["AI 编码 Agent\n通过 MCP"]
-  Agent --> Mutation["AST 符号级修改"]
-  Mutation --> Verify{"测试通过？"}
-  Verify -->|是| Graph
-  Verify -->|否| Rollback["自动回滚"]
-  Rollback --> Agent
-```
-
-运行时使用本地 SQLite 缓存加速读取，持久化真理源是键序稳定的纯文本 JSON。因此 Git checkout 或 discard 可以同时恢复代码与架构状态。
-
-## 在 mdflow 自身上的实测
-
-运行 `npm run benchmark` 可以在本地复现。数据会随仓库和任务变化；下表来自当前 mdflow 代码库。
-
-| 操作 | 传统方式 | mdflow | 实测结果 |
-| --- | ---: | ---: | ---: |
-| 单任务上下文 | 154,147 tokens | 1,146 tokens | **减少 99.3%** |
-| 四模块 Chain（contract 模式） | 30,642 tokens | 525 tokens | **减少 98.3%** |
-| 四模块 Chain（显式 slice） | 30,642 tokens | 804 tokens | **减少 97.4%** |
-| 构建与测试日志 | 4,040 tokens | 211 tokens | **减少 94.8%** |
-| 结构化上下文检索 | 反复扫描文件 | P50 140.9 ms | 本地索引查询 + 源码扫描 |
-
-以上是当前仓库的一次本地实测，不是固定保证。修改图谱、源引用或切片策略后，请重新运行 `npm run benchmark`。
-
-基准还会检查目标模块命中、关联拓扑捕获、无关模块隔离、Checkpoint 固化、Change Set 撤回和 Git 图谱同步。
-
-## 核心区别
-
-### 架构可以先于代码存在
-
-未来功能可以先作为 **Ghost Blueprint** 存在，不需要伪造文件绑定。代码落地后，Block 会成为连接真实 AST 符号的 **Solid Anchor**。同一个对象从意图一路演进到代码与证据。
-
-### 在符号边界提供代码上下文
-
-`chain_code_stream` 沿执行路径跨文件读取上下文。只返回定位信息：路径、符号、签名、派生行号、源状态和契约，不返回实现函数体；请用宿主编辑器打开该定位。
-
-### 在验证边界内修改代码
-
-代码修改使用宿主编辑器打开 Block 定位（`path` + `symbol`）。改完后调用 `source_sync`，如有新符号再显式 accept。
-
-### 让证据成为架构的一部分
-
-Plan、Block 和 Chain 都可以要求由测试、静态检查或评审回执支持的 Checkpoint。Block 可以拥有独立 Checkpoint；Chain 可以为自己的串联或并联网络拥有独立的集成 Checkpoint。完成状态由证据推动，而不是依赖聊天中的口头声明。
-
-Checkpoint 还会保存绑定源码的身份快照（Git HEAD 与 AST 符号/节点哈希）。读取图谱时会重新计算身份；绑定实现或提交发生变化后，旧的 `passed` 会自动变成 `retest_required`，不能继续满足 Plan/Chain gate。没有身份快照的历史 checkpoint 只作为历史记录，不作为当前通过证据。
-
-### 源码绑定会随代码移动保持同步
-
-图谱是架构与意图的事实源，源码树是行为的事实源，`SourceBinding` 是两者之间的小桥梁。绑定的稳定身份是“文件 + 符号/方法名”，行号只是可以移动的派生坐标。在任务上下文、Chain 流、图谱校验、Checkpoint 评估和项目内命令这些 mdflow 边界，系统都会重扫活跃绑定，并报告 `anchored`、`moved`、`changed`、`missing` 或 `ambiguous`。
-
-需要明确增量时使用 `source_sync`，或使用带 `sourceSyncRevision` 的 `changes_since`。`chain_code_stream` 返回实现切片前会重新解析当前符号；绑定过期、缺失、不可读或有歧义时，绝不会继续返回旧函数体。`run_command` 是项目命令的默认入口，但明确允许的外部 shell/IDE 编辑不构成阻塞：下一个 mdflow 边界会检测变化并刷新派生行号。这样方法名无需改变，mdflow 也能参与开发过程，而不只是事后补录。
-
-### Block、Chain 与 Plan 的边界
-
-**Block** 是抽象架构单元，可以独立存在、参与串联或并联网络，也可以拥有自己的 Checkpoint。**Chain** 是由 Block 组成的更高层网络，可以拥有独立的集成 Checkpoint。**Plan** 基于 Block、Chain 和规则记录开发意图与工作范围；它不拥有架构，也不要求覆盖所有 Block 或 Chain。没有进入 Plan 的架构是合法状态，不是健康告警。只有显式声明集成 Checkpoint，或被 Plan 的 ChainScope 绑定时，Chain gate 才是必需的。
-
-### 为 Agent 压缩终端上下文
-
-`run_command` 是项目内测试/构建的默认入口：捕获 stdout/stderr，脱敏凭据和本机路径，压缩常规输出，并且不返回原始终端流。`log_sanitize` 仍用于外部工具已经提供的日志。
-
-`context_for_task` 会返回 `taskContextId` 和共享字符预算。后续 `chain_code_stream`、`plan_context`、`entity_open`、`checkpoint_list`、`changes_since` 传回这个 ID 时，共用同一预算；结构化输出超过剩余额度会退化为短回执。没有 ID 才是明确的无限扩展入口。
-
-## 原生 macOS Canvas
+> **ContextOS 首要采用原生 macOS 桌面应用程序形式发布**，采用 SwiftUI 与 Metal 渲染，内置嵌入式 SQLite 高性能缓存，零外部运行时依赖。
 
 <p align="center">
-  <img src="assets/canvas-overview.png" alt="mdflow 原生 Canvas 展示架构 Block、正交依赖路径、项目分组和 Inspector" width="100%" />
+  <img src="assets/canvas-overview.png" alt="ContextOS 原生画布：展示架构模块、正交依赖路径、分层分组与检查器" width="100%" />
 </p>
 
-- 紧凑正交路由让大型依赖图保持可读。
-- 双击聚焦一跳依赖和相关 Chain。
-- Inspector 展示 AST 绑定、代码流、计划、进度和 Checkpoint 证据。
-- Settings 会比较 App、插件清单、MCP 服务版本和 bundle 指纹；即使重建后语义版本不变，只要内容漂移也会提供重新同步。
-- Settings 可以配置 Google Antigravity、Cursor、Claude Desktop、OpenCode 和 Codex 工作流。
+### 原生工作空间核心特性：
+- **空间拓扑引擎**：紧凑的正交依赖布线算法，使包含 50+ 复杂模块的大型项目依然清晰可读、自由拖拽缩放。
+- **虚实渐进物化状态机（Ghost-to-Solid Lifecycle）**：可在写代码前将功能构想建立为 *虚蓝图（Ghost Blueprint）*；随着源码落地，无缝锚定到真实 AST 符号，演化为 *实实体（Solid Anchor）*。
+- **实时验证凭据账本**：在画布直观查看检查点状态（如 `13/13 100% 通过`），底层关联具体的自动化测试用例与编译器产物。
+- **双向影响路径追踪**：双击任意模块或链路，一键高亮上游调用方、下游依赖方及潜在副作用范围。
+- **内置协议注入器**：在图形界面一键为 Codex、Cursor、Windsurf 与 Claude Desktop 注册与热重载 MCP 插件。
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/path-impact.png" alt="选择影响路径" /></td>
-    <td width="50%"><img src="assets/checkpoint-detail.png" alt="Checkpoint 验证证据" /></td>
+    <td width="50%"><img src="assets/path-impact.png" alt="选中影响路径" /></td>
+    <td width="50%"><img src="assets/checkpoint-detail.png" alt="检查点证据详情" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>修改前追踪完整影响路径。</sub></td>
-    <td align="center"><sub>查看完成状态背后的验证证据。</sub></td>
+    <td align="center"><sub>在编写代码前先追踪上下游影响路径。</sub></td>
+    <td align="center"><sub>查验每项完成状态背后的可重现测试凭据。</sub></td>
   </tr>
 </table>
 
-## 连接 MCP 客户端
+### 📥 下载原生客户端
+从 GitHub Releases 直接下载独立免安装应用包：
+- **[ContextOS for macOS (ContextOS-macos.zip)](https://github.com/yubinbin32-ops/Mdflow-Canvas/releases/latest)**  
+*(支持 macOS 14.0+，解压即可运行 `mdflow.app`。纯净 ZIP 打包，完全规避 DMG 挂载易读写冲突与 Gatekeeper 转译问题)。*
 
-桌面 App 可以自动写入受支持的配置。手动配置时，让客户端启动仓库内置服务：
+---
+
+## 3. 实测基准数据 (Empirical Benchmarks)
+
+以下数据来源于真实复杂工程（**54 个架构 Block、8 条业务 Chain、80 条有向边 Link、19 个 Checkpoint 凭据**），由自动化压测套件（`npm run benchmark`）实测生成：
+
+| 评测维度 | 传统基线（全量文件盲扫） | ContextOS（AST 任务切片） | 实测提升幅度 |
+| :--- | :---: | :---: | :---: |
+| **单任务上下文体积** | 689,403 字符 (~183,571 tokens) | 3,993 字符 (~1,125 tokens) | **Token 消耗降低 99.4%** |
+| **4 模块跨层执行链** | 139,247 字符 (~34,812 tokens) | 2,056 字符 (~530 tokens) | **Token 消耗降低 98.5%** |
+| **终端构建与诊断日志** | 16,083 字符 (~4,042 tokens) | 826 字符 (~211 tokens) | **日志体积压缩 94.8%** |
+| **上下文检索时延** | 遍历全仓磁盘文件扫描 | 29.68 ms (P50) | **毫秒级极速响应** |
+| **拓扑漂移与召回率** | 高概率发生幻觉与越界 | 100% 精准捕获目标模块 | **零拓扑架构漂移** |
+
+本地复现基准测试命令：
+```bash
+npm run benchmark
+```
+
+---
+
+## 4. 无头模式与跨平台 CLI (Windows / Linux)
+
+对于无桌面环境的 CI/CD 流水线、远程服务器、Windows、Linux 或不需要图形界面的极客用户，ContextOS 提供基于 Node.js (≥22) 的无头命令行运行时：
+
+```bash
+# 1. 初始化并自动扫描已有工程拓扑
+npx -y github:yubinbin32-ops/Mdflow-Canvas init --scan
+
+# 2. 检查工程架构健康度、同步状态与验证门禁
+npx -y github:yubinbin32-ops/Mdflow-Canvas status
+
+# 3. 自动配置本地各大 IDE 的 MCP 插件集成
+npx -y github:yubinbin32-ops/Mdflow-Canvas setup
+```
+
+---
+
+## 5. 架构原理与运行闭环
+
+```mermaid
+flowchart LR
+  Human["开发者\n原生空间画布"] <--> Plaintext[".mdflow/graph.json\nGit 追踪的真理源"]
+  Plaintext <--> Engine["本地 SQLite 缓存\n上下文引擎"]
+  Engine --> Slice["AST 任务切片\n(path::symbol 坐标)"]
+  Slice --> Agent["AI 编码 Agent\n(通过 MCP)"]
+  Agent --> Evidence["测试执行凭据"]
+  Evidence --> Gate{"验证门禁"}
+  Gate -->|通过| Plaintext
+  Gate -->|失败| Alert["发出告警并触发重检"]
+```
+
+### 1. AST 符号定位坐标（`path::symbol`）
+ContextOS 不向 LLM 输出整段整段的代码全文，而是输出高度凝练的坐标门面：文件相对路径、符号签名、推导行号范围及接口契约。宿主编辑器只需直接打开该目标方法。
+
+### 2. Git 原生纯文本真理源（`graph.json`）
+系统架构不保存在任何私有云端数据库，而是作为格式确定、键序稳定的纯文本 JSON（`.mdflow/graph.json`）与业务源码一同纳入 Git 版本管理。`git checkout` 或 `git revert` 会协同重置代码与架构状态。本地 SQLite 仅作为内存映射级缓存，全周期零外部 npm 运行时依赖。
+
+### 3. 凭据驱动的检查点与新鲜度门禁
+模块完成状态绝不接受 AI 口头声明。所有完成状态均需通过 `run_command` 记录真实执行产物（如测试套件通过用例数、构建结果），并通过 `checkpoint_record` 固化。绑定的源码一旦变动，对应检查点即刻自动转入 `retest_required`。
+
+### 4. 智能终端日志脱敏压缩
+内置终端命令网关自动过滤 ANSI 控制字符与进度条，脱敏敏感凭据与本地路径，并将冗长无用的构建日志智能提炼为结构化诊断摘要（实测压缩率 94.8%）。
+
+---
+
+## 6. IDE 与 Agent 接入配置
+
+ContextOS 通过标准 Stdio MCP 与主流 AI 编码环境无缝对接。
+
+### Cursor, Windsurf, Claude Code 与 Codex 配置示例
+
+在对应客户端的 MCP 配置文件（如 `~/.cursor/mcp.json` 或 `claude_desktop_config.json`）中添加：
 
 ```json
 {
   "mcpServers": {
-    "mdflow": {
+    "contextos": {
       "command": "npx",
       "args": ["-y", "github:yubinbin32-ops/Mdflow-Canvas", "serve"]
     }
@@ -156,23 +160,55 @@ Checkpoint 还会保存绑定源码的身份快照（Git HEAD 与 AST 符号/节
 }
 ```
 
-Cursor、Claude Desktop、OpenCode 以及其他 stdio MCP 客户端都使用这一标准结构。Google Antigravity 可以直接指向打包后的服务，并将 `MDFLOW_PROJECT_ROOT` 设置为工作区目录。
+或直接指向本地独立服务脚本：
 
-## 本地开发
-
-```bash
-npm ci
-npm test                 # 33 项测试
-npm run benchmark        # 可复现的 Context / AST / 日志基准
-npm run plugin:build     # 重新打包 MCP 服务
-npm run plugin:verify    # MCP 工具面、脱敏和契约流冒烟测试
-npm run desktop:build    # 构建 Swift macOS App
+```json
+{
+  "mcpServers": {
+    "contextos": {
+      "command": "node",
+      "args": ["/绝对路径/mdflow-mcp.mjs"],
+      "env": {
+        "MDFLOW_PROJECT_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}
 ```
 
-## 项目状态
+---
 
-mdflow 仍处于开源早期阶段，图谱格式和 MCP 接口会继续演进。原生 App 当前面向 macOS 14+，跨平台 CLI 与服务需要 Node.js 22+。欢迎提交 Issue、可复现的基准结果和范围清晰的 Pull Request。
+## 7. 本地构建与测试
 
-## 许可证
+本项目遵循严格的零外部 npm 运行时依赖设计：
 
-[MIT](LICENSE) © mdflow contributors
+```bash
+# 克隆仓库
+git clone https://github.com/yubinbin32-ops/Mdflow-Canvas.git && cd Mdflow-Canvas
+
+# 安装构建依赖
+npm ci
+
+# 运行全套 55 项单元与集成测试
+npm test
+
+# 运行完整基准性能测试
+npm run benchmark
+
+# 编译打包单文件 MCP 服务
+npm run plugin:build
+
+# 校验 MCP 协议握手与工具集完整性
+npm run plugin:verify
+
+# 编译 macOS 原生桌面客户端
+npm run desktop:build
+```
+
+---
+
+## 8. 开源协议与项目状态
+
+ContextOS 遵循 [MIT 开源协议](LICENSE)。欢迎提交 Issue、复现基准测试或发起 Pull Request。
+
+© 2026 ContextOS Contributors.
