@@ -47,3 +47,11 @@ test("budget truncation preserves compact operation state", () => {
   assert.equal(result.structured.executionId, "exec_123");
   resetTaskBudgets();
 });
+
+test('exhausted budget does not keep emitting oversized structured receipts',()=>{
+ resetTaskBudgets();const {taskContextId}=startTaskBudget({budgetChars:100});
+ const first=boundTaskResponse({taskContextId,markdown:'x'.repeat(200),data:{output:'y'.repeat(900)},includeStructured:true});
+ const second=boundTaskResponse({taskContextId,markdown:'more',data:{output:'again'},includeStructured:true});
+ const size=r=>r.markdown.length+(r.structured===undefined?0:JSON.stringify(r.structured).length);
+ assert.ok(size(first)+size(second)<=100);resetTaskBudgets();
+});

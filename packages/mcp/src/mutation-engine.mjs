@@ -1,6 +1,7 @@
+import { markProjectionPending, flushProjection } from "./database.mjs";
 import fs from "node:fs";
 import path from "node:path";
-import { transaction, exportGraphToJson } from "./database.mjs";
+import { transaction } from "./database.mjs";
 import { parseGraphPatch } from "./patch.mjs";
 import { expandArrowFlowOperations } from "./flow.mjs";
 import { extractSymbols } from "./ast.mjs";
@@ -175,7 +176,7 @@ export function removeStaleLocalizations(service, entityType, entityId, changedF
 export function executeMutate(
   service,
   { actor = "agent", reason, task = "", gitHead = null, planId = null, chainScopeId = null, operations },
-  { maxOperations = 20, maxInputBytes = 65536 } = {},
+  { maxOperations = 20, maxInputBytes = 65536, commitHook = null } = {},
 ) {
   if (!reason?.trim()) throw new Error("reason is required");
   if (!Array.isArray(operations) || operations.length === 0) throw new Error("operations are required");
@@ -183,6 +184,19 @@ export function executeMutate(
   if (operations.length > maxOperations) throw new Error(`graph_mutate accepts at most ${maxOperations} operations`);
   if (JSON.stringify(operations).length > maxInputBytes) throw new Error("graph_mutate input exceeds 64 KB");
 
+  const fieldSchemas = {
+    create_block: new Set([...EDITABLE_BLOCK_FIELDS, 'localizations']),
+    create_chain: new Set([...EDITABLE_CHAIN_FIELDS, 'localizations']),
+    create_decision: new Set([...EDITABLE_DECISION_FIELDS, 'scopes']),
+    create_plan: new Set([...EDITABLE_PLAN_FIELDS, 'localizations']),
+    create_link: new Set([...EDITABLE_LINK_FIELDS, 'sourceType','sourceId','targetType','targetId','summary']),
+    add_source_ref: new Set(['sourceId','path','symbol','role','startLine','endLine','gitCommit']),
+  };
+  for (const operation of operations) {
+    const allowed = fieldSchemas[operation.action];
+    const unknown = allowed && Object.keys(operation.fields ?? {}).filter(key => !allowed.has(key));
+    if (unknown?.length) throw new Error(`${operation.action}: unknown fields ${unknown.join(', ')}; allowed: ${[...allowed].join(', ')}`);
+  }
   service.ensureSynced();
 
   const database = service.database;
@@ -249,6 +263,28 @@ export function executeMutate(
         .run(projectId, changeSetId, receipt.entityType, receipt.id, receipt.action, timestamp);
     }
 
+    const completions = operations.filter(op => ['create_block','update_block','create_chain','update_chain'].includes(op.action) && op.fields?.deliveryState === 'complete');
+    if (completions.length) {
+      const snapshot = service.snapshot();
+      for (const op of completions) {
+        const type = op.action.endsWith('_chain') ? 'chain' : 'block';
+        const target = op.id ?? receipts[operations.indexOf(op)]?.id;
+        const checks = snapshot.checkpoints.filter(c => c.targetType === type && c.targetId === target);
+        const block = type === 'block' ? snapshot.blocks.find(b=>b.id===target) : null;
+        const sourceBacked = block && ['flow','ui','service','function','integration','api','data','database'].includes(block.kind);
+        if(sourceBacked) {
+          const bindings=[...service.sourceBindingState.values()].filter(b=>b.blockId===target);
+          if(!bindings.length || bindings.some(b=>!b.symbol || ['missing','ambiguous','stale','unreadable','outside_project','line_only'].includes(b.bindingStatus))) throw new Error(`Completion requires valid source bindings and a fresh passed Checkpoint for block:${target}`);
+        }
+        if(type==='chain') {
+          const nodes=snapshot.chainNodes.filter(n=>n.chainId===target);
+          if(!nodes.length || nodes.some(n=>snapshot.blocks.find(b=>b.id===n.blockId)?.deliveryState!=='complete')) throw new Error(`Chain completion requires completed member Blocks: ${target}`);
+        }
+        if ((checks.length || sourceBacked || op.action === 'update_block') && !checks.some(c => c.status === 'passed' && c.freshness?.status === 'fresh')) {
+          throw new Error(`Completion requires a fresh passed Checkpoint for ${type}:${target}; use checkpoint_record and block_seal/task_finish`);
+        }
+      }
+    }
     database
       .prepare(
         `UPDATE projects SET graph_revision = graph_revision + 1, updated_at = ? WHERE id = ?`,
@@ -256,14 +292,18 @@ export function executeMutate(
       .run(timestamp, projectId);
     const graphRevision = database.prepare("SELECT graph_revision FROM projects WHERE id = ?").get(projectId)
       .graph_revision;
+    if (commitHook) commitHook();
+    markProjectionPending(database);
     return { changeSetId, graphRevision, receipts };
   });
 
   if (service.paths.graphJsonPath) {
     try {
-      exportGraphToJson(service.database, service.paths.graphJsonPath);
-    } catch {
-      // preserve mutationResult even if export fails
+      flushProjection(service.database, service.paths.graphJsonPath);
+      mutationResult.projection = { status: "synced" };
+    } catch (error) {
+      mutationResult.projection = { status: "pending", error: error.message };
+      mutationResult.success = false;
     }
   }
 
@@ -1510,7 +1550,7 @@ export function updateEntity(service, type, operation, { timestamp }) {
         !entityExists(service.database, service.paths.descriptor.id, "decision", rawValue)) {
       throw new Error(`decision:${rawValue} not found`);
     }
-    const column = field === "proposedDelta" ? "proposed_delta_json"
+    const column = field === "tags" ? "tags_json" : field === "proposedDelta" ? "proposed_delta_json"
       : field === "completionPolicy" ? "completion_policy_json"
         : field === "blockers" ? "blockers_json"
           : field === "alternatives" ? "alternatives_json"

@@ -43,7 +43,7 @@ test("source binding follows a moved symbol and reports external implementation 
             summary: "Processes payments",
             contract: "processPayment(amount) -> number",
             architectureLayer: "application",
-            deliveryState: "complete",
+            deliveryState: "implementing",
           },
         },
         {
@@ -174,7 +174,7 @@ test("standalone Blocks and Chains do not create implicit verification gates", a
         {
           action: "create_block",
           id: "standalone-block",
-          fields: { title: "Standalone block", kind: "service", architectureLayer: "application", deliveryState: "complete" },
+          fields: { title: "Standalone block", kind: "service", architectureLayer: "application", deliveryState: "implementing" },
         },
         {
           action: "create_block",

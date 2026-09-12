@@ -1,4 +1,4 @@
-import { exportGraphToJson, transaction } from "./database.mjs";
+import { markProjectionPending, flushProjection, transaction } from "./database.mjs";
 import {
   assertAllowed,
   LOCALES,
@@ -246,6 +246,7 @@ export function recordCheckpoint(service, {
     service.database
       .prepare("UPDATE projects SET graph_revision = graph_revision + 1, updated_at = ? WHERE id = ?")
       .run(timestamp, service.paths.descriptor.id);
+    markProjectionPending(service.database);
     return {
       changeSetId,
       graphRevision: service.project().graph_revision,
@@ -263,10 +264,10 @@ export function recordCheckpoint(service, {
   // imports the checked-in graph.json.
   if (service.paths.graphJsonPath) {
     try {
-      exportGraphToJson(service.database, service.paths.graphJsonPath);
-    } catch {
-      // The database mutation is authoritative; preserve the successful
-      // checkpoint receipt when the derived projection cannot be written.
+      flushProjection(service.database, service.paths.graphJsonPath);
+    } catch (error) {
+      result.success = false;
+      result.projection = { status: "pending", error: error.message };
     }
   }
   return result;

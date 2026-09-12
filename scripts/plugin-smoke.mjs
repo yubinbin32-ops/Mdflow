@@ -9,7 +9,7 @@ const transport = new StdioClientTransport({
   args: ["plugins/contextos/server/contextos-mcp.mjs"],
   cwd: projectRoot,
 });
-const client = new Client({ name: "contextos-plugin-smoke", version: "0.3.9" });
+const client = new Client({ name: "contextos-plugin-smoke", version: "0.4.0" });
 const packageVersion = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
 const pluginVersion = JSON.parse(fs.readFileSync("plugins/contextos/.codex-plugin/plugin.json", "utf8")).version;
 const appVersion = fs.readFileSync("apps/desktop/Resources/Info.plist", "utf8").match(/CFBundleShortVersionString<\/key>\s*<string>([^<]+)/)?.[1];
@@ -20,10 +20,14 @@ try {
   await client.connect(transport);
   const listing = await client.listTools();
   const names = new Set(listing.tools.map((tool) => tool.name));
-  for (const required of ["context_for_task", "chain_code_stream", "source_sync", "run_command", "log_sanitize"]) {
+  for (const required of ["context_for_task", "chain_code_stream", "source_sync", "run_command", "log_sanitize", "document_list", "document_open", "task_begin", "task_scope", "task_reconcile", "task_finish", "runtime_info"]) {
     assert.ok(names.has(required), `missing MCP tool: ${required}`);
   }
 
+  const runtime = await client.callTool({name:"runtime_info",arguments:{projectRoot,includeStructured:true}});
+  assert.ok(!runtime.isError);assert.match(JSON.stringify(runtime),/0\.4\.0/);
+  const documents = await client.callTool({name:"document_list",arguments:{projectRoot}});
+  assert.ok(!documents.isError);assert.match(JSON.stringify(documents),/documents/);
   const chainTool = listing.tools.find((tool) => tool.name === "chain_code_stream");
   assert.ok(!listing.tools.some((tool) => tool.name === "block_code_mutate"), "block_code_mutate must be removed");
   assert.ok(listing.tools.find((tool) => tool.name === "changes_since").inputSchema.properties.sourceSyncRevision, "changes_since must expose sourceSyncRevision");
@@ -33,7 +37,7 @@ try {
     arguments: { projectRoot, task: "plugin smoke budget", maxChars: 1000, budgetChars: 4000 },
   });
   const contextText = contextResult.content?.map((item) => item.text ?? "").join("\n") ?? "";
-  const taskContextId = contextText.match(/task_[0-9a-f-]{36}/)?.[0];
+  const taskContextId = contextText.match(/Context ID: (task_[0-9a-f-]{36})/)?.[1];
   assert.ok(taskContextId, "context_for_task must return a taskContextId");
   for (const redundant of ["Unplanned:", "Checkpoint-free Blocks", "Uncovered direct Blocks", "Outside this Plan"]) {
     assert.ok(!contextText.includes(redundant), `context_for_task leaked redundant label: ${redundant}`);

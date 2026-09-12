@@ -1,7 +1,7 @@
 {
   "name": "contextos",
-  "version": "0.3.9",
-  "description": "Context optimization OS for AI coding agents. AST-sliced task contexts, persistent architecture graphs, and test-gated verification via MCP.",
+  "version": "0.4.0",
+  "description": "Task-focused code locators, persistent project knowledge, read-only README previews and verified task completion via MCP.",
   "author": {
     "name": "ContextOS"
   },
@@ -25,7 +25,10 @@
       "AST locators and source-drift protection",
       "Checkpoint freshness and retest gating",
       "Architecture and progress synchronization",
-      "Checkpoint evidence"
+      "Checkpoint evidence",
+      "OS Markdown documents and chapter retrieval",
+      "Persistent task reconciliation and resumable handoffs",
+      "Read-only README in the knowledge reader"
     ],
     "defaultPrompt": [
       "Use ContextOS to understand this task and keep its project graph synchronized."

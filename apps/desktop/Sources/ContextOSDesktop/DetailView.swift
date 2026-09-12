@@ -30,6 +30,9 @@ struct DetailView: View {
                     .help(store.activeLocale == "zh-Hans" ? "关闭详情" : "Close details")
                 }
                 entityContent
+                ForEach(relatedKnowledge, id: \.id) { doc in
+                    Button { NotificationCenter.default.post(name: Notification.Name("OpenKnowledgeDocument"), object: nil, userInfo: ["id":doc.id]) } label: { Label(doc.title, systemImage: "doc.text") }.buttonStyle(.bordered)
+                }
                 revisionSection
                 checkpointSection
                 historySection
@@ -698,6 +701,16 @@ struct DetailView: View {
             Text("r\(revision)")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundStyle(ContextOSTheme.muted)
+        }
+    }
+
+    private var relatedKnowledge: [(id: String, title: String)] {
+        let file = URL(fileURLWithPath: store.projectRoot).appendingPathComponent(".contextos/graph.json")
+        guard let data = try? Data(contentsOf: file), let graph = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let tables = graph["data"] as? [String: Any], let rows = tables["documents"] as? [[String: Any]] else { return [] }
+        let ref = "\(selection.type.rawValue):\(selection.id)"
+        return rows.compactMap { row in
+            guard let id = row["id"] as? String, let title = row["title"] as? String, let raw = row["relations_json"] as? String, let rawData = raw.data(using: .utf8), let refs = try? JSONDecoder().decode([String].self, from: rawData), refs.contains(ref) else { return nil }
+            return (id, title)
         }
     }
 

@@ -1,214 +1,206 @@
 <div align="center">
-  <img src="assets/logo.png" width="96" alt="ContextOS Logo" />
-  <h1>ContextOS</h1>
-  <p><strong>Spatial Architecture Canvas & Context Optimization Operating System for AI Coding Agents</strong></p>
-  <p>
-    AST-sliced task contexts (99.4% token reduction) · Cross-session architecture memory · Deterministic verification gates
-  </p>
-  <p>
-    <a href="README_zh.md">中文文档</a> ·
-    <a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>Download Native App (macOS 14+)</strong></a> ·
-    <a href="#headless--cross-platform-cli">Headless CLI / Windows</a> ·
-    <a href="#empirical-benchmarks">Empirical Benchmarks</a> ·
-    <a href="https://glama.ai/mcp/servers/yubinbin32-ops/ContextOS">MCP Directory</a>
-  </p>
-  <p>
-    <a href="https://github.com/yubinbin32-ops/ContextOS/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/yubinbin32-ops/ContextOS?style=flat-square&color=111111" /></a>
-    <a href="https://github.com/yubinbin32-ops/ContextOS/actions/workflows/release.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/yubinbin32-ops/ContextOS/release.yml?style=flat-square&label=build" /></a>
-    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/yubinbin32-ops/ContextOS?style=flat-square" /></a>
-    <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-43853d?style=flat-square" />
-    <img alt="MCP compatible" src="https://img.shields.io/badge/MCP-compatible-7c3aed?style=flat-square" />
-    <img alt="Zero Runtime Deps" src="https://img.shields.io/badge/Runtime%20NPM%20Deps-0-brightgreen?style=flat-square" />
-  </p>
+  <img src="assets/logo.png" width="76" alt="ContextOS" />
+  <h1>Start every conversation with project memory.</h1>
+  <p><strong>ContextOS · Architecture, source locators, decisions, and progress in one workspace</strong></p>
+  <p>Understand the feature map. Open the code you need. Keep project knowledge across conversations.</p>
+  <p><a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>Download macOS App</strong></a> · <a href="#get-started">Get started</a> · <a href="#copy-a-prompt">Copy a prompt</a> · <a href="#measurements">Measurements</a> · <a href="README_zh.md">中文教程</a></p>
 </div>
 
-<p align="center">
-  <img src="assets/contextos-demo.gif" alt="ContextOS Spatial Canvas in action: filtering architecture blocks, tracking impact paths, and inspecting verification evidence" width="100%" />
-</p>
+![ContextOS architecture and verification walkthrough](assets/contextos-demo.gif)
 
-<p align="center"><sub>Navigate spatial architecture → trace execution chains → deliver symbol locators to agents → verify deterministic evidence.</sub></p>
+| When you need to… | ContextOS helps you… |
+| :--- | :--- |
+| Start a fresh conversation | Retrieve relevant architecture, rules, decisions, and progress |
+| Find a method | Use file + symbol locators, then read the implementation you need |
+| Run a noisy build | Receive redacted, compressed output through `run_command` |
+| Keep project knowledge current | Store development knowledge in the OS |
+| Check whether work is finished | Review checkpoints and source freshness |
 
----
+> **0.4.0:** a knowledge reader, OS Markdown documents, a persistent source index and verified task completion. The App periodically checks source changes while the project is open. Agents declare feature intent; reconciliation checks bindings, feature membership and evidence before delivery.
 
-## 1. Abstract & Problem Statement
+## Get started
 
-Modern AI coding agents (Claude Code, Cursor, Windsurf, Codex, Devin) encounter a structural bottleneck when scaled to medium-to-large software repositories: **Context Window Saturation and Architectural Entropy**.
+**Download → Settings → Install/sync → Confirm in Codex → Start a new conversation.**
 
-1. **Flat Context Inefficiency**: Conventional agents indiscriminately ingest thousands of lines of raw source files to inspect individual methods. Over 85–95% of the attention budget is expended on boilerplate imports, formatting, and unrelated helper routines.
-2. **Cross-Session Topological Drift**: Because context windows flush between prompts, agents lose the system's global architectural invariants. Decisions made in session A are violated in session B, generating cyclic regressions and architectural decay.
-3. **Unverified Mutations**: Agents assert completion based on probabilistic self-assessment rather than deterministic evidence closure, bypassing integration contracts and test verification gates.
+1. Download **ContextOS-macos.zip** from [Releases](https://github.com/yubinbin32-ops/ContextOS/releases/latest), unzip it, and move **ContextOS.app** into Applications. Requires macOS 14+, Codex, and Node.js 22+ with built-in SQLite available. The current release workflow uses ad-hoc signing; Control-click → Open if macOS blocks the first launch.
+2. Open the **gear / Settings** in ContextOS. Find **Codex** under **AI EDITOR MCP BRIDGES**. Use that row’s install/sync action: the current source UI labels first-time setup **Sync**, with **Re-sync**, **Update**, or **Reinstall** for existing configurations.
+3. Open Codex **Plugins**, find **ContextOS** in the installed list (the local source may appear under Personal), and start a **new conversation**. Installed skills become available in new sessions; see the [official plugin guide](https://learn.chatgpt.com/docs/plugins).
+4. Open the **same repository directory** in Codex and ContextOS. Use your code repository, not the application installation directory.
+5. Send the first prompt below. Success means an actual ContextOS tool call returns the correct project. An empty graph is a starting point, not proof of complete architecture coverage.
 
-**ContextOS** solves this by establishing a dual-plane operating system:
-- **The Spatial Canvas (Developer Interface)**: A native macOS SwiftUI workspace that projects software systems into interactive architectural blocks, directed dependency chains, and verification gates.
-- **The Cognitive Plane (Agent Interface)**: A Model Context Protocol (MCP) server that delivers task-sliced AST symbol facades (`path::symbol`), enforces strict token budgets, and manages cryptographic test execution receipts.
+```text
+Use ContextOS for this project. Check that its tools and skill are available.
+Call context_for_task with this repository’s absolute path; register it first if needed.
+Show the project name, relevant features, current progress, and synchronization issues.
+Use source locators before opening implementation files.
+```
 
----
+If the App says Connected but the complete plugin is absent in Codex, installation may have fallen back to MCP configuration only. Reinstall from Settings, restart Codex, and verify a real tool call in a new conversation.
 
-## 2. Primary Distribution: Native macOS Spatial Workspace
+## Read project knowledge in the App
 
-> **ContextOS is primarily designed and distributed as a native macOS application** built with SwiftUI, Metal rendering, and embedded SQLite caching.
+Expand **Knowledge** in the sidebar and select a README or OS Document to read it in the **right inspector**. The architecture canvas stays visible. README stays at its original path and is read-only in the App. Internal audits, designs and guides live in OS Documents, with chapters, images, tables and links back to architecture entities.
 
-<p align="center">
-  <img src="assets/canvas-overview.png" alt="Native ContextOS Canvas showing architecture blocks, orthogonal dependency paths, project groups, and the inspector" width="100%" />
-</p>
+![ContextOS knowledge reader](assets/knowledge-reader.png)
 
-### Native Workspace Capabilities:
-- **Spatial Topology Engine**: Compact orthogonal dependency routing keeps complex architectures with 50+ modules readable and navigable.
-- **Ghost-to-Solid Lifecycle**: Formulate new features as *Ghost Blueprints* before code exists; progressively anchor blocks to real AST symbols as implementations land.
-- **Verification Gate Ledgers**: Live Checkpoint status indicators (e.g. `13/13 100% Passed`) backed by concrete test cases and compiler receipts.
-- **Visual Impact Tracing**: Double-click any block or chain to illuminate one-hop dependencies, upstream callers, and downstream side-effects.
-- **In-App Protocol Dispatch**: One-click registration and bundle synchronization for Codex, Cursor, Windsurf, and Claude Desktop.
+![Read-only README and installation guide](assets/readme-reader.png)
 
-<table>
-  <tr>
-    <td width="50%"><img src="assets/path-impact.png" alt="Selected impact path" /></td>
-    <td width="50%"><img src="assets/checkpoint-detail.png" alt="Checkpoint evidence" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Trace upstream & downstream impact before writing code.</sub></td>
-    <td align="center"><sub>Inspect verifiable test receipts behind completion.</sub></td>
-  </tr>
-</table>
+```text
+Write this proposal as a ContextOS Document, not a new docs/*.md file.
+Keep the full explanation, images and acceptance criteria. Relate it to the
+relevant Blocks, Chains and Decisions. Store the concise choice as a Decision.
+Return the App document link; use chapter updates for future revisions.
+```
 
-### 📥 Download Native App
-Download the standalone application package directly from GitHub Releases:
-- **[ContextOS for macOS (ContextOS-macos.zip)](https://github.com/yubinbin32-ops/ContextOS/releases/latest)**  
-*(Requires macOS 14.0+. Distributed as a clean `.zip` application bundle — zero DMG translocation anomalies).*
+This repository’s [sync audit](contextos://knowledge?document=sync-redesign), [reader design](contextos://knowledge?document=knowledge-reader-design) and [measurement methodology](contextos://knowledge?document=benchmark-methodology) are stored in the OS. Open this repository in ContextOS before following those links. Raw benchmark JSON remains versioned in Git.
 
----
+![Feature chain and module relationships](assets/path-impact.png)
 
-## 3. Empirical Benchmarks
+Follow a feature Chain to the modules and code locators involved.
 
-The following results were measured directly on a real-world repository (**54 Architectural Blocks, 8 Chains, 80 Directed Links, 19 Checkpoints**) using the reproducible benchmark suite (`npm run benchmark`):
+![Checkpoint evidence](assets/checkpoint-detail.png)
 
-| Evaluation Dimension | Baseline (Conventional File Ingestion) | ContextOS (AST Task Slice) | Empirical Delta |
-| :--- | :---: | :---: | :---: |
-| **Task Context Window** | 689,403 chars (~183,571 tokens) | 3,993 chars (~1,125 tokens) | **99.4% Token Reduction** |
-| **4-Module Execution Chain** | 139,247 chars (~34,812 tokens) | 2,056 chars (~530 tokens) | **98.5% Token Reduction** |
-| **Terminal Log Diagnostics** | 16,083 chars (~4,042 tokens) | 826 chars (~211 tokens) | **94.8% Compression** |
-| **Context Retrieval Latency** | Sequential File Traversal | 29.68 ms (P50) | **Sub-30ms Instant Lookup** |
-| **Topological Drift & Recall** | High Hallucination Risk | 100% Target Module Recall | **Zero Architectural Drift** |
+Checkpoints connect delivery to verification evidence. These two screenshots illustrate existing features; current styling may differ.
 
-To reproduce these metrics locally on your own machine:
+## Copy a prompt
+
+<details open>
+<summary><strong>Bring an existing project into the OS</strong></summary>
+
+```text
+Use ContextOS to map this project. During this initial migration, inspect existing
+README, architecture notes, rules, and code entry points as needed. Create Blocks
+for modules, Chains for actual feature flows, and file + symbol source bindings.
+Store scoped rules, Decisions, and unfinished Plans. Separate facts from assumptions.
+After migration, maintain development knowledge in the OS instead of new architecture,
+TODO, or decision-log Markdown files. Keep public onboarding and license documents.
+Show the migration mapping before deleting any old documents.
+```
+
+</details>
+
+<details>
+<summary><strong>Build a feature</strong></summary>
+
+```text
+Implement [feature]. Retrieve ContextOS context and applicable rules first.
+Record design decisions and planned Blocks before implementation; draft the feature Chain.
+Open code using locators, verify through run_command, synchronize bindings, and record
+real checkpoint evidence. Use task_begin to declare scope, task_reconcile after edits, and task_finish to complete verified Blocks and the feature
+Chain, update progress, and validate the graph before reporting completion.
+```
+
+</details>
+
+<details>
+<summary><strong>Fix a bug</strong></summary>
+
+```text
+[Describe actual behavior, expected behavior, and reproduction steps.]
+Locate the relevant Chain and Blocks in ContextOS, expand required rules and decisions,
+then inspect the indicated methods. Use run_command for tests and concise logs.
+Synchronize source bindings and record verification afterward; leave uncertain work unverified.
+```
+
+</details>
+
+<details>
+<summary><strong>Record a rule or decision</strong></summary>
+
+```text
+Record [project rule] as a scoped ContextOS constraint, not a new Markdown file.
+Record [choice, rationale, rejected alternatives] as a Decision with the relevant scope,
+so the next conversation can retrieve it when needed.
+```
+
+</details>
+
+<details>
+<summary><strong>Close work and resume in a new conversation</strong></summary>
+
+```text
+Close this task in ContextOS: reconcile source bindings, verify implemented Blocks,
+record evidence, check the feature Chain, and update progress and next steps.
+Run graph_validate and report unresolved issues. Independent Blocks may remain standalone.
+```
+
+In the next conversation:
+
+```text
+Resume this project from ContextOS. My task is [task]. Retrieve relevant features,
+mandatory rules, recent decisions, and unfinished work, then continue.
+Expand referenced details if the context is truncated instead of rereading the entire repository.
+```
+
+</details>
+
+## What belongs in the OS?
+
+| Knowledge | OS entity |
+| :--- | :--- |
+| Module responsibilities and contracts | Block |
+| Feature flows and relationships | Chain + Link |
+| Implementation locations | SourceBinding |
+| Project conventions | Scoped rule |
+| Design rationale | Decision |
+| Work scope, progress, handoff | Plan + Timeline |
+| Verification evidence | Checkpoint |
+| Internal audits, designs and guides | Document |
+| Resumable task and verified completion | TaskSession |
+
+Ghost means planned architecture. An implementation exists when its source is bound; delivery requires appropriate verification. A file’s existence alone does not prove completion. Standalone modules do not need artificial Chains.
+
+ContextOS aims to replace **development knowledge documents**. Public tutorials remain useful. Code remains the authority for behavior; locators reduce unnecessary reads rather than eliminating implementation inspection.
+
+## Measurements
+
+Measured 2026-09-12 on an isolated snapshot of this repository: Apple M1, Node v22.22.1, 59 Blocks / 10 Chains / 85 Links. [Raw JSON and input hashes](docs/benchmarks/2026-09-12-v040.json) · [Methodology](contextos://knowledge?document=benchmark-methodology).
+
+| Metric | Observed result | Boundary |
+| :--- | :--- | :--- |
+| Chain locator size | 211,851 → 2,059 characters; **99.02% smaller** | Compared with the four actual bound files; later source reads excluded |
+| Synthetic log size | 10,071 → 828 characters; **91.78% smaller** | Deterministic fixture, not a real build; key error retained |
+| Task response | 4,000 characters | 4,000-character budget; all four queries truncated |
+| Expected target visible in response | **4/4 queries** | Diagnostic cases, not general retrieval accuracy |
+| Local retrieval latency | P50 **394.15 ms**, P95 **465.35 ms** | 12 service calls; not a production performance guarantee |
+
+The same four queries returned 1/4 expected refs in the [earlier snapshot](docs/benchmarks/2026-09-12.json). This run includes both ranking changes and corrected architecture descriptions, so it is not an algorithm-only controlled comparison. All four summaries still truncate at 4,000 characters and require focused expansion.
+
+**Author’s personal impression: roughly 60% fewer session compactions during use. This is subjective experience, not a counted comparison, benchmark or guarantee.** Response characters, model tokens, and session compaction events are different measurements. We do not claim zero drift, perfect recall, or 99% task-level token savings from these numbers.
+
+## Troubleshooting
+
+| Symptom | Next action |
+| :--- | :--- |
+| Tools unavailable | Check the installed plugin, start a new conversation, then re-sync/restart if needed |
+| Node or SQLite missing | Install a compatible Node.js 22+ runtime and make `node` discoverable by the client |
+| Wrong project returned | Pass the current repository/worktree’s absolute path explicitly |
+| Stale plugin warning | Update/re-sync in Settings, restart Codex, verify the running build |
+| Implemented code still a Ghost | Check symbol bindings and verification, then seal the Block |
+| Blocks without a feature Chain | Explicitly reconcile the feature’s entry point, steps, and outcome |
+| Truncated context or rules listed only by title | Expand relevant references before implementation; increase budget if necessary |
+| Checkpoint requires retesting | Rerun affected verification and record fresh evidence |
+
+## Development and headless use
+
 ```bash
-npm run benchmark
-```
-
----
-
-## 4. Headless & Cross-Platform CLI
-
-For headless CI/CD pipelines, remote servers, Windows, Linux, or users who do not require the visual desktop application, ContextOS runs headlessly via Node.js (≥22):
-
-```bash
-# 1. Initialize and automatically scan existing codebase topology
-npx -y github:yubinbin32-ops/ContextOS init --scan
-
-# 2. Inspect project architecture health, sync state, and verification gates
-npx -y github:yubinbin32-ops/ContextOS status
-
-# 3. Configure local MCP client integrations
-npx -y github:yubinbin32-ops/ContextOS setup
-```
-
----
-
-## 5. Architectural Principles & Operational Closed Loop
-
-```mermaid
-flowchart LR
-  Human["Developer\nNative Spatial Canvas"] <--> Plaintext[".contextos/graph.json\nGit-Tracked Truth"]
-  Plaintext <--> Engine["Local SQLite Cache\nContext Engine"]
-  Engine --> Slice["AST-Sliced Task Context\n(path::symbol locators)"]
-  Slice --> Agent["AI Coding Agent\n(via MCP)"]
-  Agent --> Evidence["Test Execution Receipt"]
-  Evidence --> Gate{"Verification Gate"}
-  Gate -->|Passed| Plaintext
-  Gate -->|Failed| Alert["Drift Warning & Retest"]
-```
-
-### 1. AST Symbol Locators (`path::symbol`)
-Instead of flooding the LLM context with full file dumps, ContextOS returns compact locators: target path, symbol signature, derived line boundaries, and interface contracts. The host editor opens only the target method.
-
-### 2. Git-Native Plaintext Truth (`graph.json`)
-The durable source of truth is a formatted, deterministic JSON file (`.contextos/graph.json`) versioned in Git alongside source code. A `git checkout` or `git revert` simultaneously restores code and architecture. An embedded SQLite engine provides zero-latency indexed queries with zero external runtime npm dependencies.
-
-### 3. Receipt-Backed Checkpoints & Freshness Gating
-Completion states cannot be asserted by AI declaration. They require execution receipts (`npm test`, compiler diagnostics) logged through `run_command` and bound via `checkpoint_record`. Any modification to bound source code automatically transitions dependent checkpoints to `retest_required`.
-
-### 4. Terminal Log Sanitization
-The command gateway intercepts terminal execution, strips ANSI sequences and progress bars, redacts local paths and secrets, and condenses repetitive logs into structured diagnostic summaries (94.8% token compression).
-
----
-
-## 6. IDE & Agent Integration
-
-ContextOS integrates natively via standard stdio Model Context Protocol (MCP).
-
-### Configuration for Cursor, Windsurf, Claude Code, & Codex
-
-Add to your MCP configuration file (e.g. `~/.cursor/mcp.json` or `claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "contextos": {
-      "command": "npx",
-      "args": ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
-    }
-  }
-}
-```
-
-Or point directly to the bundled standalone engine:
-
-```json
-{
-  "mcpServers": {
-    "contextos": {
-      "command": "node",
-      "args": ["/absolute/path/to/contextos-mcp.mjs"],
-      "env": {
-        "CONTEXTOS_PROJECT_ROOT": "${workspaceFolder}"
-      }
-    }
-  }
-}
-```
-
----
-
-## 7. Local Development & Verification
-
-ContextOS is built with zero external runtime npm dependencies:
-
-```bash
-# Clone the repository
-git clone https://github.com/yubinbin32-ops/ContextOS.git && cd ContextOS
-
-# Install build dependencies
+git clone https://github.com/yubinbin32-ops/ContextOS.git
+cd ContextOS
 npm ci
-
-# Run the 55-test verification suite
 npm test
-
-# Run the empirical benchmark suite
-npm run benchmark
-
-# Build the MCP bundled server
-npm run plugin:build
-
-# Verify MCP protocol handshake & tool surface
+npm run benchmark -- --output /tmp/contextos-benchmark.json
 npm run plugin:verify
-
-# Build the native macOS desktop application
 npm run desktop:build
 ```
 
----
+Desktop builds require macOS and Swift/Xcode tools. For headless use, run these in your repository with Node.js 22+. Initial scanning seeds a map; review its feature semantics.
 
-## 8. License & Status
+```bash
+npx -y github:yubinbin32-ops/ContextOS init --scan
+npx -y github:yubinbin32-ops/ContextOS status
+npx -y github:yubinbin32-ops/ContextOS serve
+```
 
-ContextOS is an open-source project distributed under the [MIT License](LICENSE). Contributions, benchmark validations, and feature requests are welcome.
+Architecture intent lives in `.contextos/graph.json`; SQLite supports local queries and runtime evidence. Commit the graph with related source changes, then recheck bindings and evidence after a Git restore. Keep project rules and decisions canonical in the OS.
 
-© 2026 ContextOS Contributors.
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT License](LICENSE)

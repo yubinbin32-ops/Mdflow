@@ -443,6 +443,8 @@ enum ViewLens: String, CaseIterable, Identifiable {
 }
 
 enum SidebarSection: String, CaseIterable, Identifiable {
+    case knowledge
+    case synchronization
     case projectRules
     case decisions
     case plans

@@ -1,3 +1,4 @@
+import { listDocuments } from "./documents.mjs";
 import {
   architectureCoverage,
   assertAllowed,
@@ -10,7 +11,7 @@ import {
 import { analyzeGraphDrift } from "./query-engine.mjs";
 import { pluginRuntimeStatus } from "./plugin-runtime.mjs";
 
-export function buildContextForTask(service, { task, focusRefs = [], maxChars = 6000, locale = "en" } = {}) {
+export function buildContextForTask(service, { task, focusRefs = [], maxChars = 6000, locale = "en", repositorySync = null } = {}) {
   const snapshot = service.snapshot();
   const coverage = architectureCoverage(snapshot);
   assertAllowed(locale, LOCALES, "locale");
@@ -28,13 +29,17 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
   const backgroundRuleIds = new Set(snapshot.backgroundScopes.map((scope) => scope.blockId));
   const planSignals = new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "计划", "进度", "阻塞", "发布"]);
   const taskMentionsPlan = terms.some((term) => planSignals.has(term));
+  // Downweight ubiquitous terms (e.g. MCP) so a specific platform or feature
+  // name is not buried by broad infrastructure matches.
+  const corpus = snapshot.blocks.map(b => `${b.id} ${b.title} ${b.summary} ${b.body} ${b.contract} ${b.tags.join(' ')} ${localizedSearchText(snapshot,'block',b.id)}`.toLowerCase());
+  const termWeights = new Map(terms.map(term => [term, 1 + Math.log((corpus.length+1)/(corpus.filter(text=>text.includes(term)).length+1))]));
   const scoreText = (text, weight = 1) => {
     if (!text) return 0;
     const lower = text.toLowerCase();
     let matchCount = 0;
     for (const term of terms) {
       if (lower.includes(term)) {
-        matchCount += weight * (term.length >= 4 ? 2 : 1);
+        matchCount += weight * (term.length >= 4 ? 2 : 1) * (termWeights.get(term) ?? 1);
       }
     }
     return matchCount;
@@ -43,6 +48,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     .filter((block) => !backgroundRuleIds.has(block.id) && block.kind !== "decision")
     .map((block) => {
       let semanticScore = 0;
+      semanticScore += scoreText(block.id, 4);
       semanticScore += scoreText(block.title, 5);
       semanticScore += scoreText(block.summary, 3);
       semanticScore += scoreText(block.tags.join(" "), 4);
@@ -479,12 +485,43 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     lines.push("");
   }
   lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, Link, or Decision when more detail is needed.");
-  const fullMarkdown = lines.join("\n");
-  const markdown = fullMarkdown.length <= maxChars
-    ? fullMarkdown
-    : `${fullMarkdown.slice(0, Math.max(0, maxChars - 112))}\n\n[truncated; use plan_context, entity_open, checkpoint_list, or changes_since for the referenced detail]`;
+  // Reserve the front of the pack for the task, not a stale plan's narrative.
+  const priority = [`# Task Context`, `Task: ${task}`, `Graph revision: ${snapshot.project.graphRevision}`, '', '## Task essentials'];
+  if(repositorySync) priority.splice(3,0,`Source index: ${repositorySync.files} files; ${repositorySync.unboundCount} without bindings (includes tests/tooling). Use source_index to inspect.`);
+  const resumableTasks = service.database.prepare("SELECT id,intent,scope_json FROM task_sessions WHERE status='active' ORDER BY updated_at DESC LIMIT 3").all();
+  if(resumableTasks.length) priority.splice(4,0,'## Resume / synchronization',...resumableTasks.map(t=>`- ${t.id}: ${t.intent.slice(0,100)}; next: ${(JSON.parse(t.scope_json).nextAction??'task_reconcile').slice(0,100)}`),'');
+  const visibleRefs = new Set();
+  for (const {block} of scoredBlocks.slice(0,5)) {
+    const ref = snapshot.sourceRefs.find(r => r.blockId === block.id && r.symbol);
+    const locator = ref ? `${ref.path} :: ${ref.symbol} L${ref.startLine ?? '?'}-${ref.endLine ?? '?'}` : 'Binding not yet declared';
+    priority.push(`- [block:${block.id}] ${block.title} — ${block.summary.slice(0,140)}\n  ${locator}`);
+    visibleRefs.add(`block:${block.id}`);
+  }
+  let requiredContextIncomplete = false;
+  priority.push('', '## Required rules');
+  for (const id of applicableRuleIds) {
+    const rule = snapshot.blocks.find(b => b.id === id);
+    if (!rule) continue;
+    const text = `- [block:${id}] ${rule.title}: ${rule.contract || rule.body || rule.summary}`;
+    if (priority.join('\n').length + text.length < maxChars * 0.8) { priority.push(text); visibleRefs.add(`block:${id}`); }
+    else { priority.push(`- [block:${id}] REQUIRED: open this rule before implementation.`); requiredContextIncomplete = true; }
+  }
+  priority.push('', '## Relevant decisions');
+  for (const decision of applicableDecisions.slice(0,3)) {
+    priority.push(`- [decision:${decision.id}] ${decision.title}: ${decision.summary.slice(0,160)}`);
+  }
+  const docs = listDocuments(service).map(d => ({d,score:scoreText(`${d.title} ${d.summary}`,3)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
+  if (docs.length) priority.push('', '## Knowledge documents', ...docs.map(({d})=>`- [document:${d.id}] ${d.title} · r${d.revision} · document_open for sections`));
+  const fullMarkdown = [...priority, '', ...lines.slice(3)].join('\n');
+  if (priority.join('\n').length > maxChars) requiredContextIncomplete = true;
+  const suffix = requiredContextIncomplete ? '\n\n[REQUIRED context incomplete: expand applicable rules before implementation]' : '\n\n[truncated; expand referenced entities or document sections]';
+  const markdown = fullMarkdown.length <= maxChars ? fullMarkdown : fullMarkdown.slice(0, Math.max(0,maxChars-suffix.length)) + suffix;
+  if (priority.join('\n').length > maxChars) requiredContextIncomplete = true;
   return {
     graphRevision: snapshot.project.graphRevision,
+    requiredContextIncomplete,
+    resumableTasks: resumableTasks.map(({id,intent})=>({id,intent})),
+    documentRefs: docs.map(({d}) => `document:${d.id}`),
     sourceSync: snapshot.sourceSync ? {
       revision: snapshot.sourceSync.revision,
       sourceRevision: snapshot.sourceSync.sourceRevision,
@@ -495,13 +532,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
       affectedBlockIds: snapshot.sourceSync.affectedBlockIds,
       changes: snapshot.sourceSync.changes,
     } : null,
-    refs: [
-      ...relevantPlans.map((plan) => `plan:${plan.id}`),
-      ...relevantChains.map((chain) => `chain:${chain.id}`),
-      ...relevantBlocks.map((block) => `block:${block.id}`),
-      ...applicableRuleIds.map((blockId) => `block:${blockId}`),
-      ...applicableDecisions.map((decision) => `decision:${decision.id}`),
-    ],
+    refs: [...new Set([...markdown.matchAll(/\[(block|chain|plan|decision|document):([^\]]+)\]/g)].map(m=>`${m[1]}:${m[2]}`))],
     applicableRules: applicableRuleIds.map((blockId) => ({
       ref: `block:${blockId}`,
       scopes: applicableRuleScopes.filter((scope) => scope.blockId === blockId).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue })),

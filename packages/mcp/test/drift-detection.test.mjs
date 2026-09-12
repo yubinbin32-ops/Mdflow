@@ -52,7 +52,7 @@ source block:ghost-block path="src/auth.js" symbol="login"`,
     // 4. Test renderGraphStatus
     const status = renderGraphStatus(service);
     assert.equal(status.health, "drift_detected");
-    assert.ok(status.markdown.includes("Ghost Blocks with Existing Code"));
+    assert.ok(status.markdown.includes("Ghost Blocks with Bound Symbols"));
     assert.ok(status.markdown.includes("Isolated Blocks"));
 
     // 5. Test contextForTask alert
@@ -60,7 +60,7 @@ source block:ghost-block path="src/auth.js" symbol="login"`,
     assert.ok(ctx.markdown.includes("Drift alerts: 1 ghost drift(s), 1 isolated block(s)"));
     assert.ok(ctx.markdown.includes("Relevant block drift: block:ghost-block"));
 
-    // 6. Remediate: connect to a chain and set deliveryState to complete
+    // 6. Remediate: connect to a chain and mark implementation anchored (not verified)
     service.mutate({
       reason: "Remediate ghost block and connect to chain",
       operations: [
@@ -68,7 +68,7 @@ source block:ghost-block path="src/auth.js" symbol="login"`,
           action: "update_block",
           id: "ghost-block",
           expectedRevision: 1,
-          fields: { deliveryState: "complete" },
+          fields: { deliveryState: "implementing" },
         },
         {
           action: "create_chain",

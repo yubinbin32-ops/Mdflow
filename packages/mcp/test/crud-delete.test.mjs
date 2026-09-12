@@ -26,7 +26,7 @@ test("crud: delete_block, delete_chain, delete_link, delete_decision, delete_pla
         fields: {
           title: "Block Alpha",
           kind: "service",
-          deliveryState: "complete",
+          deliveryState: "implementing",
           healthState: "healthy",
           architectureLayer: "domain",
         },
@@ -37,7 +37,7 @@ test("crud: delete_block, delete_chain, delete_link, delete_decision, delete_pla
         fields: {
           title: "Block Beta",
           kind: "service",
-          deliveryState: "complete",
+          deliveryState: "implementing",
           healthState: "healthy",
           architectureLayer: "application",
         },
@@ -58,7 +58,7 @@ test("crud: delete_block, delete_chain, delete_link, delete_decision, delete_pla
         id: "chain:main-flow",
         fields: {
           title: "Main Flow",
-          deliveryState: "complete",
+          deliveryState: "implementing",
         },
       },
       {

@@ -1057,10 +1057,10 @@ var require_util = __commonJS({
     var codegen_1 = require_codegen();
     var code_1 = require_code();
     function toHash(arr) {
-      const hash = {};
+      const hash2 = {};
       for (const item of arr)
-        hash[item] = true;
-      return hash;
+        hash2[item] = true;
+      return hash2;
     }
     exports.toHash = toHash;
     function alwaysValidSchema(it, schema) {
@@ -2231,8 +2231,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize) {
-      if (normalize !== false)
+    function getFullPath(resolver, id = "", normalize2) {
+      if (normalize2 !== false)
         id = normalizeId(id);
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
@@ -3258,8 +3258,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path13) {
-      let input = path13;
+    function removeDotSegments(path16) {
+      let input = path16;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3668,8 +3668,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path13 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
+        const path16 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path16 && path16 !== "/" ? path16 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -3827,7 +3827,7 @@ var require_fast_uri = __commonJS({
       }
       return decodedScheme;
     }
-    function normalize(uri, options) {
+    function normalize2(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
@@ -4204,7 +4204,7 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize,
+      normalize: normalize2,
       resolve,
       resolveComponent,
       equal,
@@ -7181,18 +7181,51 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs12, exportName) {
+    function addFormats(ajv, list, fs14, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs12[f]);
+        ajv.addFormat(f, fs14[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = formatsPlugin;
   }
 });
+
+// packages/mcp/src/server.mjs
+import fs13 from "node:fs";
+import path15 from "node:path";
+
+// packages/mcp/src/plugin-runtime.mjs
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+function hashFile(filePath) {
+  try {
+    return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex").slice(0, 16);
+  } catch {
+    return null;
+  }
+}
+function pluginRuntimeStatus(projectRoot = process.cwd()) {
+  const runningPath = process.argv[1] ? path.resolve(process.argv[1]) : fileURLToPath(import.meta.url);
+  const repoBundle = path.join(projectRoot, "plugins/contextos/server/contextos-mcp.mjs");
+  const runningHash = hashFile(runningPath);
+  const repoHash = hashFile(repoBundle);
+  const runningIsBundle = path.basename(runningPath) === "contextos-mcp.mjs";
+  const stale = Boolean(runningIsBundle && runningHash && repoHash && runningHash !== repoHash);
+  return {
+    runningPath,
+    repoBundle,
+    runningHash,
+    repoHash,
+    stale,
+    reload: stale ? "codex plugin remove contextos@contextos-development && codex plugin add contextos@contextos-development" : null
+  };
+}
 
 // node_modules/zod/v3/helpers/util.js
 var util;
@@ -7568,8 +7601,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path13, errorMaps, issueData } = params;
-  const fullPath = [...path13, ...issueData.path || []];
+  const { data, path: path16, errorMaps, issueData } = params;
+  const fullPath = [...path16, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7684,11 +7717,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path13, key) {
+  constructor(parent, value, path16, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path13;
+    this._path = path16;
     this._key = key;
   }
   get path() {
@@ -11270,10 +11303,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path13) {
-  if (!path13)
+function getElementAtPath(obj, path16) {
+  if (!path16)
     return obj;
-  return path13.reduce((acc, key) => acc?.[key], obj);
+  return path16.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11685,11 +11718,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path13, issues) {
+function prefixIssues(path16, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path13);
+    iss.path.unshift(path16);
     return iss;
   });
 }
@@ -12118,16 +12151,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path13 = []) => {
+  const processError = (error3, path16 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path13, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path16, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path16, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path16, ...issue2.path]);
       } else {
-        const fullpath = [...path13, ...issue2.path];
+        const fullpath = [...path16, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -16632,11 +16665,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path13) {
-  if (path13.length === 0) {
+function getDotPath(path16) {
+  if (path16.length === 0) {
     return "object root";
   }
-  return path13.reduce((acc, seg, index) => {
+  return path16.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23203,19 +23236,501 @@ var StdioServerTransport = class {
 };
 
 // packages/mcp/src/project-router.mjs
-import path11 from "node:path";
-import fs10 from "node:fs";
+import path13 from "node:path";
+import fs11 from "node:fs";
 
-// packages/mcp/src/service.mjs
-import crypto7 from "node:crypto";
-import fs9 from "node:fs";
-import path10 from "node:path";
+// packages/mcp/src/reconciliation.mjs
+import fs6 from "node:fs";
+import path7 from "node:path";
+import crypto6 from "node:crypto";
 import { spawnSync as spawnSync2 } from "node:child_process";
 
+// packages/mcp/src/ast.mjs
+import path2 from "node:path";
+function detectLanguage(filePath = "") {
+  const ext = path2.extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".ts":
+    case ".tsx":
+      return "typescript";
+    case ".js":
+    case ".jsx":
+    case ".mjs":
+    case ".cjs":
+      return "javascript";
+    case ".swift":
+      return "swift";
+    case ".py":
+      return "python";
+    case ".go":
+      return "go";
+    case ".rs":
+      return "rust";
+    case ".kt":
+    case ".kts":
+      return "kotlin";
+    case ".java":
+      return "java";
+    case ".c":
+    case ".h":
+    case ".cpp":
+    case ".cc":
+    case ".cxx":
+    case ".hpp":
+      return "cpp";
+    default:
+      return "text";
+  }
+}
+function extractSymbols(sourceCode, { language = null, filePath = "" } = {}) {
+  const lines = sourceCode.split(/\r?\n/);
+  const symbols = [];
+  const lang = language && language !== "text" ? language : filePath ? detectLanguage(filePath) : "typescript";
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNum = i + 1;
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*")) {
+      continue;
+    }
+    if (lang === "typescript" || lang === "javascript") {
+      const fnMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?function(?:\s*\*|\s+)\s*([A-Za-z0-9_$]+)\s*\(/);
+      if (fnMatch) {
+        symbols.push({
+          name: fnMatch[1],
+          kind: "function",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const templateConstMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*`/);
+      if (templateConstMatch) {
+        let endLine = lineNum;
+        for (let j = i; j < lines.length; j++) {
+          if (lines[j].includes("`") && (j !== i || lines[j].lastIndexOf("`") > lines[j].indexOf("`"))) {
+            endLine = j + 1;
+            break;
+          }
+        }
+        symbols.push({
+          name: templateConstMatch[1],
+          kind: "constant",
+          signature: `const ${templateConstMatch[1]} = \`...\``,
+          startLine: lineNum,
+          endLine
+        });
+        continue;
+      }
+      const methodMatch = trimmed.match(/^(?:(?:public|private|protected|static|async|override|abstract|get|set)\s+)*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(([^)]*)\)(?:\s*:\s*[^\{]+)?\s*\{/);
+      if (methodMatch && !(/* @__PURE__ */ new Set(["if", "for", "while", "switch", "catch", "function"])).has(methodMatch[1])) {
+        symbols.push({
+          name: methodMatch[1],
+          kind: "method",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const arrowMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\((?:[\s\S]*?)\)|[A-Za-z0-9_$]+)\s*(?::\s*[^=]+)?\s*=>/);
+      if (arrowMatch) {
+        symbols.push({
+          name: arrowMatch[1],
+          kind: "function",
+          signature: `${arrowMatch[1]} = ${arrowMatch[0].replace(/^(?:export\s+)?const\s+[A-Za-z0-9_$]+\s*=\s*/, "")}`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const classMatch = trimmed.match(/^(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_$]+)(?:\s+extends\s+[^{]+)?(?:\s+implements\s+[^{]+)?/);
+      if (classMatch) {
+        symbols.push({
+          name: classMatch[1],
+          kind: "class",
+          signature: classMatch[0].replace(/^export\s+/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const ifaceMatch = trimmed.match(/^(?:export\s+)?interface\s+([A-Za-z0-9_$]+)/);
+      if (ifaceMatch) {
+        symbols.push({
+          name: ifaceMatch[1],
+          kind: "interface",
+          signature: ifaceMatch[0].replace(/^export\s+/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const typeMatch = trimmed.match(/^(?:export\s+)?type\s+([A-Za-z0-9_$]+)\s*=/);
+      if (typeMatch) {
+        symbols.push({
+          name: typeMatch[1],
+          kind: "type",
+          signature: trimmed.replace(/;$/, ""),
+          startLine: lineNum,
+          endLine: lineNum
+        });
+        continue;
+      }
+    } else if (lang === "swift") {
+      const swiftFuncMatch = trimmed.match(
+        /^(?:(?:public|private|fileprivate|internal|open|nonisolated|static|class|mutating|override|final|async|throws|rethrows)\s+)*func\s+([A-Za-z0-9_]+)\s*\(/
+      );
+      if (swiftFuncMatch) {
+        let signature = trimmed;
+        if (!trimmed.includes(")")) {
+          for (let j = i + 1; j < Math.min(lines.length, i + 12); j++) {
+            signature += ` ${lines[j].trim()}`;
+            if (lines[j].includes("{")) break;
+          }
+        }
+        symbols.push({
+          name: swiftFuncMatch[1],
+          kind: "function",
+          signature: signature.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const swiftPropertyMatch = trimmed.match(
+        /^(?:(?:public|private|fileprivate|internal|open)\s+)?(?:private\(set\)\s+)?(?:static\s+|class\s+)?var\s+([A-Za-z0-9_]+)(?:\s*:\s*[^={]+)?\s*\{/
+      );
+      if (swiftPropertyMatch) {
+        symbols.push({
+          name: swiftPropertyMatch[1],
+          kind: "property",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const swiftTypeMatch = trimmed.match(/^(?:public\s+|private\s+|fileprivate\s+|internal\s+|open\s+)?(?:final\s+)?(struct|class|enum|protocol)\s+([A-Za-z0-9_]+)/);
+      if (swiftTypeMatch) {
+        symbols.push({
+          name: swiftTypeMatch[2],
+          kind: swiftTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+    } else if (lang === "python") {
+      const pyFuncMatch = trimmed.match(/^(?:async\s+)?def\s+([A-Za-z0-9_]+)\s*(\([^)]*\)(?:\s*->\s*[^:]+)?:)/);
+      if (pyFuncMatch) {
+        symbols.push({
+          name: pyFuncMatch[1],
+          kind: "function",
+          signature: `def ${pyFuncMatch[1]}${pyFuncMatch[2]}`,
+          startLine: lineNum,
+          endLine: findPythonBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const pyClassMatch = trimmed.match(/^class\s+([A-Za-z0-9_]+)(?:\([^)]*\))?:/);
+      if (pyClassMatch) {
+        symbols.push({
+          name: pyClassMatch[1],
+          kind: "class",
+          signature: pyClassMatch[0],
+          startLine: lineNum,
+          endLine: findPythonBlockEnd(lines, i)
+        });
+        continue;
+      }
+    } else if (lang === "go") {
+      const goFuncMatch = trimmed.match(/^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)\s*\(/);
+      if (goFuncMatch) {
+        symbols.push({
+          name: goFuncMatch[1],
+          kind: trimmed.startsWith("func (") ? "method" : "function",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const goStructMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+struct\b/);
+      if (goStructMatch) {
+        symbols.push({
+          name: goStructMatch[1],
+          kind: "struct",
+          signature: `type ${goStructMatch[1]} struct`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const goIfaceMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+interface\b/);
+      if (goIfaceMatch) {
+        symbols.push({
+          name: goIfaceMatch[1],
+          kind: "interface",
+          signature: `type ${goIfaceMatch[1]} interface`,
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+    } else if (lang === "rust") {
+      const rustFnMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?(?:unsafe\s+)?(?:const\s+)?fn\s+([A-Za-z0-9_]+)/);
+      if (rustFnMatch) {
+        symbols.push({
+          name: rustFnMatch[1],
+          kind: "function",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const rustTypeMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(struct|enum|trait|union)\s+([A-Za-z0-9_]+)/);
+      if (rustTypeMatch) {
+        symbols.push({
+          name: rustTypeMatch[2],
+          kind: rustTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: trimmed.includes(";") ? lineNum : findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const rustImplMatch = trimmed.match(/^impl(?:<[^>]+>)?\s+(?:[A-Za-z0-9_:]+\s+for\s+)?([A-Za-z0-9_]+)/);
+      if (rustImplMatch) {
+        symbols.push({
+          name: rustImplMatch[1],
+          kind: "impl",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+    } else if (lang === "java" || lang === "kotlin") {
+      const javaTypeMatch = trimmed.match(/^(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+|static\s+)?(class|interface|enum|record)\s+([A-Za-z0-9_$]+)/);
+      if (javaTypeMatch) {
+        symbols.push({
+          name: javaTypeMatch[2],
+          kind: javaTypeMatch[1],
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+      const javaMethodMatch = trimmed.match(/^(?:(?:public|private|protected|static|final|abstract|synchronized|native|default|fun)\s+)+([A-Za-z0-9_$<>\[\],\s]+)\s+([A-Za-z0-9_$]+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{/);
+      if (javaMethodMatch && !(/* @__PURE__ */ new Set(["if", "for", "while", "switch", "catch"])).has(javaMethodMatch[2])) {
+        symbols.push({
+          name: javaMethodMatch[2],
+          kind: "method",
+          signature: trimmed.replace(/\{$/, "").trim(),
+          startLine: lineNum,
+          endLine: findBlockEnd(lines, i)
+        });
+        continue;
+      }
+    }
+  }
+  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind));
+  return symbols.map((item) => {
+    if (["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind)) return item;
+    const owner = typeSymbols.filter((type) => type.startLine < item.startLine && type.endLine >= item.endLine).sort((left, right) => left.endLine - left.startLine - (right.endLine - right.startLine))[0];
+    return owner ? { ...item, qualifiedName: `${owner.name}.${item.name}` } : item;
+  });
+}
+function findBlockEnd(lines, startIdx) {
+  let openBraces = 0;
+  let started = false;
+  for (let i = startIdx; i < lines.length; i++) {
+    const line = lines[i];
+    for (const char of line) {
+      if (char === "{") {
+        openBraces++;
+        started = true;
+      } else if (char === "}") {
+        openBraces--;
+      }
+    }
+    if (started && openBraces <= 0) {
+      return i + 1;
+    }
+  }
+  return Math.min(lines.length, startIdx + 30);
+}
+function findPythonBlockEnd(lines, startIdx) {
+  const startIndent = lines[startIdx].search(/\S|$/);
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+    const currentIndent = line.search(/\S|$/);
+    if (currentIndent <= startIndent) {
+      return i;
+    }
+  }
+  return lines.length;
+}
+function extractSymbolSlice(sourceCode, {
+  symbol = null,
+  startLine = null,
+  endLine = null,
+  maxLines = 50,
+  language = null,
+  filePath = ""
+} = {}) {
+  const lines = sourceCode.split(/\r?\n/);
+  let targetStart = startLine;
+  let targetEnd = endLine;
+  let matched = null;
+  let resolutionReason = null;
+  let resolutionCandidates = [];
+  if (symbol) {
+    const resolution = resolveSymbolMatch(sourceCode, {
+      symbol,
+      language: language || (filePath ? detectLanguage(filePath) : "typescript"),
+      filePath
+    });
+    matched = resolution.matched;
+    resolutionReason = resolution.reason;
+    resolutionCandidates = resolution.candidates;
+    if (matched) {
+      targetStart = matched.startLine;
+      targetEnd = matched.endLine;
+    }
+  }
+  if (symbol && !matched) {
+    return {
+      found: false,
+      symbol,
+      signature: null,
+      startLine: null,
+      endLine: null,
+      totalLines: 0,
+      code: "",
+      reason: resolutionReason || "missing",
+      candidates: resolutionCandidates
+    };
+  }
+  if (!targetStart) targetStart = 1;
+  if (!targetEnd) targetEnd = Math.min(lines.length, targetStart + maxLines - 1);
+  const totalLines = targetEnd - targetStart + 1;
+  const sliceLines = lines.slice(targetStart - 1, Math.min(targetEnd, targetStart + maxLines - 1));
+  let result = sliceLines.join("\n");
+  if (totalLines > maxLines) {
+    result += `
+... [${totalLines - maxLines} lines collapsed; use entity_open or editor for full body]`;
+  }
+  return {
+    found: Boolean(matched || startLine || endLine),
+    symbol: matched?.qualifiedName ?? matched?.name ?? symbol,
+    signature: matched?.signature ?? null,
+    startLine: targetStart,
+    endLine: targetEnd,
+    totalLines,
+    code: result,
+    reason: null
+  };
+}
+function resolveSymbolMatch(sourceCode, { symbol, language = null, filePath = "" } = {}) {
+  if (!symbol?.trim()) return { matched: null, reason: "missing", candidates: [] };
+  const symbols = extractSymbols(sourceCode, {
+    language: language || (filePath ? detectLanguage(filePath) : "typescript"),
+    filePath
+  });
+  const requested = symbol.trim();
+  const signatureName = requested.includes("(") ? requested.slice(0, requested.indexOf("(")).trim() : requested;
+  const leaf = signatureName.split(".").at(-1);
+  const rawCandidates = signatureName.includes(".") ? symbols.filter((item) => item.name === signatureName || item.qualifiedName === signatureName) : symbols.filter(
+    (item) => item.name === signatureName || item.qualifiedName === signatureName || item.name === leaf || item.qualifiedName === leaf || item.qualifiedName?.endsWith(`.${signatureName}`)
+  );
+  const callableCandidates = rawCandidates.filter((item) => ["function", "method"].includes(item.kind));
+  const candidates = requested.includes("(") && callableCandidates.length > 0 ? callableCandidates : rawCandidates;
+  const candidateNames = candidates.map((item) => item.qualifiedName ?? item.name);
+  if (candidates.length === 1) return { matched: candidates[0], reason: null, candidates: candidateNames };
+  if (candidates.length > 1) return { matched: null, reason: "ambiguous", candidates: candidateNames };
+  return { matched: null, reason: "missing", candidates: [] };
+}
+function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4e3, mode = "contract" } = {}) {
+  const sections = [];
+  let currentChars = 0;
+  for (const node2 of chainNodes) {
+    const { blockId, title, filePath, symbol, code, contract, signature, sourceStatus: sourceStatus2, startLine, endLine } = node2;
+    const header = `// -------------------------------------------------------------
+// [Node: ${blockId}] ${title} ${filePath ? `(${filePath}${symbol ? ` :: ${symbol}` : ""})` : ""}
+// -------------------------------------------------------------`;
+    const bodyLines = [
+      `// Source status: ${sourceStatus2 ?? (filePath ? "anchored" : "virtual")}`,
+      `// Symbol: ${symbol || "\u2014"}${signature ? ` \xB7 ${signature}` : ""}`,
+      `// Lines: ${startLine && endLine ? `${startLine}-${endLine}` : "\u2014"}`,
+      `// Contract: ${contract || "(not declared)"}`
+    ];
+    if (sourceStatus2 === "line_only") {
+      bodyLines.splice(1, 0, "// Warning: line-only binding; do not treat this range as a symbol facade");
+    }
+    if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus2)) {
+      bodyLines.push(`// Locator is ${sourceStatus2}; rebind before opening implementation`);
+    }
+    const section = `${header}
+${bodyLines.join("\n")}
+`;
+    if (currentChars + section.length > maxTotalChars && sections.length > 0) {
+      sections.push(`// ... [Remaining nodes truncated for context budget]`);
+      break;
+    }
+    sections.push(section);
+    currentChars += section.length;
+  }
+  return sections.join("\n");
+}
+
+// packages/mcp/src/workspace-schema.mjs
+var WORKSPACE_SCHEMA = `
+CREATE TABLE IF NOT EXISTS documents (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL, title TEXT NOT NULL,
+ kind TEXT NOT NULL DEFAULT 'note', status TEXT NOT NULL DEFAULT 'draft',
+ summary TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',
+ relations_json TEXT NOT NULL DEFAULT '[]', source_path TEXT,
+ source_hash TEXT, revision INTEGER NOT NULL DEFAULT 1,
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS document_versions (
+ document_id TEXT NOT NULL, revision INTEGER NOT NULL, payload_json TEXT NOT NULL,
+ created_at TEXT NOT NULL, PRIMARY KEY(document_id, revision)
+);
+CREATE TABLE IF NOT EXISTS task_sessions (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL, intent TEXT NOT NULL,
+ scope_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active',
+ source_revision TEXT, result_json TEXT, idempotency_key TEXT,
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS checkpoint_runtime (
+ checkpoint_id TEXT PRIMARY KEY, checkpoint_revision INTEGER NOT NULL, status TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS source_index (
+ path TEXT PRIMARY KEY, file_hash TEXT NOT NULL, symbols_json TEXT NOT NULL,
+ revision INTEGER NOT NULL, supported INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS sync_events (
+ sequence INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL,
+ kind TEXT NOT NULL, revision INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sync_issues (
+ id TEXT PRIMARY KEY, task_id TEXT, kind TEXT NOT NULL, target TEXT NOT NULL,
+ detail TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', updated_at TEXT NOT NULL
+);
+`;
+
 // packages/mcp/src/database.mjs
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
+import crypto2 from "node:crypto";
+import fs2 from "node:fs";
+import path3 from "node:path";
 import { DatabaseSync } from "node:sqlite";
 var SCHEMA = `
 CREATE TABLE IF NOT EXISTS projects (
@@ -23858,14 +24373,18 @@ function openDatabase(databasePath) {
   database.exec("PRAGMA journal_mode = DELETE;");
   database.exec("PRAGMA foreign_keys = ON;");
   database.exec(SCHEMA);
+  database.exec(WORKSPACE_SCHEMA);
   migratePlanCapableTables(database);
   migrateBlockArchitecture(database);
   migratePlanWorkflow(database);
   backfillChainPaths(database);
   return database;
 }
+var activeTransactions = /* @__PURE__ */ new WeakSet();
+var inTransaction = (database) => activeTransactions.has(database);
 function transaction(database, callback) {
   database.exec("BEGIN IMMEDIATE;");
+  activeTransactions.add(database);
   try {
     const result = callback();
     database.exec("COMMIT;");
@@ -23873,9 +24392,13 @@ function transaction(database, callback) {
   } catch (error2) {
     database.exec("ROLLBACK;");
     throw error2;
+  } finally {
+    activeTransactions.delete(database);
   }
 }
 var GRAPH_TABLES = [
+  { name: "documents", orderBy: "id" },
+  { name: "document_versions", orderBy: "document_id, revision" },
   { name: "projects", orderBy: "id" },
   { name: "blocks", orderBy: "id" },
   { name: "source_refs", orderBy: "block_id, id" },
@@ -23927,7 +24450,7 @@ function queryRecentHistory(database, limit = 50) {
   ).all(...changeSetIds);
   return { changeSets, history, changeFeed };
 }
-function exportGraphToJson(database, jsonPath, options = {}) {
+function graphProjection(database, options = {}) {
   const limit = options.maxChangeSets ?? 50;
   const project = database.prepare("SELECT * FROM projects LIMIT 1").get();
   const exportData = {};
@@ -23948,36 +24471,40 @@ function exportGraphToJson(database, jsonPath, options = {}) {
   };
   const jsonString = `${JSON.stringify(payload, null, 2)}
 `;
-  const hash = crypto.createHash("sha256").update(jsonString).digest("hex");
-  const directory = path.dirname(jsonPath);
-  fs.mkdirSync(directory, { recursive: true });
-  const temporaryPath = `${jsonPath}.tmp-${process.pid}-${crypto.randomUUID()}`;
-  fs.writeFileSync(temporaryPath, jsonString, "utf8");
-  fs.renameSync(temporaryPath, jsonPath);
-  const stat = fs.statSync(jsonPath);
+  const hash2 = crypto2.createHash("sha256").update(jsonString).digest("hex");
+  return { jsonString, hash: hash2, payload };
+}
+function exportGraphToJson(database, jsonPath, options = {}) {
+  const { jsonString, hash: hash2, payload } = graphProjection(database, options);
+  const directory = path3.dirname(jsonPath);
+  fs2.mkdirSync(directory, { recursive: true });
+  const temporaryPath = `${jsonPath}.tmp-${process.pid}-${crypto2.randomUUID()}`;
+  const pending = getSyncMeta(database).projection_pending;
+  if (pending) setSyncMeta(database, "projection_pending", JSON.stringify({ ...JSON.parse(pending), targetHash: hash2 }));
+  fs2.writeFileSync(temporaryPath, jsonString, "utf8");
+  fs2.renameSync(temporaryPath, jsonPath);
+  const stat = fs2.statSync(jsonPath);
   try {
     database.prepare(`
       INSERT INTO sync_meta(key, value) VALUES ('graph_json_hash', ?), ('graph_json_mtime', ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(hash, String(stat.mtimeMs));
+    `).run(hash2, String(stat.mtimeMs));
   } catch {
   }
-  return { jsonPath, hash, graphRevision: payload.graphRevision, mtimeMs: stat.mtimeMs };
+  setSyncMeta(database, "projection_pending", "");
+  return { jsonPath, hash: hash2, graphRevision: payload.graphRevision, mtimeMs: stat.mtimeMs };
 }
 function importGraphFromJson(database, jsonPath) {
-  if (!fs.existsSync(jsonPath)) {
-    throw new Error(`graph.json not found at ${jsonPath}`);
-  }
-  const content = fs.readFileSync(jsonPath, "utf8");
-  const payload = JSON.parse(content);
-  if (!payload || !payload.data || typeof payload.data !== "object") {
-    throw new Error(`Invalid graph.json at ${jsonPath}: missing data object`);
-  }
-  const stat = fs.statSync(jsonPath);
-  const hash = crypto.createHash("sha256").update(content).digest("hex");
+  let hash2, stat, payload;
   database.exec("PRAGMA foreign_keys = OFF;");
   try {
     database.exec("BEGIN IMMEDIATE;");
+    if (getSyncMeta(database).projection_pending) throw new Error("Pending projection must be recovered before importing an external graph; retry synchronization");
+    const content = fs2.readFileSync(jsonPath, "utf8");
+    payload = JSON.parse(content);
+    if (!payload || !payload.data || typeof payload.data !== "object") throw new Error(`Invalid graph.json at ${jsonPath}: missing data object`);
+    stat = fs2.statSync(jsonPath);
+    hash2 = crypto2.createHash("sha256").update(content).digest("hex");
     const allTables = [
       ...GRAPH_TABLES.map((t) => t.name),
       "change_sets",
@@ -24001,7 +24528,7 @@ function importGraphFromJson(database, jsonPath) {
     database.prepare(`
       INSERT INTO sync_meta(key, value) VALUES ('graph_json_hash', ?), ('graph_json_mtime', ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(hash, String(stat.mtimeMs));
+    `).run(hash2, String(stat.mtimeMs));
     database.exec("COMMIT;");
   } catch (error2) {
     database.exec("ROLLBACK;");
@@ -24009,7 +24536,7 @@ function importGraphFromJson(database, jsonPath) {
   } finally {
     database.exec("PRAGMA foreign_keys = ON;");
   }
-  return { jsonPath, hash, graphRevision: payload.graphRevision, mtimeMs: stat.mtimeMs };
+  return { jsonPath, hash: hash2, graphRevision: payload.graphRevision, mtimeMs: stat.mtimeMs };
 }
 function getSyncMeta(database) {
   try {
@@ -24024,894 +24551,223 @@ function getSyncMeta(database) {
   }
 }
 function setSyncMeta(database, key, value) {
-  try {
-    database.prepare(`
-      INSERT INTO sync_meta(key, value) VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(key, String(value));
-  } catch {
+  database.prepare(`INSERT INTO sync_meta(key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, String(value));
+}
+function markProjectionPending(database) {
+  const meta2 = getSyncMeta(database);
+  if (!meta2.projection_pending) setSyncMeta(database, "projection_pending", JSON.stringify({ baseHash: meta2.graph_json_hash ?? null }));
+}
+function flushProjection(database, jsonPath) {
+  return transaction(database, () => publishPendingProjection(database, jsonPath));
+}
+function publishPendingProjection(database, jsonPath) {
+  const meta2 = getSyncMeta(database);
+  if (!meta2.projection_pending) return { status: "synced" };
+  const pending = JSON.parse(meta2.projection_pending);
+  if (fs2.existsSync(jsonPath)) {
+    const current = crypto2.createHash("sha256").update(fs2.readFileSync(jsonPath)).digest("hex");
+    if (current === graphProjection(database).hash) {
+      setSyncMeta(database, "graph_json_hash", current);
+      setSyncMeta(database, "projection_pending", "");
+      return { status: "synced", recovered: true };
+    }
+    if (pending.baseHash && current !== pending.baseHash && current !== meta2.graph_json_hash) {
+      throw new Error("Projection conflict: graph.json changed externally while a database export was pending; preserve both versions and reconcile before writing");
+    }
   }
+  return { status: "synced", ...exportGraphToJson(database, jsonPath) };
 }
 
-// packages/mcp/src/paths.mjs
-import crypto2 from "node:crypto";
-import fs2 from "node:fs";
-import path2 from "node:path";
-var localDataIgnore = [
-  "*",
-  "!.gitignore",
-  "!project.json",
-  "!graph.json",
-  "*.sqlite",
-  "*.sqlite-*",
-  "*.sqlite3",
-  "*.sqlite3-*",
-  ""
-].join("\n");
-var DATA_DIRECTORY = ".contextos";
-var DATABASE_FILE = "contextos.sqlite";
-function resolveDescriptorDirectory(projectRoot) {
-  return path2.join(projectRoot, DATA_DIRECTORY);
-}
-function databaseFile(projectDataDirectory) {
-  return path2.join(projectDataDirectory, DATABASE_FILE);
-}
-function ensureLocalDataIgnore(descriptorDirectory) {
-  const ignorePath = path2.join(descriptorDirectory, ".gitignore");
-  if (!fs2.existsSync(ignorePath)) fs2.writeFileSync(ignorePath, localDataIgnore, { flag: "wx" });
-}
-function findProjectRoot(startDirectory = process.cwd()) {
-  let current = path2.resolve(startDirectory);
-  while (true) {
-    if (fs2.existsSync(path2.join(current, DATA_DIRECTORY, "project.json"))) {
-      return current;
-    }
-    const parent = path2.dirname(current);
-    if (parent === current) {
-      throw new Error(`No ${DATA_DIRECTORY}/project.json found above ${startDirectory}`);
-    }
-    current = parent;
-  }
-}
-function findTargetProjectRoot(startDirectory = process.cwd()) {
-  let current = path2.resolve(startDirectory);
-  let gitRoot = null;
-  while (true) {
-    if (fs2.existsSync(path2.join(current, DATA_DIRECTORY, "project.json"))) {
-      return current;
-    }
-    if (!gitRoot && fs2.existsSync(path2.join(current, ".git"))) {
-      gitRoot = current;
-    }
-    const parent = path2.dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-  return gitRoot ?? path2.resolve(startDirectory);
-}
-function readProjectDescriptor(projectRoot) {
-  const descriptorPath = path2.join(resolveDescriptorDirectory(projectRoot), "project.json");
-  const descriptor = JSON.parse(fs2.readFileSync(descriptorPath, "utf8"));
-  if (!descriptor.id || !descriptor.name) {
-    throw new Error(`${descriptorPath} must contain id and name`);
-  }
-  return descriptor;
-}
-function registerProject(options = {}) {
-  if (!options.projectRoot) throw new Error("projectRoot is required to register an contextos project");
-  const projectRoot = fs2.realpathSync(path2.resolve(options.projectRoot));
-  if (!fs2.statSync(projectRoot).isDirectory()) throw new Error(`${projectRoot} is not a directory`);
-  const existingDirectory = resolveDescriptorDirectory(projectRoot);
-  const descriptorDir = fs2.existsSync(path2.join(existingDirectory, "project.json")) ? existingDirectory : path2.join(projectRoot, DATA_DIRECTORY);
-  const descriptorPath = path2.join(descriptorDir, "project.json");
-  if (fs2.existsSync(descriptorPath)) {
-    ensureLocalDataIgnore(descriptorDir);
-    return { projectRoot, descriptor: readProjectDescriptor(projectRoot), created: false };
-  }
-  const name = String(options.name ?? path2.basename(projectRoot)).trim();
-  if (!name) throw new Error("Project name must not be empty");
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
-  const descriptor = {
-    id: String(options.id ?? `${slug}-${crypto2.randomUUID().slice(0, 8)}`),
-    name,
-    schemaVersion: 1
-  };
-  fs2.mkdirSync(descriptorDir, { recursive: true });
-  ensureLocalDataIgnore(descriptorDir);
-  const temporaryPath = `${descriptorPath}.tmp-${process.pid}-${crypto2.randomUUID()}`;
-  fs2.writeFileSync(temporaryPath, `${JSON.stringify(descriptor, null, 2)}
-`, { flag: "wx" });
-  fs2.renameSync(temporaryPath, descriptorPath);
-  return { projectRoot, descriptor, created: true };
-}
-function resolveProjectPaths(options = {}) {
-  const projectRoot = findProjectRoot(
-    options.projectRoot ?? process.env.CONTEXTOS_PROJECT_ROOT ?? process.cwd()
-  );
-  const descriptor = readProjectDescriptor(projectRoot);
-  const configuredDataRoot = options.dataRoot ?? process.env.CONTEXTOS_DATA_DIR;
-  const dataRoot = configuredDataRoot ? path2.resolve(configuredDataRoot) : resolveDescriptorDirectory(projectRoot);
-  const projectDataDirectory = configuredDataRoot ? path2.join(dataRoot, descriptor.id) : dataRoot;
-  fs2.mkdirSync(projectDataDirectory, { recursive: true });
-  return {
-    projectRoot,
-    descriptor,
-    dataRoot,
-    projectDataDirectory,
-    databasePath: databaseFile(projectDataDirectory),
-    graphJsonPath: path2.join(projectDataDirectory, "graph.json")
-  };
-}
+// packages/mcp/src/mutation-engine.mjs
+import fs5 from "node:fs";
+import path6 from "node:path";
 
-// packages/mcp/src/ast.mjs
-import path3 from "node:path";
-function detectLanguage(filePath = "") {
-  const ext = path3.extname(filePath).toLowerCase();
-  switch (ext) {
-    case ".ts":
-    case ".tsx":
-      return "typescript";
-    case ".js":
-    case ".jsx":
-    case ".mjs":
-    case ".cjs":
-      return "javascript";
-    case ".swift":
-      return "swift";
-    case ".py":
-      return "python";
-    case ".go":
-      return "go";
-    case ".rs":
-      return "rust";
-    case ".kt":
-    case ".kts":
-      return "kotlin";
-    case ".java":
-      return "java";
-    case ".c":
-    case ".h":
-    case ".cpp":
-    case ".cc":
-    case ".cxx":
-    case ".hpp":
-      return "cpp";
-    default:
-      return "text";
-  }
-}
-function extractSymbols(sourceCode, { language = null, filePath = "" } = {}) {
-  const lines = sourceCode.split(/\r?\n/);
-  const symbols = [];
-  const lang = language && language !== "text" ? language : filePath ? detectLanguage(filePath) : "typescript";
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineNum = i + 1;
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*")) {
+// packages/mcp/src/patch.mjs
+var HEADER_PATTERN = /^contextos\/(\d+)(?:\s+(.*))?$/;
+var TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_step|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
+function tokenize(input, lineNumber) {
+  const tokens = [];
+  let token = "";
+  let quote = null;
+  let escaped = false;
+  for (const character of input) {
+    if (escaped) {
+      token += character;
+      escaped = false;
       continue;
     }
-    if (lang === "typescript" || lang === "javascript") {
-      const fnMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?function(?:\s*\*|\s+)\s*([A-Za-z0-9_$]+)\s*\(/);
-      if (fnMatch) {
-        symbols.push({
-          name: fnMatch[1],
-          kind: "function",
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const templateConstMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*`/);
-      if (templateConstMatch) {
-        let endLine = lineNum;
-        for (let j = i; j < lines.length; j++) {
-          if (lines[j].includes("`") && (j !== i || lines[j].lastIndexOf("`") > lines[j].indexOf("`"))) {
-            endLine = j + 1;
-            break;
-          }
-        }
-        symbols.push({
-          name: templateConstMatch[1],
-          kind: "constant",
-          signature: `const ${templateConstMatch[1]} = \`...\``,
-          startLine: lineNum,
-          endLine
-        });
-        continue;
-      }
-      const methodMatch = trimmed.match(/^(?:(?:public|private|protected|static|async|override|abstract|get|set)\s+)*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(([^)]*)\)(?:\s*:\s*[^\{]+)?\s*\{/);
-      if (methodMatch && !(/* @__PURE__ */ new Set(["if", "for", "while", "switch", "catch", "function"])).has(methodMatch[1])) {
-        symbols.push({
-          name: methodMatch[1],
-          kind: "method",
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const arrowMatch = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?(?:\((?:[\s\S]*?)\)|[A-Za-z0-9_$]+)\s*(?::\s*[^=]+)?\s*=>/);
-      if (arrowMatch) {
-        symbols.push({
-          name: arrowMatch[1],
-          kind: "function",
-          signature: `${arrowMatch[1]} = ${arrowMatch[0].replace(/^(?:export\s+)?const\s+[A-Za-z0-9_$]+\s*=\s*/, "")}`,
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const classMatch = trimmed.match(/^(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_$]+)(?:\s+extends\s+[^{]+)?(?:\s+implements\s+[^{]+)?/);
-      if (classMatch) {
-        symbols.push({
-          name: classMatch[1],
-          kind: "class",
-          signature: classMatch[0].replace(/^export\s+/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const ifaceMatch = trimmed.match(/^(?:export\s+)?interface\s+([A-Za-z0-9_$]+)/);
-      if (ifaceMatch) {
-        symbols.push({
-          name: ifaceMatch[1],
-          kind: "interface",
-          signature: ifaceMatch[0].replace(/^export\s+/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const typeMatch = trimmed.match(/^(?:export\s+)?type\s+([A-Za-z0-9_$]+)\s*=/);
-      if (typeMatch) {
-        symbols.push({
-          name: typeMatch[1],
-          kind: "type",
-          signature: trimmed.replace(/;$/, ""),
-          startLine: lineNum,
-          endLine: lineNum
-        });
-        continue;
-      }
-    } else if (lang === "swift") {
-      const swiftFuncMatch = trimmed.match(
-        /^(?:(?:public|private|fileprivate|internal|open|nonisolated|static|class|mutating|override|final|async|throws|rethrows)\s+)*func\s+([A-Za-z0-9_]+)\s*\(/
-      );
-      if (swiftFuncMatch) {
-        let signature = trimmed;
-        if (!trimmed.includes(")")) {
-          for (let j = i + 1; j < Math.min(lines.length, i + 12); j++) {
-            signature += ` ${lines[j].trim()}`;
-            if (lines[j].includes("{")) break;
-          }
-        }
-        symbols.push({
-          name: swiftFuncMatch[1],
-          kind: "function",
-          signature: signature.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const swiftPropertyMatch = trimmed.match(
-        /^(?:(?:public|private|fileprivate|internal|open)\s+)?(?:private\(set\)\s+)?(?:static\s+|class\s+)?var\s+([A-Za-z0-9_]+)(?:\s*:\s*[^={]+)?\s*\{/
-      );
-      if (swiftPropertyMatch) {
-        symbols.push({
-          name: swiftPropertyMatch[1],
-          kind: "property",
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const swiftTypeMatch = trimmed.match(/^(?:public\s+|private\s+|fileprivate\s+|internal\s+|open\s+)?(?:final\s+)?(struct|class|enum|protocol)\s+([A-Za-z0-9_]+)/);
-      if (swiftTypeMatch) {
-        symbols.push({
-          name: swiftTypeMatch[2],
-          kind: swiftTypeMatch[1],
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-    } else if (lang === "python") {
-      const pyFuncMatch = trimmed.match(/^(?:async\s+)?def\s+([A-Za-z0-9_]+)\s*(\([^)]*\)(?:\s*->\s*[^:]+)?:)/);
-      if (pyFuncMatch) {
-        symbols.push({
-          name: pyFuncMatch[1],
-          kind: "function",
-          signature: `def ${pyFuncMatch[1]}${pyFuncMatch[2]}`,
-          startLine: lineNum,
-          endLine: findPythonBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const pyClassMatch = trimmed.match(/^class\s+([A-Za-z0-9_]+)(?:\([^)]*\))?:/);
-      if (pyClassMatch) {
-        symbols.push({
-          name: pyClassMatch[1],
-          kind: "class",
-          signature: pyClassMatch[0],
-          startLine: lineNum,
-          endLine: findPythonBlockEnd(lines, i)
-        });
-        continue;
-      }
-    } else if (lang === "go") {
-      const goFuncMatch = trimmed.match(/^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)\s*\(/);
-      if (goFuncMatch) {
-        symbols.push({
-          name: goFuncMatch[1],
-          kind: trimmed.startsWith("func (") ? "method" : "function",
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const goStructMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+struct\b/);
-      if (goStructMatch) {
-        symbols.push({
-          name: goStructMatch[1],
-          kind: "struct",
-          signature: `type ${goStructMatch[1]} struct`,
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const goIfaceMatch = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+interface\b/);
-      if (goIfaceMatch) {
-        symbols.push({
-          name: goIfaceMatch[1],
-          kind: "interface",
-          signature: `type ${goIfaceMatch[1]} interface`,
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-    } else if (lang === "rust") {
-      const rustFnMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?(?:unsafe\s+)?(?:const\s+)?fn\s+([A-Za-z0-9_]+)/);
-      if (rustFnMatch) {
-        symbols.push({
-          name: rustFnMatch[1],
-          kind: "function",
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const rustTypeMatch = trimmed.match(/^(?:pub(?:\([^)]+\))?\s+)?(struct|enum|trait|union)\s+([A-Za-z0-9_]+)/);
-      if (rustTypeMatch) {
-        symbols.push({
-          name: rustTypeMatch[2],
-          kind: rustTypeMatch[1],
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: trimmed.includes(";") ? lineNum : findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const rustImplMatch = trimmed.match(/^impl(?:<[^>]+>)?\s+(?:[A-Za-z0-9_:]+\s+for\s+)?([A-Za-z0-9_]+)/);
-      if (rustImplMatch) {
-        symbols.push({
-          name: rustImplMatch[1],
-          kind: "impl",
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-    } else if (lang === "java" || lang === "kotlin") {
-      const javaTypeMatch = trimmed.match(/^(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+|static\s+)?(class|interface|enum|record)\s+([A-Za-z0-9_$]+)/);
-      if (javaTypeMatch) {
-        symbols.push({
-          name: javaTypeMatch[2],
-          kind: javaTypeMatch[1],
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
-      const javaMethodMatch = trimmed.match(/^(?:(?:public|private|protected|static|final|abstract|synchronized|native|default|fun)\s+)+([A-Za-z0-9_$<>\[\],\s]+)\s+([A-Za-z0-9_$]+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{/);
-      if (javaMethodMatch && !(/* @__PURE__ */ new Set(["if", "for", "while", "switch", "catch"])).has(javaMethodMatch[2])) {
-        symbols.push({
-          name: javaMethodMatch[2],
-          kind: "method",
-          signature: trimmed.replace(/\{$/, "").trim(),
-          startLine: lineNum,
-          endLine: findBlockEnd(lines, i)
-        });
-        continue;
-      }
+    if (character === "\\" && quote) {
+      escaped = true;
+      continue;
     }
-  }
-  const typeSymbols = symbols.filter((item) => ["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind));
-  return symbols.map((item) => {
-    if (["class", "struct", "enum", "protocol", "interface", "trait", "impl"].includes(item.kind)) return item;
-    const owner = typeSymbols.filter((type) => type.startLine < item.startLine && type.endLine >= item.endLine).sort((left, right) => left.endLine - left.startLine - (right.endLine - right.startLine))[0];
-    return owner ? { ...item, qualifiedName: `${owner.name}.${item.name}` } : item;
-  });
-}
-function findBlockEnd(lines, startIdx) {
-  let openBraces = 0;
-  let started = false;
-  for (let i = startIdx; i < lines.length; i++) {
-    const line = lines[i];
-    for (const char of line) {
-      if (char === "{") {
-        openBraces++;
-        started = true;
-      } else if (char === "}") {
-        openBraces--;
+    if (quote) {
+      if (character === quote) quote = null;
+      else token += character;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (/\s/.test(character)) {
+      if (token) {
+        tokens.push(token);
+        token = "";
       }
+      continue;
     }
-    if (started && openBraces <= 0) {
-      return i + 1;
-    }
+    token += character;
   }
-  return Math.min(lines.length, startIdx + 30);
+  if (escaped) token += "\\";
+  if (quote) throw new Error(`Compact patch line ${lineNumber} has an unterminated quote`);
+  if (token) tokens.push(token);
+  return tokens;
 }
-function findPythonBlockEnd(lines, startIdx) {
-  const startIndent = lines[startIdx].search(/\S|$/);
-  for (let i = startIdx + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim() || line.trim().startsWith("#")) continue;
-    const currentIndent = line.search(/\S|$/);
-    if (currentIndent <= startIndent) {
-      return i;
-    }
-  }
-  return lines.length;
-}
-function extractSymbolSlice(sourceCode, {
-  symbol = null,
-  startLine = null,
-  endLine = null,
-  maxLines = 50,
-  language = null,
-  filePath = ""
-} = {}) {
-  const lines = sourceCode.split(/\r?\n/);
-  let targetStart = startLine;
-  let targetEnd = endLine;
-  let matched = null;
-  let resolutionReason = null;
-  let resolutionCandidates = [];
-  if (symbol) {
-    const resolution = resolveSymbolMatch(sourceCode, {
-      symbol,
-      language: language || (filePath ? detectLanguage(filePath) : "typescript"),
-      filePath
-    });
-    matched = resolution.matched;
-    resolutionReason = resolution.reason;
-    resolutionCandidates = resolution.candidates;
-    if (matched) {
-      targetStart = matched.startLine;
-      targetEnd = matched.endLine;
-    }
-  }
-  if (symbol && !matched) {
-    return {
-      found: false,
-      symbol,
-      signature: null,
-      startLine: null,
-      endLine: null,
-      totalLines: 0,
-      code: "",
-      reason: resolutionReason || "missing",
-      candidates: resolutionCandidates
-    };
-  }
-  if (!targetStart) targetStart = 1;
-  if (!targetEnd) targetEnd = Math.min(lines.length, targetStart + maxLines - 1);
-  const totalLines = targetEnd - targetStart + 1;
-  const sliceLines = lines.slice(targetStart - 1, Math.min(targetEnd, targetStart + maxLines - 1));
-  let result = sliceLines.join("\n");
-  if (totalLines > maxLines) {
-    result += `
-... [${totalLines - maxLines} lines collapsed; use entity_open or editor for full body]`;
-  }
-  return {
-    found: Boolean(matched || startLine || endLine),
-    symbol: matched?.qualifiedName ?? matched?.name ?? symbol,
-    signature: matched?.signature ?? null,
-    startLine: targetStart,
-    endLine: targetEnd,
-    totalLines,
-    code: result,
-    reason: null
-  };
-}
-function resolveSymbolMatch(sourceCode, { symbol, language = null, filePath = "" } = {}) {
-  if (!symbol?.trim()) return { matched: null, reason: "missing", candidates: [] };
-  const symbols = extractSymbols(sourceCode, {
-    language: language || (filePath ? detectLanguage(filePath) : "typescript"),
-    filePath
-  });
-  const requested = symbol.trim();
-  const signatureName = requested.includes("(") ? requested.slice(0, requested.indexOf("(")).trim() : requested;
-  const leaf = signatureName.split(".").at(-1);
-  const rawCandidates = signatureName.includes(".") ? symbols.filter((item) => item.name === signatureName || item.qualifiedName === signatureName) : symbols.filter(
-    (item) => item.name === signatureName || item.qualifiedName === signatureName || item.name === leaf || item.qualifiedName === leaf || item.qualifiedName?.endsWith(`.${signatureName}`)
-  );
-  const callableCandidates = rawCandidates.filter((item) => ["function", "method"].includes(item.kind));
-  const candidates = requested.includes("(") && callableCandidates.length > 0 ? callableCandidates : rawCandidates;
-  const candidateNames = candidates.map((item) => item.qualifiedName ?? item.name);
-  if (candidates.length === 1) return { matched: candidates[0], reason: null, candidates: candidateNames };
-  if (candidates.length > 1) return { matched: null, reason: "ambiguous", candidates: candidateNames };
-  return { matched: null, reason: "missing", candidates: [] };
-}
-function buildChainCodeStream(chainNodes = [], { maxTotalChars = 4e3, mode = "contract" } = {}) {
-  const sections = [];
-  let currentChars = 0;
-  for (const node2 of chainNodes) {
-    const { blockId, title, filePath, symbol, code, contract, signature, sourceStatus: sourceStatus2, startLine, endLine } = node2;
-    const header = `// -------------------------------------------------------------
-// [Node: ${blockId}] ${title} ${filePath ? `(${filePath}${symbol ? ` :: ${symbol}` : ""})` : ""}
-// -------------------------------------------------------------`;
-    const bodyLines = [
-      `// Source status: ${sourceStatus2 ?? (filePath ? "anchored" : "virtual")}`,
-      `// Symbol: ${symbol || "\u2014"}${signature ? ` \xB7 ${signature}` : ""}`,
-      `// Lines: ${startLine && endLine ? `${startLine}-${endLine}` : "\u2014"}`,
-      `// Contract: ${contract || "(not declared)"}`
-    ];
-    if (sourceStatus2 === "line_only") {
-      bodyLines.splice(1, 0, "// Warning: line-only binding; do not treat this range as a symbol facade");
-    }
-    if (["missing", "unreadable", "outside_project", "stale", "ambiguous"].includes(sourceStatus2)) {
-      bodyLines.push(`// Locator is ${sourceStatus2}; rebind before opening implementation`);
-    }
-    const section = `${header}
-${bodyLines.join("\n")}
-`;
-    if (currentChars + section.length > maxTotalChars && sections.length > 0) {
-      sections.push(`// ... [Remaining nodes truncated for context budget]`);
-      break;
-    }
-    sections.push(section);
-    currentChars += section.length;
-  }
-  return sections.join("\n");
-}
-
-// packages/mcp/src/sanitizer.mjs
-var ANSI_REGEX = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
-var PROGRESS_REGEX = /(?:\[[=>\-\s]+\]|\b\d{1,3}%\b|[\u2580-\u259F]+|\r\s*)/g;
-var FAILURE_MARKERS = [
-  /\b(?:error|fatal|fail(?:ed|ure)?|exception|panic)\b/i,
-  /\bassert(?:ion)?\s*(?:error|failed)?\b/i,
-  /^\s*(?:not ok|\bFAIL\b|×|\u2717)/i,
-  /\b(?:NullPointer|Undefined|TypeError|ReferenceError|SyntaxError)\b/
-];
-var SECRET_PATTERNS = [
-  /(authorization\s*:\s*(?:bearer|basic)\s+)[^\s,;]+/gi,
-  /((?:openai|aws|github|npm|api|access|secret|private)[_-]?(?:api[_-]?key|token|secret|password|access[_-]?key)\s*[=:]\s*)[^\s,;"']+/gi,
-  /((?:api[_-]?key|token|secret|password|cookie|signature)\s*[=:]\s*)[^\s,;"']+/gi,
-  /([?&](?:api[_-]?key|token|secret|password|signature)=)[^&#\s]+/gi
-];
-var PRIVATE_KEY_REGEX = /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gi;
-function escapeRegex2(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-function cleanControlCharacters(text = "") {
-  return String(text).replace(ANSI_REGEX, "").replace(/\r+/g, "\n").replace(PROGRESS_REGEX, "");
-}
-function redactSensitiveText(text = "", { projectRoot = "", homeDirectory = process.env.HOME ?? "" } = {}) {
-  let redacted = String(text).replace(PRIVATE_KEY_REGEX, "[REDACTED PRIVATE KEY]");
-  let redactionCount = PRIVATE_KEY_REGEX.test(String(text)) ? 1 : 0;
-  for (const pattern of SECRET_PATTERNS) {
-    redacted = redacted.replace(pattern, (_match, prefix) => {
-      redactionCount += 1;
-      return `${prefix}[REDACTED]`;
-    });
-  }
-  const pathReplacements = [
-    [projectRoot, "$PROJECT"],
-    [homeDirectory, "$HOME"],
-    [process.cwd(), "$CWD"]
-  ].filter(([value]) => typeof value === "string" && value.length > 1).sort((left, right) => right[0].length - left[0].length);
-  for (const [value, replacement] of pathReplacements) {
-    const pattern = new RegExp(escapeRegex2(value), "g");
-    const before = redacted;
-    redacted = redacted.replace(pattern, replacement);
-    if (redacted !== before) redactionCount += 1;
-  }
-  return { text: redacted, redactionCount };
-}
-function isFailureLine(line = "") {
-  const trimmed = line.trim();
-  if (!trimmed) return false;
-  return FAILURE_MARKERS.some((regex) => regex.test(trimmed));
-}
-function clampText(text, maxChars) {
-  if (text.length <= maxChars) return text;
-  const suffix = "\n... [truncated for context limit]";
-  const limit = Math.max(0, maxChars - suffix.length);
-  return `${text.slice(0, limit)}${suffix}`;
-}
-function resultFor(text, { originalLength, hasErrors, redactionCount, maxChars }) {
-  const finalText = clampText(text, maxChars);
-  const sanitizedLength = finalText.length;
-  return {
-    text: finalText,
-    sanitized: finalText,
-    originalLength,
-    originalChars: originalLength,
-    sanitizedLength,
-    finalChars: sanitizedLength,
-    reductionRatio: `${originalLength === 0 ? 0 : ((1 - sanitizedLength / originalLength) * 100).toFixed(1)}%`,
-    compressionRatio: originalLength === 0 ? "0%" : `${(sanitizedLength / originalLength).toFixed(3)}`,
-    hasErrors,
-    redactions: redactionCount
-  };
-}
-function sanitizeTerminalOutput(rawOutput = "", options = {}) {
-  const {
-    maxChars = 3e3,
-    headLines = 5,
-    tailLines = 15,
-    errorContextLines = 3,
-    exitCode = null,
-    projectRoot = "",
-    homeDirectory = process.env.HOME ?? ""
-  } = options;
-  const raw = String(rawOutput);
-  const originalLength = raw.length;
-  if (!raw.trim()) {
-    return resultFor("(No output)", {
-      originalLength,
-      hasErrors: exitCode !== null && exitCode !== 0,
-      redactionCount: 0,
-      maxChars
-    });
-  }
-  const cleaned = cleanControlCharacters(raw);
-  const redacted = redactSensitiveText(cleaned, { projectRoot, homeDirectory });
-  const lines = redacted.text.split("\n").map((line) => line.trimEnd()).filter((line, index, all) => {
-    return line.length > 0 || index > 0 && all[index - 1].length > 0;
-  });
-  const errorIndices = lines.reduce((indices, line, index) => {
-    if (isFailureLine(line)) indices.push(index);
-    return indices;
-  }, []);
-  const hasErrors = exitCode !== null ? exitCode !== 0 : errorIndices.length > 0;
-  if (!hasErrors && lines.length > 25) {
-    const text = [
-      lines.slice(0, 3).join("\n"),
-      `... [${lines.length - 8} lines routine build output collapsed] ...`,
-      lines.slice(-5).join("\n")
-    ].join("\n");
-    return resultFor(text, {
-      originalLength,
-      hasErrors: false,
-      redactionCount: redacted.redactionCount,
-      maxChars
-    });
-  }
-  const keptIndices = /* @__PURE__ */ new Set();
-  for (let i = 0; i < Math.min(headLines, lines.length); i += 1) keptIndices.add(i);
-  for (let i = Math.max(0, lines.length - tailLines); i < lines.length; i += 1) keptIndices.add(i);
-  for (const index of errorIndices) {
-    for (let cursor = Math.max(0, index - errorContextLines); cursor <= Math.min(lines.length - 1, index + errorContextLines); cursor += 1) {
-      keptIndices.add(cursor);
-    }
-  }
-  const resultLines = [];
-  let lastIndex = -1;
-  for (const index of [...keptIndices].sort((left, right) => left - right)) {
-    if (lastIndex !== -1 && index > lastIndex + 1) {
-      resultLines.push(`... [${index - lastIndex - 1} lines non-error output collapsed] ...`);
-    }
-    resultLines.push(lines[index]);
-    lastIndex = index;
-  }
-  return resultFor(resultLines.join("\n"), {
-    originalLength,
-    hasErrors,
-    redactionCount: redacted.redactionCount,
-    maxChars
-  });
-}
-
-// packages/mcp/src/timeline.mjs
-var PRIORITY_ORDER = {
-  p0: 0,
-  critical: 0,
-  p1: 1,
-  high: 1,
-  p2: 2,
-  normal: 2,
-  p3: 3,
-  low: 3
-};
-function normalizePriority(priority = "normal") {
-  const lower = String(priority).toLowerCase().trim();
-  if (lower === "p0" || lower === "critical") return "P0";
-  if (lower === "p1" || lower === "high") return "P1";
-  if (lower === "p2" || lower === "normal") return "P2";
-  if (lower === "p3" || lower === "low") return "P3";
-  return "P2";
-}
-function getTimelineState(service) {
-  const snapshot2 = service.snapshot();
-  const project = snapshot2.project;
-  let storedTimeline = {};
-  const row = service.database.prepare("SELECT timeline_json, handoff_json FROM projects WHERE id = ?").get(project.id);
-  if (row) {
+function parseValue(raw) {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  if (raw === "null") return null;
+  if (/^-?\d+(?:\.\d+)?$/.test(raw)) return Number(raw);
+  if (raw.startsWith("[") && raw.endsWith("]") || raw.startsWith("{") && raw.endsWith("}")) {
     try {
-      if (row.timeline_json && row.timeline_json !== "{}") {
-        storedTimeline = JSON.parse(row.timeline_json);
-      } else if (row.handoff_json && row.handoff_json !== "{}") {
-        storedTimeline = JSON.parse(row.handoff_json);
-      }
+      return JSON.parse(raw);
     } catch {
     }
   }
-  const plans = snapshot2.plans.map((p) => ({
-    ...p,
-    normalizedPriority: normalizePriority(p.priority),
-    priorityRank: PRIORITY_ORDER[String(p.priority).toLowerCase()] ?? 2
-  }));
-  const phaseMap = /* @__PURE__ */ new Map();
-  for (const plan of plans) {
-    const phaseKey = plan.phase || "general";
-    if (!phaseMap.has(phaseKey)) {
-      phaseMap.set(phaseKey, []);
-    }
-    phaseMap.get(phaseKey).push(plan);
-  }
-  const phases = [];
-  for (const [phaseKey, phasePlans] of phaseMap.entries()) {
-    phasePlans.sort((a, b) => a.priorityRank - b.priorityRank || a.planOrder - b.planOrder);
-    const completedCount = phasePlans.filter((p) => p.derivedStatus === "complete").length;
-    phases.push({
-      phase: phaseKey,
-      completed: completedCount === phasePlans.length && phasePlans.length > 0,
-      plans: phasePlans.map((p) => ({
-        id: p.id,
-        title: p.title,
-        priority: p.normalizedPriority,
-        derivedStatus: p.derivedStatus,
-        status: p.status,
-        progress: p.progress,
-        stepsCount: snapshot2.planSteps.filter((s) => s.planId === p.id).length
-      }))
-    });
-  }
-  let activePlan = null;
-  if (storedTimeline.activePlanId) {
-    activePlan = plans.find((p) => p.id === storedTimeline.activePlanId && p.derivedStatus !== "cancelled");
-  }
-  if (!activePlan) {
-    activePlan = plans.find((p) => p.status === "active" || p.derivedStatus === "active") || plans.find((p) => p.derivedStatus !== "complete" && p.derivedStatus !== "cancelled") || plans[0] || null;
-  }
-  let activeStep = null;
-  let activeStepIndex = 0;
-  let allSteps = [];
-  if (activePlan) {
-    allSteps = snapshot2.planSteps.filter((s) => s.planId === activePlan.id).sort((a, b) => a.position - b.position);
-    if (storedTimeline.activeStepId) {
-      activeStep = allSteps.find((s) => s.id === storedTimeline.activeStepId);
-    }
-    if (!activeStep) {
-      activeStep = allSteps.find((s) => s.status === "active") || allSteps.find((s) => s.status === "pending") || allSteps[0] || null;
-    }
-    if (activeStep) {
-      activeStepIndex = allSteps.findIndex((s) => s.id === activeStep.id);
-    }
-  }
-  const activeCursor = {
-    activePhase: activePlan?.phase || (phases[0]?.phase ?? "foundation"),
-    activePlanId: activePlan?.id || null,
-    activePlanTitle: activePlan?.title || null,
-    priority: activePlan?.normalizedPriority || "P0",
-    activeStepId: activeStep?.id || null,
-    activeStepTitle: activeStep?.title || null,
-    activeStepIndex: activeStepIndex + 1,
-    totalSteps: allSteps.length,
-    nowDoing: storedTimeline.nowDoing || (activeStep ? `\u6B63\u5728\u6267\u884C\u6B65\u9AA4 ${activeStepIndex + 1}: ${activeStep.title}` : "\u51C6\u5907\u5F00\u59CB\u5F00\u53D1"),
-    lastFinished: storedTimeline.lastFinished || (activePlan?.derivedReason ?? ""),
-    nextUp: storedTimeline.nextUp || (activeStep ? activeStep.action || activePlan?.nextAction || "\u63A8\u8FDB\u4E0B\u4E00\u4E2A\u5F00\u53D1\u4EFB\u52A1" : ""),
-    touchedFiles: storedTimeline.touchedFiles || [],
-    cursorUpdatedAt: storedTimeline.cursorUpdatedAt || project.updatedAt
-  };
-  const mdLines = [
-    "# \u{1F4CD} Project Timeline & Focus",
-    `- **Active Phase**: \`${activeCursor.activePhase}\``,
-    `- **Active Plan**: \`plan:${activeCursor.activePlanId ?? "none"}\` (${activeCursor.activePlanTitle ?? "None"}) [${activeCursor.priority}]`,
-    ...activeCursor.activeStepTitle ? [`- **Active Step**: Step ${activeCursor.activeStepIndex}/${activeCursor.totalSteps}: ${activeCursor.activeStepTitle}`] : [],
-    `- **Now Doing**: ${activeCursor.nowDoing}`,
-    ...activeCursor.nextUp ? [`- **Next Up**: ${activeCursor.nextUp}`] : [],
-    ...activeCursor.lastFinished ? [`- **Last Finished**: ${activeCursor.lastFinished}`] : [],
-    "",
-    "## Phases & Execution Order"
-  ];
-  for (const p of phases) {
-    mdLines.push(`### Phase: ${p.phase} ${p.completed ? "(Completed)" : ""}`);
-    for (const plan of p.plans) {
-      const isCurrent = plan.id === activeCursor.activePlanId;
-      const marker = plan.derivedStatus === "complete" ? "[x]" : isCurrent ? "[*]" : "[ ]";
-      mdLines.push(`- ${marker} \`plan:${plan.id}\` \xB7 ${plan.priority} \xB7 ${plan.title} (${plan.derivedStatus})`);
-    }
-  }
+  return raw;
+}
+function parseKeyValue(token, lineNumber) {
+  const separator = token.indexOf("=");
+  if (separator <= 0) throw new Error(`Compact patch line ${lineNumber} expects key=value, got ${token}`);
+  const key = token.slice(0, separator).trim();
+  const raw = token.slice(separator + 1);
+  if (!key) throw new Error(`Compact patch line ${lineNumber} has an empty field name`);
+  return [key, parseValue(raw)];
+}
+function parseTarget(token, lineNumber) {
+  const match = TARGET_PATTERN.exec(token);
+  if (!match) throw new Error(`Compact patch line ${lineNumber} has invalid target ${token}`);
   return {
-    projectId: project.id,
-    graphRevision: project.graphRevision,
-    phases,
-    activeCursor,
-    markdown: mdLines.join("\n")
+    targetType: match[1],
+    targetId: match[2],
+    expectedRevision: match[3] ? Number(match[3]) : void 0
   };
 }
-function syncTimeline(service, {
-  planId,
-  stepId,
-  nowDoing,
-  nextUp,
-  lastFinished,
-  touchedFiles = []
-}) {
-  const current = getTimelineState(service).activeCursor;
-  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
-  const updatedCursor = {
-    activePlanId: planId ?? current.activePlanId,
-    activeStepId: stepId ?? current.activeStepId,
-    nowDoing: nowDoing ?? current.nowDoing,
-    nextUp: nextUp ?? current.nextUp,
-    lastFinished: lastFinished ?? current.lastFinished,
-    touchedFiles: touchedFiles.length > 0 ? touchedFiles : current.touchedFiles,
-    cursorUpdatedAt: timestamp
-  };
-  service.database.prepare("UPDATE projects SET timeline_json = ?, handoff_json = ?, updated_at = ? WHERE id = ?").run(JSON.stringify(updatedCursor), JSON.stringify(updatedCursor), timestamp, service.paths.descriptor.id);
-  if (updatedCursor.activePlanId && updatedCursor.activeStepId) {
-    service.database.prepare("UPDATE plan_steps SET status = 'complete', updated_at = ? WHERE plan_id = ? AND status = 'active' AND id != ?").run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
-    service.database.prepare("UPDATE plan_steps SET status = 'active', updated_at = ? WHERE plan_id = ? AND id = ? AND status = 'pending'").run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
+function parseInlineFields(tokens, lineNumber) {
+  const fields = {};
+  let expectedRevision;
+  for (const token of tokens) {
+    const [key, value] = parseKeyValue(token, lineNumber);
+    if (key === "expected" || key === "expectedRevision") {
+      if (!Number.isInteger(value)) throw new Error(`Compact patch line ${lineNumber} expected revision must be an integer`);
+      expectedRevision = value;
+      continue;
+    }
+    fields[key] = value;
   }
-  return updatedCursor;
+  return { fields, expectedRevision };
 }
-function advanceStep(service, {
-  planId,
-  stepId,
-  status = "complete",
-  summary = "",
-  nextStepId = null
-}) {
-  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
-  const snapshot2 = service.snapshot();
-  const targetPlanId = planId || getTimelineState(service).activeCursor.activePlanId;
-  if (!targetPlanId) throw new Error("No active plan found to advance step");
-  const steps = snapshot2.planSteps.filter((s) => s.planId === targetPlanId).sort((a, b) => a.position - b.position);
-  const currentStep = stepId ? steps.find((s) => s.id === stepId) : steps.find((s) => s.status === "active" || s.status === "pending");
-  if (!currentStep) throw new Error("Step not found in plan");
-  service.database.prepare("UPDATE plan_steps SET status = ?, updated_at = ? WHERE plan_id = ? AND id = ?").run(status, timestamp, targetPlanId, currentStep.id);
-  const currentIndex = steps.findIndex((s) => s.id === currentStep.id);
-  const nextStep = nextStepId ? steps.find((s) => s.id === nextStepId) : steps[currentIndex + 1] || null;
-  if (nextStep) {
-    service.database.prepare("UPDATE plan_steps SET status = 'active', updated_at = ? WHERE plan_id = ? AND id = ?").run(timestamp, targetPlanId, nextStep.id);
+function parseCommand(line, lineNumber) {
+  const tokens = tokenize(line, lineNumber);
+  if (tokens.length < 2) throw new Error(`Compact patch line ${lineNumber} requires an action and target`);
+  const action = tokens.shift();
+  if (!["create", "update", "checkpoint", "source", "delete"].includes(action)) {
+    throw new Error(`Compact patch line ${lineNumber} has unsupported action ${action}`);
   }
-  const lastFinished = summary || `\u5DF2\u5B8C\u6210\u6B65\u9AA4 ${currentIndex + 1}: ${currentStep.title}`;
-  const nowDoing = nextStep ? `\u6B63\u5728\u6267\u884C\u6B65\u9AA4 ${currentIndex + 2}: ${nextStep.title}` : `\u8BA1\u5212\u5DF2\u5168\u90E8\u6B65\u9AA4\u5B8C\u6210`;
-  const nextUp = nextStep ? nextStep.action || "\u63A8\u8FDB\u6B65\u9AA4\u5B9E\u73B0\u4E0E\u9A8C\u8BC1" : "\u8FD0\u884C\u5168\u8BA1\u5212\u9A8C\u6536\u95E8\u7981";
-  return syncTimeline(service, {
-    planId: targetPlanId,
-    stepId: nextStep?.id || null,
-    nowDoing,
-    nextUp,
-    lastFinished
-  });
+  const target = parseTarget(tokens.shift(), lineNumber);
+  const inline = parseInlineFields(tokens, lineNumber);
+  return {
+    action,
+    ...target,
+    expectedRevision: target.expectedRevision ?? inline.expectedRevision,
+    fields: inline.fields,
+    line: lineNumber
+  };
+}
+function parseFieldLine(line, lineNumber) {
+  const value = line.startsWith("set ") ? line.slice(4).trim() : line;
+  const scalar = /^(\w+)<<$/.exec(value);
+  if (scalar) return { type: "scalar", key: scalar[1] };
+  const tokens = tokenize(value, lineNumber);
+  if (tokens.length !== 1) throw new Error(`Compact patch line ${lineNumber} expects one key=value field`);
+  const [key, parsedValue] = parseKeyValue(tokens[0], lineNumber);
+  return { type: "field", key, value: parsedValue };
+}
+function assignField(operation, parsed, scalarValue) {
+  if (parsed.type === "scalar") operation.fields[parsed.key] = scalarValue;
+  else operation.fields[parsed.key] = parsed.value;
+}
+function parseHeader(line, lineNumber) {
+  const match = HEADER_PATTERN.exec(line.trim());
+  if (!match) throw new Error(`Compact patch must start with contextos/1 (line ${lineNumber})`);
+  const version2 = Number(match[1]);
+  if (version2 !== 1) throw new Error(`Unsupported compact patch version contextos/${version2}`);
+  const inline = parseInlineFields(match[2] ? tokenize(match[2], lineNumber) : [], lineNumber);
+  return { version: version2, metadata: inline.fields };
+}
+function parseGraphPatch(input) {
+  if (typeof input !== "string" || !input.trim()) throw new Error("patch is required");
+  const lines = input.replace(/\r\n?/g, "\n").split("\n");
+  let headerIndex = 0;
+  while (headerIndex < lines.length && (!lines[headerIndex].trim() || lines[headerIndex].trim().startsWith("#"))) headerIndex += 1;
+  if (headerIndex >= lines.length) throw new Error("patch is required");
+  const header = parseHeader(lines[headerIndex], headerIndex + 1);
+  const operations = [];
+  let current = null;
+  const flush = () => {
+    if (!current) return;
+    if (Object.keys(current.fields).length === 0 && current.action !== "source" && current.action !== "delete") {
+      throw new Error(`Compact patch line ${current.line} has no fields; add key=value or end the operation`);
+    }
+    operations.push(current);
+    current = null;
+  };
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const raw = lines[index];
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    if (line === "end") {
+      flush();
+      continue;
+    }
+    if (/^flow[:\s]/.test(line)) {
+      flush();
+      const flowExpr = line.replace(/^flow[:\s]+/, "").trim();
+      if (!flowExpr) throw new Error(`Compact patch line ${index + 1} has an empty flow expression`);
+      operations.push({
+        action: "flow",
+        flow: flowExpr,
+        line: index + 1
+      });
+      continue;
+    }
+    if (/^(create|update|checkpoint|source|delete)\s/.test(line)) {
+      flush();
+      current = parseCommand(line, index + 1);
+      continue;
+    }
+    if (!current) throw new Error(`Compact patch line ${index + 1} is not attached to an operation`);
+    const parsed = parseFieldLine(line, index + 1);
+    if (parsed.type === "scalar") {
+      const scalarLines = [];
+      let closed = false;
+      for (index += 1; index < lines.length; index += 1) {
+        if (lines[index].trim() === ">>") {
+          closed = true;
+          break;
+        }
+        scalarLines.push(lines[index]);
+      }
+      if (!closed) throw new Error(`Compact patch field ${parsed.key} starting on line ${index + 1} is missing >>`);
+      assignField(current, parsed, scalarLines.join("\n"));
+    } else {
+      assignField(current, parsed);
+    }
+  }
+  flush();
+  if (operations.length === 0) throw new Error("patch contains no operations");
+  return { ...header, operations };
 }
 
 // packages/mcp/src/flow.mjs
@@ -25012,179 +24868,6 @@ function applyArrowFlow(service, flowExpression, {
     changeSetId: result.changeSet?.id,
     graphRevision: result.graphRevision
   };
-}
-
-// packages/mcp/src/architecture-link.mjs
-import fs3 from "node:fs";
-import path4 from "node:path";
-var LAYER_ORDER = [
-  "client",
-  "boundary",
-  "application",
-  "domain",
-  "data",
-  "external",
-  "quality",
-  "infrastructure",
-  "unspecified"
-];
-function extractImports(sourceCode, filePath = "") {
-  const imports = [];
-  const lines = sourceCode.split(/\r?\n/);
-  const lang = detectLanguage(filePath);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*")) {
-      continue;
-    }
-    if (lang === "javascript" || lang === "typescript") {
-      const fromMatch = trimmed.match(/(?:import\s+.*?from\s+['"]([^'"]+)['"]|require\(['"]([^'"]+)['"]\))/);
-      if (fromMatch) {
-        const importPath = fromMatch[1] || fromMatch[2];
-        if (importPath.startsWith(".")) {
-          const resolved = path4.normalize(path4.join(path4.dirname(filePath), importPath));
-          imports.push(resolved);
-        }
-      }
-    } else if (lang === "swift") {
-      const swiftMatch = trimmed.match(/^import\s+([A-Za-z0-9_]+)/);
-      if (swiftMatch) imports.push(swiftMatch[1]);
-    } else if (lang === "python") {
-      const pyMatch = trimmed.match(/^(?:from\s+([A-Za-z0-9_.]+)\s+import|import\s+([A-Za-z0-9_.]+))/);
-      if (pyMatch) imports.push((pyMatch[1] || pyMatch[2]).replace(/\./g, "/"));
-    }
-  }
-  return imports;
-}
-function suggestLinksForBlock(service, target) {
-  const blockId = typeof target === "object" && target !== null ? target.blockId : target;
-  const snapshot2 = service.snapshot();
-  const block = snapshot2.blocks.find((b) => b.id === blockId);
-  if (!block) {
-    throw new Error(`block:${blockId} not found`);
-  }
-  const existingLinks = snapshot2.links.filter(
-    (l) => l.sourceType === "block" && l.sourceId === blockId || l.targetType === "block" && l.targetId === blockId
-  );
-  const connectedBlockIds = new Set(
-    existingLinks.map((l) => l.sourceId === blockId ? l.targetId : l.sourceId)
-  );
-  const suggestions = [];
-  const blockSources = snapshot2.sourceRefs.filter((s) => s.blockId === blockId);
-  const repoRoot = service.paths.repoRoot || service.paths.projectRoot;
-  const sourceImports = /* @__PURE__ */ new Set();
-  for (const ref of blockSources) {
-    const refPath = ref.path || ref.filePath;
-    if (!refPath) continue;
-    const absolutePath = path4.isAbsolute(refPath) ? refPath : path4.join(repoRoot, refPath);
-    if (fs3.existsSync(absolutePath)) {
-      try {
-        const code = fs3.readFileSync(absolutePath, "utf8");
-        const found = extractImports(code, refPath);
-        found.forEach((imp) => sourceImports.add(imp));
-      } catch {
-      }
-    }
-  }
-  if (sourceImports.size > 0) {
-    for (const otherBlock of snapshot2.blocks) {
-      if (otherBlock.id === blockId || connectedBlockIds.has(otherBlock.id)) continue;
-      const otherSources = snapshot2.sourceRefs.filter((s) => s.blockId === otherBlock.id);
-      for (const otherRef of otherSources) {
-        const otherPath = otherRef.path || otherRef.filePath;
-        if (!otherPath) continue;
-        const normalizedOther = otherPath.replace(/\.[^/.]+$/, "");
-        for (const imp of sourceImports) {
-          const normalizedImp = imp.replace(/\.[^/.]+$/, "");
-          if (normalizedOther.endsWith(normalizedImp) || normalizedImp.endsWith(normalizedOther)) {
-            suggestions.push({
-              sourceId: blockId,
-              targetId: otherBlock.id,
-              kind: ["data", "database"].includes(otherBlock.kind) ? "reads" : "calls",
-              confidence: "high",
-              reason: `Source file ${otherPath} is imported by block:${blockId}`
-            });
-            connectedBlockIds.add(otherBlock.id);
-            break;
-          }
-        }
-      }
-    }
-  }
-  const currentLayerIdx = LAYER_ORDER.indexOf(block.architectureLayer);
-  for (const otherBlock of snapshot2.blocks) {
-    if (otherBlock.id === blockId || connectedBlockIds.has(otherBlock.id)) continue;
-    if (["principle", "decision"].includes(otherBlock.kind)) continue;
-    const otherLayerIdx = LAYER_ORDER.indexOf(otherBlock.architectureLayer);
-    const sameScope = block.scope === otherBlock.scope && block.scope !== "general";
-    if (currentLayerIdx >= 0 && otherLayerIdx >= 0) {
-      if (currentLayerIdx < otherLayerIdx && (otherLayerIdx - currentLayerIdx <= 2 || sameScope)) {
-        const kind = ["data", "database"].includes(otherBlock.kind) ? "reads" : "calls";
-        suggestions.push({
-          sourceId: blockId,
-          targetId: otherBlock.id,
-          kind,
-          confidence: sameScope ? "medium" : "low",
-          reason: `Layer convention: ${block.architectureLayer} -> ${otherBlock.architectureLayer}${sameScope ? ` (shares scope ${block.scope})` : ""}`
-        });
-      } else if (currentLayerIdx > otherLayerIdx && (currentLayerIdx - otherLayerIdx <= 2 || sameScope)) {
-        const kind = ["data", "database"].includes(block.kind) ? "reads" : "calls";
-        suggestions.push({
-          sourceId: otherBlock.id,
-          targetId: blockId,
-          kind,
-          confidence: sameScope ? "medium" : "low",
-          reason: `Layer convention: ${otherBlock.architectureLayer} -> ${block.architectureLayer}${sameScope ? ` (shares scope ${block.scope})` : ""}`
-        });
-      }
-    }
-  }
-  return suggestions.slice(0, 10);
-}
-function connectBlocks(service, {
-  sourceId,
-  targetId,
-  kind = "calls",
-  label = "",
-  contract = "",
-  actor = "agent",
-  reason = "Connect architecture blocks"
-}) {
-  const snapshot2 = service.snapshot();
-  const source = snapshot2.blocks.find((b) => b.id === sourceId);
-  const target = snapshot2.blocks.find((b) => b.id === targetId);
-  if (!source) throw new Error(`Source block:${sourceId} not found`);
-  if (!target) throw new Error(`Target block:${targetId} not found`);
-  const linkId = `link-${sourceId}-to-${targetId}`;
-  const existing = snapshot2.links.find((l) => l.id === linkId);
-  const operation = existing ? {
-    action: "update_link",
-    id: linkId,
-    expectedRevision: existing.currentRevision,
-    fields: {
-      kind,
-      label: label || existing.label,
-      contract: contract || existing.contract
-    }
-  } : {
-    action: "create_link",
-    id: linkId,
-    fields: {
-      sourceType: "block",
-      sourceId,
-      targetType: "block",
-      targetId,
-      kind,
-      label: label || `${source.title} -> ${target.title}`,
-      contract: contract || `${source.title} ${kind} ${target.title}`
-    }
-  };
-  return service.mutate({
-    operations: [operation],
-    actor,
-    reason,
-    task: "architecture-connect"
-  });
 }
 
 // packages/mcp/src/schema.mjs
@@ -25958,1749 +25641,16 @@ function foundationBlockGroups(snapshot2, blocks) {
   return groups;
 }
 
-// packages/mcp/src/query-engine.mjs
-import fs5 from "node:fs";
-import path6 from "node:path";
-
-// packages/mcp/src/plugin-runtime.mjs
-import crypto4 from "node:crypto";
+// packages/mcp/src/checkpoint-freshness.mjs
+import crypto5 from "node:crypto";
 import fs4 from "node:fs";
 import path5 from "node:path";
-import { fileURLToPath } from "node:url";
-function hashFile(filePath) {
-  try {
-    return crypto4.createHash("sha256").update(fs4.readFileSync(filePath)).digest("hex").slice(0, 16);
-  } catch {
-    return null;
-  }
-}
-function pluginRuntimeStatus(projectRoot = process.cwd()) {
-  const runningPath = process.argv[1] ? path5.resolve(process.argv[1]) : fileURLToPath(import.meta.url);
-  const repoBundle = path5.join(projectRoot, "plugins/contextos/server/contextos-mcp.mjs");
-  const runningHash = hashFile(runningPath);
-  const repoHash = hashFile(repoBundle);
-  const runningIsBundle = path5.basename(runningPath) === "contextos-mcp.mjs";
-  const stale = Boolean(runningIsBundle && runningHash && repoHash && runningHash !== repoHash);
-  return {
-    runningPath,
-    repoBundle,
-    runningHash,
-    repoHash,
-    stale,
-    reload: stale ? "codex plugin remove contextos@contextos-development && codex plugin add contextos@contextos-development" : null
-  };
-}
-
-// packages/mcp/src/query-engine.mjs
-function renderProjectMap(service, { locale = "en" } = {}) {
-  const snapshot2 = service.snapshot();
-  const coverage = architectureCoverage(snapshot2);
-  const graphBlocks = snapshot2.blocks.filter((block) => block.kind !== "decision");
-  assertAllowed(locale, LOCALES, "locale");
-  const translations = localizationMap(snapshot2);
-  const layerCounts = Object.fromEntries(
-    [...ARCHITECTURE_LAYERS].map((layer) => [layer, graphBlocks.filter((block) => block.architectureLayer === layer).length]).filter(([, count]) => count > 0)
-  );
-  const scopeCounts = Object.fromEntries(
-    [...new Set(graphBlocks.map((block) => block.scope))].sort().map((scope) => [scope, graphBlocks.filter((block) => block.scope === scope).length])
-  );
-  const architectureGroups = [...new Set(graphBlocks.map((block) => `${block.architectureLayer}\0${block.scope}`))].sort().map((key) => {
-    const [layer, scope] = key.split("\0");
-    const members2 = graphBlocks.filter((block) => block.architectureLayer === layer && block.scope === scope).sort((left, right) => left.localOrder - right.localOrder || left.id.localeCompare(right.id));
-    return {
-      layer,
-      scope,
-      count: members2.length,
-      blockRefs: members2.slice(0, 50).map((block) => `block:${block.id}`),
-      truncated: members2.length > 50
-    };
-  });
-  const lines = [
-    `# ${snapshot2.project.name}`,
-    `Graph revision: ${snapshot2.project.graphRevision}`,
-    "",
-    "## Plans"
-  ];
-  const plans = snapshot2.plans;
-  if (plans.length === 0) lines.push("- None");
-  for (const plan of plans) {
-    const count = snapshot2.planChainRefs.filter((item) => item.planId === plan.id).length;
-    const title = localizedValue(translations, "plan", plan.id, locale, "title", plan.title);
-    const progress = `${plan.progress.completedSteps}/${plan.progress.totalSteps} steps \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} gates`;
-    lines.push(
-      `- [plan:${plan.id}] ${title} \u2014 ${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus} \xB7 ${progress} \xB7 ${count} target chain(s)`
-    );
-    if (plan.derivedReason) lines.push(`  ${plan.derivedReason}`);
-  }
-  lines.push("", "## Project network");
-  lines.push(`- ${graphBlocks.length} Blocks / ${snapshot2.links.length} Links / ${snapshot2.chains.length} Chain overlays`);
-  lines.push(`- ${snapshot2.decisions.length} Decisions (scoped index; expand a record on demand)`);
-  lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
-  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed \xB7 ${coverage.failingIds.length} failing`);
-  lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks covered; architecture outside the Plan remains valid`);
-  if (coverage.failingIds.length) lines.push(`- Failed verification: ${coverage.failingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.failingIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " \u2026" : ""}`);
-  if (snapshot2.sourceSync) lines.push(`- Source sync: r${snapshot2.sourceSync.revision} \xB7 ${snapshot2.sourceSync.bindingCount} bindings \xB7 ${snapshot2.sourceSync.invalidBindingCount} needing relocation`);
-  lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" \xB7 ") || "None"}`);
-  lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" \xB7 ") || "None"}`);
-  for (const block of graphBlocks.filter((item) => item.priority === "critical").slice(0, 8)) {
-    const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
-    lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
-  }
-  if (snapshot2.decisions.length) {
-    lines.push("", "## Decision index");
-    for (const decision of snapshot2.decisions.slice(0, 12)) {
-      const scopes = snapshot2.decisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
-      lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status}${scopes.length ? ` \xB7 scopes ${scopes.join(", ")}` : ""} \xB7 use decision_open for rationale`);
-    }
-    if (snapshot2.decisions.length > 12) lines.push(`- \u2026 ${snapshot2.decisions.length - 12} more; use decision_list for the complete index.`);
-  }
-  return {
-    map: {
-      project: snapshot2.project,
-      changeSequence: snapshot2.changeSequence,
-      counts: {
-        blocks: graphBlocks.length,
-        links: snapshot2.links.length,
-        chains: snapshot2.chains.length,
-        plans: snapshot2.plans.length,
-        decisions: snapshot2.decisions.length
-      },
-      architecture: {
-        layerCounts,
-        scopeCounts,
-        groups: architectureGroups,
-        coverage
-      },
-      plans: plans.map((plan) => ({
-        id: plan.id,
-        title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title),
-        status: plan.status,
-        derivedStatus: plan.derivedStatus,
-        derivedReason: plan.derivedReason,
-        priority: plan.priority,
-        phase: plan.phase,
-        order: plan.planOrder,
-        progress: plan.progress,
-        typedProgress: plan.typedProgress,
-        dependencyPlanIds: snapshot2.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.dependsOnPlanId),
-        targetChainIds: snapshot2.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId)
-      })),
-      criticalBlocks: graphBlocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
-        id: block.id,
-        title: localizedValue(translations, "block", block.id, locale, "title", block.title),
-        deliveryState: block.deliveryState,
-        healthState: block.healthState
-      })),
-      decisions: snapshot2.decisions.map((decision) => ({
-        id: decision.id,
-        title: decision.title,
-        status: decision.status,
-        scopes: snapshot2.decisionScopes.filter((scope) => scope.decisionId === decision.id)
-      }))
-    },
-    markdown: lines.join("\n")
-  };
-}
-function listDecisions(service, { locale = "en" } = {}) {
-  const snapshot2 = service.snapshot();
-  assertAllowed(locale, LOCALES, "locale");
-  const decisions = snapshot2.decisions.map((decision) => ({
-    id: decision.id,
-    title: decision.title,
-    summary: decision.summary,
-    status: decision.status,
-    currentRevision: decision.currentRevision,
-    supersedesDecisionId: decision.supersedesDecisionId,
-    scopes: snapshot2.decisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
-  }));
-  const lines = ["# Decision index", `- Graph revision: ${snapshot2.project.graphRevision}`, `- Count: ${decisions.length}`, ""];
-  for (const decision of decisions) {
-    const scopes = decision.scopes.map((scope) => `${scope.type}:${scope.value}`).join(", ");
-    lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status}${scopes ? ` \xB7 scopes ${scopes}` : ""} \xB7 use decision_open for rationale`);
-  }
-  return { decisions, markdown: lines.join("\n") };
-}
-function searchEntities(service, { query, kinds = [], states = [], limit = 20, locale = "en" } = {}) {
-  const term = `%${query.trim()}%`;
-  const terms = taskTerms(query);
-  const snapshot2 = service.snapshot();
-  assertAllowed(locale, LOCALES, "locale");
-  const translations = localizationMap(snapshot2);
-  const kindSet = new Set(kinds);
-  const stateSet = new Set(states);
-  const score = (text) => terms.reduce((total, item) => total + (text.toLowerCase().includes(item) ? 1 : 0), 0);
-  const blocks = snapshot2.blocks.filter((block) => block.kind !== "decision").map((block) => {
-    const text = `${block.title}
-${block.summary}
-${block.body}
-${block.contract}
-${block.scope}
-${block.architectureLayer}
-${block.tags.join(" ")}
-${localizedSearchText(snapshot2, "block", block.id)}`;
-    return { item: block, score: score(text) };
-  }).filter(({ item: block, score: score2 }) => {
-    return score2 > 0 && (kindSet.size === 0 || kindSet.has(block.kind)) && (stateSet.size === 0 || stateSet.has(block.deliveryState) || stateSet.has(block.healthState));
-  }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
-  const chains = snapshot2.chains.map((chain) => {
-    const text = `${chain.title}
-${chain.intent}
-${chain.inputContract}
-${chain.outputContract}
-${localizedSearchText(snapshot2, "chain", chain.id)}`;
-    return { item: chain, score: score(text) };
-  }).filter(({ item: chain, score: score2 }) => {
-    return score2 > 0 && (kindSet.size === 0 || kindSet.has("chain")) && (stateSet.size === 0 || stateSet.has(chain.deliveryState) || stateSet.has(chain.healthState));
-  }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
-  const plans = snapshot2.plans.map((plan) => {
-    const text = `${plan.title}
-${plan.summary}
-${plan.goal}
-${plan.status}
-${plan.nextAction}
-${JSON.stringify(plan.blockers)}
-${localizedSearchText(snapshot2, "plan", plan.id)}`;
-    return { item: plan, score: score(text) };
-  }).filter(({ item: plan, score: score2 }) => score2 > 0 && (kindSet.size === 0 || kindSet.has("plan")) && (stateSet.size === 0 || stateSet.has(plan.status))).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
-  const decisions = snapshot2.decisions.map((decision) => {
-    const text = `${decision.title}
-${decision.summary}
-${decision.rationale}
-${decision.status}
-${JSON.stringify(decision.alternatives)}
-${JSON.stringify(decision.consequences)}`;
-    return { item: decision, score: score(text) };
-  }).filter(({ item: decision, score: score2 }) => score2 > 0 && (kindSet.size === 0 || kindSet.has("decision")) && (stateSet.size === 0 || stateSet.has(decision.status))).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
-  const sourceRows = service.database.prepare(
-    `SELECT sr.*, b.title FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
-       WHERE b.project_id = ? AND (sr.path LIKE ? OR COALESCE(sr.symbol, '') LIKE ?) LIMIT ?`
-  ).all(service.paths.descriptor.id, term, term, limit);
-  const searchItems = [
-    ...blocks.map((block) => `- [block:${block.id}] ${localizedValue(translations, "block", block.id, locale, "title", block.title)} \xB7 ${block.deliveryState}`),
-    ...chains.map((chain) => `- [chain:${chain.id}] ${localizedValue(translations, "chain", chain.id, locale, "title", chain.title)} \xB7 ${chain.deliveryState}`),
-    ...plans.map((plan) => `- [plan:${plan.id}] ${localizedValue(translations, "plan", plan.id, locale, "title", plan.title)} \xB7 ${plan.status}`),
-    ...decisions.map((decision) => `- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status} \xB7 use decision_open for rationale`),
-    ...sourceRows.map((row) => `- [source:${row.id}] ${localizedValue(translations, "block", row.block_id, locale, "title", row.title)} \xB7 ${row.path}${row.start_line ? `:${row.start_line}` : ""}`)
-  ].slice(0, limit);
-  return {
-    query,
-    results: [
-      ...blocks.map((block) => ({ type: "block", id: block.id, title: localizedValue(translations, "block", block.id, locale, "title", block.title), state: block.deliveryState })),
-      ...chains.map((chain) => ({ type: "chain", id: chain.id, title: localizedValue(translations, "chain", chain.id, locale, "title", chain.title), state: chain.deliveryState })),
-      ...plans.map((plan) => ({ type: "plan", id: plan.id, title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title), state: plan.status })),
-      ...decisions.map((decision) => ({ type: "decision", id: decision.id, title: decision.title, state: decision.status })),
-      ...sourceRows.map((row) => ({
-        type: "source",
-        id: row.id,
-        title: `${localizedValue(translations, "block", row.block_id, locale, "title", row.title)}: ${row.path}${row.start_line ? `:${row.start_line}` : ""}`,
-        blockId: row.block_id
-      }))
-    ].slice(0, limit),
-    markdown: [
-      `# Search: ${query}`,
-      `Count: ${searchItems.length}`,
-      "",
-      ...searchItems
-    ].join("\n")
-  };
-}
-function openEntity(service, rawPayload = {}) {
-  const payload = typeof rawPayload === "string" ? { ref: rawPayload } : rawPayload ?? {};
-  let { type, id, historyLimit = 8, locale = "en" } = payload;
-  if ((!type || !id) && payload.ref) {
-    const parts = payload.ref.split(":");
-    type = parts[0];
-    id = parts.slice(1).join(":");
-  }
-  const projectId = service.paths.descriptor.id;
-  let entity;
-  if (type === "block") {
-    const row = service.database.prepare("SELECT * FROM blocks WHERE project_id = ? AND id = ?").get(projectId, id);
-    if (row) entity = normalizeBlock(row);
-  } else if (type === "chain") {
-    const row = service.database.prepare("SELECT * FROM chains WHERE project_id = ? AND id = ?").get(projectId, id);
-    if (row) entity = normalizeChain(row);
-  } else if (type === "link") {
-    const row = service.database.prepare("SELECT * FROM links WHERE project_id = ? AND id = ?").get(projectId, id);
-    if (row) entity = normalizeLink(row);
-  } else if (type === "plan") {
-    const row = service.database.prepare("SELECT * FROM plans WHERE project_id = ? AND id = ?").get(projectId, id);
-    if (row) entity = normalizePlan(row);
-  } else if (type === "decision") {
-    const row = service.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?").get(projectId, id);
-    if (row) entity = normalizeDecision(row);
-  }
-  if (!entity) throw new Error(`${type}:${id} not found`);
-  const checkpoints = service.database.prepare(
-    type === "plan" ? `SELECT DISTINCT c.* FROM checkpoints c
-         LEFT JOIN plan_checkpoint_refs pcr ON pcr.checkpoint_id = c.id
-         WHERE c.project_id = ? AND ((c.target_type = ? AND c.target_id = ?) OR pcr.plan_id = ?)
-         ORDER BY c.updated_at DESC` : "SELECT * FROM checkpoints WHERE project_id = ? AND target_type = ? AND target_id = ? ORDER BY updated_at DESC"
-  ).all(...type === "plan" ? [projectId, type, id, id] : [projectId, type, id]).map((row) => ({
-    id: row.id,
-    targetType: row.target_type,
-    targetId: row.target_id,
-    title: row.title,
-    criteria: row.criteria,
-    status: row.status,
-    evidenceLevel: row.evidence_level,
-    requiredEvidenceLevel: row.required_evidence_level,
-    coverage: row.coverage,
-    evidence: parseJson(row.evidence_json, []),
-    invalidatedAt: row.invalidated_at,
-    updatedAt: row.updated_at
-  }));
-  const history = service.database.prepare(
-    `SELECT h.* FROM history h JOIN change_sets cs ON cs.id = h.change_set_id
-       WHERE cs.project_id = ? AND h.entity_type = ? AND h.entity_id = ?
-       ORDER BY h.id DESC LIMIT ?`
-  ).all(projectId, type, id, historyLimit).map((row) => ({
-    action: row.action,
-    revision: row.revision,
-    summary: row.summary,
-    createdAt: row.created_at
-  }));
-  const sourceRefs = type === "block" ? service.database.prepare("SELECT * FROM source_refs WHERE block_id = ? ORDER BY created_at").all(id).map((row) => ({
-    id: row.id,
-    path: row.path,
-    startLine: row.start_line,
-    endLine: row.end_line,
-    symbol: row.symbol,
-    role: row.role,
-    gitCommit: row.git_commit
-  })) : [];
-  const decisionScopes = type === "decision" ? service.database.prepare("SELECT scope_type, scope_value FROM decision_scopes WHERE decision_id = ? ORDER BY scope_type, scope_value").all(id).map((row) => ({ scopeType: row.scope_type, scopeValue: row.scope_value })) : [];
-  const pathNodes = type === "chain" ? service.database.prepare("SELECT chain_id, 'block' AS member_type, block_id AS member_id, position FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({
-    memberType: row.member_type,
-    memberId: row.member_id,
-    position: row.position
-  })) : [];
-  const pathEdges = type === "chain" ? service.database.prepare("SELECT link_id, position FROM chain_edges WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({ linkId: row.link_id, position: row.position })) : [];
-  const targetChains = type === "plan" ? service.database.prepare("SELECT chain_id, position FROM plan_chain_refs WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ chainId: row.chain_id, position: row.position })) : [];
-  const dependencies = type === "plan" ? service.database.prepare("SELECT depends_on_plan_id, position FROM plan_dependencies WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ planId: row.depends_on_plan_id, position: row.position })) : [];
-  const steps = type === "plan" ? service.database.prepare("SELECT * FROM plan_steps WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({
-    id: row.id,
-    position: row.position,
-    title: row.title,
-    action: row.action,
-    status: row.status,
-    targetRefs: parseJson(row.target_refs_json, []),
-    proposedDelta: parseJson(row.proposed_delta_json, [])
-  })) : [];
-  const checkpointRefs = type === "plan" ? service.database.prepare("SELECT checkpoint_id, step_id, position, required FROM plan_checkpoint_refs WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ checkpointId: row.checkpoint_id, stepId: row.step_id, position: row.position, required: Boolean(row.required) })) : [];
-  assertAllowed(locale, LOCALES, "locale");
-  const snapshot2 = service.snapshot();
-  const translations = localizationMap(snapshot2);
-  const coverage = type === "block" ? architectureCoverage(snapshot2).blockCoverage.find((item) => item.blockId === id) ?? null : null;
-  const ruleScopes = type === "block" ? snapshot2.backgroundScopes.filter((scope) => scope.blockId === id) : [];
-  const field = type === "link" ? "label" : "title";
-  const displayTitle = localizedValue(translations, type, id, locale, field, entity[field] ?? `${type}:${id}`);
-  const displaySummary = localizedValue(translations, type, id, locale, type === "chain" ? "intent" : "summary", entity.intent ?? entity.summary ?? "");
-  const displayContract = localizedValue(translations, type, id, locale, "contract", entity.contract ?? "");
-  const displayInput = localizedValue(translations, type, id, locale, "inputContract", entity.inputContract ?? "");
-  const displayOutput = localizedValue(translations, type, id, locale, "outputContract", entity.outputContract ?? "");
-  const lines = [`# ${displayTitle}`, ""];
-  lines.push(`- Ref: ${type}:${id}`);
-  lines.push(`- Revision: ${entity.currentRevision}`);
-  if (type === "block") {
-    lines.push(`- Architecture: ${entity.architectureLayer}`);
-    lines.push(`- Scope: ${entity.scope}`);
-    lines.push(`- Local order: ${entity.localOrder}`);
-    if (ruleScopes.length) lines.push(`- Rule scopes: ${ruleScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
-    if (coverage) {
-      const verification = coverage.missingRequiredCheckpoint ? "needed" : coverage.hasCheckpoint && coverage.isCoveredByAnyVerification ? "recorded" : coverage.hasCheckpoint ? "checkpointed" : null;
-      if (verification) lines.push(`- Verification: ${verification}`);
-    }
-  }
-  if (type === "decision" && decisionScopes.length) lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
-  if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
-  if (entity.status) lines.push(`- Status: ${entity.status}`);
-  if (type === "plan") {
-    lines.push(`- Phase: ${entity.phase}`);
-    lines.push(`- Order: ${entity.planOrder}`);
-    lines.push(`- Priority: ${entity.priority}`);
-  }
-  if (entity.healthState) lines.push(`- Health: ${entity.healthState}`);
-  if (displaySummary) lines.push("", "## Summary", displaySummary);
-  if (type === "block") {
-    const displayBody = localizedValue(translations, type, id, locale, "body", entity.body ?? "");
-    if (displayBody) lines.push("", "## Details", displayBody);
-  }
-  if (type === "decision") {
-    if (entity.rationale) lines.push("", "## Rationale", entity.rationale);
-    if (entity.alternatives.length) lines.push("", "## Alternatives", ...entity.alternatives.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
-    if (entity.consequences.length) lines.push("", "## Consequences", ...entity.consequences.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
-    if (entity.supersedesDecisionId) lines.push("", "## Supersedes", `[decision:${entity.supersedesDecisionId}]`);
-  }
-  if (displayContract) lines.push("", "## Contract", displayContract);
-  if (entity.inputContract || entity.outputContract) {
-    lines.push("", "## Contract", `Input: ${displayInput || "\u2014"}`, `Output: ${displayOutput || "\u2014"}`);
-  }
-  if (type === "plan") {
-    const goal = localizedValue(translations, type, id, locale, "goal", entity.goal);
-    const nextAction = localizedValue(translations, type, id, locale, "nextAction", entity.nextAction);
-    if (goal) lines.push("", "## Goal", goal);
-    if (nextAction) lines.push("", "## Next action", nextAction);
-    const scopeChainIDs = snapshot2.planChainScopes.filter((scope) => scope.planId === id).sort((left, right) => left.position - right.position).map((scope) => scope.chainId);
-    const allTargetChainIDs = [.../* @__PURE__ */ new Set([...targetChains.map((target) => target.chainId), ...scopeChainIDs])];
-    if (allTargetChainIDs.length) {
-      lines.push("", "## Target chains");
-      for (const chainID of allTargetChainIDs) lines.push(`- [chain:${chainID}]`);
-    }
-    if (dependencies.length) {
-      lines.push("", "## Prerequisites", ...dependencies.map((item) => `- [plan:${item.planId}]`));
-    }
-    if (steps.length) {
-      lines.push("", "## Ordered steps");
-      for (const step of steps) lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` \u2014 ${step.action}` : ""}`);
-    }
-    if (entity.proposedDelta.length) lines.push("", "## Proposed graph delta", JSON.stringify(entity.proposedDelta));
-    if (entity.blockers.length) lines.push("", "## Blockers", ...entity.blockers.map((item) => `- ${item}`));
-  }
-  if (sourceRefs.length) {
-    lines.push("", "## Files & Code");
-    for (const source of sourceRefs) {
-      const locator = source.symbol ? `${source.path} :: ${source.symbol}` : source.path;
-      const range = source.startLine && source.endLine ? ` L${source.startLine}-L${source.endLine}` : "";
-      lines.push(`- ${source.role}: ${locator}${range}`);
-    }
-  }
-  if (checkpoints.length) {
-    lines.push("", "## Checkpoints");
-    for (const checkpoint of checkpoints) {
-      const required2 = checkpointRefs.find((item) => item.checkpointId === checkpoint.id)?.required;
-      lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel}${required2 === false ? " \xB7 optional" : ""}: ${checkpoint.title}`);
-    }
-  }
-  if (history.length) {
-    lines.push("", "## Relevant history");
-    for (const item of history) lines.push(`- r${item.revision} ${item.action}: ${item.summary}`);
-  }
-  if (type === "plan") {
-    const detailed = service.planContext({ id, locale, maxChars: 24e3 });
-    return {
-      entity: detailed.plan,
-      sourceRefs,
-      pathNodes,
-      pathEdges,
-      targetChains,
-      dependencies,
-      steps,
-      checkpointRefs,
-      checkpoints: detailed.checkpoints,
-      history,
-      hierarchy: detailed.hierarchy,
-      markdown: detailed.markdown
-    };
-  }
-  return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, decisionScopes, markdown: lines.join("\n") };
-}
-function getChangesSince(service, { sequence = 0, sourceSyncRevision = null, limit = 100 } = {}) {
-  if (!Number.isInteger(sequence) || sequence < 0) throw new Error("sequence must be a non-negative integer");
-  const boundedLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
-  const sourceSync = service.sourceBindingReport({
-    sinceRevision: Number.isInteger(sourceSyncRevision) ? sourceSyncRevision : null
-  });
-  const latestSequence = service.database.prepare(
-    "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?"
-  ).get(service.paths.descriptor.id).sequence;
-  const earliestSequence = service.database.prepare(
-    "SELECT COALESCE(MIN(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?"
-  ).get(service.paths.descriptor.id).sequence;
-  const rows = service.database.prepare(
-    `SELECT cf.sequence, cf.change_set_id, cf.entity_type, cf.entity_id, cf.action, cf.created_at,
-            h.revision, h.summary, h.plan_id, h.chain_scope_id, h.before_json, h.after_json,
-            h.changed_fields_json, h.affected_refs_json, h.evidence_refs_json
-     FROM change_feed cf
-     LEFT JOIN history h ON h.change_set_id = cf.change_set_id AND h.entity_type = cf.entity_type
-       AND h.entity_id = cf.entity_id AND h.action = cf.action
-     WHERE cf.project_id = ? AND cf.sequence > ? ORDER BY cf.sequence LIMIT ?`
-  ).all(service.paths.descriptor.id, sequence, boundedLimit + 1).map((row) => ({
-    sequence: row.sequence,
-    changeSetId: row.change_set_id,
-    ref: `${row.entity_type}:${row.entity_id}`,
-    action: row.action,
-    revision: row.revision,
-    summary: row.summary,
-    planId: row.plan_id,
-    chainScopeId: row.chain_scope_id,
-    before: parseJson(row.before_json, {}),
-    after: parseJson(row.after_json, {}),
-    changedFields: parseJson(row.changed_fields_json, []),
-    affectedRefs: parseJson(row.affected_refs_json, []),
-    evidenceRefs: parseJson(row.evidence_refs_json, []),
-    createdAt: row.created_at
-  }));
-  const hasMore = rows.length > boundedLimit;
-  if (hasMore) rows.pop();
-  const markdown = [
-    `# Changes since sequence ${sequence}`,
-    `Range: ${sequence} \u2192 ${rows.at(-1)?.sequence ?? sequence} \xB7 latest ${latestSequence} \xB7 earliest ${earliestSequence || "\u2014"}`,
-    `Returned: ${rows.length}${hasMore ? ` \xB7 more available after ${rows.at(-1)?.sequence ?? sequence}` : ""}`,
-    `Source sync: r${sourceSync.sourceSyncRevision} \xB7 ${sourceSync.changes.length} change(s) since ${Number.isInteger(sourceSyncRevision) ? `r${sourceSyncRevision}` : "last boundary"}`,
-    "",
-    ...rows.map((change) => {
-      const fields = change.changedFields?.length ? ` \xB7 fields ${change.changedFields.join(", ")}` : "";
-      const refs = change.affectedRefs?.length ? ` \xB7 refs ${change.affectedRefs.join(", ")}` : "";
-      return `- #${change.sequence} ${change.action} ${change.ref} \xB7 r${change.revision ?? "?"}${fields}${refs}${change.summary ? ` \u2014 ${change.summary}` : ""}`;
-    }),
-    ...rows.length ? ["", "Use includeStructured=true when exact before/after JSON is required."] : [],
-    ...sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 12).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : []
-  ].join("\n");
-  return {
-    fromSequence: sequence,
-    nextSequence: rows.at(-1)?.sequence ?? sequence,
-    latestSequence,
-    earliestSequence,
-    sourceSyncRevision: sourceSync.sourceSyncRevision,
-    sourceChanges: sourceSync.changes,
-    affectedBlockIds: sourceSync.affectedBlockIds,
-    affectedChainIds: sourceSync.affectedChainIds,
-    hasMore,
-    changes: rows,
-    markdown
-  };
-}
-function validateGraph(service) {
-  const snapshot2 = service.snapshot();
-  const coverage = architectureCoverage(snapshot2);
-  const errors = [];
-  const warnings = [];
-  const refs = /* @__PURE__ */ new Set([
-    ...snapshot2.blocks.map((block) => `block:${block.id}`),
-    ...snapshot2.chains.map((chain) => `chain:${chain.id}`)
-  ]);
-  for (const link of snapshot2.links) {
-    if (!refs.has(`${link.sourceType}:${link.sourceId}`)) errors.push(`Dangling link source: link:${link.id}`);
-    if (!refs.has(`${link.targetType}:${link.targetId}`)) errors.push(`Dangling link target: link:${link.id}`);
-    if (["calls", "reads", "writes"].includes(link.kind) && !link.contract.trim()) {
-      warnings.push(`Missing contract: link:${link.id}`);
-    }
-  }
-  for (const chain of snapshot2.chains) {
-    const nodes = snapshot2.chainNodes.filter((item) => item.chainId === chain.id);
-    const edges = snapshot2.chainEdges.filter((item) => item.chainId === chain.id);
-    const count = nodes.length;
-    if (count === 0) warnings.push(`Empty chain: chain:${chain.id}`);
-    const nodeIds = new Set(nodes.map((item) => item.blockId));
-    for (const edge of edges) {
-      const link = snapshot2.links.find((item) => item.id === edge.linkId);
-      if (!link) errors.push(`Missing Chain edge: chain:${chain.id} -> link:${edge.linkId}`);
-      else if (!nodeIds.has(link.sourceId) || !nodeIds.has(link.targetId)) {
-        errors.push(`Chain edge leaves referenced nodes: chain:${chain.id} -> link:${edge.linkId}`);
-      }
-    }
-  }
-  for (const target of snapshot2.planChainRefs) {
-    if (!snapshot2.plans.some((plan) => plan.id === target.planId)) errors.push(`Missing Plan: plan:${target.planId}`);
-    if (!snapshot2.chains.some((chain) => chain.id === target.chainId)) errors.push(`Missing Plan target: plan:${target.planId} -> chain:${target.chainId}`);
-  }
-  for (const dependency of snapshot2.planDependencies) {
-    if (!snapshot2.plans.some((plan) => plan.id === dependency.planId)) errors.push(`Missing dependent Plan: plan:${dependency.planId}`);
-    if (!snapshot2.plans.some((plan) => plan.id === dependency.dependsOnPlanId)) errors.push(`Missing prerequisite Plan: plan:${dependency.dependsOnPlanId}`);
-  }
-  for (const step of snapshot2.planSteps) {
-    if (!snapshot2.plans.some((plan) => plan.id === step.planId)) errors.push(`Missing Plan for step: ${step.id}`);
-    for (const ref of step.targetRefs) {
-      const [type, id] = String(ref).split(":", 2);
-      if (!id || !entityExists(service.database, service.paths.descriptor.id, type, id)) errors.push(`Missing Plan step target: ${step.id} -> ${ref}`);
-    }
-  }
-  for (const ref of snapshot2.planCheckpointRefs) {
-    if (!snapshot2.plans.some((plan) => plan.id === ref.planId)) errors.push(`Missing Plan checkpoint owner: plan:${ref.planId}`);
-    if (!snapshot2.checkpoints.some((checkpoint) => checkpoint.id === ref.checkpointId)) errors.push(`Missing Plan checkpoint: plan:${ref.planId} -> checkpoint:${ref.checkpointId}`);
-    if (ref.stepId && !snapshot2.planSteps.some((step) => step.id === ref.stepId && step.planId === ref.planId)) {
-      errors.push(`Checkpoint references a foreign Plan step: checkpoint:${ref.checkpointId} -> ${ref.stepId}`);
-    }
-  }
-  for (const scope of snapshot2.backgroundScopes) {
-    if (!snapshot2.blocks.some((block) => block.id === scope.blockId)) errors.push(`Missing Background Block: block:${scope.blockId}`);
-  }
-  const decisionIDs = new Set(snapshot2.decisions.map((decision) => decision.id));
-  for (const decision of snapshot2.decisions) {
-    if (!DECISION_STATUSES.has(decision.status)) errors.push(`Invalid Decision status: decision:${decision.id}`);
-    if (decision.supersedesDecisionId && !decisionIDs.has(decision.supersedesDecisionId)) {
-      errors.push(`Missing superseded Decision: decision:${decision.id} -> decision:${decision.supersedesDecisionId}`);
-    }
-  }
-  for (const scope of snapshot2.decisionScopes) {
-    if (!decisionIDs.has(scope.decisionId)) errors.push(`Missing Decision for scope: decision:${scope.decisionId}`);
-    if (scope.scopeType === "chain" && scope.scopeValue !== "*" && !snapshot2.chains.some((chain) => chain.id === scope.scopeValue)) {
-      errors.push(`Missing Chain for Decision scope: decision:${scope.decisionId} -> chain:${scope.scopeValue}`);
-    }
-  }
-  for (const block of snapshot2.blocks) {
-    if (!LEGACY_BLOCK_KINDS.has(block.kind)) {
-      errors.push(`Invalid Block kind: block:${block.id}`);
-    } else if (block.kind === "decision") {
-      warnings.push(`Legacy decision Block is not a Decision record and is excluded from the Canvas; migrate block:${block.id} to decision:<id>`);
-      continue;
-    } else if (block.kind === "test" || block.kind === "checkpoint") {
-      warnings.push(`Block block:${block.id} uses kind '${block.kind}'. Testing and verification criteria belong in Checkpoints and Plan gates.`);
-      continue;
-    }
-  }
-  const unspecifiedBlocks = snapshot2.blocks.filter((block) => block.architectureLayer === "unspecified");
-  if (unspecifiedBlocks.length > 0) {
-    warnings.push(`${unspecifiedBlocks.length} block(s) have no architecture layer`);
-  }
-  if (coverage.requiredCheckpointMissingIds.length) {
-    warnings.push(`${coverage.requiredCheckpointMissingIds.length} Block(s) require a checkpoint but have none: ${coverage.requiredCheckpointMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 20 ? " \u2026" : ""}`);
-  }
-  if (coverage.chainGateMissingChainIds.length) {
-    warnings.push(`${coverage.chainGateMissingChainIds.length} declared Chain integration gate(s) are not passed: ${coverage.chainGateMissingChainIds.slice(0, 20).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 20 ? " \u2026" : ""}`);
-  }
-  const staleCheckpoints = snapshot2.checkpoints.filter(
-    (checkpoint) => checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "stale"
-  );
-  if (staleCheckpoints.length) {
-    errors.push(`${staleCheckpoints.length} checkpoint(s) require retest because bound source identity is stale`);
-  }
-  const unknownCheckpoints = snapshot2.checkpoints.filter(
-    (checkpoint) => checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "unknown"
-  );
-  if (unknownCheckpoints.length) {
-    warnings.push(`${unknownCheckpoints.length} historical checkpoint(s) lack source identity and cannot satisfy a gate until re-recorded`);
-  }
-  for (const chain of snapshot2.chains) {
-    if (chain.deliveryState === "complete") {
-      const passed = snapshot2.checkpoints.some(
-        (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chain.id && checkpointSatisfiesGate(checkpoint)
-      );
-      if (!passed) warnings.push(`Complete Chain has no passed checkpoint: chain:${chain.id}`);
-    }
-  }
-  for (const plan of snapshot2.plans) {
-    if (plan.status === "complete") {
-      const required2 = snapshot2.planCheckpointRefs.filter((item) => item.planId === plan.id && item.required);
-      const fallback = snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === plan.id);
-      const gates = required2.length ? required2.map((item) => snapshot2.checkpoints.find((checkpoint) => checkpoint.id === item.checkpointId)).filter(Boolean) : fallback;
-      if (!gates.length || gates.some((checkpoint) => !checkpointSatisfiesGate(checkpoint))) {
-        warnings.push(`Complete plan has unsatisfied checkpoint gates: plan:${plan.id}`);
-      }
-      const steps = snapshot2.planSteps.filter((step) => step.planId === plan.id);
-      if (steps.length && steps.some((step) => !["complete", "skipped"].includes(step.status))) {
-        warnings.push(`Complete plan has unfinished steps: plan:${plan.id}`);
-      }
-    }
-    const hasChain = snapshot2.planChainRefs.some((item) => item.planId === plan.id);
-    const hasChange = snapshot2.planChanges.some((item) => item.planId === plan.id);
-    const hasStep = snapshot2.planSteps.some((item) => item.planId === plan.id);
-    if (!hasChain && !hasChange && !hasStep) warnings.push(`Plan has no declared work target: plan:${plan.id}`);
-  }
-  const drift = analyzeGraphDrift(service, snapshot2);
-  return { valid: errors.length === 0, errors, warnings, graphRevision: snapshot2.project.graphRevision, drift };
-}
-function analyzeGraphDrift(service, snapshot2 = service.snapshot()) {
-  const projectRoot = service.paths?.projectRoot ?? process.cwd();
-  const chainBlockIds = new Set(snapshot2.chainNodes.map((node2) => node2.blockId));
-  const linkBlockIds = new Set(
-    snapshot2.links.flatMap((link) => [
-      link.sourceType === "block" ? link.sourceId : null,
-      link.targetType === "block" ? link.targetId : null
-    ]).filter(Boolean)
-  );
-  const isolatedBlocks = snapshot2.blocks.filter((b) => b.kind !== "decision" && !chainBlockIds.has(b.id) && !linkBlockIds.has(b.id)).map((b) => ({
-    id: b.id,
-    title: b.title,
-    kind: b.kind,
-    deliveryState: b.deliveryState,
-    layer: b.architectureLayer
-  }));
-  const ghostDrifts = [];
-  for (const block of snapshot2.blocks) {
-    if (block.kind === "decision") continue;
-    if (block.deliveryState === "proposed" || block.deliveryState === "planned") {
-      const bindings = snapshot2.sourceRefs.filter((ref) => ref.blockId === block.id);
-      for (const ref of bindings) {
-        if (!ref.path) continue;
-        const fullPath = path6.isAbsolute(ref.path) ? ref.path : path6.join(projectRoot, ref.path);
-        try {
-          if (fs5.existsSync(fullPath) && fs5.statSync(fullPath).isFile()) {
-            ghostDrifts.push({
-              blockId: block.id,
-              title: block.title,
-              deliveryState: block.deliveryState,
-              path: ref.path,
-              symbol: ref.symbol
-            });
-            break;
-          }
-        } catch {
-        }
-      }
-    }
-  }
-  const retestRequired = snapshot2.checkpoints.filter((cp) => cp.status === "retest_required" || cp.recordedStatus === "passed" && cp.freshness?.status === "stale").map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId }));
-  const pendingCheckpoints = snapshot2.checkpoints.filter((cp) => cp.status === "pending" || cp.status === "failed" || cp.status === "blocked").map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId, status: cp.status }));
-  const semanticReviews = collectSemanticReviews(service, snapshot2);
-  return {
-    isolatedBlocks,
-    ghostDrifts,
-    retestRequired,
-    pendingCheckpoints,
-    semanticReviews,
-    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0 || semanticReviews.length > 0
-  };
-}
-var SEMANTIC_FIELDS = /* @__PURE__ */ new Set(["title", "summary", "contract", "intent", "inputContract", "outputContract"]);
-function collectSemanticReviews(service, snapshot2) {
-  let rows = [];
-  try {
-    rows = service.database.prepare(`
-      SELECT h.entity_type, h.entity_id, h.action, h.revision, h.changed_fields_json, h.created_at, h.summary
-        FROM history h
-       WHERE h.entity_type IN ('block', 'chain', 'link', 'decision')
-         AND h.action IN ('updated', 'created')
-       ORDER BY h.id DESC
-       LIMIT 200
-    `).all();
-  } catch {
-    return [];
-  }
-  const latest = /* @__PURE__ */ new Map();
-  for (const row of rows) {
-    const key = `${row.entity_type}:${row.entity_id}`;
-    if (latest.has(key)) continue;
-    const changedFields = parseJson(row.changed_fields_json, []);
-    const semanticFields = changedFields.filter((field) => SEMANTIC_FIELDS.has(field));
-    if (!semanticFields.length) continue;
-    latest.set(key, { ...row, semanticFields });
-  }
-  const reviews = [];
-  for (const item of latest.values()) {
-    if (item.action === "created") continue;
-    const related = relatedArchitecture(snapshot2, item.entity_type, item.entity_id);
-    if (!related.links.length && !related.decisions.length && !related.planChanges.length) continue;
-    reviews.push({
-      status: "review_required",
-      entityType: item.entity_type,
-      entityId: item.entity_id,
-      revision: item.revision,
-      fields: item.semanticFields,
-      relatedLinks: related.links,
-      relatedDecisions: related.decisions,
-      relatedPlanChanges: related.planChanges,
-      summary: item.summary
-    });
-  }
-  return reviews.slice(0, 20);
-}
-function relatedArchitecture(snapshot2, entityType, entityId) {
-  const links = snapshot2.links.filter(
-    (link) => link.sourceType === entityType && link.sourceId === entityId || link.targetType === entityType && link.targetId === entityId
-  ).map((link) => `link:${link.id}`);
-  const decisions = snapshot2.decisionScopes.filter((scope) => scope.scopeType === entityType && scope.scopeValue === entityId).map((scope) => `decision:${scope.decisionId}`);
-  const planChanges = snapshot2.planChanges.filter((change) => change.entityType === entityType && change.entityId === entityId && !["complete", "passed", "skipped"].includes(change.status)).map((change) => `plan_change:${change.id}`);
-  return {
-    links: [...new Set(links)].slice(0, 8),
-    decisions: [...new Set(decisions)].slice(0, 8),
-    planChanges: [...new Set(planChanges)].slice(0, 8)
-  };
-}
-function renderGraphStatus(service, { locale = "en" } = {}) {
-  const snapshot2 = service.snapshot();
-  const drift = analyzeGraphDrift(service, snapshot2);
-  const totalBlocks = snapshot2.blocks.filter((b) => b.kind !== "decision").length;
-  const solidBlocks = snapshot2.blocks.filter(
-    (b) => b.kind !== "decision" && b.deliveryState !== "proposed" && b.deliveryState !== "planned"
-  ).length;
-  const ghostBlocks = totalBlocks - solidBlocks;
-  const totalChains = snapshot2.chains.length;
-  const totalLinks = snapshot2.links.length;
-  const totalCheckpoints = snapshot2.checkpoints.length;
-  const passedCheckpoints = snapshot2.checkpoints.filter((c) => c.status === "passed").length;
-  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
-  const lines = [
-    `# contextos Architecture & Sync Status`,
-    `- Project: ${snapshot2.project.name || snapshot2.project.id} (rev ${snapshot2.project.graphRevision})`,
-    `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
-    `- Chains: ${totalChains} \xB7 Links: ${totalLinks}`,
-    `- Checkpoints: ${passedCheckpoints}/${totalCheckpoints} passed`,
-    `- Plugin: ${plugin.stale ? "stale cache" : "in sync"}`,
-    ""
-  ];
-  if (drift.hasDrift) {
-    lines.push("## \u26A0\uFE0F Architecture Drift & Actionable Alerts");
-    if (drift.ghostDrifts.length > 0) {
-      lines.push("### \u{1F47B} Ghost Blocks with Existing Code (Update deliveryState to complete)");
-      for (const g of drift.ghostDrifts) {
-        lines.push(`- **block:${g.blockId}** (${g.title}) \xB7 State: \`${g.deliveryState}\` \xB7 Source: \`${g.path}\`${g.symbol ? ` (#${g.symbol})` : ""}`);
-        lines.push(`  *Action*: Call \`graph_mutate\` to update \`deliveryState: "complete"\`.`);
-      }
-    }
-    if (drift.isolatedBlocks.length > 0) {
-      lines.push("### \u26D3\uFE0F Isolated Blocks (No Chains and No Links)");
-      for (const b of drift.isolatedBlocks) {
-        lines.push(`- **block:${b.id}** (${b.title}) \xB7 Kind: \`${b.kind}\` \xB7 Layer: \`${b.layer}\``);
-        lines.push(`  *Action*: Review if intended as standalone, or connect to a Chain via \`graph_flow\` / \`architecture_connect\` if part of a workflow.`);
-      }
-    }
-    if (drift.retestRequired.length > 0) {
-      lines.push("### \u{1F504} Checkpoints Requiring Retest");
-      for (const r of drift.retestRequired) {
-        lines.push(`- **checkpoint:${r.id}** for ${r.targetType}:${r.targetId} (${r.title})`);
-        lines.push(`  *Action*: Re-run tests and record evidence with \`checkpoint_record\`.`);
-      }
-    }
-    if (drift.semanticReviews?.length) {
-      lines.push("### \u{1F9E0} Semantic reviews required");
-      for (const review of drift.semanticReviews.slice(0, 12)) {
-        const related = [...review.relatedLinks, ...review.relatedDecisions, ...review.relatedPlanChanges].slice(0, 6);
-        lines.push(`- **${review.entityType}:${review.entityId}** changed ${review.fields.join(", ")}`);
-        if (related.length) lines.push(`  *Review*: ${related.join(", ")}`);
-      }
-    }
-    lines.push("");
-  } else {
-    lines.push("## \u2705 Architecture Health: Clean & Synchronized");
-    lines.push("- Zero ghost drift (all implemented source files correspond to solid blocks).");
-    lines.push("- All checkpoints are fresh and aligned.");
-    lines.push("- All isolated blocks reviewed (standalone nodes permitted; connect any intended for active workflows).");
-    lines.push("");
-  }
-  if (plugin.stale) {
-    lines.push("## \u26A0\uFE0F Plugin cache is stale");
-    lines.push(`- Running: \`${plugin.runningHash}\``);
-    lines.push(`- Repo bundle: \`${plugin.repoHash}\``);
-    lines.push(`- Reload: \`${plugin.reload}\``);
-    lines.push("");
-  }
-  const activePlans = snapshot2.plans.filter((p) => p.status === "active" || p.status === "draft");
-  if (activePlans.length > 0) {
-    lines.push("## \u{1F4CB} Active Plans");
-    for (const p of activePlans) {
-      lines.push(`- [${p.status}] **plan:${p.id}** ${p.title}${p.nextAction ? ` \xB7 Next: ${p.nextAction}` : ""}`);
-    }
-    lines.push("");
-  }
-  return {
-    projectId: snapshot2.project.id,
-    graphRevision: snapshot2.project.graphRevision,
-    health: drift.hasDrift ? "drift_detected" : "healthy",
-    metrics: {
-      totalBlocks,
-      solidBlocks,
-      ghostBlocks,
-      totalChains,
-      totalLinks,
-      passedCheckpoints,
-      totalCheckpoints
-    },
-    drift,
-    markdown: lines.join("\n")
-  };
-}
-
-// packages/mcp/src/context-engine.mjs
-function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, locale = "en" } = {}) {
-  const snapshot2 = service.snapshot();
-  const coverage = architectureCoverage(snapshot2);
-  assertAllowed(locale, LOCALES, "locale");
-  const translations = localizationMap(snapshot2);
-  const terms = taskTerms(task);
-  const focusIds = (kind) => new Set(focusRefs.filter((ref) => ref.startsWith(`${kind}:`)).flatMap((ref) => {
-    const id = ref.slice(`${kind}:`.length);
-    return [id, `${kind}:${id}`];
-  }));
-  const focusBlockIds = focusIds("block");
-  const focusChainIds = focusIds("chain");
-  const focusPlanIds = focusIds("plan");
-  const backgroundRuleIds = new Set(snapshot2.backgroundScopes.map((scope) => scope.blockId));
-  const planSignals = /* @__PURE__ */ new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "\u8BA1\u5212", "\u8FDB\u5EA6", "\u963B\u585E", "\u53D1\u5E03"]);
-  const taskMentionsPlan = terms.some((term) => planSignals.has(term));
-  const scoreText = (text, weight = 1) => {
-    if (!text) return 0;
-    const lower = text.toLowerCase();
-    let matchCount = 0;
-    for (const term of terms) {
-      if (lower.includes(term)) {
-        matchCount += weight * (term.length >= 4 ? 2 : 1);
-      }
-    }
-    return matchCount;
-  };
-  const scoredBlocks = snapshot2.blocks.filter((block) => !backgroundRuleIds.has(block.id) && block.kind !== "decision").map((block) => {
-    let semanticScore = 0;
-    semanticScore += scoreText(block.title, 5);
-    semanticScore += scoreText(block.summary, 3);
-    semanticScore += scoreText(block.tags.join(" "), 4);
-    semanticScore += scoreText(block.contract, 3);
-    semanticScore += scoreText(block.scope, 2);
-    semanticScore += scoreText(block.architectureLayer, 2);
-    semanticScore += scoreText(block.body, 1);
-    semanticScore += scoreText(localizedSearchText(snapshot2, "block", block.id), 3);
-    return { block, score: semanticScore + (focusBlockIds.has(block.id) ? 100 : 0) };
-  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
-  const scoredChains = snapshot2.chains.map((chain) => {
-    let semanticScore = 0;
-    semanticScore += scoreText(chain.title, 5);
-    semanticScore += scoreText(chain.intent, 3);
-    semanticScore += scoreText(chain.inputContract, 3);
-    semanticScore += scoreText(chain.outputContract, 3);
-    semanticScore += scoreText(localizedSearchText(snapshot2, "chain", chain.id), 3);
-    return {
-      chain,
-      score: semanticScore + (focusChainIds.has(chain.id) ? 100 : 0)
-    };
-  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
-  const scoredPlans = snapshot2.plans.map((plan) => {
-    const focused = focusPlanIds.has(plan.id);
-    let semanticScore = 0;
-    semanticScore += scoreText(plan.title, 5);
-    semanticScore += scoreText(plan.summary, 3);
-    semanticScore += scoreText(plan.goal, 3);
-    semanticScore += scoreText(plan.status, 2);
-    semanticScore += scoreText(plan.nextAction, 2);
-    semanticScore += scoreText(JSON.stringify(plan.proposedDelta), 1);
-    semanticScore += scoreText(JSON.stringify(plan.blockers), 2);
-    semanticScore += scoreText(localizedSearchText(snapshot2, "plan", plan.id), 3);
-    return { plan, semanticScore, score: semanticScore + (focused ? 100 : 0), focused };
-  }).filter((entry) => entry.focused || entry.semanticScore >= 3 || taskMentionsPlan && entry.semanticScore >= 1).sort((a, b) => b.score - a.score);
-  const timeline = service.getTimeline();
-  const activeCursor = timeline.activeCursor;
-  const continuationSignals = /* @__PURE__ */ new Set(["\u7EE7\u7EED", "\u5F00\u53D1", "\u4E0B\u4E00\u6B65", "\u63A8\u8FDB", "\u6062\u590D", "\u63A5\u624B", "\u5F00\u59CB", "continue", "next", "resume", "status", "start"]);
-  const isContinuation = terms.some((term) => continuationSignals.has(term)) || terms.length === 0;
-  if (activeCursor.activePlanId) {
-    const activeEntry = scoredPlans.find((e) => e.plan.id === activeCursor.activePlanId);
-    if (activeEntry) {
-      activeEntry.score += isContinuation ? 200 : 50;
-    } else {
-      const p = snapshot2.plans.find((plan) => plan.id === activeCursor.activePlanId);
-      if (p) scoredPlans.unshift({ plan: p, semanticScore: 10, score: isContinuation ? 200 : 50, focused: false });
-    }
-    scoredPlans.sort((a, b) => b.score - a.score);
-  }
-  if (scoredPlans.length === 0) {
-    for (const plan of snapshot2.plans.filter((item) => ["active", "ready", "blocked"].includes(item.status)).slice(0, 3)) {
-      scoredPlans.push({ plan, score: 1 });
-    }
-  }
-  const selectedBlockIds = new Set(scoredBlocks.slice(0, 5).map((entry) => entry.block.id));
-  const selectedChainIds = new Set(scoredChains.slice(0, 1).map((entry) => entry.chain.id));
-  const selectedPlanIds = new Set(scoredPlans.slice(0, 1).map((entry) => entry.plan.id));
-  const detailedBlockIds = new Set(focusBlockIds);
-  if (selectedPlanIds.size === 0) {
-    for (const entry of scoredBlocks.slice(0, 3)) detailedBlockIds.add(entry.block.id);
-  }
-  const relatedChains = /* @__PURE__ */ new Map();
-  for (const node2 of snapshot2.chainNodes) {
-    if (selectedBlockIds.has(node2.blockId)) relatedChains.set(node2.chainId, (relatedChains.get(node2.chainId) ?? 0) + 1);
-  }
-  for (const [chainId] of [...relatedChains.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
-    if (selectedChainIds.size >= 1) break;
-    selectedChainIds.add(chainId);
-  }
-  for (const planId of selectedPlanIds) {
-    for (const change of snapshot2.planChanges) {
-      if (change.planId === planId && change.entityType === "block") selectedBlockIds.add(change.entityId);
-    }
-    for (const step of snapshot2.planSteps) {
-      if (step.planId !== planId) continue;
-      for (const ref of step.targetRefs) {
-        if (String(ref).startsWith("block:")) selectedBlockIds.add(String(ref).slice("block:".length));
-      }
-    }
-    for (const scope of snapshot2.planChainScopes) {
-      if (scope.planId !== planId) continue;
-      for (const blockId of scope.nodeIds) selectedBlockIds.add(blockId);
-    }
-  }
-  for (const target of snapshot2.planChainRefs) {
-    if (selectedPlanIds.has(target.planId)) selectedChainIds.add(target.chainId);
-  }
-  for (const scope of snapshot2.planChainScopes) {
-    if (selectedPlanIds.has(scope.planId)) selectedChainIds.add(scope.chainId);
-  }
-  for (const chainId of selectedChainIds) {
-    const path13 = snapshot2.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
-    if (focusChainIds.has(chainId)) {
-      for (const blockId of path13.slice(0, 10)) selectedBlockIds.add(blockId);
-      continue;
-    }
-    const matchingPositions = path13.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
-    for (const position of matchingPositions) {
-      for (const index of [position - 1, position, position + 1]) {
-        if (path13[index]) selectedBlockIds.add(path13[index]);
-      }
-    }
-  }
-  const applicableRuleScopes = snapshot2.backgroundScopes.filter(
-    (scope) => scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue) || scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue)))
-  );
-  const applicableRuleIds = [...new Set(applicableRuleScopes.map((scope) => scope.blockId))];
-  const applicableDecisionScopes = snapshot2.decisionScopes.filter(
-    (scope) => scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue) || scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue)))
-  );
-  const applicableDecisionIds = [...new Set(applicableDecisionScopes.map((scope) => scope.decisionId))];
-  const applicableDecisions = snapshot2.decisions.filter((decision) => applicableDecisionIds.includes(decision.id)).sort((left, right) => left.title.localeCompare(right.title) || left.id.localeCompare(right.id));
-  const relevantBlocks = snapshot2.blocks.filter((block) => selectedBlockIds.has(block.id) && block.kind !== "decision");
-  const relevantChains = snapshot2.chains.filter((chain) => selectedChainIds.has(chain.id));
-  const relevantPlans = snapshot2.plans.filter((plan) => selectedPlanIds.has(plan.id));
-  const planCoverage = new Map(relevantPlans.map((plan) => [plan.id, architectureCoverage(snapshot2, plan.id)]));
-  const relevantLinks = snapshot2.links.filter(
-    (link) => (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) && (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId))
-  ).sort((left, right) => left.id.localeCompare(right.id));
-  const relevantScopeIDs = new Set(snapshot2.planChainScopes.filter((scope) => selectedPlanIds.has(scope.planId)).map((scope) => scope.id));
-  const relevantChangeIDs = new Set(snapshot2.planChanges.filter((change) => selectedPlanIds.has(change.planId)).map((change) => change.id));
-  const boundCheckpointIDs = new Set(snapshot2.checkpointBindings.filter((binding) => binding.subjectType === "plan" && selectedPlanIds.has(binding.subjectId) || binding.subjectType === "plan_chain_scope" && relevantScopeIDs.has(binding.subjectId) || binding.subjectType === "plan_change" && relevantChangeIDs.has(binding.subjectId)).map((binding) => binding.checkpointId));
-  const plannedCheckpointIDs = /* @__PURE__ */ new Set([
-    ...snapshot2.planCheckpointRefs.map((item) => item.checkpointId),
-    ...snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan").map((checkpoint) => checkpoint.id),
-    ...snapshot2.checkpointBindings.filter((binding) => ["plan", "plan_change", "plan_chain_scope"].includes(binding.subjectType)).map((binding) => binding.checkpointId)
-  ]);
-  const checkpointOrder = (left, right) => left.targetType.localeCompare(right.targetType) || left.targetId.localeCompare(right.targetId) || left.id.localeCompare(right.id);
-  const standaloneOpenCheckpoints = snapshot2.checkpoints.filter((checkpoint) => !plannedCheckpointIDs.has(checkpoint.id) && checkpoint.status !== "passed").sort(checkpointOrder).slice(0, 20);
-  const relevantCheckpoints = snapshot2.checkpoints.filter(
-    (checkpoint) => checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId) || checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId) || checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId) || boundCheckpointIDs.has(checkpoint.id)
-  ).sort(checkpointOrder);
-  const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot2.project.graphRevision}`, ""];
-  lines.push("## \u{1F4CD} Timeline & Current Focus");
-  lines.push(`- Phase: ${activeCursor.activePhase} \xB7 Priority: ${activeCursor.priority}`);
-  if (activeCursor.activePlanId) {
-    lines.push(`- Active Plan: [plan:${activeCursor.activePlanId}] ${activeCursor.activePlanTitle || ""} (${activeCursor.activeStepIndex}/${activeCursor.totalSteps} steps)`);
-  }
-  if (activeCursor.activeStepTitle) {
-    lines.push(`- Active Step: ${activeCursor.activeStepTitle}`);
-  }
-  lines.push(`- Now Doing: ${activeCursor.nowDoing}`);
-  lines.push(`- Next Up: ${activeCursor.nextUp}`);
-  if (activeCursor.lastFinished) {
-    lines.push(`- Last Finished: ${activeCursor.lastFinished}`);
-  }
-  if (activeCursor.touchedFiles.length > 0) {
-    lines.push(`- Working Files: ${activeCursor.touchedFiles.join(", ")}`);
-  }
-  lines.push("");
-  const drift = analyzeGraphDrift(service, snapshot2);
-  lines.push("## Architecture coverage");
-  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} Blocks bound or passed \xB7 ${coverage.failingIds.length} failing`);
-  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
-  if (plugin.stale) {
-    lines.push(`- Plugin cache is stale (${plugin.runningHash} != ${plugin.repoHash}). Reload with: ${plugin.reload}`);
-  }
-  if (drift.hasDrift) {
-    const parts = [];
-    if (drift.ghostDrifts.length) parts.push(`${drift.ghostDrifts.length} ghost drift(s)`);
-    if (drift.isolatedBlocks.length) parts.push(`${drift.isolatedBlocks.length} isolated block(s)`);
-    if (drift.retestRequired.length) parts.push(`${drift.retestRequired.length} retest(s)`);
-    if (drift.semanticReviews?.length) parts.push(`${drift.semanticReviews.length} semantic review(s)`);
-    lines.push(`- Drift alerts: ${parts.join(", ")} \xB7 Call graph_status for details.`);
-    const relevantDrifts = drift.ghostDrifts.filter((g) => relevantBlocks.some((b) => b.id === g.blockId));
-    if (relevantDrifts.length > 0) {
-      lines.push(`- Relevant block drift: ${relevantDrifts.map((g) => `block:${g.blockId} (marked '${g.deliveryState}' but code exists; update to 'complete')`).join(", ")}`);
-    }
-    const relevantIsolated = drift.isolatedBlocks.filter((b) => relevantBlocks.some((rb) => rb.id === b.id));
-    if (relevantIsolated.length > 0) {
-      lines.push(`- Relevant isolated block(s): ${relevantIsolated.map((b) => `block:${b.id}`).join(", ")} \xB7 Evaluate: keep standalone if intentional, or connect to workflow if meant to be integrated.`);
-    }
-  }
-  if (taskMentionsPlan && coverage.unplannedIds.length) {
-    lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks are in the current Plan; other Blocks remain independent architecture.`);
-  }
-  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 10 ? " \u2026" : ""}`);
-  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 10).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 10 ? " \u2026" : ""}`);
-  if (snapshot2.sourceSync) {
-    lines.push(`- Source sync: r${snapshot2.sourceSync.revision} \xB7 ${snapshot2.sourceSync.bindingCount} bindings \xB7 ${snapshot2.sourceSync.invalidBindingCount} needing relocation`);
-    if (snapshot2.sourceSync.changes?.length) {
-      lines.push(`- Code changes since the previous contextos boundary: ${snapshot2.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot2.sourceSync.changes.length > 8 ? " \u2026" : ""}`);
-    }
-  }
-  lines.push("");
-  if (applicableRuleIds.length) {
-    lines.push("## Applicable rule index");
-    for (const blockId of applicableRuleIds) {
-      const block = snapshot2.blocks.find((item) => item.id === blockId);
-      if (!block) continue;
-      const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
-      const scopes = applicableRuleScopes.filter((scope) => scope.blockId === block.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
-      lines.push(`- [block:${block.id}] ${title} \xB7 scopes ${scopes.join(", ")} \xB7 use entity_open only if the rule is needed`);
-    }
-    lines.push("");
-  }
-  if (applicableDecisions.length) {
-    lines.push("## Applicable decision index");
-    for (const decision of applicableDecisions.slice(0, 12)) {
-      const scopes = applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
-      lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status} \xB7 scopes ${scopes.join(", ")} \xB7 use decision_open/entity_open only if rationale is needed`);
-    }
-    if (applicableDecisions.length > 12) lines.push(`- \u2026 ${applicableDecisions.length - 12} more; use decision_list for the complete index.`);
-    lines.push("");
-  }
-  if (relevantPlans.length) {
-    lines.push("## Active plans");
-    for (const plan of relevantPlans) {
-      const title = localizedValue(translations, "plan", plan.id, locale, "title", plan.title);
-      const summary = localizedValue(translations, "plan", plan.id, locale, "summary", plan.summary);
-      const nextAction = localizedValue(translations, "plan", plan.id, locale, "nextAction", plan.nextAction);
-      lines.push(`- [plan:${plan.id}] ${title} \u2014 ${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus}`);
-      const scopes = snapshot2.planChainScopes.filter((scope) => scope.planId === plan.id).sort((a, b) => a.position - b.position);
-      const changes = snapshot2.planChanges.filter((change) => change.planId === plan.id).sort((a, b) => a.position - b.position);
-      const changeTexts = changes.map(
-        (change) => `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase()
-      );
-      const changeTermFrequency = new Map(terms.map((term) => [term, changeTexts.filter((text) => text.includes(term)).length]));
-      const broadChangeTermLimit = Math.max(2, Math.ceil(changes.length / 2));
-      const explicitBlockIDs = focusBlockIds;
-      const explicitChainIDs = focusChainIds;
-      const taskChanges = changes.map((change) => {
-        const text = `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase();
-        const semanticScore = terms.reduce((score, term) => score + (term.length > 2 && (changeTermFrequency.get(term) ?? 0) < broadChangeTermLimit && text.includes(term) ? 1 : 0), 0);
-        const focused = explicitBlockIDs.has(change.entityId) || change.entityType === "chain" && explicitChainIDs.has(change.entityId);
-        return { change, semanticScore, focused };
-      }).filter((entry) => entry.focused || entry.semanticScore > 0).sort((left, right) => Number(right.focused) - Number(left.focused) || right.semanticScore - left.semanticScore || left.change.position - right.change.position).slice(0, 3).map((entry) => entry.change);
-      lines.push(`  Progress: ${plan.progress.completedSteps}/${plan.progress.totalSteps} ${scopes.length || changes.length ? "changes" : "steps"} \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} required gates`);
-      lines.push(`  Typed: Block ${plan.typedProgress.directBlockChanges.completed}/${plan.typedProgress.directBlockChanges.total} \xB7 Chain ${plan.typedProgress.chainChanges.completed}/${plan.typedProgress.chainChanges.total} \xB7 Link ${plan.typedProgress.linkChanges.completed}/${plan.typedProgress.linkChanges.total} \xB7 Chain gates ${plan.typedProgress.chainIntegrationGates.passed}/${plan.typedProgress.chainIntegrationGates.total} \xB7 Plan gates ${plan.typedProgress.planAcceptanceGates.passed}/${plan.typedProgress.planAcceptanceGates.total}`);
-      const selectedPlanCoverage = planCoverage.get(plan.id);
-      if (selectedPlanCoverage) {
-        const directBlocks = changes.filter((change) => change.planId === plan.id && change.entityType === "block").map((change) => `block:${change.entityId}`);
-        if (directBlocks.length) lines.push(`  Direct Blocks: ${directBlocks.slice(0, 20).join(", ")}${directBlocks.length > 20 ? ` \u2026 (${directBlocks.length} total)` : ""}`);
-      }
-      if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
-      const dependencies = snapshot2.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
-      if (dependencies.length) lines.push(`  Prerequisites: ${dependencies.map((item) => `[plan:${item.dependsOnPlanId}]`).join(", ")}`);
-      const steps = snapshot2.planSteps.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
-      const openSteps = steps.filter((step) => !["complete", "skipped"].includes(step.status)).slice(0, 3);
-      for (const step of openSteps) lines.push(`  ${step.position + 1}. ${step.status}: ${step.title}${step.targetRefs.length ? ` (${step.targetRefs.join(", ")})` : ""}`);
-      if (steps.length > openSteps.length) lines.push(`  Steps: showing ${openSteps.length} open of ${steps.length} total; use plan_context for full ordering.`);
-      const taskChangeIds = new Set(taskChanges.map((change) => change.id));
-      for (const scope of scopes) {
-        const changeIDs = snapshot2.planChainChangeRefs.filter((ref) => ref.chainScopeId === scope.id).sort((a, b) => a.position - b.position).map((ref) => ref.planChangeId);
-        const matchingIDs = changeIDs.filter((changeID) => taskChangeIds.has(changeID));
-        lines.push(`  ChainScope ${scope.position + 1}: ${scope.title} [chain:${scope.chainId}]${matchingIDs.length ? ` \xB7 relevant ${matchingIDs.map((changeID) => `[plan_change:${changeID}]`).join(", ")}` : ""}`);
-      }
-      if (taskChanges.length) {
-        lines.push("  Task-relevant canonical changes:");
-        for (const change of taskChanges) {
-          lines.push(`  - [plan_change:${change.id}] ${change.title} \xB7 target ${change.entityType}:${change.entityId}: ${change.currentBehavior || "\u2014"} -> ${change.proposedBehavior || change.summary || "\u2014"}`);
-          if (change.prohibitions.length) lines.push(`    Must not: ${change.prohibitions.join("; ")}`);
-          if (change.sourceRefs.length) lines.push(`    Sources: ${change.sourceRefs.join(", ")}`);
-        }
-      }
-      if (changes.length > taskChanges.length) lines.push(`  ${changes.length - taskChanges.length} additional canonical change(s): use plan_context to expand the Plan.`);
-      if (summary) lines.push(`  ${summary}`);
-      if (nextAction) lines.push(`  Next: ${nextAction}`);
-    }
-    lines.push("");
-  }
-  const hasExplicitChainFocus = focusChainIds.size > 0;
-  const hasSemanticChainMatch = scoredChains.some((entry) => selectedChainIds.has(entry.chain.id));
-  if (relevantChains.length && (selectedPlanIds.size === 0 || hasExplicitChainFocus || hasSemanticChainMatch)) {
-    lines.push("## Target chains");
-    for (const chain of relevantChains) {
-      const title = localizedValue(translations, "chain", chain.id, locale, "title", chain.title);
-      const path13 = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
-      lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path13 ? ` \xB7 path ${path13}` : ""}`);
-      const intent = localizedValue(translations, "chain", chain.id, locale, "intent", chain.intent);
-      if (intent && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  ${intent}`);
-    }
-    lines.push("");
-  }
-  const chainOrder = /* @__PURE__ */ new Map();
-  for (const chainId of selectedChainIds) {
-    snapshot2.chainNodes.filter((node2) => node2.chainId === chainId).sort((left, right) => left.position - right.position).forEach((node2, index) => {
-      const current = chainOrder.get(node2.blockId);
-      if (current === void 0 || index < current) chainOrder.set(node2.blockId, index);
-    });
-  }
-  const orderedRelevantBlocks = [...relevantBlocks].sort(
-    (left, right) => (chainOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (chainOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.localOrder - right.localOrder || left.id.localeCompare(right.id)
-  );
-  const contentBlocks = selectedPlanIds.size && focusBlockIds.size ? orderedRelevantBlocks.filter((block) => focusBlockIds.has(block.id)) : orderedRelevantBlocks;
-  if (contentBlocks.length) {
-    lines.push("## Architecture order / relevant Blocks");
-    contentBlocks.forEach((block, index) => {
-      const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
-      const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
-      const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
-      const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
-      const isGhost = block.deliveryState === "proposed" || block.deliveryState === "planned";
-      const stateTag = isGhost ? "Ghost (Virtual Blueprint)" : "Solid (Anchored)";
-      lines.push(`${index + 1}. [block:${block.id}] ${title} \u2014 ${stateTag} \xB7 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
-      const sources = snapshot2.sourceRefs?.filter((s) => s.blockId === block.id) ?? [];
-      if (sources.length > 0) {
-        const primary = sources.find((item) => item.role === "implementation" && item.symbol) || sources.find((item) => item.symbol) || sources[0];
-        lines.push(`  Locator: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` L${primary.startLine}-L${primary.endLine}` : ""}`);
-      }
-      const incoming = snapshot2.links.filter((l) => l.targetType === "block" && l.targetId === block.id);
-      const outgoing = snapshot2.links.filter((l) => l.sourceType === "block" && l.sourceId === block.id);
-      if (incoming.length > 0 || outgoing.length > 0) {
-        const flowParts = [];
-        if (incoming.length > 0) {
-          flowParts.push(`Upstream: ${incoming.map((l) => `[${l.sourceId}] -[${l.kind}]->`).join(", ")}`);
-        }
-        if (outgoing.length > 0) {
-          flowParts.push(`Downstream: ${outgoing.map((l) => `-[${l.kind}]-> [${l.targetId}]`).join(", ")}`);
-        }
-        lines.push(`  Flow: ${flowParts.join(" | ")}`);
-      }
-      if (summary && (selectedPlanIds.size === 0 || focusBlockIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
-      if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
-      if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
-    });
-    lines.push("");
-  }
-  if (relevantLinks.length) {
-    lines.push("## Relationships and interfaces");
-    for (const link of relevantLinks) {
-      const label = localizedValue(translations, "link", link.id, locale, "label", link.label);
-      const contract = localizedValue(translations, "link", link.id, locale, "contract", link.contract);
-      lines.push(
-        `- ${link.sourceType}:${link.sourceId} -[${link.kind}${label ? `:${label}` : ""}]-> ${link.targetType}:${link.targetId}`
-      );
-      if (contract && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  Contract: ${contract}`);
-    }
-    lines.push("");
-  }
-  const failing = relevantCheckpoints.filter((checkpoint) => checkpoint.status !== "passed");
-  if (failing.length) {
-    lines.push("## Open checkpoints");
-    for (const checkpoint of failing.slice(0, 6)) {
-      lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.coverage}: ${checkpoint.title}`);
-    }
-    if (failing.length > 6) lines.push(`- \u2026 ${failing.length - 6} more; use checkpoint_list for the complete filtered inbox.`);
-    lines.push("");
-  }
-  if (standaloneOpenCheckpoints.length) {
-    lines.push("## Standalone verification");
-    for (const checkpoint of standaloneOpenCheckpoints) {
-      const owner = checkpoint.targetType === "block" ? snapshot2.blocks.find((block) => block.id === checkpoint.targetId)?.title ?? checkpoint.targetId : checkpoint.targetId;
-      lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.targetType}:${checkpoint.targetId} (${owner}): ${checkpoint.title}`);
-    }
-    lines.push("");
-  }
-  lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, Link, or Decision when more detail is needed.");
-  const fullMarkdown = lines.join("\n");
-  const markdown = fullMarkdown.length <= maxChars ? fullMarkdown : `${fullMarkdown.slice(0, Math.max(0, maxChars - 112))}
-
-[truncated; use plan_context, entity_open, checkpoint_list, or changes_since for the referenced detail]`;
-  return {
-    graphRevision: snapshot2.project.graphRevision,
-    sourceSync: snapshot2.sourceSync ? {
-      revision: snapshot2.sourceSync.revision,
-      sourceRevision: snapshot2.sourceSync.sourceRevision,
-      bindingCount: snapshot2.sourceSync.bindingCount,
-      changed: snapshot2.sourceSync.changed,
-      changedBindingCount: snapshot2.sourceSync.changedBindingCount,
-      invalidBindingCount: snapshot2.sourceSync.invalidBindingCount,
-      affectedBlockIds: snapshot2.sourceSync.affectedBlockIds,
-      changes: snapshot2.sourceSync.changes
-    } : null,
-    refs: [
-      ...relevantPlans.map((plan) => `plan:${plan.id}`),
-      ...relevantChains.map((chain) => `chain:${chain.id}`),
-      ...relevantBlocks.map((block) => `block:${block.id}`),
-      ...applicableRuleIds.map((blockId) => `block:${blockId}`),
-      ...applicableDecisions.map((decision) => `decision:${decision.id}`)
-    ],
-    applicableRules: applicableRuleIds.map((blockId) => ({
-      ref: `block:${blockId}`,
-      scopes: applicableRuleScopes.filter((scope) => scope.blockId === blockId).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
-    })),
-    applicableDecisions: applicableDecisions.map((decision) => ({
-      ref: `decision:${decision.id}`,
-      title: decision.title,
-      status: decision.status,
-      scopes: applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
-    })),
-    drift,
-    markdown
-  };
-}
-
-// packages/mcp/src/plan-engine.mjs
-function renderPlanContext(service, { id, locale = "en", maxChars = 12e3 } = {}) {
-  assertAllowed(locale, LOCALES, "locale");
-  const snapshot2 = service.snapshot();
-  const plan = snapshot2.plans.find((item) => item.id === id);
-  if (!plan) throw new Error(`plan:${id} not found`);
-  const translations = localizationMap(snapshot2);
-  const scopes = snapshot2.planChainScopes.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
-  const changes = snapshot2.planChanges.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
-  const orderedSteps = snapshot2.planSteps.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
-  const bindingsBySubject = /* @__PURE__ */ new Map();
-  const checkpointDependenciesByParent = /* @__PURE__ */ new Map();
-  for (const dependency of snapshot2.checkpointDependencies) {
-    const values = checkpointDependenciesByParent.get(dependency.parentCheckpointId) ?? [];
-    const checkpoint = snapshot2.checkpoints.find((item) => item.id === dependency.childCheckpointId);
-    if (checkpoint) values.push({ ...dependency, checkpoint });
-    checkpointDependenciesByParent.set(dependency.parentCheckpointId, values);
-  }
-  const decorateBinding = (binding) => {
-    const dependencies = (checkpointDependenciesByParent.get(binding.checkpoint.id) ?? []).sort((a, b) => a.position - b.position);
-    return {
-      ...binding,
-      dependencies,
-      blockers: dependencies.filter((item) => item.required && item.checkpoint.status !== "passed")
-    };
-  };
-  for (const binding of snapshot2.checkpointBindings) {
-    const key = `${binding.subjectType}:${binding.subjectId}`;
-    const values = bindingsBySubject.get(key) ?? [];
-    const checkpoint = snapshot2.checkpoints.find((item) => item.id === binding.checkpointId);
-    if (checkpoint) values.push({ ...binding, checkpoint });
-    bindingsBySubject.set(key, values);
-  }
-  const scopeChangeRefs = /* @__PURE__ */ new Map();
-  for (const ref of snapshot2.planChainChangeRefs) {
-    const values = scopeChangeRefs.get(ref.chainScopeId) ?? [];
-    const change = changes.find((item) => item.id === ref.planChangeId);
-    if (change) values.push({ ...ref, change });
-    scopeChangeRefs.set(ref.chainScopeId, values);
-  }
-  const hierarchy = scopes.map((scope) => ({
-    ...scope,
-    chain: snapshot2.chains.find((item) => item.id === scope.chainId) ?? null,
-    changes: (scopeChangeRefs.get(scope.id) ?? []).sort((a, b) => a.position - b.position).map((item) => ({
-      ...item.change,
-      role: item.role,
-      checkpoints: (bindingsBySubject.get(`plan_change:${item.change.id}`) ?? []).map(decorateBinding)
-    })),
-    checkpoints: (bindingsBySubject.get(`plan_chain_scope:${scope.id}`) ?? []).map(decorateBinding)
-  }));
-  const scopedChangeIds = new Set(snapshot2.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).map((ref) => ref.planChangeId));
-  const scopedChanges = changes.filter((change) => scopedChangeIds.has(change.id)).map((change) => ({
-    ...change,
-    checkpoints: (bindingsBySubject.get(`plan_change:${change.id}`) ?? []).map(decorateBinding)
-  }));
-  const projectedChangePayload = (change) => JSON.stringify({
-    id: change.id,
-    entityType: change.entityType,
-    entityId: change.entityId,
-    title: change.title,
-    summary: change.summary,
-    currentBehavior: change.currentBehavior,
-    proposedBehavior: change.proposedBehavior,
-    rationale: change.rationale,
-    prohibitions: change.prohibitions,
-    expectedEffects: change.expectedEffects,
-    sourceRefs: change.sourceRefs,
-    status: change.status
-  }).length;
-  const canonicalScopedPayloadChars = scopedChanges.reduce((total, change) => total + projectedChangePayload(change), 0);
-  const scopeExpandedPayloadChars = hierarchy.flatMap((scope) => scope.changes).reduce((total, change) => total + projectedChangePayload(change), 0);
-  const avoidedRepeatedPayloadChars = Math.max(0, scopeExpandedPayloadChars - canonicalScopedPayloadChars);
-  const unattachedChanges = changes.filter((change) => !snapshot2.planChainChangeRefs.some((ref) => ref.planChangeId === change.id));
-  const directChanges = unattachedChanges.map((change) => ({
-    ...change,
-    entity: change.entityType === "block" ? snapshot2.blocks.find((item) => item.id === change.entityId) ?? null : change.entityType === "link" ? snapshot2.links.find((item) => item.id === change.entityId) ?? null : snapshot2.chains.find((item) => item.id === change.entityId) ?? null,
-    checkpoints: (bindingsBySubject.get(`plan_change:${change.id}`) ?? []).map(decorateBinding),
-    targetCheckpoints: change.entityType === "block" ? snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === change.entityId) : []
-  }));
-  const coverage = architectureCoverage(snapshot2, id);
-  const planCheckpoints = [
-    ...bindingsBySubject.get(`plan:${id}`) ?? [],
-    ...snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === id).map((checkpoint) => ({ checkpoint, role: "plan", required: true, position: 0 })),
-    ...snapshot2.planCheckpointRefs.filter((ref) => ref.planId === id).map((ref) => {
-      const checkpoint = snapshot2.checkpoints.find((item) => item.id === ref.checkpointId);
-      return checkpoint ? { ...ref, checkpoint } : null;
-    }).filter(Boolean)
-  ].filter((item, index, values) => values.findIndex((candidate) => candidate.checkpoint.id === item.checkpoint.id) === index).map(decorateBinding);
-  const lines = [];
-  const appendBlockers = (binding, indent = "  ") => {
-    if (!binding.blockers.length) return;
-    lines.push(`${indent}Blocked by required checks:`);
-    for (const blocker of binding.blockers.slice(0, 12)) {
-      lines.push(`${indent}- ${blocker.checkpoint.status}: ${blocker.checkpoint.title} [checkpoint:${blocker.checkpoint.id}]`);
-    }
-    if (binding.blockers.length > 12) lines.push(`${indent}- \u2026 ${binding.blockers.length - 12} more`);
-  };
-  const appendChangeDetails = (change) => {
-    lines.push("", `### ${change.title} [plan_change:${change.id}]`, `Target: ${change.entityType}:${change.entityId}`, change.summary || "\u2014");
-    if (change.currentBehavior) lines.push(`Current: ${change.currentBehavior}`);
-    if (change.proposedBehavior) lines.push(`Proposed: ${change.proposedBehavior}`);
-    if (change.rationale) lines.push(`Reason: ${change.rationale}`);
-    if (change.prohibitions.length) lines.push(`Must not: ${change.prohibitions.join("; ")}`);
-    if (change.expectedEffects.length) lines.push(`Expected: ${change.expectedEffects.join("; ")}`);
-    if (change.sourceRefs.length) lines.push(`Sources: ${change.sourceRefs.join(", ")}`);
-    for (const binding of change.checkpoints) {
-      const checkpoint = binding.checkpoint;
-      lines.push(`- Checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
-      appendBlockers(binding, "  ");
-    }
-  };
-  const title = localizedValue(translations, "plan", id, locale, "title", plan.title);
-  const summary = localizedValue(translations, "plan", id, locale, "summary", plan.summary);
-  const goal = localizedValue(translations, "plan", id, locale, "goal", plan.goal);
-  lines.push(
-    `# ${title}`,
-    `${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus}`,
-    "",
-    summary || "No summary.",
-    "",
-    "## Goal",
-    goal || "\u2014"
-  );
-  const nextAction = localizedValue(translations, "plan", id, locale, "nextAction", plan.nextAction);
-  if (nextAction) lines.push("", "## Next action", nextAction);
-  if (plan.proposedDelta.length) lines.push("", "## Overall change", ...plan.proposedDelta.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
-  if (plan.blockers.length) {
-    const hard = plan.blockers.filter(isHardPlanBlocker);
-    const notes = plan.blockers.filter((item) => !isHardPlanBlocker(item));
-    if (hard.length) lines.push("", "## Blockers", ...hard.map((item) => `- ${item}`));
-    if (notes.length) lines.push("", "## Scope notes", ...notes.map((item) => `- ${item}`));
-  }
-  lines.push("", "## Architecture coverage");
-  lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
-  lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct \xB7 ${coverage.chainPlanBlocks} through Chains)`);
-  lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} \xB7 ${coverage.failingIds.length} failing`);
-  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required verification missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " \u2026" : ""}`);
-  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((chainId) => `chain:${chainId}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " \u2026" : ""}`);
-  const typed = plan.typedProgress;
-  lines.push("", "## Typed progress");
-  lines.push(`- Direct Block Changes: ${typed.directBlockChanges.completed}/${typed.directBlockChanges.total}`);
-  lines.push(`- Chain Changes: ${typed.chainChanges.completed}/${typed.chainChanges.total}`);
-  lines.push(`- Link Changes: ${typed.linkChanges.completed}/${typed.linkChanges.total}`);
-  lines.push(`- Chain integration gates: ${typed.chainIntegrationGates.passed}/${typed.chainIntegrationGates.total}`);
-  lines.push(`- Plan acceptance gates: ${typed.planAcceptanceGates.passed}/${typed.planAcceptanceGates.total}`);
-  lines.push("", "## Execution order");
-  if (orderedSteps.length) {
-    lines.push("### Ordered steps");
-    for (const step of orderedSteps) {
-      lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` \u2014 ${step.action}` : ""}`);
-    }
-  } else {
-    lines.push("- No ordered steps declared.");
-  }
-  if (hierarchy.length === 0 && directChanges.length === 0 && orderedSteps.length === 0) {
-    lines.push(
-      "",
-      "## Change structure",
-      locale === "zh-Hans" ? "\u6B64 Plan \u6CA1\u6709\u6709\u5E8F\u6B65\u9AA4\u3001ChainScope \u6216\u9010\u5B9E\u4F53\u4FEE\u6539\uFF0C\u4E0D\u80FD\u7528 0/0 \u8868\u793A\u5B8C\u6210\u3002" : "This Plan has no ordered steps, ChainScopes, or per-entity work; 0/0 is not completion."
-    );
-  }
-  const directBlockChanges = directChanges.filter((change) => change.entityType === "block");
-  lines.push("", "## Direct Block work");
-  if (directBlockChanges.length) {
-    for (const change of directBlockChanges) {
-      lines.push(`- ${change.status}: ${change.title} [block:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary || "\u2014"}`);
-      if (change.currentBehavior) lines.push(`  - Current: ${change.currentBehavior}`);
-      if (change.proposedBehavior) lines.push(`  - Change: ${change.proposedBehavior}`);
-      if (change.rationale) lines.push(`  - Why: ${change.rationale}`);
-      if (change.checkpoints.length) {
-        for (const binding of change.checkpoints) {
-          const checkpoint = binding.checkpoint;
-          lines.push(`  - Required checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
-          appendBlockers(binding, "    ");
-        }
-      } else if (change.targetCheckpoints.length) {
-        lines.push(`  - Independent verification: ${change.targetCheckpoints.map((checkpoint) => `[${checkpoint.status}] ${checkpoint.title}`).join("; ")}`);
-      } else {
-        lines.push("  - No checkpoint recorded yet.");
-      }
-    }
-  } else {
-    lines.push("- None declared.");
-  }
-  lines.push("", "## Chain integration");
-  if (hierarchy.length === 0) lines.push("- None declared.");
-  for (const scope of hierarchy) {
-    lines.push("", `### ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "\u2014");
-    if (scope.rationale) lines.push(`Reason: ${scope.rationale}`);
-    if (scope.nodeIds.length || scope.linkIds.length) lines.push(`Path: ${scope.nodeIds.map((nodeId) => `block:${nodeId}`).join(" \u2192 ")}${scope.linkIds.length ? ` \xB7 Links ${scope.linkIds.map((linkId) => `link:${linkId}`).join(", ")}` : ""}`);
-    if (scope.prohibitions.length) lines.push("Prohibitions:", ...scope.prohibitions.map((item) => `- ${item}`));
-    if (scope.changes.length) lines.push(`Changes: ${scope.changes.map((change) => `[plan_change:${change.id}]`).join(", ")}`);
-    for (const binding of scope.checkpoints) {
-      const checkpoint = binding.checkpoint;
-      lines.push(`- Chain gate ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
-      appendBlockers(binding, "  ");
-    }
-  }
-  if (scopedChanges.length) {
-    lines.push("", "## Canonical scoped changes");
-    for (const change of scopedChanges) appendChangeDetails(change);
-  }
-  const otherDirectChanges = directChanges.filter((change) => change.entityType !== "block");
-  if (otherDirectChanges.length) {
-    lines.push("", "## Cross-Chain changes");
-    for (const change of otherDirectChanges) lines.push(`- ${change.title} [${change.entityType}:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary}`);
-  }
-  lines.push("", "## Plan acceptance");
-  if (planCheckpoints.length) {
-    for (const binding of planCheckpoints) {
-      const checkpoint = binding.checkpoint;
-      lines.push(`- ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
-      appendBlockers(binding, "  ");
-    }
-  } else {
-    lines.push("- No acceptance checkpoint declared.");
-  }
-  let markdown = lines.join("\n");
-  if (markdown.length > maxChars) markdown = `${markdown.slice(0, Math.max(0, maxChars - 64))}
-
-[truncated; open a referenced entity for detail]`;
-  return {
-    plan,
-    steps: orderedSteps,
-    hierarchy,
-    scopedChanges,
-    unattachedChanges,
-    directChanges,
-    coverage,
-    checkpoints: planCheckpoints.map((item) => item.checkpoint),
-    checkpointGates: planCheckpoints,
-    dependencies: snapshot2.planDependencies.filter((item) => item.planId === id),
-    projection: {
-      canonicalChangeCount: changes.length,
-      scopeChangeReferenceCount: snapshot2.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).length,
-      repeatedScopeReferenceCount: Math.max(0, snapshot2.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).length - scopedChanges.length),
-      canonicalScopedPayloadChars,
-      legacyScopeExpandedPayloadChars: scopeExpandedPayloadChars,
-      avoidedRepeatedPayloadChars,
-      estimatedTokensAvoided: Math.ceil(avoidedRepeatedPayloadChars / 4),
-      markdownChars: markdown.length,
-      estimatedTokens: Math.ceil(markdown.length / 4)
-    },
-    markdown
-  };
-}
-function createFoundationPlan(service, {
-  id = "foundation-plan",
-  title = "Foundation Plan",
-  goal = "Implement the complete declared architecture in dependency order.",
-  requiredEvidenceLevel = "integration",
-  actor = "agent",
-  reason = "Generate the initial implementation plan from the architecture graph",
-  gitHead: gitHead2 = null
-} = {}) {
-  if (!id?.trim() || !title?.trim()) throw new Error("Foundation Plan requires id and title");
-  assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
-  const snapshot2 = service.snapshot();
-  if (snapshot2.plans.some((plan) => plan.id === id)) throw new Error(`plan:${id} already exists`);
-  const blocks = snapshot2.blocks.filter(
-    (block) => !block.archived && block.kind !== "decision" && !["complete", "deprecated"].includes(block.deliveryState)
-  );
-  if (blocks.length === 0) throw new Error("No unimplemented Blocks are available for a Foundation Plan");
-  const groups = foundationBlockGroups(snapshot2, blocks);
-  const orderedBlocks = groups.flat();
-  const checkpointIds = new Set(snapshot2.checkpoints.map((checkpoint) => checkpoint.id));
-  const checkpointByBlock = /* @__PURE__ */ new Map();
-  const operations = [{
-    action: "create_plan",
-    id,
-    fields: {
-      title: title.trim(),
-      summary: "Automatically generated from every non-deprecated unimplemented Block, including standalone Blocks.",
-      goal,
-      status: "ready",
-      priority: "critical",
-      phase: "foundation",
-      planOrder: 1,
-      nextAction: groups[0]?.length ? `Implement parallel group 1: ${groups[0].map((block) => `block:${block.id}`).join(", ")}` : "Review generated coverage."
-    }
-  }];
-  for (const block of orderedBlocks) {
-    const existing = snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpoint.checkpointKind === "atomic").sort((left, right) => left.id.localeCompare(right.id))[0];
-    const checkpointId = existing?.id ?? `${id}-proof-${block.id}`;
-    checkpointByBlock.set(block.id, { id: checkpointId, revision: existing?.currentRevision ?? 1, existing: Boolean(existing) });
-    if (!existing) {
-      if (checkpointIds.has(checkpointId)) throw new Error(`checkpoint:${checkpointId} already exists`);
-      checkpointIds.add(checkpointId);
-      operations.push({
-        action: "create_checkpoint",
-        id: checkpointId,
-        fields: {
-          targetType: "block",
-          targetId: block.id,
-          title: `Verify ${block.title}`,
-          criteria: block.contract || `Verify block:${block.id} satisfies its declared responsibility.`,
-          status: "pending",
-          checkpointKind: "atomic",
-          coverage: "complete",
-          requiredEvidenceLevel
-        }
-      });
-    }
-  }
-  const changes = orderedBlocks.map((block, position) => ({
-    id: `${id}-change-${block.id}`,
-    entityType: "block",
-    entityId: block.id,
-    position,
-    title: `Implement ${block.title}`,
-    summary: block.summary,
-    currentBehavior: `Delivery state: ${block.deliveryState}.`,
-    proposedBehavior: block.contract || `Implement the responsibility declared by block:${block.id}.`,
-    rationale: "The Foundation Plan covers every unimplemented Block directly; Chain membership is not required.",
-    expectedEffects: [`block:${block.id} reaches its atomic checkpoint`],
-    status: ["implementing", "verifying"].includes(block.deliveryState) ? "active" : "pending"
-  }));
-  operations.push({ action: "set_plan_changes", id, expectedRevision: 1, fields: { changes } });
-  const selectedIds = new Set(orderedBlocks.map((block) => block.id));
-  const chains = snapshot2.chains.filter(
-    (chain) => snapshot2.chainNodes.some((node2) => node2.chainId === chain.id && selectedIds.has(node2.blockId))
-  ).sort((left, right) => left.id.localeCompare(right.id));
-  const scopes = chains.map((chain, position) => {
-    const nodeIds = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((a, b) => a.position - b.position).map((node2) => node2.blockId);
-    const linkIds = snapshot2.chainEdges.filter((edge) => edge.chainId === chain.id).sort((a, b) => a.position - b.position).map((edge) => edge.linkId);
-    return {
-      id: `${id}-scope-${chain.id}`,
-      chainId: chain.id,
-      position,
-      title: `Integrate ${chain.title}`,
-      summary: "Verify the reusable Chain after its required Block work is complete.",
-      rationale: "Chains integrate paths; they do not own their Blocks.",
-      nodeIds,
-      linkIds,
-      status: "pending"
-    };
-  });
-  operations.push({ action: "set_plan_chain_scopes", id, expectedRevision: 2, fields: { scopes } });
-  operations.push({
-    action: "set_plan_steps",
-    id,
-    expectedRevision: 3,
-    fields: { steps: groups.map((group, index) => ({
-      id: `${id}-step-${index + 1}`,
-      title: `Parallel implementation group ${index + 1}`,
-      action: `Implement ${group.map((block) => `block:${block.id}`).join(", ")}`,
-      status: "pending",
-      targetRefs: group.map((block) => `block:${block.id}`)
-    })).concat(chains.length ? [{
-      id: `${id}-step-integration`,
-      title: "Integrate Chain paths",
-      action: "Run every required Chain integration gate.",
-      status: "pending",
-      targetRefs: chains.map((chain) => `chain:${chain.id}`)
-    }] : [], [{
-      id: `${id}-step-acceptance`,
-      title: "Accept the Foundation Plan",
-      action: "Run the final Plan acceptance gate after all required children pass.",
-      status: "pending",
-      targetRefs: [`plan:${id}`]
-    }]) }
-  });
-  for (const block of orderedBlocks) {
-    const checkpoint = checkpointByBlock.get(block.id);
-    const existingBindings = checkpoint.existing ? snapshot2.checkpointBindings.filter((binding) => binding.checkpointId === checkpoint.id).map((binding) => ({
-      subjectType: binding.subjectType,
-      subjectId: binding.subjectId,
-      role: binding.role,
-      required: binding.required
-    })) : [];
-    operations.push({
-      action: "set_checkpoint_bindings",
-      id: checkpoint.id,
-      expectedRevision: checkpoint.revision,
-      fields: { bindings: existingBindings.concat({
-        subjectType: "plan_change",
-        subjectId: `${id}-change-${block.id}`,
-        role: "acceptance",
-        required: true
-      }) }
-    });
-  }
-  const chainGateIds = [];
-  for (const [index, chain] of chains.entries()) {
-    const gateId = `${id}-gate-${chain.id}`;
-    if (checkpointIds.has(gateId)) throw new Error(`checkpoint:${gateId} already exists`);
-    checkpointIds.add(gateId);
-    chainGateIds.push(gateId);
-    operations.push({
-      action: "create_checkpoint",
-      id: gateId,
-      fields: {
-        targetType: "chain",
-        targetId: chain.id,
-        title: `Integrate ${chain.title}`,
-        criteria: `Verify chain:${chain.id} works as one ordered path after its required Block and Link checks pass.`,
-        status: "pending",
-        checkpointKind: "integration",
-        eligibleAfterChildren: true,
-        coverage: "complete",
-        requiredEvidenceLevel
-      }
-    });
-    operations.push({
-      action: "set_checkpoint_bindings",
-      id: gateId,
-      expectedRevision: 1,
-      fields: { bindings: [{
-        subjectType: "plan_chain_scope",
-        subjectId: scopes[index].id,
-        role: "integration",
-        required: true
-      }] }
-    });
-    const childIds = /* @__PURE__ */ new Set();
-    for (const blockId of scopes[index].nodeIds) {
-      const selected = checkpointByBlock.get(blockId);
-      const existing = snapshot2.checkpoints.find(
-        (item) => item.targetType === "block" && item.targetId === blockId && item.checkpointKind === "atomic"
-      );
-      if (selected?.id || existing?.id) childIds.add(selected?.id ?? existing.id);
-    }
-    for (const linkId of scopes[index].linkIds) {
-      for (const checkpoint of snapshot2.checkpoints.filter((item) => item.targetType === "link" && item.targetId === linkId)) childIds.add(checkpoint.id);
-    }
-    operations.push({
-      action: "set_checkpoint_dependencies",
-      id: gateId,
-      expectedRevision: 2,
-      fields: { children: [...childIds].map((checkpointId) => ({ checkpointId, required: true })) }
-    });
-  }
-  const acceptanceId = `${id}-acceptance`;
-  if (checkpointIds.has(acceptanceId)) throw new Error(`checkpoint:${acceptanceId} already exists`);
-  operations.push({
-    action: "create_checkpoint",
-    id: acceptanceId,
-    fields: {
-      targetType: "plan",
-      targetId: id,
-      title: `${title.trim()} acceptance`,
-      criteria: "Accept the whole Foundation Plan only after every direct Block check and Chain integration gate passes.",
-      status: "pending",
-      checkpointKind: "integration",
-      eligibleAfterChildren: true,
-      coverage: "complete",
-      requiredEvidenceLevel
-    }
-  });
-  operations.push({
-    action: "set_checkpoint_bindings",
-    id: acceptanceId,
-    expectedRevision: 1,
-    fields: { bindings: [{ subjectType: "plan", subjectId: id, role: "acceptance", required: true }] }
-  });
-  operations.push({
-    action: "set_checkpoint_dependencies",
-    id: acceptanceId,
-    expectedRevision: 2,
-    fields: { children: [...orderedBlocks.map((block) => checkpointByBlock.get(block.id).id), ...chainGateIds].map((checkpointId) => ({ checkpointId, required: true })) }
-  });
-  const mutation = service.mutate(
-    { actor, reason, task: "foundation-plan-bootstrap", gitHead: gitHead2, operations },
-    { maxOperations: Number.MAX_SAFE_INTEGER, maxInputBytes: Number.MAX_SAFE_INTEGER }
-  );
-  const context = service.planContext({ id, maxChars: 24e3 });
-  return {
-    ...mutation,
-    plan: context.plan,
-    generated: {
-      blockIds: orderedBlocks.map((block) => block.id),
-      parallelGroups: groups.map((group) => group.map((block) => block.id)),
-      chainIds: chains.map((chain) => chain.id),
-      blockCheckpointIds: orderedBlocks.map((block) => checkpointByBlock.get(block.id).id),
-      chainGateIds,
-      planAcceptanceCheckpointId: acceptanceId
-    },
-    markdown: context.markdown
-  };
-}
-
-// packages/mcp/src/checkpoint-freshness.mjs
-import crypto6 from "node:crypto";
-import fs7 from "node:fs";
-import path8 from "node:path";
 import { spawnSync } from "node:child_process";
 
 // packages/mcp/src/source-binding.mjs
-import crypto5 from "node:crypto";
-import fs6 from "node:fs";
-import path7 from "node:path";
+import crypto4 from "node:crypto";
+import fs3 from "node:fs";
+import path4 from "node:path";
 var DISCOVERY_IGNORES = /* @__PURE__ */ new Set([".git", ".contextos", "node_modules", ".build", "dist", "build", "coverage", ".next"]);
 var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".swift", ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".cc", ".cpp", ".h", ".hpp"]);
 function discoveryTerms(value) {
@@ -27712,7 +25662,7 @@ function sourceFiles(projectRoot, maxFiles) {
     if (files.length >= maxFiles) return;
     let entries = [];
     try {
-      entries = fs6.readdirSync(directory, { withFileTypes: true });
+      entries = fs3.readdirSync(directory, { withFileTypes: true });
     } catch {
       return;
     }
@@ -27720,9 +25670,9 @@ function sourceFiles(projectRoot, maxFiles) {
       if (files.length >= maxFiles) break;
       if (entry.name.startsWith(".") && entry.name !== ".github") continue;
       if (DISCOVERY_IGNORES.has(entry.name)) continue;
-      const candidate = path7.join(directory, entry.name);
+      const candidate = path4.join(directory, entry.name);
       if (entry.isDirectory()) visit(candidate);
-      else if (entry.isFile() && SOURCE_EXTENSIONS.has(path7.extname(entry.name).toLowerCase())) files.push(candidate);
+      else if (entry.isFile() && SOURCE_EXTENSIONS.has(path4.extname(entry.name).toLowerCase())) files.push(candidate);
     }
   };
   visit(projectRoot);
@@ -27745,10 +25695,10 @@ function suggestSourceBindings({ projectRoot, block, existingRefs = [], limit = 
   const candidates = [];
   const files = sourceFiles(projectRoot, maxFiles);
   for (const absolutePath of files) {
-    const relative = path7.relative(projectRoot, absolutePath).split(path7.sep).join("/");
+    const relative = path4.relative(projectRoot, absolutePath).split(path4.sep).join("/");
     let content;
     try {
-      content = fs6.readFileSync(absolutePath, "utf8");
+      content = fs3.readFileSync(absolutePath, "utf8");
     } catch {
       continue;
     }
@@ -27782,13 +25732,13 @@ function suggestSourceBindings({ projectRoot, block, existingRefs = [], limit = 
 }
 function suggestBindingsForChangedFiles({ projectRoot, blocks = [], existingRefs = [], changedPaths = [], limit = 8 } = {}) {
   const existing = new Set(existingRefs.map((ref) => `${ref.path}:${ref.symbol ?? ""}`));
-  const files = [...new Set(changedPaths.map((item) => String(item ?? "").split(path7.sep).join("/")))].filter((relative) => SOURCE_EXTENSIONS.has(path7.extname(relative).toLowerCase()));
+  const files = [...new Set(changedPaths.map((item) => String(item ?? "").split(path4.sep).join("/")))].filter((relative) => SOURCE_EXTENSIONS.has(path4.extname(relative).toLowerCase()));
   const candidates = [];
   for (const relative of files) {
-    const absolutePath = path7.resolve(projectRoot, relative);
+    const absolutePath = path4.resolve(projectRoot, relative);
     let content;
     try {
-      content = fs6.readFileSync(absolutePath, "utf8");
+      content = fs3.readFileSync(absolutePath, "utf8");
     } catch {
       continue;
     }
@@ -27828,30 +25778,30 @@ function suggestBindingsForChangedFiles({ projectRoot, blocks = [], existingRefs
   }).slice(0, limit);
 }
 function hashText(value) {
-  return crypto5.createHash("sha256").update(String(value ?? "")).digest("hex");
+  return crypto4.createHash("sha256").update(String(value ?? "")).digest("hex");
 }
 function normalizeCode(value) {
   return String(value ?? "").replace(/\r\n/g, "\n").trim();
 }
 function relativePath(projectRoot, filePath) {
-  const absolute = path7.resolve(projectRoot, filePath);
-  const relative = path7.relative(projectRoot, absolute);
-  if (!relative || relative.startsWith("..") || path7.isAbsolute(relative)) return null;
-  return relative.split(path7.sep).join("/");
+  const absolute = path4.resolve(projectRoot, filePath);
+  const relative = path4.relative(projectRoot, absolute);
+  if (!relative || relative.startsWith("..") || path4.isAbsolute(relative)) return null;
+  return relative.split(path4.sep).join("/");
 }
 function refKey(ref, index) {
   return ref.id || `${ref.blockId ?? "block"}:${ref.path}:${ref.symbol ?? "line"}:${index}`;
 }
 function readFileCached(projectRoot, ref, fileCache) {
   const rawPath = String(ref.path ?? "");
-  const absolutePath = path7.isAbsolute(rawPath) ? rawPath : path7.resolve(projectRoot, rawPath);
+  const absolutePath = path4.isAbsolute(rawPath) ? rawPath : path4.resolve(projectRoot, rawPath);
   const relative = relativePath(projectRoot, absolutePath);
   if (!relative) {
     return { absolutePath, relativePath: null, status: "outside_project" };
   }
   let stat;
   try {
-    stat = fs6.statSync(absolutePath);
+    stat = fs3.statSync(absolutePath);
     if (!stat.isFile()) return { absolutePath, relativePath: relative, status: "missing" };
   } catch {
     return { absolutePath, relativePath: relative, status: "missing" };
@@ -27860,7 +25810,7 @@ function readFileCached(projectRoot, ref, fileCache) {
   const cached2 = fileCache.get(relative);
   if (cached2?.signature === signature) return cached2;
   try {
-    const content = fs6.readFileSync(absolutePath, "utf8");
+    const content = fs3.readFileSync(absolutePath, "utf8");
     const next = {
       absolutePath,
       relativePath: relative,
@@ -28014,14 +25964,14 @@ function bindingIdentity(binding) {
 // packages/mcp/src/checkpoint-freshness.mjs
 var CHECKPOINT_IDENTITY_KIND = "contextos-identity";
 function projectRootFor(service) {
-  return path8.resolve(service.paths.projectRoot);
+  return path5.resolve(service.paths.projectRoot);
 }
 function relativeProjectPath(root, candidate) {
   if (typeof candidate !== "string" || !candidate.trim()) return null;
-  const resolved = path8.resolve(root, candidate);
-  const relative = path8.relative(root, resolved);
-  if (!relative || relative.startsWith("..") || path8.isAbsolute(relative)) return null;
-  return relative.split(path8.sep).join("/");
+  const resolved = path5.resolve(root, candidate);
+  const relative = path5.relative(root, resolved);
+  if (!relative || relative.startsWith("..") || path5.isAbsolute(relative)) return null;
+  return relative.split(path5.sep).join("/");
 }
 function gitHead(projectRoot) {
   const result = spawnSync("git", ["rev-parse", "HEAD"], {
@@ -28036,8 +25986,8 @@ function gitHead(projectRoot) {
 }
 function fileHash(filePath) {
   try {
-    if (!fs7.statSync(filePath).isFile()) return null;
-    return crypto6.createHash("sha256").update(fs7.readFileSync(filePath)).digest("hex");
+    if (!fs4.statSync(filePath).isFile()) return null;
+    return crypto5.createHash("sha256").update(fs4.readFileSync(filePath)).digest("hex");
   } catch {
     return null;
   }
@@ -28104,7 +26054,7 @@ function checkpointFiles(service, targetType, targetId, evidence) {
     const relative = relativeProjectPath(root, ref.path);
     const key = relative ?? `!${String(ref.path)}`;
     if (files.has(key)) continue;
-    const absolute = relative ? path8.join(root, relative) : null;
+    const absolute = relative ? path5.join(root, relative) : null;
     files.set(key, {
       path: relative ?? String(ref.path),
       hash: absolute ? fileHash(absolute) : null
@@ -28162,7 +26112,7 @@ function evaluateCheckpointFreshness(service, identity, context = null) {
   const root = freshnessContext.root;
   const reasons = [];
   let unknown2 = false;
-  if (identity.gitHead) {
+  if (identity.gitHead && !(identity.bindings?.length || identity.files?.length)) {
     const currentHead = freshnessContext.gitHead;
     if (!currentHead) unknown2 = true;
     else if (currentHead !== identity.gitHead) reasons.push("git HEAD changed");
@@ -28197,7 +26147,7 @@ function evaluateCheckpointFreshness(service, identity, context = null) {
       continue;
     }
     if (!freshnessContext.fileHashes.has(relative)) {
-      freshnessContext.fileHashes.set(relative, fileHash(path8.join(root, relative)));
+      freshnessContext.fileHashes.set(relative, fileHash(path5.join(root, relative)));
     }
     const currentHash = freshnessContext.fileHashes.get(relative);
     if (!currentHash) reasons.push(`source file is missing: ${relative}`);
@@ -28470,6 +26420,7 @@ function recordCheckpoint(service, {
          VALUES (?, ?, 'checkpoint', ?, ?, ?)`
     ).run(service.paths.descriptor.id, changeSetId, checkpointId, action, timestamp);
     service.database.prepare("UPDATE projects SET graph_revision = graph_revision + 1, updated_at = ? WHERE id = ?").run(timestamp, service.paths.descriptor.id);
+    markProjectionPending(service.database);
     return {
       changeSetId,
       graphRevision: service.project().graph_revision,
@@ -28489,8 +26440,10 @@ function recordCheckpoint(service, {
   });
   if (service.paths.graphJsonPath) {
     try {
-      exportGraphToJson(service.database, service.paths.graphJsonPath);
-    } catch {
+      flushProjection(service.database, service.paths.graphJsonPath);
+    } catch (error2) {
+      result.success = false;
+      result.projection = { status: "pending", error: error2.message };
     }
   }
   return result;
@@ -28601,197 +26554,6 @@ function executeRecordCheckpointOperation(service, operation, { timestamp }) {
     revision,
     summary: `${status}: ${fields.title.trim()}`
   };
-}
-
-// packages/mcp/src/mutation-engine.mjs
-import fs8 from "node:fs";
-import path9 from "node:path";
-
-// packages/mcp/src/patch.mjs
-var HEADER_PATTERN = /^contextos\/(\d+)(?:\s+(.*))?$/;
-var TARGET_PATTERN = /^(block|chain|link|plan|decision|checkpoint|plan_change|plan_step|plan_scope|source):([^@]+?)(?:@(\d+))?$/;
-function tokenize(input, lineNumber) {
-  const tokens = [];
-  let token = "";
-  let quote = null;
-  let escaped = false;
-  for (const character of input) {
-    if (escaped) {
-      token += character;
-      escaped = false;
-      continue;
-    }
-    if (character === "\\" && quote) {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (character === quote) quote = null;
-      else token += character;
-      continue;
-    }
-    if (character === '"' || character === "'") {
-      quote = character;
-      continue;
-    }
-    if (/\s/.test(character)) {
-      if (token) {
-        tokens.push(token);
-        token = "";
-      }
-      continue;
-    }
-    token += character;
-  }
-  if (escaped) token += "\\";
-  if (quote) throw new Error(`Compact patch line ${lineNumber} has an unterminated quote`);
-  if (token) tokens.push(token);
-  return tokens;
-}
-function parseValue(raw) {
-  if (raw === "true") return true;
-  if (raw === "false") return false;
-  if (raw === "null") return null;
-  if (/^-?\d+(?:\.\d+)?$/.test(raw)) return Number(raw);
-  if (raw.startsWith("[") && raw.endsWith("]") || raw.startsWith("{") && raw.endsWith("}")) {
-    try {
-      return JSON.parse(raw);
-    } catch {
-    }
-  }
-  return raw;
-}
-function parseKeyValue(token, lineNumber) {
-  const separator = token.indexOf("=");
-  if (separator <= 0) throw new Error(`Compact patch line ${lineNumber} expects key=value, got ${token}`);
-  const key = token.slice(0, separator).trim();
-  const raw = token.slice(separator + 1);
-  if (!key) throw new Error(`Compact patch line ${lineNumber} has an empty field name`);
-  return [key, parseValue(raw)];
-}
-function parseTarget(token, lineNumber) {
-  const match = TARGET_PATTERN.exec(token);
-  if (!match) throw new Error(`Compact patch line ${lineNumber} has invalid target ${token}`);
-  return {
-    targetType: match[1],
-    targetId: match[2],
-    expectedRevision: match[3] ? Number(match[3]) : void 0
-  };
-}
-function parseInlineFields(tokens, lineNumber) {
-  const fields = {};
-  let expectedRevision;
-  for (const token of tokens) {
-    const [key, value] = parseKeyValue(token, lineNumber);
-    if (key === "expected" || key === "expectedRevision") {
-      if (!Number.isInteger(value)) throw new Error(`Compact patch line ${lineNumber} expected revision must be an integer`);
-      expectedRevision = value;
-      continue;
-    }
-    fields[key] = value;
-  }
-  return { fields, expectedRevision };
-}
-function parseCommand(line, lineNumber) {
-  const tokens = tokenize(line, lineNumber);
-  if (tokens.length < 2) throw new Error(`Compact patch line ${lineNumber} requires an action and target`);
-  const action = tokens.shift();
-  if (!["create", "update", "checkpoint", "source", "delete"].includes(action)) {
-    throw new Error(`Compact patch line ${lineNumber} has unsupported action ${action}`);
-  }
-  const target = parseTarget(tokens.shift(), lineNumber);
-  const inline = parseInlineFields(tokens, lineNumber);
-  return {
-    action,
-    ...target,
-    expectedRevision: target.expectedRevision ?? inline.expectedRevision,
-    fields: inline.fields,
-    line: lineNumber
-  };
-}
-function parseFieldLine(line, lineNumber) {
-  const value = line.startsWith("set ") ? line.slice(4).trim() : line;
-  const scalar = /^(\w+)<<$/.exec(value);
-  if (scalar) return { type: "scalar", key: scalar[1] };
-  const tokens = tokenize(value, lineNumber);
-  if (tokens.length !== 1) throw new Error(`Compact patch line ${lineNumber} expects one key=value field`);
-  const [key, parsedValue] = parseKeyValue(tokens[0], lineNumber);
-  return { type: "field", key, value: parsedValue };
-}
-function assignField(operation, parsed, scalarValue) {
-  if (parsed.type === "scalar") operation.fields[parsed.key] = scalarValue;
-  else operation.fields[parsed.key] = parsed.value;
-}
-function parseHeader(line, lineNumber) {
-  const match = HEADER_PATTERN.exec(line.trim());
-  if (!match) throw new Error(`Compact patch must start with contextos/1 (line ${lineNumber})`);
-  const version2 = Number(match[1]);
-  if (version2 !== 1) throw new Error(`Unsupported compact patch version contextos/${version2}`);
-  const inline = parseInlineFields(match[2] ? tokenize(match[2], lineNumber) : [], lineNumber);
-  return { version: version2, metadata: inline.fields };
-}
-function parseGraphPatch(input) {
-  if (typeof input !== "string" || !input.trim()) throw new Error("patch is required");
-  const lines = input.replace(/\r\n?/g, "\n").split("\n");
-  let headerIndex = 0;
-  while (headerIndex < lines.length && (!lines[headerIndex].trim() || lines[headerIndex].trim().startsWith("#"))) headerIndex += 1;
-  if (headerIndex >= lines.length) throw new Error("patch is required");
-  const header = parseHeader(lines[headerIndex], headerIndex + 1);
-  const operations = [];
-  let current = null;
-  const flush = () => {
-    if (!current) return;
-    if (Object.keys(current.fields).length === 0 && current.action !== "source" && current.action !== "delete") {
-      throw new Error(`Compact patch line ${current.line} has no fields; add key=value or end the operation`);
-    }
-    operations.push(current);
-    current = null;
-  };
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const raw = lines[index];
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-    if (line === "end") {
-      flush();
-      continue;
-    }
-    if (/^flow[:\s]/.test(line)) {
-      flush();
-      const flowExpr = line.replace(/^flow[:\s]+/, "").trim();
-      if (!flowExpr) throw new Error(`Compact patch line ${index + 1} has an empty flow expression`);
-      operations.push({
-        action: "flow",
-        flow: flowExpr,
-        line: index + 1
-      });
-      continue;
-    }
-    if (/^(create|update|checkpoint|source|delete)\s/.test(line)) {
-      flush();
-      current = parseCommand(line, index + 1);
-      continue;
-    }
-    if (!current) throw new Error(`Compact patch line ${index + 1} is not attached to an operation`);
-    const parsed = parseFieldLine(line, index + 1);
-    if (parsed.type === "scalar") {
-      const scalarLines = [];
-      let closed = false;
-      for (index += 1; index < lines.length; index += 1) {
-        if (lines[index].trim() === ">>") {
-          closed = true;
-          break;
-        }
-        scalarLines.push(lines[index]);
-      }
-      if (!closed) throw new Error(`Compact patch field ${parsed.key} starting on line ${index + 1} is missing >>`);
-      assignField(current, parsed, scalarLines.join("\n"));
-    } else {
-      assignField(current, parsed);
-    }
-  }
-  flush();
-  if (operations.length === 0) throw new Error("patch contains no operations");
-  return { ...header, operations };
 }
 
 // packages/mcp/src/mutation-engine.mjs
@@ -28922,11 +26684,24 @@ function removeStaleLocalizations(service, entityType, entityId, changedFields, 
     }
   }
 }
-function executeMutate(service, { actor = "agent", reason, task = "", gitHead: gitHead2 = null, planId = null, chainScopeId = null, operations }, { maxOperations = 20, maxInputBytes = 65536 } = {}) {
+function executeMutate(service, { actor = "agent", reason, task = "", gitHead: gitHead2 = null, planId = null, chainScopeId = null, operations }, { maxOperations = 20, maxInputBytes = 65536, commitHook = null } = {}) {
   if (!reason?.trim()) throw new Error("reason is required");
   if (!Array.isArray(operations) || operations.length === 0) throw new Error("operations are required");
   if (operations.length > maxOperations) throw new Error(`graph_mutate accepts at most ${maxOperations} operations`);
   if (JSON.stringify(operations).length > maxInputBytes) throw new Error("graph_mutate input exceeds 64 KB");
+  const fieldSchemas = {
+    create_block: /* @__PURE__ */ new Set([...EDITABLE_BLOCK_FIELDS, "localizations"]),
+    create_chain: /* @__PURE__ */ new Set([...EDITABLE_CHAIN_FIELDS, "localizations"]),
+    create_decision: /* @__PURE__ */ new Set([...EDITABLE_DECISION_FIELDS, "scopes"]),
+    create_plan: /* @__PURE__ */ new Set([...EDITABLE_PLAN_FIELDS, "localizations"]),
+    create_link: /* @__PURE__ */ new Set([...EDITABLE_LINK_FIELDS, "sourceType", "sourceId", "targetType", "targetId", "summary"]),
+    add_source_ref: /* @__PURE__ */ new Set(["sourceId", "path", "symbol", "role", "startLine", "endLine", "gitCommit"])
+  };
+  for (const operation of operations) {
+    const allowed = fieldSchemas[operation.action];
+    const unknown2 = allowed && Object.keys(operation.fields ?? {}).filter((key) => !allowed.has(key));
+    if (unknown2?.length) throw new Error(`${operation.action}: unknown fields ${unknown2.join(", ")}; allowed: ${[...allowed].join(", ")}`);
+  }
   service.ensureSynced();
   const database = service.database;
   const projectId = service.paths.descriptor.id;
@@ -28979,16 +26754,43 @@ function executeMutate(service, { actor = "agent", reason, task = "", gitHead: g
            VALUES (?, ?, ?, ?, ?, ?)`
       ).run(projectId, changeSetId, receipt.entityType, receipt.id, receipt.action, timestamp);
     }
+    const completions = operations.filter((op) => ["create_block", "update_block", "create_chain", "update_chain"].includes(op.action) && op.fields?.deliveryState === "complete");
+    if (completions.length) {
+      const snapshot2 = service.snapshot();
+      for (const op of completions) {
+        const type = op.action.endsWith("_chain") ? "chain" : "block";
+        const target = op.id ?? receipts[operations.indexOf(op)]?.id;
+        const checks = snapshot2.checkpoints.filter((c) => c.targetType === type && c.targetId === target);
+        const block = type === "block" ? snapshot2.blocks.find((b) => b.id === target) : null;
+        const sourceBacked = block && ["flow", "ui", "service", "function", "integration", "api", "data", "database"].includes(block.kind);
+        if (sourceBacked) {
+          const bindings = [...service.sourceBindingState.values()].filter((b) => b.blockId === target);
+          if (!bindings.length || bindings.some((b) => !b.symbol || ["missing", "ambiguous", "stale", "unreadable", "outside_project", "line_only"].includes(b.bindingStatus))) throw new Error(`Completion requires valid source bindings and a fresh passed Checkpoint for block:${target}`);
+        }
+        if (type === "chain") {
+          const nodes = snapshot2.chainNodes.filter((n) => n.chainId === target);
+          if (!nodes.length || nodes.some((n) => snapshot2.blocks.find((b) => b.id === n.blockId)?.deliveryState !== "complete")) throw new Error(`Chain completion requires completed member Blocks: ${target}`);
+        }
+        if ((checks.length || sourceBacked || op.action === "update_block") && !checks.some((c) => c.status === "passed" && c.freshness?.status === "fresh")) {
+          throw new Error(`Completion requires a fresh passed Checkpoint for ${type}:${target}; use checkpoint_record and block_seal/task_finish`);
+        }
+      }
+    }
     database.prepare(
       `UPDATE projects SET graph_revision = graph_revision + 1, updated_at = ? WHERE id = ?`
     ).run(timestamp, projectId);
     const graphRevision = database.prepare("SELECT graph_revision FROM projects WHERE id = ?").get(projectId).graph_revision;
+    if (commitHook) commitHook();
+    markProjectionPending(database);
     return { changeSetId, graphRevision, receipts };
   });
   if (service.paths.graphJsonPath) {
     try {
-      exportGraphToJson(service.database, service.paths.graphJsonPath);
-    } catch {
+      flushProjection(service.database, service.paths.graphJsonPath);
+      mutationResult.projection = { status: "synced" };
+    } catch (error2) {
+      mutationResult.projection = { status: "pending", error: error2.message };
+      mutationResult.success = false;
     }
   }
   return mutationResult;
@@ -30197,7 +27999,7 @@ function updateEntity(service, type, operation, { timestamp }) {
     if (field === "supersedesDecisionId" && rawValue != null && !entityExists(service.database, service.paths.descriptor.id, "decision", rawValue)) {
       throw new Error(`decision:${rawValue} not found`);
     }
-    const column = field === "proposedDelta" ? "proposed_delta_json" : field === "completionPolicy" ? "completion_policy_json" : field === "blockers" ? "blockers_json" : field === "alternatives" ? "alternatives_json" : field === "consequences" ? "consequences_json" : camelToColumn(field);
+    const column = field === "tags" ? "tags_json" : field === "proposedDelta" ? "proposed_delta_json" : field === "completionPolicy" ? "completion_policy_json" : field === "blockers" ? "blockers_json" : field === "alternatives" ? "alternatives_json" : field === "consequences" ? "consequences_json" : camelToColumn(field);
     updates.push(`${column} = ?`);
     values.push(field === "tags" ? serializeTags(rawValue) : ["proposedDelta", "blockers", "completionPolicy", "alternatives", "consequences"].includes(field) ? JSON.stringify(rawValue ?? (field === "completionPolicy" ? {} : [])) : field === "archived" ? Number(Boolean(rawValue)) : field === "scope" ? rawValue.trim() : rawValue);
   }
@@ -30251,10 +28053,10 @@ function addSourceRef(service, operation, { timestamp }) {
   let startLine = fields.startLine ?? null;
   let endLine = fields.endLine ?? null;
   if ((!startLine || !endLine) && service.paths?.projectRoot) {
-    const fullPath = path9.isAbsolute(resolvedPath) ? resolvedPath : path9.resolve(service.paths.projectRoot, resolvedPath);
+    const fullPath = path6.isAbsolute(resolvedPath) ? resolvedPath : path6.resolve(service.paths.projectRoot, resolvedPath);
     try {
-      if (fs8.existsSync(fullPath)) {
-        const content = fs8.readFileSync(fullPath, "utf8");
+      if (fs5.existsSync(fullPath)) {
+        const content = fs5.readFileSync(fullPath, "utf8");
         const symbols = extractSymbols(content, { filePath: resolvedPath });
         const matched = resolvedSymbol ? symbols.find((s) => s.name === resolvedSymbol || s.name.endsWith(`.${resolvedSymbol}`)) : symbols[0];
         if (matched) {
@@ -30752,9 +28554,2709 @@ function executeRevertChangeSet(service, {
   });
 }
 
+// packages/mcp/src/reconciliation.mjs
+var hash = (value) => crypto6.createHash("sha256").update(value).digest("hex");
+var ignored = /* @__PURE__ */ new Set([".git", ".contextos", "node_modules", ".build", "build", "dist", "coverage", ".next", "release-assets"]);
+var extensions = /* @__PURE__ */ new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".swift", ".py", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".cc", ".cpp", ".h", ".hpp"]);
+function sourceInventory(root) {
+  const files = [];
+  const listing = spawnSync2("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8", maxBuffer: 2e7, timeout: 5e3 });
+  const included = listing.status === 0 ? new Set(listing.stdout.split("\0")) : null;
+  const visit = (dir) => {
+    for (const entry of fs6.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (ignored.has(entry.name) || entry.isSymbolicLink() || entry.name.startsWith(".")) continue;
+      const absolute = path7.join(dir, entry.name);
+      if (entry.isDirectory()) visit(absolute);
+      else if ((!included || included.has(path7.relative(root, absolute).split(path7.sep).join("/"))) && extensions.has(path7.extname(entry.name)) && !absolute.endsWith("plugins/contextos/server/contextos-mcp.mjs")) {
+        const content = fs6.readFileSync(absolute, "utf8");
+        files.push({ path: path7.relative(root, absolute).split(path7.sep).join("/"), hash: hash(content), content });
+      }
+    }
+  };
+  visit(root);
+  return files;
+}
+function indexSources(service) {
+  const inventory = sourceInventory(service.paths.projectRoot);
+  const db = service.database;
+  return transaction(db, () => {
+    const old = new Map(db.prepare("SELECT * FROM source_index").all().map((r) => [r.path, r]));
+    let revision = Number(getSyncMeta(db).repository_source_revision ?? 0);
+    const changes = inventory.filter((f) => old.get(f.path)?.file_hash !== f.hash).map((f) => ({ ...f, kind: old.has(f.path) ? "changed" : "added" }));
+    const names = new Set(inventory.map((f) => f.path));
+    for (const [name] of old) if (!names.has(name)) changes.push({ path: name, kind: "removed" });
+    if (changes.length) {
+      revision++;
+      {
+        const now2 = (/* @__PURE__ */ new Date()).toISOString();
+        for (const item of changes) {
+          if (item.kind === "removed") db.prepare("DELETE FROM source_index WHERE path=?").run(item.path);
+          else {
+            const symbols = extractSymbols(item.content, { filePath: item.path });
+            db.prepare("INSERT INTO source_index VALUES(?,?,?,?,?) ON CONFLICT(path) DO UPDATE SET file_hash=excluded.file_hash,symbols_json=excluded.symbols_json,revision=excluded.revision,supported=excluded.supported").run(item.path, item.hash, JSON.stringify(symbols.map(({ name, qualifiedName, startLine, endLine }) => ({ name: qualifiedName ?? name, startLine, endLine }))), revision, Number(symbols.length > 0));
+          }
+          db.prepare("INSERT INTO sync_events(path,kind,revision,created_at) VALUES(?,?,?,?)").run(item.path, item.kind, revision, now2);
+        }
+        setSyncMeta(db, "repository_source_revision", String(revision));
+      }
+    }
+    const boundPaths = new Set(db.prepare("SELECT DISTINCT path FROM source_refs").all().map((r) => r.path));
+    const unboundFiles = inventory.filter((f) => !boundPaths.has(f.path)).map((f) => f.path);
+    return {
+      revision,
+      sourceRevision: hash(inventory.map((f) => `${f.path}:${f.hash}`).join("\n")),
+      files: inventory.length,
+      unboundCount: unboundFiles.length,
+      unboundFiles: unboundFiles.slice(0, 30),
+      changes: changes.map(({ path: path16, kind }) => ({ path: path16, kind }))
+    };
+  });
+}
+function session(service, id) {
+  const row = service.database.prepare("SELECT * FROM task_sessions WHERE id=? AND project_id=?").get(id, service.paths.descriptor.id);
+  if (!row) throw new Error(`Task session not found: ${id}`);
+  return { ...row, scope: JSON.parse(row.scope_json) };
+}
+function beginTask(service, { intent, blockIds = [], chainId = null, feature = null, standaloneReason = "", readOnly = false } = {}) {
+  if (!intent?.trim()) throw new Error("intent is required");
+  service.ensureSynced();
+  const snapshot2 = service.snapshot();
+  for (const id2 of blockIds) if (!snapshot2.blocks.some((b) => b.id === id2)) throw new Error(`Register Block before task: ${id2}`);
+  if (feature) {
+    chainId = feature.id;
+    const current = snapshot2.chains.find((c) => c.id === chainId);
+    const operations = [];
+    if (!current) operations.push({ action: "create_chain", id: chainId, fields: { title: feature.title, intent, inputContract: feature.inputContract ?? "", outputContract: feature.outputContract ?? "", deliveryState: "planned" } });
+    operations.push({ action: "set_chain_path", id: chainId, expectedRevision: current?.currentRevision ?? 1, fields: { nodeIds: feature.nodeIds ?? blockIds, linkIds: feature.linkIds ?? [] } });
+    const result = service.mutate({ reason: "Declare task feature network", operations });
+    if (result.success === false) throw new Error(result.projection.error);
+  }
+  if (chainId && !service.snapshot().chains.some((c) => c.id === chainId)) throw new Error("Unknown Chain");
+  const index = indexSources(service);
+  const now2 = (/* @__PURE__ */ new Date()).toISOString();
+  const id = `task_${crypto6.randomUUID()}`;
+  const scope = { blockIds, chainId, standaloneReason, readOnly, startRevision: index.revision };
+  service.database.prepare("INSERT INTO task_sessions(id,project_id,intent,scope_json,source_revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?)").run(id, service.paths.descriptor.id, intent, JSON.stringify(scope), index.sourceRevision, now2, now2);
+  const unfinished = service.database.prepare("SELECT id,intent FROM task_sessions WHERE status='active' AND id<>? AND project_id=?").all(id, service.paths.descriptor.id);
+  return { taskId: id, updatedAt: now2, ...index, resumableTasks: unfinished, nextActions: ["Implement from registered locators", "task_reconcile", "run_command / checkpoint_record", "task_finish"] };
+}
+function reconcileTask(service, { taskId } = {}) {
+  service.ensureSynced();
+  const task = session(service, taskId);
+  const index = indexSources(service);
+  const snapshot2 = service.snapshot();
+  const scope = task.scope;
+  const issues = [];
+  const add = (kind, target, detail) => issues.push({ kind, target, detail });
+  const changed = service.database.prepare("SELECT DISTINCT path FROM sync_events WHERE revision>?").all(scope.startRevision).map((r) => r.path);
+  for (const relative of changed) {
+    const file = service.database.prepare("SELECT * FROM source_index WHERE path=?").get(relative);
+    if (!file) continue;
+    const refs = snapshot2.sourceRefs.filter((r) => r.path === relative);
+    if (!refs.length && !scope.excludedPaths?.some((item) => item.path === relative)) add("unbound_file", relative, "New/changed source has no architecture binding; bind it or explicitly revise the task scope");
+  }
+  for (const id of scope.blockIds) {
+    const bindings = [...service.sourceBindingState.values()].filter((b) => b.blockId === id);
+    const block = snapshot2.blocks.find((b) => b.id === id);
+    if (!block) {
+      add("missing_block", id, "Block was removed");
+      continue;
+    }
+    if (["flow", "ui", "service", "function", "integration", "api", "data", "database"].includes(block.kind) && !bindings.length) add("unbound_block", id, "Bind implementation symbol");
+    for (const binding of bindings) if (["missing", "ambiguous", "stale", "unreadable", "outside_project", "line_only"].includes(binding.bindingStatus) || !binding.symbol) add("invalid_binding", id, `${binding.path}: ${binding.bindingStatus}`);
+    if (!snapshot2.checkpoints.some((c) => c.targetType === "block" && c.targetId === id && c.status === "passed" && c.freshness?.status === "fresh")) add("verification_required", id, "Fresh direct Checkpoint required before delivery");
+    if (["proposed", "planned"].includes(block.deliveryState) && bindings.some((b) => b.symbol && !["missing", "ambiguous", "stale", "unreadable", "outside_project"].includes(b.bindingStatus))) {
+      service.mutate({ reason: "Source anchored; verification remains separate", operations: [{ action: "update_block", id, expectedRevision: block.currentRevision, fields: { deliveryState: "implementing" } }] });
+    }
+  }
+  if (scope.blockIds.length && !scope.chainId && !scope.standaloneReason) add("feature_membership_missing", taskId, "Declare a feature Chain or an explicit standalone reason");
+  if (scope.chainId) {
+    const chain = snapshot2.chains.find((c) => c.id === scope.chainId);
+    if (!chain) add("missing_chain", scope.chainId, "Declared feature Chain was removed");
+    else if (!chain.inputContract?.trim() || !chain.outputContract?.trim()) add("chain_contract_missing", scope.chainId, "Describe the feature input and observable outcome");
+    const nodes = snapshot2.chainNodes.filter((n) => n.chainId === scope.chainId).map((n) => n.blockId);
+    const edges = snapshot2.chainEdges.filter((e) => e.chainId === scope.chainId);
+    for (const id of scope.blockIds) if (!nodes.includes(id)) add("chain_incomplete", id, "Task Block absent from feature Chain");
+    if (nodes.length > 1) {
+      const adjacency = new Map(nodes.map((id) => [id, /* @__PURE__ */ new Set()]));
+      for (const edge of edges) {
+        const link = snapshot2.links.find((l) => l.id === edge.linkId);
+        if (link && adjacency.has(link.sourceId) && adjacency.has(link.targetId)) {
+          adjacency.get(link.sourceId).add(link.targetId);
+          adjacency.get(link.targetId).add(link.sourceId);
+        }
+      }
+      const visited = /* @__PURE__ */ new Set();
+      const queue = nodes.slice(0, 1);
+      while (queue.length) {
+        const id = queue.shift();
+        if (visited.has(id)) continue;
+        visited.add(id);
+        queue.push(...adjacency.get(id));
+      }
+      if (visited.size !== nodes.length) add("chain_disconnected", scope.chainId, "Declare links joining the serial/parallel feature network");
+    }
+  }
+  transaction(service.database, () => {
+    service.database.prepare("UPDATE sync_issues SET status='resolved' WHERE task_id=?").run(taskId);
+    for (const issue2 of issues) service.database.prepare("INSERT INTO sync_issues VALUES(?,?,?,?,?,'open',?) ON CONFLICT(id) DO UPDATE SET detail=excluded.detail,status='open',updated_at=excluded.updated_at").run(hash(`${taskId}:${issue2.kind}:${issue2.target}`), taskId, issue2.kind, issue2.target, issue2.detail, (/* @__PURE__ */ new Date()).toISOString());
+    service.database.prepare("UPDATE task_sessions SET source_revision=?,updated_at=? WHERE id=?").run(index.sourceRevision, (/* @__PURE__ */ new Date()).toISOString(), taskId);
+  });
+  return { taskId, updatedAt: session(service, taskId).updated_at, ...index, issues, status: issues.length ? "needs_work" : "ready", graphRevision: service.project().graph_revision };
+}
+function finishTask(service, { taskId, expectedGraphRevision, sourceRevision, idempotencyKey, summary = "" } = {}) {
+  if (!idempotencyKey) throw new Error("idempotencyKey is required");
+  service.ensureSynced();
+  const task = session(service, taskId);
+  if (task.status === "complete") {
+    if (task.idempotency_key !== idempotencyKey) throw new Error("Task already completed with another idempotency key");
+    return { ...JSON.parse(task.result_json), idempotent: true };
+  }
+  if (service.project().graph_revision !== expectedGraphRevision) throw new Error("Graph revision conflict; reconcile again");
+  const report = reconcileTask(service, { taskId });
+  if (report.sourceRevision !== sourceRevision) throw new Error("Source changed; reconcile and verify again");
+  if (report.issues.length) return report;
+  const needsVerification = (issue2) => {
+    service.database.prepare("INSERT INTO sync_issues VALUES(?,?,?,?,?,'open',?) ON CONFLICT(id) DO UPDATE SET detail=excluded.detail,status='open',updated_at=excluded.updated_at").run(hash(`${taskId}:${issue2.kind}:${issue2.target}`), taskId, issue2.kind, issue2.target, issue2.detail ?? "Fresh Chain Checkpoint required", (/* @__PURE__ */ new Date()).toISOString());
+    return { ...report, status: "needs_work", issues: [issue2] };
+  };
+  const snapshot2 = service.snapshot();
+  const operations = [];
+  for (const id of task.scope.blockIds) {
+    const block = snapshot2.blocks.find((b) => b.id === id);
+    const checkpoint = snapshot2.checkpoints.find((c) => c.targetType === "block" && c.targetId === id && c.status === "passed" && c.freshness?.status === "fresh");
+    if (!checkpoint) return needsVerification({ kind: "verification_required", target: id, detail: "Fresh direct Checkpoint required" });
+    operations.push({ action: "update_block", id, expectedRevision: block.currentRevision, fields: { deliveryState: "complete", healthState: "healthy" } });
+  }
+  if (task.scope.chainId) {
+    const chain = snapshot2.chains.find((c) => c.id === task.scope.chainId);
+    const checks = snapshot2.checkpoints.filter((c) => c.targetType === "chain" && c.targetId === chain.id);
+    if (checks.length && !checks.some((c) => c.status === "passed" && c.freshness?.status === "fresh")) return needsVerification({ kind: "chain_verification_required", target: chain.id });
+    operations.push({ action: "update_chain", id: chain.id, expectedRevision: chain.currentRevision, fields: { deliveryState: "complete" } });
+  }
+  const result = { taskId, status: "complete", summary, sourceRevision, changedRefs: operations.map((o) => `${o.action === "update_chain" ? "chain" : "block"}:${o.id}`) };
+  const commitHook = () => {
+    const currentHash = hash(sourceInventory(service.paths.projectRoot).map((f) => `${f.path}:${f.hash}`).join("\n"));
+    if (currentHash !== sourceRevision) throw new Error("Source changed during task finish");
+    service.database.prepare("UPDATE task_sessions SET status='complete',idempotency_key=?,result_json=?,updated_at=? WHERE id=?").run(idempotencyKey, JSON.stringify(result), (/* @__PURE__ */ new Date()).toISOString(), taskId);
+    setSyncMeta(service.database, "task_handoff", JSON.stringify({ taskId, summary, nextUp: "", updatedAt: (/* @__PURE__ */ new Date()).toISOString() }));
+  };
+  if (operations.length) result.mutation = executeMutate(service, { reason: "Atomic task completion", operations }, { commitHook });
+  else transaction(service.database, commitHook);
+  if (result.mutation?.projection?.status === "pending") return { ...result, status: "projection_pending", success: false, projection: result.mutation.projection };
+  return result;
+}
+function updateTaskScope(service, { taskId, expectedUpdatedAt, blockIds, chainId, standaloneReason, excludedPaths, nextAction, summary } = {}) {
+  service.ensureSynced();
+  const db = service.database;
+  return transaction(db, () => {
+    const task = session(service, taskId);
+    if (task.status === "complete") throw new Error("Completed task cannot be edited");
+    if (task.updated_at !== expectedUpdatedAt) throw new Error("Task revision conflict; read sync_issues/task_reconcile first");
+    const scope = { ...task.scope };
+    if (blockIds !== void 0) {
+      for (const id of blockIds) if (!db.prepare("SELECT id FROM blocks WHERE id=? AND project_id=?").get(id, service.paths.descriptor.id)) throw new Error(`Unknown Block: ${id}`);
+      scope.blockIds = blockIds;
+    }
+    if (chainId !== void 0) {
+      if (chainId && !db.prepare("SELECT id FROM chains WHERE id=? AND project_id=?").get(chainId, service.paths.descriptor.id)) throw new Error("Unknown Chain");
+      scope.chainId = chainId;
+    }
+    if (standaloneReason !== void 0) scope.standaloneReason = standaloneReason;
+    if (excludedPaths !== void 0) {
+      for (const item of excludedPaths) if (!item.reason?.trim() || path7.isAbsolute(item.path) || item.path.split("/").includes("..")) throw new Error("Excluded paths require a project-relative path and reason");
+      scope.excludedPaths = excludedPaths;
+    }
+    if (nextAction !== void 0) scope.nextAction = nextAction;
+    if (summary !== void 0) scope.summary = summary;
+    const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    db.prepare("UPDATE task_sessions SET scope_json=?,updated_at=? WHERE id=?").run(JSON.stringify(scope), updatedAt, taskId);
+    return { taskId, updatedAt, scope };
+  });
+}
+
+// packages/mcp/src/service.mjs
+import crypto9 from "node:crypto";
+import fs10 from "node:fs";
+import path12 from "node:path";
+import { spawnSync as spawnSync3 } from "node:child_process";
+
+// packages/mcp/src/paths.mjs
+import crypto7 from "node:crypto";
+import fs7 from "node:fs";
+import path8 from "node:path";
+var localDataIgnore = [
+  "*",
+  "!.gitignore",
+  "!project.json",
+  "!graph.json",
+  "*.sqlite",
+  "*.sqlite-*",
+  "*.sqlite3",
+  "*.sqlite3-*",
+  ""
+].join("\n");
+var DATA_DIRECTORY = ".contextos";
+var DATABASE_FILE = "contextos.sqlite";
+function resolveDescriptorDirectory(projectRoot) {
+  return path8.join(projectRoot, DATA_DIRECTORY);
+}
+function databaseFile(projectDataDirectory) {
+  return path8.join(projectDataDirectory, DATABASE_FILE);
+}
+function ensureLocalDataIgnore(descriptorDirectory) {
+  const ignorePath = path8.join(descriptorDirectory, ".gitignore");
+  if (!fs7.existsSync(ignorePath)) fs7.writeFileSync(ignorePath, localDataIgnore, { flag: "wx" });
+}
+function findProjectRoot(startDirectory = process.cwd()) {
+  let current = path8.resolve(startDirectory);
+  while (true) {
+    if (fs7.existsSync(path8.join(current, DATA_DIRECTORY, "project.json"))) {
+      return current;
+    }
+    const parent = path8.dirname(current);
+    if (parent === current) {
+      throw new Error(`No ${DATA_DIRECTORY}/project.json found above ${startDirectory}`);
+    }
+    current = parent;
+  }
+}
+function findTargetProjectRoot(startDirectory = process.cwd()) {
+  let current = path8.resolve(startDirectory);
+  let gitRoot = null;
+  while (true) {
+    if (fs7.existsSync(path8.join(current, DATA_DIRECTORY, "project.json"))) {
+      return current;
+    }
+    if (!gitRoot && fs7.existsSync(path8.join(current, ".git"))) {
+      gitRoot = current;
+    }
+    const parent = path8.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return gitRoot ?? path8.resolve(startDirectory);
+}
+function readProjectDescriptor(projectRoot) {
+  const descriptorPath = path8.join(resolveDescriptorDirectory(projectRoot), "project.json");
+  const descriptor = JSON.parse(fs7.readFileSync(descriptorPath, "utf8"));
+  if (!descriptor.id || !descriptor.name) {
+    throw new Error(`${descriptorPath} must contain id and name`);
+  }
+  return descriptor;
+}
+function registerProject(options = {}) {
+  if (!options.projectRoot) throw new Error("projectRoot is required to register an contextos project");
+  const projectRoot = fs7.realpathSync(path8.resolve(options.projectRoot));
+  if (!fs7.statSync(projectRoot).isDirectory()) throw new Error(`${projectRoot} is not a directory`);
+  const existingDirectory = resolveDescriptorDirectory(projectRoot);
+  const descriptorDir = fs7.existsSync(path8.join(existingDirectory, "project.json")) ? existingDirectory : path8.join(projectRoot, DATA_DIRECTORY);
+  const descriptorPath = path8.join(descriptorDir, "project.json");
+  if (fs7.existsSync(descriptorPath)) {
+    ensureLocalDataIgnore(descriptorDir);
+    return { projectRoot, descriptor: readProjectDescriptor(projectRoot), created: false };
+  }
+  const name = String(options.name ?? path8.basename(projectRoot)).trim();
+  if (!name) throw new Error("Project name must not be empty");
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
+  const descriptor = {
+    id: String(options.id ?? `${slug}-${crypto7.randomUUID().slice(0, 8)}`),
+    name,
+    schemaVersion: 1
+  };
+  fs7.mkdirSync(descriptorDir, { recursive: true });
+  ensureLocalDataIgnore(descriptorDir);
+  const temporaryPath = `${descriptorPath}.tmp-${process.pid}-${crypto7.randomUUID()}`;
+  fs7.writeFileSync(temporaryPath, `${JSON.stringify(descriptor, null, 2)}
+`, { flag: "wx" });
+  fs7.renameSync(temporaryPath, descriptorPath);
+  return { projectRoot, descriptor, created: true };
+}
+function resolveProjectPaths(options = {}) {
+  const projectRoot = findProjectRoot(
+    options.projectRoot ?? process.env.CONTEXTOS_PROJECT_ROOT ?? process.cwd()
+  );
+  const descriptor = readProjectDescriptor(projectRoot);
+  const configuredDataRoot = options.dataRoot ?? process.env.CONTEXTOS_DATA_DIR;
+  const dataRoot = configuredDataRoot ? path8.resolve(configuredDataRoot) : resolveDescriptorDirectory(projectRoot);
+  const projectDataDirectory = configuredDataRoot ? path8.join(dataRoot, descriptor.id) : dataRoot;
+  fs7.mkdirSync(projectDataDirectory, { recursive: true });
+  return {
+    projectRoot,
+    descriptor,
+    dataRoot,
+    projectDataDirectory,
+    databasePath: databaseFile(projectDataDirectory),
+    graphJsonPath: path8.join(projectDataDirectory, "graph.json")
+  };
+}
+
+// packages/mcp/src/sanitizer.mjs
+var ANSI_REGEX = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+var PROGRESS_REGEX = /(?:\[[=>\-\s]+\]|\b\d{1,3}%\b|[\u2580-\u259F]+|\r\s*)/g;
+var FAILURE_MARKERS = [
+  /\b(?:error|fatal|fail(?:ed|ure)?|exception|panic)\b/i,
+  /\bassert(?:ion)?\s*(?:error|failed)?\b/i,
+  /^\s*(?:not ok|\bFAIL\b|×|\u2717)/i,
+  /\b(?:NullPointer|Undefined|TypeError|ReferenceError|SyntaxError)\b/
+];
+var SECRET_PATTERNS = [
+  /(authorization\s*:\s*(?:bearer|basic)\s+)[^\s,;]+/gi,
+  /((?:openai|aws|github|npm|api|access|secret|private)[_-]?(?:api[_-]?key|token|secret|password|access[_-]?key)\s*[=:]\s*)[^\s,;"']+/gi,
+  /((?:api[_-]?key|token|secret|password|cookie|signature)\s*[=:]\s*)[^\s,;"']+/gi,
+  /([?&](?:api[_-]?key|token|secret|password|signature)=)[^&#\s]+/gi
+];
+var PRIVATE_KEY_REGEX = /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gi;
+function escapeRegex2(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function cleanControlCharacters(text = "") {
+  return String(text).replace(ANSI_REGEX, "").replace(/\r+/g, "\n").replace(PROGRESS_REGEX, "");
+}
+function redactSensitiveText(text = "", { projectRoot = "", homeDirectory = process.env.HOME ?? "" } = {}) {
+  let redacted = String(text).replace(PRIVATE_KEY_REGEX, "[REDACTED PRIVATE KEY]");
+  let redactionCount = PRIVATE_KEY_REGEX.test(String(text)) ? 1 : 0;
+  for (const pattern of SECRET_PATTERNS) {
+    redacted = redacted.replace(pattern, (_match, prefix) => {
+      redactionCount += 1;
+      return `${prefix}[REDACTED]`;
+    });
+  }
+  const pathReplacements = [
+    [projectRoot, "$PROJECT"],
+    [homeDirectory, "$HOME"],
+    [process.cwd(), "$CWD"]
+  ].filter(([value]) => typeof value === "string" && value.length > 1).sort((left, right) => right[0].length - left[0].length);
+  for (const [value, replacement] of pathReplacements) {
+    const pattern = new RegExp(escapeRegex2(value), "g");
+    const before = redacted;
+    redacted = redacted.replace(pattern, replacement);
+    if (redacted !== before) redactionCount += 1;
+  }
+  return { text: redacted, redactionCount };
+}
+function isFailureLine(line = "") {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return FAILURE_MARKERS.some((regex) => regex.test(trimmed));
+}
+function clampText(text, maxChars) {
+  if (text.length <= maxChars) return text;
+  const suffix = "\n... [truncated for context limit]";
+  const limit = Math.max(0, maxChars - suffix.length);
+  return `${text.slice(0, limit)}${suffix}`;
+}
+function resultFor(text, { originalLength, hasErrors, redactionCount, maxChars }) {
+  const finalText = clampText(text, maxChars);
+  const sanitizedLength = finalText.length;
+  return {
+    text: finalText,
+    sanitized: finalText,
+    originalLength,
+    originalChars: originalLength,
+    sanitizedLength,
+    finalChars: sanitizedLength,
+    reductionRatio: `${originalLength === 0 ? 0 : ((1 - sanitizedLength / originalLength) * 100).toFixed(1)}%`,
+    compressionRatio: originalLength === 0 ? "0%" : `${(sanitizedLength / originalLength).toFixed(3)}`,
+    hasErrors,
+    redactions: redactionCount
+  };
+}
+function sanitizeTerminalOutput(rawOutput = "", options = {}) {
+  const {
+    maxChars = 3e3,
+    headLines = 5,
+    tailLines = 15,
+    errorContextLines = 3,
+    exitCode = null,
+    projectRoot = "",
+    homeDirectory = process.env.HOME ?? ""
+  } = options;
+  const raw = String(rawOutput);
+  const originalLength = raw.length;
+  if (!raw.trim()) {
+    return resultFor("(No output)", {
+      originalLength,
+      hasErrors: exitCode !== null && exitCode !== 0,
+      redactionCount: 0,
+      maxChars
+    });
+  }
+  const cleaned = cleanControlCharacters(raw);
+  const redacted = redactSensitiveText(cleaned, { projectRoot, homeDirectory });
+  const lines = redacted.text.split("\n").map((line) => line.trimEnd()).filter((line, index, all) => {
+    return line.length > 0 || index > 0 && all[index - 1].length > 0;
+  });
+  const errorIndices = lines.reduce((indices, line, index) => {
+    if (isFailureLine(line)) indices.push(index);
+    return indices;
+  }, []);
+  const hasErrors = exitCode !== null ? exitCode !== 0 : errorIndices.length > 0;
+  if (!hasErrors && lines.length > 25) {
+    const text = [
+      lines.slice(0, 3).join("\n"),
+      `... [${lines.length - 8} lines routine build output collapsed] ...`,
+      lines.slice(-5).join("\n")
+    ].join("\n");
+    return resultFor(text, {
+      originalLength,
+      hasErrors: false,
+      redactionCount: redacted.redactionCount,
+      maxChars
+    });
+  }
+  const keptIndices = /* @__PURE__ */ new Set();
+  for (let i = 0; i < Math.min(headLines, lines.length); i += 1) keptIndices.add(i);
+  for (let i = Math.max(0, lines.length - tailLines); i < lines.length; i += 1) keptIndices.add(i);
+  for (const index of errorIndices) {
+    for (let cursor = Math.max(0, index - errorContextLines); cursor <= Math.min(lines.length - 1, index + errorContextLines); cursor += 1) {
+      keptIndices.add(cursor);
+    }
+  }
+  const resultLines = [];
+  let lastIndex = -1;
+  for (const index of [...keptIndices].sort((left, right) => left - right)) {
+    if (lastIndex !== -1 && index > lastIndex + 1) {
+      resultLines.push(`... [${index - lastIndex - 1} lines non-error output collapsed] ...`);
+    }
+    resultLines.push(lines[index]);
+    lastIndex = index;
+  }
+  return resultFor(resultLines.join("\n"), {
+    originalLength,
+    hasErrors,
+    redactionCount: redacted.redactionCount,
+    maxChars
+  });
+}
+
+// packages/mcp/src/timeline.mjs
+var PRIORITY_ORDER = {
+  p0: 0,
+  critical: 0,
+  p1: 1,
+  high: 1,
+  p2: 2,
+  normal: 2,
+  p3: 3,
+  low: 3
+};
+function normalizePriority(priority = "normal") {
+  const lower = String(priority).toLowerCase().trim();
+  if (lower === "p0" || lower === "critical") return "P0";
+  if (lower === "p1" || lower === "high") return "P1";
+  if (lower === "p2" || lower === "normal") return "P2";
+  if (lower === "p3" || lower === "low") return "P3";
+  return "P2";
+}
+function getTimelineState(service) {
+  const snapshot2 = service.snapshot();
+  const project = snapshot2.project;
+  let storedTimeline = {};
+  const row = service.database.prepare("SELECT timeline_json, handoff_json FROM projects WHERE id = ?").get(project.id);
+  if (row) {
+    try {
+      if (row.timeline_json && row.timeline_json !== "{}") {
+        storedTimeline = JSON.parse(row.timeline_json);
+      } else if (row.handoff_json && row.handoff_json !== "{}") {
+        storedTimeline = JSON.parse(row.handoff_json);
+      }
+    } catch {
+    }
+  }
+  const plans = snapshot2.plans.map((p) => ({
+    ...p,
+    normalizedPriority: normalizePriority(p.priority),
+    priorityRank: PRIORITY_ORDER[String(p.priority).toLowerCase()] ?? 2
+  }));
+  const phaseMap = /* @__PURE__ */ new Map();
+  for (const plan of plans) {
+    const phaseKey = plan.phase || "general";
+    if (!phaseMap.has(phaseKey)) {
+      phaseMap.set(phaseKey, []);
+    }
+    phaseMap.get(phaseKey).push(plan);
+  }
+  const phases = [];
+  for (const [phaseKey, phasePlans] of phaseMap.entries()) {
+    phasePlans.sort((a, b) => a.priorityRank - b.priorityRank || a.planOrder - b.planOrder);
+    const completedCount = phasePlans.filter((p) => p.derivedStatus === "complete").length;
+    phases.push({
+      phase: phaseKey,
+      completed: completedCount === phasePlans.length && phasePlans.length > 0,
+      plans: phasePlans.map((p) => ({
+        id: p.id,
+        title: p.title,
+        priority: p.normalizedPriority,
+        derivedStatus: p.derivedStatus,
+        status: p.status,
+        progress: p.progress,
+        stepsCount: snapshot2.planSteps.filter((s) => s.planId === p.id).length
+      }))
+    });
+  }
+  let activePlan = null;
+  if (storedTimeline.activePlanId) {
+    activePlan = plans.find((p) => p.id === storedTimeline.activePlanId && p.derivedStatus !== "cancelled");
+  }
+  if (!activePlan) {
+    activePlan = plans.find((p) => p.status === "active" || p.derivedStatus === "active") || plans.find((p) => p.derivedStatus !== "complete" && p.derivedStatus !== "cancelled") || plans[0] || null;
+  }
+  let activeStep = null;
+  let activeStepIndex = 0;
+  let allSteps = [];
+  if (activePlan) {
+    allSteps = snapshot2.planSteps.filter((s) => s.planId === activePlan.id).sort((a, b) => a.position - b.position);
+    if (storedTimeline.activeStepId) {
+      activeStep = allSteps.find((s) => s.id === storedTimeline.activeStepId);
+    }
+    if (!activeStep) {
+      activeStep = allSteps.find((s) => s.status === "active") || allSteps.find((s) => s.status === "pending") || allSteps[0] || null;
+    }
+    if (activeStep) {
+      activeStepIndex = allSteps.findIndex((s) => s.id === activeStep.id);
+    }
+  }
+  const activeCursor = {
+    activePhase: activePlan?.phase || (phases[0]?.phase ?? "foundation"),
+    activePlanId: activePlan?.id || null,
+    activePlanTitle: activePlan?.title || null,
+    priority: activePlan?.normalizedPriority || "P0",
+    activeStepId: activeStep?.id || null,
+    activeStepTitle: activeStep?.title || null,
+    activeStepIndex: activeStepIndex + 1,
+    totalSteps: allSteps.length,
+    nowDoing: storedTimeline.nowDoing || (activeStep ? `\u6B63\u5728\u6267\u884C\u6B65\u9AA4 ${activeStepIndex + 1}: ${activeStep.title}` : "\u51C6\u5907\u5F00\u59CB\u5F00\u53D1"),
+    lastFinished: storedTimeline.lastFinished || (activePlan?.derivedReason ?? ""),
+    nextUp: storedTimeline.nextUp || (activeStep ? activeStep.action || activePlan?.nextAction || "\u63A8\u8FDB\u4E0B\u4E00\u4E2A\u5F00\u53D1\u4EFB\u52A1" : ""),
+    touchedFiles: storedTimeline.touchedFiles || [],
+    cursorUpdatedAt: storedTimeline.cursorUpdatedAt || project.updatedAt
+  };
+  const mdLines = [
+    "# \u{1F4CD} Project Timeline & Focus",
+    `- **Active Phase**: \`${activeCursor.activePhase}\``,
+    `- **Active Plan**: \`plan:${activeCursor.activePlanId ?? "none"}\` (${activeCursor.activePlanTitle ?? "None"}) [${activeCursor.priority}]`,
+    ...activeCursor.activeStepTitle ? [`- **Active Step**: Step ${activeCursor.activeStepIndex}/${activeCursor.totalSteps}: ${activeCursor.activeStepTitle}`] : [],
+    `- **Now Doing**: ${activeCursor.nowDoing}`,
+    ...activeCursor.nextUp ? [`- **Next Up**: ${activeCursor.nextUp}`] : [],
+    ...activeCursor.lastFinished ? [`- **Last Finished**: ${activeCursor.lastFinished}`] : [],
+    "",
+    "## Phases & Execution Order"
+  ];
+  for (const p of phases) {
+    mdLines.push(`### Phase: ${p.phase} ${p.completed ? "(Completed)" : ""}`);
+    for (const plan of p.plans) {
+      const isCurrent = plan.id === activeCursor.activePlanId;
+      const marker = plan.derivedStatus === "complete" ? "[x]" : isCurrent ? "[*]" : "[ ]";
+      mdLines.push(`- ${marker} \`plan:${plan.id}\` \xB7 ${plan.priority} \xB7 ${plan.title} (${plan.derivedStatus})`);
+    }
+  }
+  return {
+    projectId: project.id,
+    graphRevision: project.graphRevision,
+    phases,
+    activeCursor,
+    markdown: mdLines.join("\n")
+  };
+}
+function syncTimeline(service, {
+  planId,
+  stepId,
+  nowDoing,
+  nextUp,
+  lastFinished,
+  touchedFiles = []
+}) {
+  const current = getTimelineState(service).activeCursor;
+  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+  const updatedCursor = {
+    activePlanId: planId ?? current.activePlanId,
+    activeStepId: stepId ?? current.activeStepId,
+    nowDoing: nowDoing ?? current.nowDoing,
+    nextUp: nextUp ?? current.nextUp,
+    lastFinished: lastFinished ?? current.lastFinished,
+    touchedFiles: touchedFiles.length > 0 ? touchedFiles : current.touchedFiles,
+    cursorUpdatedAt: timestamp
+  };
+  service.database.prepare("UPDATE projects SET timeline_json = ?, handoff_json = ?, updated_at = ? WHERE id = ?").run(JSON.stringify(updatedCursor), JSON.stringify(updatedCursor), timestamp, service.paths.descriptor.id);
+  if (updatedCursor.activePlanId && updatedCursor.activeStepId) {
+    service.database.prepare("UPDATE plan_steps SET status = 'pending', updated_at = ? WHERE plan_id = ? AND status = 'active' AND id != ?").run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
+    service.database.prepare("UPDATE plan_steps SET status = 'active', updated_at = ? WHERE plan_id = ? AND id = ? AND status = 'pending'").run(timestamp, updatedCursor.activePlanId, updatedCursor.activeStepId);
+  }
+  return updatedCursor;
+}
+function advanceStep(service, {
+  planId,
+  stepId,
+  status = "complete",
+  summary = "",
+  nextStepId = null
+}) {
+  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+  const snapshot2 = service.snapshot();
+  const targetPlanId = planId || getTimelineState(service).activeCursor.activePlanId;
+  if (!targetPlanId) throw new Error("No active plan found to advance step");
+  const steps = snapshot2.planSteps.filter((s) => s.planId === targetPlanId).sort((a, b) => a.position - b.position);
+  const currentStep = stepId ? steps.find((s) => s.id === stepId) : steps.find((s) => s.status === "active" || s.status === "pending");
+  if (!currentStep) throw new Error("Step not found in plan");
+  service.database.prepare("UPDATE plan_steps SET status = ?, updated_at = ? WHERE plan_id = ? AND id = ?").run(status, timestamp, targetPlanId, currentStep.id);
+  const currentIndex = steps.findIndex((s) => s.id === currentStep.id);
+  const nextStep = nextStepId ? steps.find((s) => s.id === nextStepId) : steps[currentIndex + 1] || null;
+  if (nextStep) {
+    service.database.prepare("UPDATE plan_steps SET status = 'active', updated_at = ? WHERE plan_id = ? AND id = ?").run(timestamp, targetPlanId, nextStep.id);
+  }
+  const lastFinished = summary || `\u5DF2\u5B8C\u6210\u6B65\u9AA4 ${currentIndex + 1}: ${currentStep.title}`;
+  const nowDoing = nextStep ? `\u6B63\u5728\u6267\u884C\u6B65\u9AA4 ${currentIndex + 2}: ${nextStep.title}` : `\u8BA1\u5212\u5DF2\u5168\u90E8\u6B65\u9AA4\u5B8C\u6210`;
+  const nextUp = nextStep ? nextStep.action || "\u63A8\u8FDB\u6B65\u9AA4\u5B9E\u73B0\u4E0E\u9A8C\u8BC1" : "\u8FD0\u884C\u5168\u8BA1\u5212\u9A8C\u6536\u95E8\u7981";
+  return syncTimeline(service, {
+    planId: targetPlanId,
+    stepId: nextStep?.id || null,
+    nowDoing,
+    nextUp,
+    lastFinished
+  });
+}
+
+// packages/mcp/src/architecture-link.mjs
+import fs8 from "node:fs";
+import path9 from "node:path";
+var LAYER_ORDER = [
+  "client",
+  "boundary",
+  "application",
+  "domain",
+  "data",
+  "external",
+  "quality",
+  "infrastructure",
+  "unspecified"
+];
+function extractImports(sourceCode, filePath = "") {
+  const imports = [];
+  const lines = sourceCode.split(/\r?\n/);
+  const lang = detectLanguage(filePath);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*")) {
+      continue;
+    }
+    if (lang === "javascript" || lang === "typescript") {
+      const fromMatch = trimmed.match(/(?:import\s+.*?from\s+['"]([^'"]+)['"]|require\(['"]([^'"]+)['"]\))/);
+      if (fromMatch) {
+        const importPath = fromMatch[1] || fromMatch[2];
+        if (importPath.startsWith(".")) {
+          const resolved = path9.normalize(path9.join(path9.dirname(filePath), importPath));
+          imports.push(resolved);
+        }
+      }
+    } else if (lang === "swift") {
+      const swiftMatch = trimmed.match(/^import\s+([A-Za-z0-9_]+)/);
+      if (swiftMatch) imports.push(swiftMatch[1]);
+    } else if (lang === "python") {
+      const pyMatch = trimmed.match(/^(?:from\s+([A-Za-z0-9_.]+)\s+import|import\s+([A-Za-z0-9_.]+))/);
+      if (pyMatch) imports.push((pyMatch[1] || pyMatch[2]).replace(/\./g, "/"));
+    }
+  }
+  return imports;
+}
+function suggestLinksForBlock(service, target) {
+  const blockId = typeof target === "object" && target !== null ? target.blockId : target;
+  const snapshot2 = service.snapshot();
+  const block = snapshot2.blocks.find((b) => b.id === blockId);
+  if (!block) {
+    throw new Error(`block:${blockId} not found`);
+  }
+  const existingLinks = snapshot2.links.filter(
+    (l) => l.sourceType === "block" && l.sourceId === blockId || l.targetType === "block" && l.targetId === blockId
+  );
+  const connectedBlockIds = new Set(
+    existingLinks.map((l) => l.sourceId === blockId ? l.targetId : l.sourceId)
+  );
+  const suggestions = [];
+  const blockSources = snapshot2.sourceRefs.filter((s) => s.blockId === blockId);
+  const repoRoot = service.paths.repoRoot || service.paths.projectRoot;
+  const sourceImports = /* @__PURE__ */ new Set();
+  for (const ref of blockSources) {
+    const refPath = ref.path || ref.filePath;
+    if (!refPath) continue;
+    const absolutePath = path9.isAbsolute(refPath) ? refPath : path9.join(repoRoot, refPath);
+    if (fs8.existsSync(absolutePath)) {
+      try {
+        const code = fs8.readFileSync(absolutePath, "utf8");
+        const found = extractImports(code, refPath);
+        found.forEach((imp) => sourceImports.add(imp));
+      } catch {
+      }
+    }
+  }
+  if (sourceImports.size > 0) {
+    for (const otherBlock of snapshot2.blocks) {
+      if (otherBlock.id === blockId || connectedBlockIds.has(otherBlock.id)) continue;
+      const otherSources = snapshot2.sourceRefs.filter((s) => s.blockId === otherBlock.id);
+      for (const otherRef of otherSources) {
+        const otherPath = otherRef.path || otherRef.filePath;
+        if (!otherPath) continue;
+        const normalizedOther = otherPath.replace(/\.[^/.]+$/, "");
+        for (const imp of sourceImports) {
+          const normalizedImp = imp.replace(/\.[^/.]+$/, "");
+          if (normalizedOther.endsWith(normalizedImp) || normalizedImp.endsWith(normalizedOther)) {
+            suggestions.push({
+              sourceId: blockId,
+              targetId: otherBlock.id,
+              kind: ["data", "database"].includes(otherBlock.kind) ? "reads" : "calls",
+              confidence: "high",
+              reason: `Source file ${otherPath} is imported by block:${blockId}`
+            });
+            connectedBlockIds.add(otherBlock.id);
+            break;
+          }
+        }
+      }
+    }
+  }
+  const currentLayerIdx = LAYER_ORDER.indexOf(block.architectureLayer);
+  for (const otherBlock of snapshot2.blocks) {
+    if (otherBlock.id === blockId || connectedBlockIds.has(otherBlock.id)) continue;
+    if (["principle", "decision"].includes(otherBlock.kind)) continue;
+    const otherLayerIdx = LAYER_ORDER.indexOf(otherBlock.architectureLayer);
+    const sameScope = block.scope === otherBlock.scope && block.scope !== "general";
+    if (currentLayerIdx >= 0 && otherLayerIdx >= 0) {
+      if (currentLayerIdx < otherLayerIdx && (otherLayerIdx - currentLayerIdx <= 2 || sameScope)) {
+        const kind = ["data", "database"].includes(otherBlock.kind) ? "reads" : "calls";
+        suggestions.push({
+          sourceId: blockId,
+          targetId: otherBlock.id,
+          kind,
+          confidence: sameScope ? "medium" : "low",
+          reason: `Layer convention: ${block.architectureLayer} -> ${otherBlock.architectureLayer}${sameScope ? ` (shares scope ${block.scope})` : ""}`
+        });
+      } else if (currentLayerIdx > otherLayerIdx && (currentLayerIdx - otherLayerIdx <= 2 || sameScope)) {
+        const kind = ["data", "database"].includes(block.kind) ? "reads" : "calls";
+        suggestions.push({
+          sourceId: otherBlock.id,
+          targetId: blockId,
+          kind,
+          confidence: sameScope ? "medium" : "low",
+          reason: `Layer convention: ${otherBlock.architectureLayer} -> ${block.architectureLayer}${sameScope ? ` (shares scope ${block.scope})` : ""}`
+        });
+      }
+    }
+  }
+  return suggestions.slice(0, 10);
+}
+function connectBlocks(service, {
+  sourceId,
+  targetId,
+  kind = "calls",
+  label = "",
+  contract = "",
+  actor = "agent",
+  reason = "Connect architecture blocks"
+}) {
+  const snapshot2 = service.snapshot();
+  const source = snapshot2.blocks.find((b) => b.id === sourceId);
+  const target = snapshot2.blocks.find((b) => b.id === targetId);
+  if (!source) throw new Error(`Source block:${sourceId} not found`);
+  if (!target) throw new Error(`Target block:${targetId} not found`);
+  const linkId = `link-${sourceId}-to-${targetId}`;
+  const existing = snapshot2.links.find((l) => l.id === linkId);
+  const operation = existing ? {
+    action: "update_link",
+    id: linkId,
+    expectedRevision: existing.currentRevision,
+    fields: {
+      kind,
+      label: label || existing.label,
+      contract: contract || existing.contract
+    }
+  } : {
+    action: "create_link",
+    id: linkId,
+    fields: {
+      sourceType: "block",
+      sourceId,
+      targetType: "block",
+      targetId,
+      kind,
+      label: label || `${source.title} -> ${target.title}`,
+      contract: contract || `${source.title} ${kind} ${target.title}`
+    }
+  };
+  return service.mutate({
+    operations: [operation],
+    actor,
+    reason,
+    task: "architecture-connect"
+  });
+}
+
+// packages/mcp/src/documents.mjs
+import fs9 from "node:fs";
+import path10 from "node:path";
+import crypto8 from "node:crypto";
+var digest = (text) => crypto8.createHash("sha256").update(text).digest("hex");
+function projectFile(root, relative) {
+  const file = path10.resolve(root, relative);
+  const rel = path10.relative(fs9.realpathSync(root), fs9.realpathSync(file));
+  if (rel.startsWith("..") || path10.isAbsolute(rel)) throw new Error("File must remain inside this project");
+  return file;
+}
+function documentSections(body) {
+  const lines = body.split("\n");
+  const sections = [];
+  const used = /* @__PURE__ */ new Map();
+  let fenced = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*(```|~~~)/.test(lines[i])) {
+      fenced = !fenced;
+      continue;
+    }
+    const match = !fenced && lines[i].match(/^(#{1,6})\s+(.+?)\s*#*$/);
+    if (!match) continue;
+    const slug = match[2].toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "section";
+    const count = (used.get(slug) ?? 0) + 1;
+    used.set(slug, count);
+    sections.push({ id: count === 1 ? slug : `${slug}-${count}`, title: match[2], level: match[1].length, startLine: i + 1 });
+  }
+  return sections.map((section, i) => ({ ...section, endLine: (sections[i + 1]?.startLine ?? lines.length + 1) - 1 }));
+}
+function normalize(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    kind: row.kind,
+    status: row.status,
+    summary: row.summary,
+    body: row.body,
+    revision: row.revision,
+    relations: JSON.parse(row.relations_json),
+    sourcePath: row.source_path,
+    sourceHash: row.source_hash,
+    updatedAt: row.updated_at
+  };
+}
+function listDocuments(service, { query = "" } = {}) {
+  service.ensureSynced();
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return service.database.prepare("SELECT * FROM documents WHERE project_id = ? ORDER BY updated_at DESC").all(service.paths.descriptor.id).map(normalize).filter((d) => terms.every((t) => `${d.title} ${d.summary} ${d.body}`.toLowerCase().includes(t))).map(({ body, ...doc }) => ({ ...doc, sections: documentSections(body) }));
+}
+function openDocument(service, { id, sectionId, maxChars = 6e3, revision } = {}) {
+  service.ensureSynced();
+  const row = service.database.prepare("SELECT * FROM documents WHERE id = ? AND project_id = ?").get(id, service.paths.descriptor.id);
+  if (!row) throw new Error(`Document not found: ${id}`);
+  const doc = normalize(row);
+  if (revision !== void 0 && revision !== doc.revision) throw new Error(`Document revision changed: expected ${revision}, current ${doc.revision}`);
+  const sections = documentSections(doc.body);
+  let text = doc.body;
+  if (sectionId) {
+    const section = sections.find((s) => s.id === sectionId);
+    if (!section) throw new Error("Section not found; refresh document_list");
+    text = doc.body.split("\n").slice(section.startLine - 1, section.endLine).join("\n");
+  }
+  const budget = Math.max(200, Math.min(maxChars, 5e4));
+  const truncated = text.length > budget;
+  const { body, ...metadata } = doc;
+  return {
+    ...metadata,
+    sections,
+    truncated,
+    markdown: text.slice(0, budget),
+    openURL: `contextos://knowledge?project=${encodeURIComponent(service.paths.projectRoot)}&document=${encodeURIComponent(id)}${sectionId ? `&section=${encodeURIComponent(sectionId)}` : ""}`
+  };
+}
+function writeDocument(service, { id, title, body, summary = "", kind = "note", status = "draft", relations = [], expectedRevision, sourcePath = null, sourceHash = null } = {}) {
+  if (!id || !title?.trim() || typeof body !== "string") throw new Error("id, title and Markdown body are required");
+  if (!["note", "audit", "design", "guide", "reference"].includes(kind)) throw new Error("Invalid document kind");
+  if (!["draft", "review", "accepted", "archived"].includes(status)) throw new Error("Invalid document status");
+  if (!Array.isArray(relations) || relations.some((r) => typeof r !== "string" || !/^(block|chain|decision|plan):.+/.test(r))) throw new Error("relations must contain typed entity references");
+  if (body.length > 1e6) throw new Error("Document exceeds 1M characters; split into documents");
+  service.ensureSynced();
+  const db = service.database;
+  const projectId = service.paths.descriptor.id;
+  const result = transaction(db, () => {
+    const current = db.prepare("SELECT * FROM documents WHERE id = ?").get(id);
+    if (current && current.project_id !== projectId) throw new Error("Document belongs to another project");
+    if (current && expectedRevision !== current.revision) throw new Error(`Revision conflict: expected ${expectedRevision}, current ${current.revision}`);
+    if (!current && expectedRevision != null && expectedRevision !== 0) throw new Error("New document requires revision 0");
+    for (const ref of relations) {
+      const [type, ...parts] = ref.split(":");
+      const table = { block: "blocks", chain: "chains", decision: "decisions", plan: "plans" }[type];
+      if (!db.prepare(`SELECT id FROM ${table} WHERE id = ? AND project_id = ?`).get(parts.join(":"), projectId)) throw new Error(`Unknown relation: ${ref}`);
+    }
+    const revision = (current?.revision ?? 0) + 1;
+    const now2 = (/* @__PURE__ */ new Date()).toISOString();
+    db.prepare(`INSERT INTO documents(id,project_id,title,kind,status,summary,body,relations_json,source_path,source_hash,revision,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,kind=excluded.kind,status=excluded.status,summary=excluded.summary,
+      body=excluded.body,relations_json=excluded.relations_json,source_path=excluded.source_path,source_hash=excluded.source_hash,revision=excluded.revision,updated_at=excluded.updated_at`).run(id, projectId, title, kind, status, summary, body, JSON.stringify(relations), sourcePath ?? current?.source_path ?? null, sourceHash ?? current?.source_hash ?? null, revision, current?.created_at ?? now2, now2);
+    const row = db.prepare("SELECT * FROM documents WHERE id = ?").get(id);
+    db.prepare("INSERT INTO document_versions VALUES(?,?,?,?)").run(id, revision, JSON.stringify(row), now2);
+    db.prepare("UPDATE projects SET graph_revision=graph_revision+1, updated_at=? WHERE id=?").run(now2, projectId);
+    markProjectionPending(db);
+    return { id, revision, changed: true };
+  });
+  try {
+    flushProjection(db, service.paths.graphJsonPath);
+    result.projection = { status: "synced" };
+  } catch (error2) {
+    result.success = false;
+    result.projection = { status: "pending", error: error2.message };
+    result.error = error2.message;
+  }
+  return { ...result, openURL: `contextos://knowledge?project=${encodeURIComponent(service.paths.projectRoot)}&document=${encodeURIComponent(id)}` };
+}
+function patchDocument(service, { id, sectionId, body, expectedRevision } = {}) {
+  const doc = openDocument(service, { id, maxChars: 5e4, revision: expectedRevision });
+  const row = service.database.prepare("SELECT * FROM documents WHERE id=?").get(id);
+  const current = normalize(row);
+  const section = doc.sections.find((s) => s.id === sectionId);
+  if (!section) throw new Error("Section not found");
+  const lines = current.body.split("\n");
+  lines.splice(section.startLine - 1, section.endLine - section.startLine + 1, body);
+  return writeDocument(service, { ...current, body: lines.join("\n"), expectedRevision });
+}
+function importDocument(service, { relativePath: relativePath2, id, title, kind = "note", expectedRevision } = {}) {
+  if (path10.dirname(relativePath2) === "." && /^readme(?:[_.-].*)?\.md$/i.test(path10.basename(relativePath2))) throw new Error("README stays in the repository and is read-only in the App");
+  const body = fs9.readFileSync(projectFile(service.paths.projectRoot, relativePath2), "utf8");
+  return writeDocument(service, { id, title, kind, body, expectedRevision, sourcePath: relativePath2, sourceHash: digest(body), status: "review" });
+}
+
+// packages/mcp/src/query-engine.mjs
+import path11 from "node:path";
+function renderProjectMap(service, { locale = "en" } = {}) {
+  const snapshot2 = service.snapshot();
+  const coverage = architectureCoverage(snapshot2);
+  const graphBlocks = snapshot2.blocks.filter((block) => block.kind !== "decision");
+  assertAllowed(locale, LOCALES, "locale");
+  const translations = localizationMap(snapshot2);
+  const layerCounts = Object.fromEntries(
+    [...ARCHITECTURE_LAYERS].map((layer) => [layer, graphBlocks.filter((block) => block.architectureLayer === layer).length]).filter(([, count]) => count > 0)
+  );
+  const scopeCounts = Object.fromEntries(
+    [...new Set(graphBlocks.map((block) => block.scope))].sort().map((scope) => [scope, graphBlocks.filter((block) => block.scope === scope).length])
+  );
+  const architectureGroups = [...new Set(graphBlocks.map((block) => `${block.architectureLayer}\0${block.scope}`))].sort().map((key) => {
+    const [layer, scope] = key.split("\0");
+    const members2 = graphBlocks.filter((block) => block.architectureLayer === layer && block.scope === scope).sort((left, right) => left.localOrder - right.localOrder || left.id.localeCompare(right.id));
+    return {
+      layer,
+      scope,
+      count: members2.length,
+      blockRefs: members2.slice(0, 50).map((block) => `block:${block.id}`),
+      truncated: members2.length > 50
+    };
+  });
+  const lines = [
+    `# ${snapshot2.project.name}`,
+    `Graph revision: ${snapshot2.project.graphRevision}`,
+    "",
+    "## Plans"
+  ];
+  const plans = snapshot2.plans;
+  if (plans.length === 0) lines.push("- None");
+  for (const plan of plans) {
+    const count = snapshot2.planChainRefs.filter((item) => item.planId === plan.id).length;
+    const title = localizedValue(translations, "plan", plan.id, locale, "title", plan.title);
+    const progress = `${plan.progress.completedSteps}/${plan.progress.totalSteps} steps \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} gates`;
+    lines.push(
+      `- [plan:${plan.id}] ${title} \u2014 ${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus} \xB7 ${progress} \xB7 ${count} target chain(s)`
+    );
+    if (plan.derivedReason) lines.push(`  ${plan.derivedReason}`);
+  }
+  lines.push("", "## Project network");
+  lines.push(`- ${graphBlocks.length} Blocks / ${snapshot2.links.length} Links / ${snapshot2.chains.length} Chain overlays`);
+  lines.push(`- ${snapshot2.decisions.length} Decisions (scoped index; expand a record on demand)`);
+  lines.push(`- Coverage: ${coverage.verified}/${coverage.totalBlocks} verified \xB7 ${coverage.planned}/${coverage.totalBlocks} planned \xB7 ${coverage.withCheckpoint}/${coverage.totalBlocks} with checkpoints`);
+  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} bound or passed \xB7 ${coverage.failingIds.length} failing`);
+  lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks covered; architecture outside the Plan remains valid`);
+  if (coverage.failingIds.length) lines.push(`- Failed verification: ${coverage.failingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.failingIds.length > 12 ? " \u2026" : ""}`);
+  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " \u2026" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " \u2026" : ""}`);
+  if (snapshot2.sourceSync) lines.push(`- Source sync: r${snapshot2.sourceSync.revision} \xB7 ${snapshot2.sourceSync.bindingCount} bindings \xB7 ${snapshot2.sourceSync.invalidBindingCount} needing relocation`);
+  lines.push(`- Architecture layers: ${Object.entries(layerCounts).map(([layer, count]) => `${layer} ${count}`).join(" \xB7 ") || "None"}`);
+  lines.push(`- Scopes: ${Object.entries(scopeCounts).map(([scope, count]) => `${scope} ${count}`).join(" \xB7 ") || "None"}`);
+  for (const block of graphBlocks.filter((item) => item.priority === "critical").slice(0, 8)) {
+    const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
+    lines.push(`- [block:${block.id}] ${title} \u2014 ${block.deliveryState}/${block.healthState}`);
+  }
+  if (snapshot2.decisions.length) {
+    lines.push("", "## Decision index");
+    for (const decision of snapshot2.decisions.slice(0, 12)) {
+      const scopes = snapshot2.decisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+      lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status}${scopes.length ? ` \xB7 scopes ${scopes.join(", ")}` : ""} \xB7 use decision_open for rationale`);
+    }
+    if (snapshot2.decisions.length > 12) lines.push(`- \u2026 ${snapshot2.decisions.length - 12} more; use decision_list for the complete index.`);
+  }
+  return {
+    map: {
+      project: snapshot2.project,
+      changeSequence: snapshot2.changeSequence,
+      counts: {
+        blocks: graphBlocks.length,
+        links: snapshot2.links.length,
+        chains: snapshot2.chains.length,
+        plans: snapshot2.plans.length,
+        decisions: snapshot2.decisions.length
+      },
+      architecture: {
+        layerCounts,
+        scopeCounts,
+        groups: architectureGroups,
+        coverage
+      },
+      plans: plans.map((plan) => ({
+        id: plan.id,
+        title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title),
+        status: plan.status,
+        derivedStatus: plan.derivedStatus,
+        derivedReason: plan.derivedReason,
+        priority: plan.priority,
+        phase: plan.phase,
+        order: plan.planOrder,
+        progress: plan.progress,
+        typedProgress: plan.typedProgress,
+        dependencyPlanIds: snapshot2.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.dependsOnPlanId),
+        targetChainIds: snapshot2.planChainRefs.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position).map((item) => item.chainId)
+      })),
+      criticalBlocks: graphBlocks.filter((item) => item.priority === "critical").slice(0, 8).map((block) => ({
+        id: block.id,
+        title: localizedValue(translations, "block", block.id, locale, "title", block.title),
+        deliveryState: block.deliveryState,
+        healthState: block.healthState
+      })),
+      decisions: snapshot2.decisions.map((decision) => ({
+        id: decision.id,
+        title: decision.title,
+        status: decision.status,
+        scopes: snapshot2.decisionScopes.filter((scope) => scope.decisionId === decision.id)
+      }))
+    },
+    markdown: lines.join("\n")
+  };
+}
+function listDecisions(service, { locale = "en" } = {}) {
+  const snapshot2 = service.snapshot();
+  assertAllowed(locale, LOCALES, "locale");
+  const decisions = snapshot2.decisions.map((decision) => ({
+    id: decision.id,
+    title: decision.title,
+    summary: decision.summary,
+    status: decision.status,
+    currentRevision: decision.currentRevision,
+    supersedesDecisionId: decision.supersedesDecisionId,
+    scopes: snapshot2.decisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
+  }));
+  const lines = ["# Decision index", `- Graph revision: ${snapshot2.project.graphRevision}`, `- Count: ${decisions.length}`, ""];
+  for (const decision of decisions) {
+    const scopes = decision.scopes.map((scope) => `${scope.type}:${scope.value}`).join(", ");
+    lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status}${scopes ? ` \xB7 scopes ${scopes}` : ""} \xB7 use decision_open for rationale`);
+  }
+  return { decisions, markdown: lines.join("\n") };
+}
+function searchEntities(service, { query, kinds = [], states = [], limit = 20, locale = "en" } = {}) {
+  const term = `%${query.trim()}%`;
+  const terms = taskTerms(query);
+  const snapshot2 = service.snapshot();
+  assertAllowed(locale, LOCALES, "locale");
+  const translations = localizationMap(snapshot2);
+  const kindSet = new Set(kinds);
+  const stateSet = new Set(states);
+  const score = (text) => terms.reduce((total, item) => total + (text.toLowerCase().includes(item) ? 1 : 0), 0);
+  const blocks = snapshot2.blocks.filter((block) => block.kind !== "decision").map((block) => {
+    const text = `${block.title}
+${block.summary}
+${block.body}
+${block.contract}
+${block.scope}
+${block.architectureLayer}
+${block.tags.join(" ")}
+${localizedSearchText(snapshot2, "block", block.id)}`;
+    return { item: block, score: score(text) };
+  }).filter(({ item: block, score: score2 }) => {
+    return score2 > 0 && (kindSet.size === 0 || kindSet.has(block.kind)) && (stateSet.size === 0 || stateSet.has(block.deliveryState) || stateSet.has(block.healthState));
+  }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+  const chains = snapshot2.chains.map((chain) => {
+    const text = `${chain.title}
+${chain.intent}
+${chain.inputContract}
+${chain.outputContract}
+${localizedSearchText(snapshot2, "chain", chain.id)}`;
+    return { item: chain, score: score(text) };
+  }).filter(({ item: chain, score: score2 }) => {
+    return score2 > 0 && (kindSet.size === 0 || kindSet.has("chain")) && (stateSet.size === 0 || stateSet.has(chain.deliveryState) || stateSet.has(chain.healthState));
+  }).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+  const plans = snapshot2.plans.map((plan) => {
+    const text = `${plan.title}
+${plan.summary}
+${plan.goal}
+${plan.status}
+${plan.nextAction}
+${JSON.stringify(plan.blockers)}
+${localizedSearchText(snapshot2, "plan", plan.id)}`;
+    return { item: plan, score: score(text) };
+  }).filter(({ item: plan, score: score2 }) => score2 > 0 && (kindSet.size === 0 || kindSet.has("plan")) && (stateSet.size === 0 || stateSet.has(plan.status))).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+  const decisions = snapshot2.decisions.map((decision) => {
+    const text = `${decision.title}
+${decision.summary}
+${decision.rationale}
+${decision.status}
+${JSON.stringify(decision.alternatives)}
+${JSON.stringify(decision.consequences)}`;
+    return { item: decision, score: score(text) };
+  }).filter(({ item: decision, score: score2 }) => score2 > 0 && (kindSet.size === 0 || kindSet.has("decision")) && (stateSet.size === 0 || stateSet.has(decision.status))).sort((a, b) => b.score - a.score || a.item.id.localeCompare(b.item.id)).map(({ item }) => item);
+  const sourceRows = service.database.prepare(
+    `SELECT sr.*, b.title FROM source_refs sr JOIN blocks b ON b.id = sr.block_id
+       WHERE b.project_id = ? AND (sr.path LIKE ? OR COALESCE(sr.symbol, '') LIKE ?) LIMIT ?`
+  ).all(service.paths.descriptor.id, term, term, limit);
+  const searchItems = [
+    ...blocks.map((block) => `- [block:${block.id}] ${localizedValue(translations, "block", block.id, locale, "title", block.title)} \xB7 ${block.deliveryState}`),
+    ...chains.map((chain) => `- [chain:${chain.id}] ${localizedValue(translations, "chain", chain.id, locale, "title", chain.title)} \xB7 ${chain.deliveryState}`),
+    ...plans.map((plan) => `- [plan:${plan.id}] ${localizedValue(translations, "plan", plan.id, locale, "title", plan.title)} \xB7 ${plan.status}`),
+    ...decisions.map((decision) => `- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status} \xB7 use decision_open for rationale`),
+    ...sourceRows.map((row) => `- [source:${row.id}] ${localizedValue(translations, "block", row.block_id, locale, "title", row.title)} \xB7 ${row.path}${row.start_line ? `:${row.start_line}` : ""}`)
+  ].slice(0, limit);
+  return {
+    query,
+    results: [
+      ...blocks.map((block) => ({ type: "block", id: block.id, title: localizedValue(translations, "block", block.id, locale, "title", block.title), state: block.deliveryState })),
+      ...chains.map((chain) => ({ type: "chain", id: chain.id, title: localizedValue(translations, "chain", chain.id, locale, "title", chain.title), state: chain.deliveryState })),
+      ...plans.map((plan) => ({ type: "plan", id: plan.id, title: localizedValue(translations, "plan", plan.id, locale, "title", plan.title), state: plan.status })),
+      ...decisions.map((decision) => ({ type: "decision", id: decision.id, title: decision.title, state: decision.status })),
+      ...sourceRows.map((row) => ({
+        type: "source",
+        id: row.id,
+        title: `${localizedValue(translations, "block", row.block_id, locale, "title", row.title)}: ${row.path}${row.start_line ? `:${row.start_line}` : ""}`,
+        blockId: row.block_id
+      }))
+    ].slice(0, limit),
+    markdown: [
+      `# Search: ${query}`,
+      `Count: ${searchItems.length}`,
+      "",
+      ...searchItems
+    ].join("\n")
+  };
+}
+function openEntity(service, rawPayload = {}) {
+  const payload = typeof rawPayload === "string" ? { ref: rawPayload } : rawPayload ?? {};
+  let { type, id, historyLimit = 8, locale = "en" } = payload;
+  if ((!type || !id) && payload.ref) {
+    const parts = payload.ref.split(":");
+    type = parts[0];
+    id = parts.slice(1).join(":");
+  }
+  const projectId = service.paths.descriptor.id;
+  let entity;
+  if (type === "block") {
+    const row = service.database.prepare("SELECT * FROM blocks WHERE project_id = ? AND id = ?").get(projectId, id);
+    if (row) entity = normalizeBlock(row);
+  } else if (type === "chain") {
+    const row = service.database.prepare("SELECT * FROM chains WHERE project_id = ? AND id = ?").get(projectId, id);
+    if (row) entity = normalizeChain(row);
+  } else if (type === "link") {
+    const row = service.database.prepare("SELECT * FROM links WHERE project_id = ? AND id = ?").get(projectId, id);
+    if (row) entity = normalizeLink(row);
+  } else if (type === "plan") {
+    const row = service.database.prepare("SELECT * FROM plans WHERE project_id = ? AND id = ?").get(projectId, id);
+    if (row) entity = normalizePlan(row);
+  } else if (type === "decision") {
+    const row = service.database.prepare("SELECT * FROM decisions WHERE project_id = ? AND id = ?").get(projectId, id);
+    if (row) entity = normalizeDecision(row);
+  }
+  if (!entity) throw new Error(`${type}:${id} not found`);
+  const checkpoints = service.database.prepare(
+    type === "plan" ? `SELECT DISTINCT c.* FROM checkpoints c
+         LEFT JOIN plan_checkpoint_refs pcr ON pcr.checkpoint_id = c.id
+         WHERE c.project_id = ? AND ((c.target_type = ? AND c.target_id = ?) OR pcr.plan_id = ?)
+         ORDER BY c.updated_at DESC` : "SELECT * FROM checkpoints WHERE project_id = ? AND target_type = ? AND target_id = ? ORDER BY updated_at DESC"
+  ).all(...type === "plan" ? [projectId, type, id, id] : [projectId, type, id]).map((row) => ({
+    id: row.id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    title: row.title,
+    criteria: row.criteria,
+    status: row.status,
+    evidenceLevel: row.evidence_level,
+    requiredEvidenceLevel: row.required_evidence_level,
+    coverage: row.coverage,
+    evidence: parseJson(row.evidence_json, []),
+    invalidatedAt: row.invalidated_at,
+    updatedAt: row.updated_at
+  }));
+  const history = service.database.prepare(
+    `SELECT h.* FROM history h JOIN change_sets cs ON cs.id = h.change_set_id
+       WHERE cs.project_id = ? AND h.entity_type = ? AND h.entity_id = ?
+       ORDER BY h.id DESC LIMIT ?`
+  ).all(projectId, type, id, historyLimit).map((row) => ({
+    action: row.action,
+    revision: row.revision,
+    summary: row.summary,
+    createdAt: row.created_at
+  }));
+  const sourceRefs = type === "block" ? service.database.prepare("SELECT * FROM source_refs WHERE block_id = ? ORDER BY created_at").all(id).map((row) => ({
+    id: row.id,
+    path: row.path,
+    startLine: row.start_line,
+    endLine: row.end_line,
+    symbol: row.symbol,
+    role: row.role,
+    gitCommit: row.git_commit
+  })) : [];
+  const decisionScopes = type === "decision" ? service.database.prepare("SELECT scope_type, scope_value FROM decision_scopes WHERE decision_id = ? ORDER BY scope_type, scope_value").all(id).map((row) => ({ scopeType: row.scope_type, scopeValue: row.scope_value })) : [];
+  const pathNodes = type === "chain" ? service.database.prepare("SELECT chain_id, 'block' AS member_type, block_id AS member_id, position FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({
+    memberType: row.member_type,
+    memberId: row.member_id,
+    position: row.position
+  })) : [];
+  const pathEdges = type === "chain" ? service.database.prepare("SELECT link_id, position FROM chain_edges WHERE chain_id = ? ORDER BY position").all(id).map((row) => ({ linkId: row.link_id, position: row.position })) : [];
+  const targetChains = type === "plan" ? service.database.prepare("SELECT chain_id, position FROM plan_chain_refs WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ chainId: row.chain_id, position: row.position })) : [];
+  const dependencies = type === "plan" ? service.database.prepare("SELECT depends_on_plan_id, position FROM plan_dependencies WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ planId: row.depends_on_plan_id, position: row.position })) : [];
+  const steps = type === "plan" ? service.database.prepare("SELECT * FROM plan_steps WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({
+    id: row.id,
+    position: row.position,
+    title: row.title,
+    action: row.action,
+    status: row.status,
+    targetRefs: parseJson(row.target_refs_json, []),
+    proposedDelta: parseJson(row.proposed_delta_json, [])
+  })) : [];
+  const checkpointRefs = type === "plan" ? service.database.prepare("SELECT checkpoint_id, step_id, position, required FROM plan_checkpoint_refs WHERE plan_id = ? ORDER BY position").all(id).map((row) => ({ checkpointId: row.checkpoint_id, stepId: row.step_id, position: row.position, required: Boolean(row.required) })) : [];
+  assertAllowed(locale, LOCALES, "locale");
+  const snapshot2 = service.snapshot();
+  const translations = localizationMap(snapshot2);
+  const coverage = type === "block" ? architectureCoverage(snapshot2).blockCoverage.find((item) => item.blockId === id) ?? null : null;
+  const ruleScopes = type === "block" ? snapshot2.backgroundScopes.filter((scope) => scope.blockId === id) : [];
+  const field = type === "link" ? "label" : "title";
+  const displayTitle = localizedValue(translations, type, id, locale, field, entity[field] ?? `${type}:${id}`);
+  const displaySummary = localizedValue(translations, type, id, locale, type === "chain" ? "intent" : "summary", entity.intent ?? entity.summary ?? "");
+  const displayContract = localizedValue(translations, type, id, locale, "contract", entity.contract ?? "");
+  const displayInput = localizedValue(translations, type, id, locale, "inputContract", entity.inputContract ?? "");
+  const displayOutput = localizedValue(translations, type, id, locale, "outputContract", entity.outputContract ?? "");
+  const lines = [`# ${displayTitle}`, ""];
+  lines.push(`- Ref: ${type}:${id}`);
+  lines.push(`- Revision: ${entity.currentRevision}`);
+  if (type === "block") {
+    lines.push(`- Architecture: ${entity.architectureLayer}`);
+    lines.push(`- Scope: ${entity.scope}`);
+    lines.push(`- Local order: ${entity.localOrder}`);
+    if (ruleScopes.length) lines.push(`- Rule scopes: ${ruleScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
+    if (coverage) {
+      const verification = coverage.missingRequiredCheckpoint ? "needed" : coverage.hasCheckpoint && coverage.isCoveredByAnyVerification ? "recorded" : coverage.hasCheckpoint ? "checkpointed" : null;
+      if (verification) lines.push(`- Verification: ${verification}`);
+    }
+  }
+  if (type === "decision" && decisionScopes.length) lines.push(`- Scopes: ${decisionScopes.map((scope) => `${scope.scopeType}:${scope.scopeValue}`).join(", ")}`);
+  if (entity.deliveryState) lines.push(`- Delivery: ${entity.deliveryState}`);
+  if (entity.status) lines.push(`- Status: ${entity.status}`);
+  if (type === "plan") {
+    lines.push(`- Phase: ${entity.phase}`);
+    lines.push(`- Order: ${entity.planOrder}`);
+    lines.push(`- Priority: ${entity.priority}`);
+  }
+  if (entity.healthState) lines.push(`- Health: ${entity.healthState}`);
+  if (displaySummary) lines.push("", "## Summary", displaySummary);
+  if (type === "block") {
+    const displayBody = localizedValue(translations, type, id, locale, "body", entity.body ?? "");
+    if (displayBody) lines.push("", "## Details", displayBody);
+  }
+  if (type === "decision") {
+    if (entity.rationale) lines.push("", "## Rationale", entity.rationale);
+    if (entity.alternatives.length) lines.push("", "## Alternatives", ...entity.alternatives.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+    if (entity.consequences.length) lines.push("", "## Consequences", ...entity.consequences.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+    if (entity.supersedesDecisionId) lines.push("", "## Supersedes", `[decision:${entity.supersedesDecisionId}]`);
+  }
+  if (displayContract) lines.push("", "## Contract", displayContract);
+  if (entity.inputContract || entity.outputContract) {
+    lines.push("", "## Contract", `Input: ${displayInput || "\u2014"}`, `Output: ${displayOutput || "\u2014"}`);
+  }
+  if (type === "plan") {
+    const goal = localizedValue(translations, type, id, locale, "goal", entity.goal);
+    const nextAction = localizedValue(translations, type, id, locale, "nextAction", entity.nextAction);
+    if (goal) lines.push("", "## Goal", goal);
+    if (nextAction) lines.push("", "## Next action", nextAction);
+    const scopeChainIDs = snapshot2.planChainScopes.filter((scope) => scope.planId === id).sort((left, right) => left.position - right.position).map((scope) => scope.chainId);
+    const allTargetChainIDs = [.../* @__PURE__ */ new Set([...targetChains.map((target) => target.chainId), ...scopeChainIDs])];
+    if (allTargetChainIDs.length) {
+      lines.push("", "## Target chains");
+      for (const chainID of allTargetChainIDs) lines.push(`- [chain:${chainID}]`);
+    }
+    if (dependencies.length) {
+      lines.push("", "## Prerequisites", ...dependencies.map((item) => `- [plan:${item.planId}]`));
+    }
+    if (steps.length) {
+      lines.push("", "## Ordered steps");
+      for (const step of steps) lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` \u2014 ${step.action}` : ""}`);
+    }
+    if (entity.proposedDelta.length) lines.push("", "## Proposed graph delta", JSON.stringify(entity.proposedDelta));
+    if (entity.blockers.length) lines.push("", "## Blockers", ...entity.blockers.map((item) => `- ${item}`));
+  }
+  if (sourceRefs.length) {
+    lines.push("", "## Files & Code");
+    for (const source of sourceRefs) {
+      const locator = source.symbol ? `${source.path} :: ${source.symbol}` : source.path;
+      const range = source.startLine && source.endLine ? ` L${source.startLine}-L${source.endLine}` : "";
+      lines.push(`- ${source.role}: ${locator}${range}`);
+    }
+  }
+  if (checkpoints.length) {
+    lines.push("", "## Checkpoints");
+    for (const checkpoint of checkpoints) {
+      const required2 = checkpointRefs.find((item) => item.checkpointId === checkpoint.id)?.required;
+      lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel}${required2 === false ? " \xB7 optional" : ""}: ${checkpoint.title}`);
+    }
+  }
+  if (history.length) {
+    lines.push("", "## Relevant history");
+    for (const item of history) lines.push(`- r${item.revision} ${item.action}: ${item.summary}`);
+  }
+  if (type === "plan") {
+    const detailed = service.planContext({ id, locale, maxChars: 24e3 });
+    return {
+      entity: detailed.plan,
+      sourceRefs,
+      pathNodes,
+      pathEdges,
+      targetChains,
+      dependencies,
+      steps,
+      checkpointRefs,
+      checkpoints: detailed.checkpoints,
+      history,
+      hierarchy: detailed.hierarchy,
+      markdown: detailed.markdown
+    };
+  }
+  return { entity, sourceRefs, pathNodes, pathEdges, targetChains, dependencies, steps, checkpointRefs, checkpoints, history, coverage, ruleScopes, decisionScopes, markdown: lines.join("\n") };
+}
+function getChangesSince(service, { sequence = 0, sourceSyncRevision = null, limit = 100 } = {}) {
+  if (!Number.isInteger(sequence) || sequence < 0) throw new Error("sequence must be a non-negative integer");
+  const boundedLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+  const sourceSync = service.sourceBindingReport({
+    sinceRevision: Number.isInteger(sourceSyncRevision) ? sourceSyncRevision : null
+  });
+  const latestSequence = service.database.prepare(
+    "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?"
+  ).get(service.paths.descriptor.id).sequence;
+  const earliestSequence = service.database.prepare(
+    "SELECT COALESCE(MIN(sequence), 0) AS sequence FROM change_feed WHERE project_id = ?"
+  ).get(service.paths.descriptor.id).sequence;
+  const rows = service.database.prepare(
+    `SELECT cf.sequence, cf.change_set_id, cf.entity_type, cf.entity_id, cf.action, cf.created_at,
+            h.revision, h.summary, h.plan_id, h.chain_scope_id, h.before_json, h.after_json,
+            h.changed_fields_json, h.affected_refs_json, h.evidence_refs_json
+     FROM change_feed cf
+     LEFT JOIN history h ON h.change_set_id = cf.change_set_id AND h.entity_type = cf.entity_type
+       AND h.entity_id = cf.entity_id AND h.action = cf.action
+     WHERE cf.project_id = ? AND cf.sequence > ? ORDER BY cf.sequence LIMIT ?`
+  ).all(service.paths.descriptor.id, sequence, boundedLimit + 1).map((row) => ({
+    sequence: row.sequence,
+    changeSetId: row.change_set_id,
+    ref: `${row.entity_type}:${row.entity_id}`,
+    action: row.action,
+    revision: row.revision,
+    summary: row.summary,
+    planId: row.plan_id,
+    chainScopeId: row.chain_scope_id,
+    before: parseJson(row.before_json, {}),
+    after: parseJson(row.after_json, {}),
+    changedFields: parseJson(row.changed_fields_json, []),
+    affectedRefs: parseJson(row.affected_refs_json, []),
+    evidenceRefs: parseJson(row.evidence_refs_json, []),
+    createdAt: row.created_at
+  }));
+  const hasMore = rows.length > boundedLimit;
+  if (hasMore) rows.pop();
+  const markdown = [
+    `# Changes since sequence ${sequence}`,
+    `Range: ${sequence} \u2192 ${rows.at(-1)?.sequence ?? sequence} \xB7 latest ${latestSequence} \xB7 earliest ${earliestSequence || "\u2014"}`,
+    `Returned: ${rows.length}${hasMore ? ` \xB7 more available after ${rows.at(-1)?.sequence ?? sequence}` : ""}`,
+    `Source sync: r${sourceSync.sourceSyncRevision} \xB7 ${sourceSync.changes.length} change(s) since ${Number.isInteger(sourceSyncRevision) ? `r${sourceSyncRevision}` : "last boundary"}`,
+    "",
+    ...rows.map((change) => {
+      const fields = change.changedFields?.length ? ` \xB7 fields ${change.changedFields.join(", ")}` : "";
+      const refs = change.affectedRefs?.length ? ` \xB7 refs ${change.affectedRefs.join(", ")}` : "";
+      return `- #${change.sequence} ${change.action} ${change.ref} \xB7 r${change.revision ?? "?"}${fields}${refs}${change.summary ? ` \u2014 ${change.summary}` : ""}`;
+    }),
+    ...rows.length ? ["", "Use includeStructured=true when exact before/after JSON is required."] : [],
+    ...sourceSync.changes.length ? ["", "## Source changes", ...sourceSync.changes.slice(0, 12).map((change) => `- block:${change.blockId} ${change.symbol ?? change.path} \xB7 ${change.kinds.join(", ")}`)] : []
+  ].join("\n");
+  return {
+    fromSequence: sequence,
+    nextSequence: rows.at(-1)?.sequence ?? sequence,
+    latestSequence,
+    earliestSequence,
+    sourceSyncRevision: sourceSync.sourceSyncRevision,
+    sourceChanges: sourceSync.changes,
+    affectedBlockIds: sourceSync.affectedBlockIds,
+    affectedChainIds: sourceSync.affectedChainIds,
+    hasMore,
+    changes: rows,
+    markdown
+  };
+}
+function validateGraph(service) {
+  const snapshot2 = service.snapshot();
+  const coverage = architectureCoverage(snapshot2);
+  const errors = [];
+  const warnings = [];
+  const refs = /* @__PURE__ */ new Set([
+    ...snapshot2.blocks.map((block) => `block:${block.id}`),
+    ...snapshot2.chains.map((chain) => `chain:${chain.id}`)
+  ]);
+  for (const link of snapshot2.links) {
+    if (!refs.has(`${link.sourceType}:${link.sourceId}`)) errors.push(`Dangling link source: link:${link.id}`);
+    if (!refs.has(`${link.targetType}:${link.targetId}`)) errors.push(`Dangling link target: link:${link.id}`);
+    if (["calls", "reads", "writes"].includes(link.kind) && !link.contract.trim()) {
+      warnings.push(`Missing contract: link:${link.id}`);
+    }
+  }
+  for (const chain of snapshot2.chains) {
+    const nodes = snapshot2.chainNodes.filter((item) => item.chainId === chain.id);
+    const edges = snapshot2.chainEdges.filter((item) => item.chainId === chain.id);
+    const count = nodes.length;
+    if (count === 0) warnings.push(`Empty chain: chain:${chain.id}`);
+    const nodeIds = new Set(nodes.map((item) => item.blockId));
+    for (const edge of edges) {
+      const link = snapshot2.links.find((item) => item.id === edge.linkId);
+      if (!link) errors.push(`Missing Chain edge: chain:${chain.id} -> link:${edge.linkId}`);
+      else if (!nodeIds.has(link.sourceId) || !nodeIds.has(link.targetId)) {
+        errors.push(`Chain edge leaves referenced nodes: chain:${chain.id} -> link:${edge.linkId}`);
+      }
+    }
+  }
+  for (const target of snapshot2.planChainRefs) {
+    if (!snapshot2.plans.some((plan) => plan.id === target.planId)) errors.push(`Missing Plan: plan:${target.planId}`);
+    if (!snapshot2.chains.some((chain) => chain.id === target.chainId)) errors.push(`Missing Plan target: plan:${target.planId} -> chain:${target.chainId}`);
+  }
+  for (const dependency of snapshot2.planDependencies) {
+    if (!snapshot2.plans.some((plan) => plan.id === dependency.planId)) errors.push(`Missing dependent Plan: plan:${dependency.planId}`);
+    if (!snapshot2.plans.some((plan) => plan.id === dependency.dependsOnPlanId)) errors.push(`Missing prerequisite Plan: plan:${dependency.dependsOnPlanId}`);
+  }
+  for (const step of snapshot2.planSteps) {
+    if (!snapshot2.plans.some((plan) => plan.id === step.planId)) errors.push(`Missing Plan for step: ${step.id}`);
+    for (const ref of step.targetRefs) {
+      const [type, id] = String(ref).split(":", 2);
+      if (!id || !entityExists(service.database, service.paths.descriptor.id, type, id)) errors.push(`Missing Plan step target: ${step.id} -> ${ref}`);
+    }
+  }
+  for (const ref of snapshot2.planCheckpointRefs) {
+    if (!snapshot2.plans.some((plan) => plan.id === ref.planId)) errors.push(`Missing Plan checkpoint owner: plan:${ref.planId}`);
+    if (!snapshot2.checkpoints.some((checkpoint) => checkpoint.id === ref.checkpointId)) errors.push(`Missing Plan checkpoint: plan:${ref.planId} -> checkpoint:${ref.checkpointId}`);
+    if (ref.stepId && !snapshot2.planSteps.some((step) => step.id === ref.stepId && step.planId === ref.planId)) {
+      errors.push(`Checkpoint references a foreign Plan step: checkpoint:${ref.checkpointId} -> ${ref.stepId}`);
+    }
+  }
+  for (const scope of snapshot2.backgroundScopes) {
+    if (!snapshot2.blocks.some((block) => block.id === scope.blockId)) errors.push(`Missing Background Block: block:${scope.blockId}`);
+  }
+  const decisionIDs = new Set(snapshot2.decisions.map((decision) => decision.id));
+  for (const decision of snapshot2.decisions) {
+    if (!DECISION_STATUSES.has(decision.status)) errors.push(`Invalid Decision status: decision:${decision.id}`);
+    if (decision.supersedesDecisionId && !decisionIDs.has(decision.supersedesDecisionId)) {
+      errors.push(`Missing superseded Decision: decision:${decision.id} -> decision:${decision.supersedesDecisionId}`);
+    }
+  }
+  for (const scope of snapshot2.decisionScopes) {
+    if (!decisionIDs.has(scope.decisionId)) errors.push(`Missing Decision for scope: decision:${scope.decisionId}`);
+    if (scope.scopeType === "chain" && scope.scopeValue !== "*" && !snapshot2.chains.some((chain) => chain.id === scope.scopeValue)) {
+      errors.push(`Missing Chain for Decision scope: decision:${scope.decisionId} -> chain:${scope.scopeValue}`);
+    }
+  }
+  for (const block of snapshot2.blocks) {
+    if (!LEGACY_BLOCK_KINDS.has(block.kind)) {
+      errors.push(`Invalid Block kind: block:${block.id}`);
+    } else if (block.kind === "decision") {
+      warnings.push(`Legacy decision Block is not a Decision record and is excluded from the Canvas; migrate block:${block.id} to decision:<id>`);
+      continue;
+    } else if (block.kind === "test" || block.kind === "checkpoint") {
+      warnings.push(`Block block:${block.id} uses kind '${block.kind}'. Testing and verification criteria belong in Checkpoints and Plan gates.`);
+      continue;
+    }
+  }
+  const unspecifiedBlocks = snapshot2.blocks.filter((block) => block.architectureLayer === "unspecified");
+  if (unspecifiedBlocks.length > 0) {
+    warnings.push(`${unspecifiedBlocks.length} block(s) have no architecture layer`);
+  }
+  if (coverage.requiredCheckpointMissingIds.length) {
+    warnings.push(`${coverage.requiredCheckpointMissingIds.length} Block(s) require a checkpoint but have none: ${coverage.requiredCheckpointMissingIds.slice(0, 20).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 20 ? " \u2026" : ""}`);
+  }
+  if (coverage.chainGateMissingChainIds.length) {
+    warnings.push(`${coverage.chainGateMissingChainIds.length} declared Chain integration gate(s) are not passed: ${coverage.chainGateMissingChainIds.slice(0, 20).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 20 ? " \u2026" : ""}`);
+  }
+  const staleCheckpoints = snapshot2.checkpoints.filter(
+    (checkpoint) => checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "stale"
+  );
+  if (staleCheckpoints.length) {
+    errors.push(`${staleCheckpoints.length} checkpoint(s) require retest because bound source identity is stale`);
+  }
+  const unknownCheckpoints = snapshot2.checkpoints.filter(
+    (checkpoint) => checkpoint.recordedStatus === "passed" && checkpoint.freshness?.status === "unknown"
+  );
+  if (unknownCheckpoints.length) {
+    warnings.push(`${unknownCheckpoints.length} historical checkpoint(s) lack source identity and cannot satisfy a gate until re-recorded`);
+  }
+  for (const chain of snapshot2.chains) {
+    if (chain.deliveryState === "complete") {
+      const passed = snapshot2.checkpoints.some(
+        (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chain.id && checkpointSatisfiesGate(checkpoint)
+      );
+      if (!passed && snapshot2.checkpoints.some((c) => c.targetType === "chain" && c.targetId === chain.id)) warnings.push(`Complete Chain has no passed checkpoint: chain:${chain.id}`);
+    }
+  }
+  for (const plan of snapshot2.plans) {
+    if (plan.status === "complete") {
+      const required2 = snapshot2.planCheckpointRefs.filter((item) => item.planId === plan.id && item.required);
+      const fallback = snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === plan.id);
+      const gates = required2.length ? required2.map((item) => snapshot2.checkpoints.find((checkpoint) => checkpoint.id === item.checkpointId)).filter(Boolean) : fallback;
+      if (!gates.length || gates.some((checkpoint) => !checkpointSatisfiesGate(checkpoint))) {
+        warnings.push(`Complete plan has unsatisfied checkpoint gates: plan:${plan.id}`);
+      }
+      const steps = snapshot2.planSteps.filter((step) => step.planId === plan.id);
+      if (steps.length && steps.some((step) => !["complete", "skipped"].includes(step.status))) {
+        warnings.push(`Complete plan has unfinished steps: plan:${plan.id}`);
+      }
+    }
+    const hasChain = snapshot2.planChainRefs.some((item) => item.planId === plan.id);
+    const hasChange = snapshot2.planChanges.some((item) => item.planId === plan.id);
+    const hasStep = snapshot2.planSteps.some((item) => item.planId === plan.id);
+    if (!hasChain && !hasChange && !hasStep) warnings.push(`Plan has no declared work target: plan:${plan.id}`);
+  }
+  const drift = analyzeGraphDrift(service, snapshot2);
+  return { valid: errors.length === 0, errors, warnings, graphRevision: snapshot2.project.graphRevision, drift };
+}
+function analyzeGraphDrift(service, snapshot2 = service.snapshot()) {
+  const projectRoot = service.paths?.projectRoot ?? process.cwd();
+  const chainBlockIds = new Set(snapshot2.chainNodes.map((node2) => node2.blockId));
+  const linkBlockIds = new Set(
+    snapshot2.links.flatMap((link) => [
+      link.sourceType === "block" ? link.sourceId : null,
+      link.targetType === "block" ? link.targetId : null
+    ]).filter(Boolean)
+  );
+  const isolatedBlocks = snapshot2.blocks.filter((b) => b.kind !== "decision" && !chainBlockIds.has(b.id) && !linkBlockIds.has(b.id)).map((b) => ({
+    id: b.id,
+    title: b.title,
+    kind: b.kind,
+    deliveryState: b.deliveryState,
+    layer: b.architectureLayer
+  }));
+  const ghostDrifts = [];
+  for (const block of snapshot2.blocks) {
+    if (block.kind === "decision") continue;
+    if (block.deliveryState === "proposed" || block.deliveryState === "planned") {
+      const bindings = snapshot2.sourceRefs.filter((ref) => ref.blockId === block.id);
+      for (const ref of bindings) {
+        if (!ref.path) continue;
+        const fullPath = path11.isAbsolute(ref.path) ? ref.path : path11.join(projectRoot, ref.path);
+        try {
+          if (ref.symbol && service.sourceBindingState?.get(ref.id) && !["missing", "ambiguous", "stale", "unreadable", "outside_project"].includes(service.sourceBindingState.get(ref.id).bindingStatus)) {
+            ghostDrifts.push({
+              blockId: block.id,
+              title: block.title,
+              deliveryState: block.deliveryState,
+              path: ref.path,
+              symbol: ref.symbol
+            });
+            break;
+          }
+        } catch {
+        }
+      }
+    }
+  }
+  const retestRequired = snapshot2.checkpoints.filter((cp) => cp.status === "retest_required" || cp.recordedStatus === "passed" && cp.freshness?.status === "stale").map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId }));
+  const pendingCheckpoints = snapshot2.checkpoints.filter((cp) => cp.status === "pending" || cp.status === "failed" || cp.status === "blocked").map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId, status: cp.status }));
+  const semanticReviews = collectSemanticReviews(service, snapshot2);
+  return {
+    isolatedBlocks,
+    ghostDrifts,
+    retestRequired,
+    pendingCheckpoints,
+    semanticReviews,
+    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0 || semanticReviews.length > 0
+  };
+}
+var SEMANTIC_FIELDS = /* @__PURE__ */ new Set(["title", "summary", "contract", "intent", "inputContract", "outputContract"]);
+function collectSemanticReviews(service, snapshot2) {
+  let rows = [];
+  try {
+    rows = service.database.prepare(`
+      SELECT h.entity_type, h.entity_id, h.action, h.revision, h.changed_fields_json, h.created_at, h.summary
+        FROM history h
+       WHERE h.entity_type IN ('block', 'chain', 'link', 'decision')
+         AND h.action IN ('updated', 'created')
+       ORDER BY h.id DESC
+       LIMIT 200
+    `).all();
+  } catch {
+    return [];
+  }
+  const latest = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const key = `${row.entity_type}:${row.entity_id}`;
+    if (latest.has(key)) continue;
+    const changedFields = parseJson(row.changed_fields_json, []);
+    const semanticFields = changedFields.filter((field) => SEMANTIC_FIELDS.has(field));
+    if (!semanticFields.length) continue;
+    latest.set(key, { ...row, semanticFields });
+  }
+  const reviews = [];
+  for (const item of latest.values()) {
+    if (item.action === "created") continue;
+    const related = relatedArchitecture(snapshot2, item.entity_type, item.entity_id);
+    if (!related.links.length && !related.decisions.length && !related.planChanges.length) continue;
+    reviews.push({
+      status: "review_required",
+      entityType: item.entity_type,
+      entityId: item.entity_id,
+      revision: item.revision,
+      fields: item.semanticFields,
+      relatedLinks: related.links,
+      relatedDecisions: related.decisions,
+      relatedPlanChanges: related.planChanges,
+      summary: item.summary
+    });
+  }
+  return reviews.slice(0, 20);
+}
+function relatedArchitecture(snapshot2, entityType, entityId) {
+  const links = snapshot2.links.filter(
+    (link) => link.sourceType === entityType && link.sourceId === entityId || link.targetType === entityType && link.targetId === entityId
+  ).map((link) => `link:${link.id}`);
+  const decisions = snapshot2.decisionScopes.filter((scope) => scope.scopeType === entityType && scope.scopeValue === entityId).map((scope) => `decision:${scope.decisionId}`);
+  const planChanges = snapshot2.planChanges.filter((change) => change.entityType === entityType && change.entityId === entityId && !["complete", "passed", "skipped"].includes(change.status)).map((change) => `plan_change:${change.id}`);
+  return {
+    links: [...new Set(links)].slice(0, 8),
+    decisions: [...new Set(decisions)].slice(0, 8),
+    planChanges: [...new Set(planChanges)].slice(0, 8)
+  };
+}
+function renderGraphStatus(service, { locale = "en" } = {}) {
+  const snapshot2 = service.snapshot();
+  const drift = analyzeGraphDrift(service, snapshot2);
+  const totalBlocks = snapshot2.blocks.filter((b) => b.kind !== "decision").length;
+  const solidBlocks = snapshot2.blocks.filter(
+    (b) => b.kind !== "decision" && b.deliveryState !== "proposed" && b.deliveryState !== "planned"
+  ).length;
+  const ghostBlocks = totalBlocks - solidBlocks;
+  const totalChains = snapshot2.chains.length;
+  const totalLinks = snapshot2.links.length;
+  const totalCheckpoints = snapshot2.checkpoints.length;
+  const passedCheckpoints = snapshot2.checkpoints.filter((c) => c.status === "passed").length;
+  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
+  const lines = [
+    `# contextos Architecture & Sync Status`,
+    `- Project: ${snapshot2.project.name || snapshot2.project.id} (rev ${snapshot2.project.graphRevision})`,
+    `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
+    `- Chains: ${totalChains} \xB7 Links: ${totalLinks}`,
+    `- Checkpoints: ${passedCheckpoints}/${totalCheckpoints} passed`,
+    `- Plugin: ${plugin.stale ? "stale cache" : "in sync"}`,
+    ""
+  ];
+  if (drift.hasDrift) {
+    lines.push("## \u26A0\uFE0F Architecture Drift & Actionable Alerts");
+    if (drift.ghostDrifts.length > 0) {
+      lines.push("### \u{1F47B} Ghost Blocks with Bound Symbols (Reconcile implementation and verification)");
+      for (const g of drift.ghostDrifts) {
+        lines.push(`- **block:${g.blockId}** (${g.title}) \xB7 State: \`${g.deliveryState}\` \xB7 Source: \`${g.path}\`${g.symbol ? ` (#${g.symbol})` : ""}`);
+        lines.push(`  *Action*: Call \`graph_mutate\` to reconcile implementation and verify before completion.`);
+      }
+    }
+    if (drift.isolatedBlocks.length > 0) {
+      lines.push("### \u26D3\uFE0F Isolated Blocks (No Chains and No Links)");
+      for (const b of drift.isolatedBlocks) {
+        lines.push(`- **block:${b.id}** (${b.title}) \xB7 Kind: \`${b.kind}\` \xB7 Layer: \`${b.layer}\``);
+        lines.push(`  *Action*: Review if intended as standalone, or connect to a Chain via \`graph_flow\` / \`architecture_connect\` if part of a workflow.`);
+      }
+    }
+    if (drift.retestRequired.length > 0) {
+      lines.push("### \u{1F504} Checkpoints Requiring Retest");
+      for (const r of drift.retestRequired) {
+        lines.push(`- **checkpoint:${r.id}** for ${r.targetType}:${r.targetId} (${r.title})`);
+        lines.push(`  *Action*: Re-run tests and record evidence with \`checkpoint_record\`.`);
+      }
+    }
+    if (drift.semanticReviews?.length) {
+      lines.push("### \u{1F9E0} Semantic reviews required");
+      for (const review of drift.semanticReviews.slice(0, 12)) {
+        const related = [...review.relatedLinks, ...review.relatedDecisions, ...review.relatedPlanChanges].slice(0, 6);
+        lines.push(`- **${review.entityType}:${review.entityId}** changed ${review.fields.join(", ")}`);
+        if (related.length) lines.push(`  *Review*: ${related.join(", ")}`);
+      }
+    }
+    lines.push("");
+  } else {
+    lines.push("## \u2705 Architecture Health: Clean & Synchronized");
+    lines.push("- Zero ghost drift (all implemented source files correspond to solid blocks).");
+    lines.push("- All checkpoints are fresh and aligned.");
+    lines.push("- All isolated blocks reviewed (standalone nodes permitted; connect any intended for active workflows).");
+    lines.push("");
+  }
+  if (plugin.stale) {
+    lines.push("## \u26A0\uFE0F Plugin cache is stale");
+    lines.push(`- Running: \`${plugin.runningHash}\``);
+    lines.push(`- Repo bundle: \`${plugin.repoHash}\``);
+    lines.push(`- Reload: \`${plugin.reload}\``);
+    lines.push("");
+  }
+  const activePlans = snapshot2.plans.filter((p) => p.status === "active" || p.status === "draft");
+  if (activePlans.length > 0) {
+    lines.push("## \u{1F4CB} Active Plans");
+    for (const p of activePlans) {
+      lines.push(`- [${p.status}] **plan:${p.id}** ${p.title}${p.nextAction ? ` \xB7 Next: ${p.nextAction}` : ""}`);
+    }
+    lines.push("");
+  }
+  return {
+    projectId: snapshot2.project.id,
+    graphRevision: snapshot2.project.graphRevision,
+    health: drift.hasDrift ? "drift_detected" : "healthy",
+    metrics: {
+      totalBlocks,
+      solidBlocks,
+      ghostBlocks,
+      totalChains,
+      totalLinks,
+      passedCheckpoints,
+      totalCheckpoints
+    },
+    drift,
+    markdown: lines.join("\n")
+  };
+}
+
+// packages/mcp/src/context-engine.mjs
+function buildContextForTask(service, { task, focusRefs = [], maxChars = 6e3, locale = "en", repositorySync = null } = {}) {
+  const snapshot2 = service.snapshot();
+  const coverage = architectureCoverage(snapshot2);
+  assertAllowed(locale, LOCALES, "locale");
+  const translations = localizationMap(snapshot2);
+  const terms = taskTerms(task);
+  const focusIds = (kind) => new Set(focusRefs.filter((ref) => ref.startsWith(`${kind}:`)).flatMap((ref) => {
+    const id = ref.slice(`${kind}:`.length);
+    return [id, `${kind}:${id}`];
+  }));
+  const focusBlockIds = focusIds("block");
+  const focusChainIds = focusIds("chain");
+  const focusPlanIds = focusIds("plan");
+  const backgroundRuleIds = new Set(snapshot2.backgroundScopes.map((scope) => scope.blockId));
+  const planSignals = /* @__PURE__ */ new Set(["plan", "todo", "roadmap", "progress", "status", "next", "blocker", "blocked", "release", "readiness", "\u8BA1\u5212", "\u8FDB\u5EA6", "\u963B\u585E", "\u53D1\u5E03"]);
+  const taskMentionsPlan = terms.some((term) => planSignals.has(term));
+  const corpus = snapshot2.blocks.map((b) => `${b.id} ${b.title} ${b.summary} ${b.body} ${b.contract} ${b.tags.join(" ")} ${localizedSearchText(snapshot2, "block", b.id)}`.toLowerCase());
+  const termWeights = new Map(terms.map((term) => [term, 1 + Math.log((corpus.length + 1) / (corpus.filter((text) => text.includes(term)).length + 1))]));
+  const scoreText = (text, weight = 1) => {
+    if (!text) return 0;
+    const lower = text.toLowerCase();
+    let matchCount = 0;
+    for (const term of terms) {
+      if (lower.includes(term)) {
+        matchCount += weight * (term.length >= 4 ? 2 : 1) * (termWeights.get(term) ?? 1);
+      }
+    }
+    return matchCount;
+  };
+  const scoredBlocks = snapshot2.blocks.filter((block) => !backgroundRuleIds.has(block.id) && block.kind !== "decision").map((block) => {
+    let semanticScore = 0;
+    semanticScore += scoreText(block.id, 4);
+    semanticScore += scoreText(block.title, 5);
+    semanticScore += scoreText(block.summary, 3);
+    semanticScore += scoreText(block.tags.join(" "), 4);
+    semanticScore += scoreText(block.contract, 3);
+    semanticScore += scoreText(block.scope, 2);
+    semanticScore += scoreText(block.architectureLayer, 2);
+    semanticScore += scoreText(block.body, 1);
+    semanticScore += scoreText(localizedSearchText(snapshot2, "block", block.id), 3);
+    return { block, score: semanticScore + (focusBlockIds.has(block.id) ? 100 : 0) };
+  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
+  const scoredChains = snapshot2.chains.map((chain) => {
+    let semanticScore = 0;
+    semanticScore += scoreText(chain.title, 5);
+    semanticScore += scoreText(chain.intent, 3);
+    semanticScore += scoreText(chain.inputContract, 3);
+    semanticScore += scoreText(chain.outputContract, 3);
+    semanticScore += scoreText(localizedSearchText(snapshot2, "chain", chain.id), 3);
+    return {
+      chain,
+      score: semanticScore + (focusChainIds.has(chain.id) ? 100 : 0)
+    };
+  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
+  const scoredPlans = snapshot2.plans.map((plan) => {
+    const focused = focusPlanIds.has(plan.id);
+    let semanticScore = 0;
+    semanticScore += scoreText(plan.title, 5);
+    semanticScore += scoreText(plan.summary, 3);
+    semanticScore += scoreText(plan.goal, 3);
+    semanticScore += scoreText(plan.status, 2);
+    semanticScore += scoreText(plan.nextAction, 2);
+    semanticScore += scoreText(JSON.stringify(plan.proposedDelta), 1);
+    semanticScore += scoreText(JSON.stringify(plan.blockers), 2);
+    semanticScore += scoreText(localizedSearchText(snapshot2, "plan", plan.id), 3);
+    return { plan, semanticScore, score: semanticScore + (focused ? 100 : 0), focused };
+  }).filter((entry) => entry.focused || entry.semanticScore >= 3 || taskMentionsPlan && entry.semanticScore >= 1).sort((a, b) => b.score - a.score);
+  const timeline = service.getTimeline();
+  const activeCursor = timeline.activeCursor;
+  const continuationSignals = /* @__PURE__ */ new Set(["\u7EE7\u7EED", "\u5F00\u53D1", "\u4E0B\u4E00\u6B65", "\u63A8\u8FDB", "\u6062\u590D", "\u63A5\u624B", "\u5F00\u59CB", "continue", "next", "resume", "status", "start"]);
+  const isContinuation = terms.some((term) => continuationSignals.has(term)) || terms.length === 0;
+  if (activeCursor.activePlanId) {
+    const activeEntry = scoredPlans.find((e) => e.plan.id === activeCursor.activePlanId);
+    if (activeEntry) {
+      activeEntry.score += isContinuation ? 200 : 50;
+    } else {
+      const p = snapshot2.plans.find((plan) => plan.id === activeCursor.activePlanId);
+      if (p) scoredPlans.unshift({ plan: p, semanticScore: 10, score: isContinuation ? 200 : 50, focused: false });
+    }
+    scoredPlans.sort((a, b) => b.score - a.score);
+  }
+  if (scoredPlans.length === 0) {
+    for (const plan of snapshot2.plans.filter((item) => ["active", "ready", "blocked"].includes(item.status)).slice(0, 3)) {
+      scoredPlans.push({ plan, score: 1 });
+    }
+  }
+  const selectedBlockIds = new Set(scoredBlocks.slice(0, 5).map((entry) => entry.block.id));
+  const selectedChainIds = new Set(scoredChains.slice(0, 1).map((entry) => entry.chain.id));
+  const selectedPlanIds = new Set(scoredPlans.slice(0, 1).map((entry) => entry.plan.id));
+  const detailedBlockIds = new Set(focusBlockIds);
+  if (selectedPlanIds.size === 0) {
+    for (const entry of scoredBlocks.slice(0, 3)) detailedBlockIds.add(entry.block.id);
+  }
+  const relatedChains = /* @__PURE__ */ new Map();
+  for (const node2 of snapshot2.chainNodes) {
+    if (selectedBlockIds.has(node2.blockId)) relatedChains.set(node2.chainId, (relatedChains.get(node2.chainId) ?? 0) + 1);
+  }
+  for (const [chainId] of [...relatedChains.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+    if (selectedChainIds.size >= 1) break;
+    selectedChainIds.add(chainId);
+  }
+  for (const planId of selectedPlanIds) {
+    for (const change of snapshot2.planChanges) {
+      if (change.planId === planId && change.entityType === "block") selectedBlockIds.add(change.entityId);
+    }
+    for (const step of snapshot2.planSteps) {
+      if (step.planId !== planId) continue;
+      for (const ref of step.targetRefs) {
+        if (String(ref).startsWith("block:")) selectedBlockIds.add(String(ref).slice("block:".length));
+      }
+    }
+    for (const scope of snapshot2.planChainScopes) {
+      if (scope.planId !== planId) continue;
+      for (const blockId of scope.nodeIds) selectedBlockIds.add(blockId);
+    }
+  }
+  for (const target of snapshot2.planChainRefs) {
+    if (selectedPlanIds.has(target.planId)) selectedChainIds.add(target.chainId);
+  }
+  for (const scope of snapshot2.planChainScopes) {
+    if (selectedPlanIds.has(scope.planId)) selectedChainIds.add(scope.chainId);
+  }
+  for (const chainId of selectedChainIds) {
+    const path16 = snapshot2.chainNodes.filter((item) => item.chainId === chainId).sort((a, b) => a.position - b.position).map((item) => item.blockId);
+    if (focusChainIds.has(chainId)) {
+      for (const blockId of path16.slice(0, 10)) selectedBlockIds.add(blockId);
+      continue;
+    }
+    const matchingPositions = path16.flatMap((blockId, index) => selectedBlockIds.has(blockId) ? [index] : []);
+    for (const position of matchingPositions) {
+      for (const index of [position - 1, position, position + 1]) {
+        if (path16[index]) selectedBlockIds.add(path16[index]);
+      }
+    }
+  }
+  const applicableRuleScopes = snapshot2.backgroundScopes.filter(
+    (scope) => scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue) || scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue)))
+  );
+  const applicableRuleIds = [...new Set(applicableRuleScopes.map((scope) => scope.blockId))];
+  const applicableDecisionScopes = snapshot2.decisionScopes.filter(
+    (scope) => scope.scopeType === "project" || scope.scopeType === "lens" && terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || scope.scopeType === "chain" && selectedChainIds.has(scope.scopeValue) || scope.scopeType === "repo" && (terms.some((term) => scope.scopeValue.toLowerCase().includes(term)) || focusRefs.some((ref) => ref.includes(scope.scopeValue)))
+  );
+  const applicableDecisionIds = [...new Set(applicableDecisionScopes.map((scope) => scope.decisionId))];
+  const applicableDecisions = snapshot2.decisions.filter((decision) => applicableDecisionIds.includes(decision.id)).sort((left, right) => left.title.localeCompare(right.title) || left.id.localeCompare(right.id));
+  const relevantBlocks = snapshot2.blocks.filter((block) => selectedBlockIds.has(block.id) && block.kind !== "decision");
+  const relevantChains = snapshot2.chains.filter((chain) => selectedChainIds.has(chain.id));
+  const relevantPlans = snapshot2.plans.filter((plan) => selectedPlanIds.has(plan.id));
+  const planCoverage = new Map(relevantPlans.map((plan) => [plan.id, architectureCoverage(snapshot2, plan.id)]));
+  const relevantLinks = snapshot2.links.filter(
+    (link) => (selectedBlockIds.has(link.sourceId) || selectedChainIds.has(link.sourceId)) && (selectedBlockIds.has(link.targetId) || selectedChainIds.has(link.targetId))
+  ).sort((left, right) => left.id.localeCompare(right.id));
+  const relevantScopeIDs = new Set(snapshot2.planChainScopes.filter((scope) => selectedPlanIds.has(scope.planId)).map((scope) => scope.id));
+  const relevantChangeIDs = new Set(snapshot2.planChanges.filter((change) => selectedPlanIds.has(change.planId)).map((change) => change.id));
+  const boundCheckpointIDs = new Set(snapshot2.checkpointBindings.filter((binding) => binding.subjectType === "plan" && selectedPlanIds.has(binding.subjectId) || binding.subjectType === "plan_chain_scope" && relevantScopeIDs.has(binding.subjectId) || binding.subjectType === "plan_change" && relevantChangeIDs.has(binding.subjectId)).map((binding) => binding.checkpointId));
+  const plannedCheckpointIDs = /* @__PURE__ */ new Set([
+    ...snapshot2.planCheckpointRefs.map((item) => item.checkpointId),
+    ...snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan").map((checkpoint) => checkpoint.id),
+    ...snapshot2.checkpointBindings.filter((binding) => ["plan", "plan_change", "plan_chain_scope"].includes(binding.subjectType)).map((binding) => binding.checkpointId)
+  ]);
+  const checkpointOrder = (left, right) => left.targetType.localeCompare(right.targetType) || left.targetId.localeCompare(right.targetId) || left.id.localeCompare(right.id);
+  const standaloneOpenCheckpoints = snapshot2.checkpoints.filter((checkpoint) => !plannedCheckpointIDs.has(checkpoint.id) && checkpoint.status !== "passed").sort(checkpointOrder).slice(0, 20);
+  const relevantCheckpoints = snapshot2.checkpoints.filter(
+    (checkpoint) => checkpoint.targetType === "block" && selectedBlockIds.has(checkpoint.targetId) || checkpoint.targetType === "chain" && selectedChainIds.has(checkpoint.targetId) || checkpoint.targetType === "plan" && selectedPlanIds.has(checkpoint.targetId) || boundCheckpointIDs.has(checkpoint.id)
+  ).sort(checkpointOrder);
+  const lines = ["# Task Context", `Task: ${task}`, `Graph revision: ${snapshot2.project.graphRevision}`, ""];
+  lines.push("## \u{1F4CD} Timeline & Current Focus");
+  lines.push(`- Phase: ${activeCursor.activePhase} \xB7 Priority: ${activeCursor.priority}`);
+  if (activeCursor.activePlanId) {
+    lines.push(`- Active Plan: [plan:${activeCursor.activePlanId}] ${activeCursor.activePlanTitle || ""} (${activeCursor.activeStepIndex}/${activeCursor.totalSteps} steps)`);
+  }
+  if (activeCursor.activeStepTitle) {
+    lines.push(`- Active Step: ${activeCursor.activeStepTitle}`);
+  }
+  lines.push(`- Now Doing: ${activeCursor.nowDoing}`);
+  lines.push(`- Next Up: ${activeCursor.nextUp}`);
+  if (activeCursor.lastFinished) {
+    lines.push(`- Last Finished: ${activeCursor.lastFinished}`);
+  }
+  if (activeCursor.touchedFiles.length > 0) {
+    lines.push(`- Working Files: ${activeCursor.touchedFiles.join(", ")}`);
+  }
+  lines.push("");
+  const drift = analyzeGraphDrift(service, snapshot2);
+  lines.push("## Architecture coverage");
+  lines.push(`- Verification: ${coverage.verificationCovered}/${coverage.totalBlocks} Blocks bound or passed \xB7 ${coverage.failingIds.length} failing`);
+  const plugin = pluginRuntimeStatus(service.paths.projectRoot);
+  if (plugin.stale) {
+    lines.push(`- Plugin cache is stale (${plugin.runningHash} != ${plugin.repoHash}). Reload with: ${plugin.reload}`);
+  }
+  if (drift.hasDrift) {
+    const parts = [];
+    if (drift.ghostDrifts.length) parts.push(`${drift.ghostDrifts.length} ghost drift(s)`);
+    if (drift.isolatedBlocks.length) parts.push(`${drift.isolatedBlocks.length} isolated block(s)`);
+    if (drift.retestRequired.length) parts.push(`${drift.retestRequired.length} retest(s)`);
+    if (drift.semanticReviews?.length) parts.push(`${drift.semanticReviews.length} semantic review(s)`);
+    lines.push(`- Drift alerts: ${parts.join(", ")} \xB7 Call graph_status for details.`);
+    const relevantDrifts = drift.ghostDrifts.filter((g) => relevantBlocks.some((b) => b.id === g.blockId));
+    if (relevantDrifts.length > 0) {
+      lines.push(`- Relevant block drift: ${relevantDrifts.map((g) => `block:${g.blockId} (marked '${g.deliveryState}' but code exists; update to 'complete')`).join(", ")}`);
+    }
+    const relevantIsolated = drift.isolatedBlocks.filter((b) => relevantBlocks.some((rb) => rb.id === b.id));
+    if (relevantIsolated.length > 0) {
+      lines.push(`- Relevant isolated block(s): ${relevantIsolated.map((b) => `block:${b.id}`).join(", ")} \xB7 Evaluate: keep standalone if intentional, or connect to workflow if meant to be integrated.`);
+    }
+  }
+  if (taskMentionsPlan && coverage.unplannedIds.length) {
+    lines.push(`- Plan scope: ${coverage.planned}/${coverage.totalBlocks} Blocks are in the current Plan; other Blocks remain independent architecture.`);
+  }
+  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required checkpoints missing: ${coverage.requiredCheckpointMissingIds.slice(0, 10).map((id) => `block:${id}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 10 ? " \u2026" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 10).map((id) => `chain:${id}`).join(", ")}${coverage.chainGateMissingChainIds.length > 10 ? " \u2026" : ""}`);
+  if (snapshot2.sourceSync) {
+    lines.push(`- Source sync: r${snapshot2.sourceSync.revision} \xB7 ${snapshot2.sourceSync.bindingCount} bindings \xB7 ${snapshot2.sourceSync.invalidBindingCount} needing relocation`);
+    if (snapshot2.sourceSync.changes?.length) {
+      lines.push(`- Code changes since the previous contextos boundary: ${snapshot2.sourceSync.changes.slice(0, 8).map((change) => `block:${change.blockId} (${change.kinds.join(", ")})`).join(", ")}${snapshot2.sourceSync.changes.length > 8 ? " \u2026" : ""}`);
+    }
+  }
+  lines.push("");
+  if (applicableRuleIds.length) {
+    lines.push("## Applicable rule index");
+    for (const blockId of applicableRuleIds) {
+      const block = snapshot2.blocks.find((item) => item.id === blockId);
+      if (!block) continue;
+      const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
+      const scopes = applicableRuleScopes.filter((scope) => scope.blockId === block.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+      lines.push(`- [block:${block.id}] ${title} \xB7 scopes ${scopes.join(", ")} \xB7 use entity_open only if the rule is needed`);
+    }
+    lines.push("");
+  }
+  if (applicableDecisions.length) {
+    lines.push("## Applicable decision index");
+    for (const decision of applicableDecisions.slice(0, 12)) {
+      const scopes = applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => `${scope.scopeType}:${scope.scopeValue}`);
+      lines.push(`- [decision:${decision.id}] ${decision.title} \xB7 ${decision.status} \xB7 scopes ${scopes.join(", ")} \xB7 use decision_open/entity_open only if rationale is needed`);
+    }
+    if (applicableDecisions.length > 12) lines.push(`- \u2026 ${applicableDecisions.length - 12} more; use decision_list for the complete index.`);
+    lines.push("");
+  }
+  if (relevantPlans.length) {
+    lines.push("## Active plans");
+    for (const plan of relevantPlans) {
+      const title = localizedValue(translations, "plan", plan.id, locale, "title", plan.title);
+      const summary = localizedValue(translations, "plan", plan.id, locale, "summary", plan.summary);
+      const nextAction = localizedValue(translations, "plan", plan.id, locale, "nextAction", plan.nextAction);
+      lines.push(`- [plan:${plan.id}] ${title} \u2014 ${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus}`);
+      const scopes = snapshot2.planChainScopes.filter((scope) => scope.planId === plan.id).sort((a, b) => a.position - b.position);
+      const changes = snapshot2.planChanges.filter((change) => change.planId === plan.id).sort((a, b) => a.position - b.position);
+      const changeTexts = changes.map(
+        (change) => `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase()
+      );
+      const changeTermFrequency = new Map(terms.map((term) => [term, changeTexts.filter((text) => text.includes(term)).length]));
+      const broadChangeTermLimit = Math.max(2, Math.ceil(changes.length / 2));
+      const explicitBlockIDs = focusBlockIds;
+      const explicitChainIDs = focusChainIds;
+      const taskChanges = changes.map((change) => {
+        const text = `${change.title} ${change.summary} ${change.currentBehavior} ${change.proposedBehavior} ${change.rationale}`.toLowerCase();
+        const semanticScore = terms.reduce((score, term) => score + (term.length > 2 && (changeTermFrequency.get(term) ?? 0) < broadChangeTermLimit && text.includes(term) ? 1 : 0), 0);
+        const focused = explicitBlockIDs.has(change.entityId) || change.entityType === "chain" && explicitChainIDs.has(change.entityId);
+        return { change, semanticScore, focused };
+      }).filter((entry) => entry.focused || entry.semanticScore > 0).sort((left, right) => Number(right.focused) - Number(left.focused) || right.semanticScore - left.semanticScore || left.change.position - right.change.position).slice(0, 3).map((entry) => entry.change);
+      lines.push(`  Progress: ${plan.progress.completedSteps}/${plan.progress.totalSteps} ${scopes.length || changes.length ? "changes" : "steps"} \xB7 ${plan.progress.passedRequiredCheckpoints}/${plan.progress.totalRequiredCheckpoints} required gates`);
+      lines.push(`  Typed: Block ${plan.typedProgress.directBlockChanges.completed}/${plan.typedProgress.directBlockChanges.total} \xB7 Chain ${plan.typedProgress.chainChanges.completed}/${plan.typedProgress.chainChanges.total} \xB7 Link ${plan.typedProgress.linkChanges.completed}/${plan.typedProgress.linkChanges.total} \xB7 Chain gates ${plan.typedProgress.chainIntegrationGates.passed}/${plan.typedProgress.chainIntegrationGates.total} \xB7 Plan gates ${plan.typedProgress.planAcceptanceGates.passed}/${plan.typedProgress.planAcceptanceGates.total}`);
+      const selectedPlanCoverage = planCoverage.get(plan.id);
+      if (selectedPlanCoverage) {
+        const directBlocks = changes.filter((change) => change.planId === plan.id && change.entityType === "block").map((change) => `block:${change.entityId}`);
+        if (directBlocks.length) lines.push(`  Direct Blocks: ${directBlocks.slice(0, 20).join(", ")}${directBlocks.length > 20 ? ` \u2026 (${directBlocks.length} total)` : ""}`);
+      }
+      if (plan.derivedReason) lines.push(`  State: ${plan.derivedReason}`);
+      const dependencies = snapshot2.planDependencies.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
+      if (dependencies.length) lines.push(`  Prerequisites: ${dependencies.map((item) => `[plan:${item.dependsOnPlanId}]`).join(", ")}`);
+      const steps = snapshot2.planSteps.filter((item) => item.planId === plan.id).sort((a, b) => a.position - b.position);
+      const openSteps = steps.filter((step) => !["complete", "skipped"].includes(step.status)).slice(0, 3);
+      for (const step of openSteps) lines.push(`  ${step.position + 1}. ${step.status}: ${step.title}${step.targetRefs.length ? ` (${step.targetRefs.join(", ")})` : ""}`);
+      if (steps.length > openSteps.length) lines.push(`  Steps: showing ${openSteps.length} open of ${steps.length} total; use plan_context for full ordering.`);
+      const taskChangeIds = new Set(taskChanges.map((change) => change.id));
+      for (const scope of scopes) {
+        const changeIDs = snapshot2.planChainChangeRefs.filter((ref) => ref.chainScopeId === scope.id).sort((a, b) => a.position - b.position).map((ref) => ref.planChangeId);
+        const matchingIDs = changeIDs.filter((changeID) => taskChangeIds.has(changeID));
+        lines.push(`  ChainScope ${scope.position + 1}: ${scope.title} [chain:${scope.chainId}]${matchingIDs.length ? ` \xB7 relevant ${matchingIDs.map((changeID) => `[plan_change:${changeID}]`).join(", ")}` : ""}`);
+      }
+      if (taskChanges.length) {
+        lines.push("  Task-relevant canonical changes:");
+        for (const change of taskChanges) {
+          lines.push(`  - [plan_change:${change.id}] ${change.title} \xB7 target ${change.entityType}:${change.entityId}: ${change.currentBehavior || "\u2014"} -> ${change.proposedBehavior || change.summary || "\u2014"}`);
+          if (change.prohibitions.length) lines.push(`    Must not: ${change.prohibitions.join("; ")}`);
+          if (change.sourceRefs.length) lines.push(`    Sources: ${change.sourceRefs.join(", ")}`);
+        }
+      }
+      if (changes.length > taskChanges.length) lines.push(`  ${changes.length - taskChanges.length} additional canonical change(s): use plan_context to expand the Plan.`);
+      if (summary) lines.push(`  ${summary}`);
+      if (nextAction) lines.push(`  Next: ${nextAction}`);
+    }
+    lines.push("");
+  }
+  const hasExplicitChainFocus = focusChainIds.size > 0;
+  const hasSemanticChainMatch = scoredChains.some((entry) => selectedChainIds.has(entry.chain.id));
+  if (relevantChains.length && (selectedPlanIds.size === 0 || hasExplicitChainFocus || hasSemanticChainMatch)) {
+    lines.push("## Target chains");
+    for (const chain of relevantChains) {
+      const title = localizedValue(translations, "chain", chain.id, locale, "title", chain.title);
+      const path16 = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((left, right) => left.position - right.position).map((node2) => `block:${node2.blockId}`).join(" \u2192 ");
+      lines.push(`- [chain:${chain.id}] ${title} \u2014 ${chain.deliveryState}/${chain.healthState}${path16 ? ` \xB7 path ${path16}` : ""}`);
+      const intent = localizedValue(translations, "chain", chain.id, locale, "intent", chain.intent);
+      if (intent && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  ${intent}`);
+    }
+    lines.push("");
+  }
+  const chainOrder = /* @__PURE__ */ new Map();
+  for (const chainId of selectedChainIds) {
+    snapshot2.chainNodes.filter((node2) => node2.chainId === chainId).sort((left, right) => left.position - right.position).forEach((node2, index) => {
+      const current = chainOrder.get(node2.blockId);
+      if (current === void 0 || index < current) chainOrder.set(node2.blockId, index);
+    });
+  }
+  const orderedRelevantBlocks = [...relevantBlocks].sort(
+    (left, right) => (chainOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (chainOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.localOrder - right.localOrder || left.id.localeCompare(right.id)
+  );
+  const contentBlocks = selectedPlanIds.size && focusBlockIds.size ? orderedRelevantBlocks.filter((block) => focusBlockIds.has(block.id)) : orderedRelevantBlocks;
+  if (contentBlocks.length) {
+    lines.push("## Architecture order / relevant Blocks");
+    contentBlocks.forEach((block, index) => {
+      const title = localizedValue(translations, "block", block.id, locale, "title", block.title);
+      const summary = localizedValue(translations, "block", block.id, locale, "summary", block.summary);
+      const body = localizedValue(translations, "block", block.id, locale, "body", block.body);
+      const contract = localizedValue(translations, "block", block.id, locale, "contract", block.contract);
+      const isGhost = block.deliveryState === "proposed" || block.deliveryState === "planned";
+      const stateTag = isGhost ? "Ghost (Virtual Blueprint)" : "Solid (Anchored)";
+      lines.push(`${index + 1}. [block:${block.id}] ${title} \u2014 ${stateTag} \xB7 ${block.architectureLayer}/${block.scope} \xB7 ${block.deliveryState}/${block.healthState}`);
+      const sources = snapshot2.sourceRefs?.filter((s) => s.blockId === block.id) ?? [];
+      if (sources.length > 0) {
+        const primary = sources.find((item) => item.role === "implementation" && item.symbol) || sources.find((item) => item.symbol) || sources[0];
+        lines.push(`  Locator: ${primary.path}${primary.symbol ? ` :: ${primary.symbol}` : ""}${primary.startLine ? ` L${primary.startLine}-L${primary.endLine}` : ""}`);
+      }
+      const incoming = snapshot2.links.filter((l) => l.targetType === "block" && l.targetId === block.id);
+      const outgoing = snapshot2.links.filter((l) => l.sourceType === "block" && l.sourceId === block.id);
+      if (incoming.length > 0 || outgoing.length > 0) {
+        const flowParts = [];
+        if (incoming.length > 0) {
+          flowParts.push(`Upstream: ${incoming.map((l) => `[${l.sourceId}] -[${l.kind}]->`).join(", ")}`);
+        }
+        if (outgoing.length > 0) {
+          flowParts.push(`Downstream: ${outgoing.map((l) => `-[${l.kind}]-> [${l.targetId}]`).join(", ")}`);
+        }
+        lines.push(`  Flow: ${flowParts.join(" | ")}`);
+      }
+      if (summary && (selectedPlanIds.size === 0 || focusBlockIds.size > 0 || contentBlocks.length <= 3)) lines.push(`  ${summary}`);
+      if (body && detailedBlockIds.has(block.id)) lines.push(`  Details: ${body}`);
+      if (contract && detailedBlockIds.has(block.id)) lines.push(`  Contract: ${contract}`);
+    });
+    lines.push("");
+  }
+  if (relevantLinks.length) {
+    lines.push("## Relationships and interfaces");
+    for (const link of relevantLinks) {
+      const label = localizedValue(translations, "link", link.id, locale, "label", link.label);
+      const contract = localizedValue(translations, "link", link.id, locale, "contract", link.contract);
+      lines.push(
+        `- ${link.sourceType}:${link.sourceId} -[${link.kind}${label ? `:${label}` : ""}]-> ${link.targetType}:${link.targetId}`
+      );
+      if (contract && (selectedPlanIds.size === 0 || hasExplicitChainFocus)) lines.push(`  Contract: ${contract}`);
+    }
+    lines.push("");
+  }
+  const failing = relevantCheckpoints.filter((checkpoint) => checkpoint.status !== "passed");
+  if (failing.length) {
+    lines.push("## Open checkpoints");
+    for (const checkpoint of failing.slice(0, 6)) {
+      lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.coverage}: ${checkpoint.title}`);
+    }
+    if (failing.length > 6) lines.push(`- \u2026 ${failing.length - 6} more; use checkpoint_list for the complete filtered inbox.`);
+    lines.push("");
+  }
+  if (standaloneOpenCheckpoints.length) {
+    lines.push("## Standalone verification");
+    for (const checkpoint of standaloneOpenCheckpoints) {
+      const owner = checkpoint.targetType === "block" ? snapshot2.blocks.find((block) => block.id === checkpoint.targetId)?.title ?? checkpoint.targetId : checkpoint.targetId;
+      lines.push(`- ${checkpoint.status} \xB7 ${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel} \xB7 ${checkpoint.targetType}:${checkpoint.targetId} (${owner}): ${checkpoint.title}`);
+    }
+    lines.push("");
+  }
+  lines.push("## Expand", "Use plan_context for a Plan; use entity_open for a Block, Chain, Link, or Decision when more detail is needed.");
+  const priority = [`# Task Context`, `Task: ${task}`, `Graph revision: ${snapshot2.project.graphRevision}`, "", "## Task essentials"];
+  if (repositorySync) priority.splice(3, 0, `Source index: ${repositorySync.files} files; ${repositorySync.unboundCount} without bindings (includes tests/tooling). Use source_index to inspect.`);
+  const resumableTasks = service.database.prepare("SELECT id,intent,scope_json FROM task_sessions WHERE status='active' ORDER BY updated_at DESC LIMIT 3").all();
+  if (resumableTasks.length) priority.splice(4, 0, "## Resume / synchronization", ...resumableTasks.map((t) => `- ${t.id}: ${t.intent.slice(0, 100)}; next: ${(JSON.parse(t.scope_json).nextAction ?? "task_reconcile").slice(0, 100)}`), "");
+  const visibleRefs = /* @__PURE__ */ new Set();
+  for (const { block } of scoredBlocks.slice(0, 5)) {
+    const ref = snapshot2.sourceRefs.find((r) => r.blockId === block.id && r.symbol);
+    const locator = ref ? `${ref.path} :: ${ref.symbol} L${ref.startLine ?? "?"}-${ref.endLine ?? "?"}` : "Binding not yet declared";
+    priority.push(`- [block:${block.id}] ${block.title} \u2014 ${block.summary.slice(0, 140)}
+  ${locator}`);
+    visibleRefs.add(`block:${block.id}`);
+  }
+  let requiredContextIncomplete = false;
+  priority.push("", "## Required rules");
+  for (const id of applicableRuleIds) {
+    const rule = snapshot2.blocks.find((b) => b.id === id);
+    if (!rule) continue;
+    const text = `- [block:${id}] ${rule.title}: ${rule.contract || rule.body || rule.summary}`;
+    if (priority.join("\n").length + text.length < maxChars * 0.8) {
+      priority.push(text);
+      visibleRefs.add(`block:${id}`);
+    } else {
+      priority.push(`- [block:${id}] REQUIRED: open this rule before implementation.`);
+      requiredContextIncomplete = true;
+    }
+  }
+  priority.push("", "## Relevant decisions");
+  for (const decision of applicableDecisions.slice(0, 3)) {
+    priority.push(`- [decision:${decision.id}] ${decision.title}: ${decision.summary.slice(0, 160)}`);
+  }
+  const docs = listDocuments(service).map((d) => ({ d, score: scoreText(`${d.title} ${d.summary}`, 3) })).filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
+  if (docs.length) priority.push("", "## Knowledge documents", ...docs.map(({ d }) => `- [document:${d.id}] ${d.title} \xB7 r${d.revision} \xB7 document_open for sections`));
+  const fullMarkdown = [...priority, "", ...lines.slice(3)].join("\n");
+  if (priority.join("\n").length > maxChars) requiredContextIncomplete = true;
+  const suffix = requiredContextIncomplete ? "\n\n[REQUIRED context incomplete: expand applicable rules before implementation]" : "\n\n[truncated; expand referenced entities or document sections]";
+  const markdown = fullMarkdown.length <= maxChars ? fullMarkdown : fullMarkdown.slice(0, Math.max(0, maxChars - suffix.length)) + suffix;
+  if (priority.join("\n").length > maxChars) requiredContextIncomplete = true;
+  return {
+    graphRevision: snapshot2.project.graphRevision,
+    requiredContextIncomplete,
+    resumableTasks: resumableTasks.map(({ id, intent }) => ({ id, intent })),
+    documentRefs: docs.map(({ d }) => `document:${d.id}`),
+    sourceSync: snapshot2.sourceSync ? {
+      revision: snapshot2.sourceSync.revision,
+      sourceRevision: snapshot2.sourceSync.sourceRevision,
+      bindingCount: snapshot2.sourceSync.bindingCount,
+      changed: snapshot2.sourceSync.changed,
+      changedBindingCount: snapshot2.sourceSync.changedBindingCount,
+      invalidBindingCount: snapshot2.sourceSync.invalidBindingCount,
+      affectedBlockIds: snapshot2.sourceSync.affectedBlockIds,
+      changes: snapshot2.sourceSync.changes
+    } : null,
+    refs: [...new Set([...markdown.matchAll(/\[(block|chain|plan|decision|document):([^\]]+)\]/g)].map((m) => `${m[1]}:${m[2]}`))],
+    applicableRules: applicableRuleIds.map((blockId) => ({
+      ref: `block:${blockId}`,
+      scopes: applicableRuleScopes.filter((scope) => scope.blockId === blockId).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
+    })),
+    applicableDecisions: applicableDecisions.map((decision) => ({
+      ref: `decision:${decision.id}`,
+      title: decision.title,
+      status: decision.status,
+      scopes: applicableDecisionScopes.filter((scope) => scope.decisionId === decision.id).map((scope) => ({ type: scope.scopeType, value: scope.scopeValue }))
+    })),
+    drift,
+    markdown
+  };
+}
+
+// packages/mcp/src/plan-engine.mjs
+function renderPlanContext(service, { id, locale = "en", maxChars = 12e3 } = {}) {
+  assertAllowed(locale, LOCALES, "locale");
+  const snapshot2 = service.snapshot();
+  const plan = snapshot2.plans.find((item) => item.id === id);
+  if (!plan) throw new Error(`plan:${id} not found`);
+  const translations = localizationMap(snapshot2);
+  const scopes = snapshot2.planChainScopes.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
+  const changes = snapshot2.planChanges.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
+  const orderedSteps = snapshot2.planSteps.filter((item) => item.planId === id).sort((a, b) => a.position - b.position);
+  const bindingsBySubject = /* @__PURE__ */ new Map();
+  const checkpointDependenciesByParent = /* @__PURE__ */ new Map();
+  for (const dependency of snapshot2.checkpointDependencies) {
+    const values = checkpointDependenciesByParent.get(dependency.parentCheckpointId) ?? [];
+    const checkpoint = snapshot2.checkpoints.find((item) => item.id === dependency.childCheckpointId);
+    if (checkpoint) values.push({ ...dependency, checkpoint });
+    checkpointDependenciesByParent.set(dependency.parentCheckpointId, values);
+  }
+  const decorateBinding = (binding) => {
+    const dependencies = (checkpointDependenciesByParent.get(binding.checkpoint.id) ?? []).sort((a, b) => a.position - b.position);
+    return {
+      ...binding,
+      dependencies,
+      blockers: dependencies.filter((item) => item.required && item.checkpoint.status !== "passed")
+    };
+  };
+  for (const binding of snapshot2.checkpointBindings) {
+    const key = `${binding.subjectType}:${binding.subjectId}`;
+    const values = bindingsBySubject.get(key) ?? [];
+    const checkpoint = snapshot2.checkpoints.find((item) => item.id === binding.checkpointId);
+    if (checkpoint) values.push({ ...binding, checkpoint });
+    bindingsBySubject.set(key, values);
+  }
+  const scopeChangeRefs = /* @__PURE__ */ new Map();
+  for (const ref of snapshot2.planChainChangeRefs) {
+    const values = scopeChangeRefs.get(ref.chainScopeId) ?? [];
+    const change = changes.find((item) => item.id === ref.planChangeId);
+    if (change) values.push({ ...ref, change });
+    scopeChangeRefs.set(ref.chainScopeId, values);
+  }
+  const hierarchy = scopes.map((scope) => ({
+    ...scope,
+    chain: snapshot2.chains.find((item) => item.id === scope.chainId) ?? null,
+    changes: (scopeChangeRefs.get(scope.id) ?? []).sort((a, b) => a.position - b.position).map((item) => ({
+      ...item.change,
+      role: item.role,
+      checkpoints: (bindingsBySubject.get(`plan_change:${item.change.id}`) ?? []).map(decorateBinding)
+    })),
+    checkpoints: (bindingsBySubject.get(`plan_chain_scope:${scope.id}`) ?? []).map(decorateBinding)
+  }));
+  const scopedChangeIds = new Set(snapshot2.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).map((ref) => ref.planChangeId));
+  const scopedChanges = changes.filter((change) => scopedChangeIds.has(change.id)).map((change) => ({
+    ...change,
+    checkpoints: (bindingsBySubject.get(`plan_change:${change.id}`) ?? []).map(decorateBinding)
+  }));
+  const projectedChangePayload = (change) => JSON.stringify({
+    id: change.id,
+    entityType: change.entityType,
+    entityId: change.entityId,
+    title: change.title,
+    summary: change.summary,
+    currentBehavior: change.currentBehavior,
+    proposedBehavior: change.proposedBehavior,
+    rationale: change.rationale,
+    prohibitions: change.prohibitions,
+    expectedEffects: change.expectedEffects,
+    sourceRefs: change.sourceRefs,
+    status: change.status
+  }).length;
+  const canonicalScopedPayloadChars = scopedChanges.reduce((total, change) => total + projectedChangePayload(change), 0);
+  const scopeExpandedPayloadChars = hierarchy.flatMap((scope) => scope.changes).reduce((total, change) => total + projectedChangePayload(change), 0);
+  const avoidedRepeatedPayloadChars = Math.max(0, scopeExpandedPayloadChars - canonicalScopedPayloadChars);
+  const unattachedChanges = changes.filter((change) => !snapshot2.planChainChangeRefs.some((ref) => ref.planChangeId === change.id));
+  const directChanges = unattachedChanges.map((change) => ({
+    ...change,
+    entity: change.entityType === "block" ? snapshot2.blocks.find((item) => item.id === change.entityId) ?? null : change.entityType === "link" ? snapshot2.links.find((item) => item.id === change.entityId) ?? null : snapshot2.chains.find((item) => item.id === change.entityId) ?? null,
+    checkpoints: (bindingsBySubject.get(`plan_change:${change.id}`) ?? []).map(decorateBinding),
+    targetCheckpoints: change.entityType === "block" ? snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === change.entityId) : []
+  }));
+  const coverage = architectureCoverage(snapshot2, id);
+  const planCheckpoints = [
+    ...bindingsBySubject.get(`plan:${id}`) ?? [],
+    ...snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "plan" && checkpoint.targetId === id).map((checkpoint) => ({ checkpoint, role: "plan", required: true, position: 0 })),
+    ...snapshot2.planCheckpointRefs.filter((ref) => ref.planId === id).map((ref) => {
+      const checkpoint = snapshot2.checkpoints.find((item) => item.id === ref.checkpointId);
+      return checkpoint ? { ...ref, checkpoint } : null;
+    }).filter(Boolean)
+  ].filter((item, index, values) => values.findIndex((candidate) => candidate.checkpoint.id === item.checkpoint.id) === index).map(decorateBinding);
+  const lines = [];
+  const appendBlockers = (binding, indent = "  ") => {
+    if (!binding.blockers.length) return;
+    lines.push(`${indent}Blocked by required checks:`);
+    for (const blocker of binding.blockers.slice(0, 12)) {
+      lines.push(`${indent}- ${blocker.checkpoint.status}: ${blocker.checkpoint.title} [checkpoint:${blocker.checkpoint.id}]`);
+    }
+    if (binding.blockers.length > 12) lines.push(`${indent}- \u2026 ${binding.blockers.length - 12} more`);
+  };
+  const appendChangeDetails = (change) => {
+    lines.push("", `### ${change.title} [plan_change:${change.id}]`, `Target: ${change.entityType}:${change.entityId}`, change.summary || "\u2014");
+    if (change.currentBehavior) lines.push(`Current: ${change.currentBehavior}`);
+    if (change.proposedBehavior) lines.push(`Proposed: ${change.proposedBehavior}`);
+    if (change.rationale) lines.push(`Reason: ${change.rationale}`);
+    if (change.prohibitions.length) lines.push(`Must not: ${change.prohibitions.join("; ")}`);
+    if (change.expectedEffects.length) lines.push(`Expected: ${change.expectedEffects.join("; ")}`);
+    if (change.sourceRefs.length) lines.push(`Sources: ${change.sourceRefs.join(", ")}`);
+    for (const binding of change.checkpoints) {
+      const checkpoint = binding.checkpoint;
+      lines.push(`- Checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+      appendBlockers(binding, "  ");
+    }
+  };
+  const title = localizedValue(translations, "plan", id, locale, "title", plan.title);
+  const summary = localizedValue(translations, "plan", id, locale, "summary", plan.summary);
+  const goal = localizedValue(translations, "plan", id, locale, "goal", plan.goal);
+  lines.push(
+    `# ${title}`,
+    `${plan.phase} #${plan.planOrder} \xB7 ${plan.priority} \xB7 ${plan.derivedStatus}`,
+    "",
+    summary || "No summary.",
+    "",
+    "## Goal",
+    goal || "\u2014"
+  );
+  const nextAction = localizedValue(translations, "plan", id, locale, "nextAction", plan.nextAction);
+  if (nextAction) lines.push("", "## Next action", nextAction);
+  if (plan.proposedDelta.length) lines.push("", "## Overall change", ...plan.proposedDelta.map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`));
+  if (plan.blockers.length) {
+    const hard = plan.blockers.filter(isHardPlanBlocker);
+    const notes = plan.blockers.filter((item) => !isHardPlanBlocker(item));
+    if (hard.length) lines.push("", "## Blockers", ...hard.map((item) => `- ${item}`));
+    if (notes.length) lines.push("", "## Scope notes", ...notes.map((item) => `- ${item}`));
+  }
+  lines.push("", "## Architecture coverage");
+  lines.push(`- ${coverage.verified}/${coverage.totalBlocks} Blocks verified`);
+  lines.push(`- ${coverage.planned}/${coverage.totalBlocks} Blocks covered by this Plan (${coverage.directPlanBlocks} direct \xB7 ${coverage.chainPlanBlocks} through Chains)`);
+  lines.push(`- Verification coverage ${coverage.verificationCovered}/${coverage.totalBlocks} \xB7 ${coverage.failingIds.length} failing`);
+  if (coverage.requiredCheckpointMissingIds.length) lines.push(`- Required verification missing: ${coverage.requiredCheckpointMissingIds.slice(0, 12).map((blockId) => `block:${blockId}`).join(", ")}${coverage.requiredCheckpointMissingIds.length > 12 ? " \u2026" : ""}`);
+  if (coverage.chainGateMissingChainIds?.length) lines.push(`- Declared Chain gates needing verification: ${coverage.chainGateMissingChainIds.slice(0, 12).map((chainId) => `chain:${chainId}`).join(", ")}${coverage.chainGateMissingChainIds.length > 12 ? " \u2026" : ""}`);
+  const typed = plan.typedProgress;
+  lines.push("", "## Typed progress");
+  lines.push(`- Direct Block Changes: ${typed.directBlockChanges.completed}/${typed.directBlockChanges.total}`);
+  lines.push(`- Chain Changes: ${typed.chainChanges.completed}/${typed.chainChanges.total}`);
+  lines.push(`- Link Changes: ${typed.linkChanges.completed}/${typed.linkChanges.total}`);
+  lines.push(`- Chain integration gates: ${typed.chainIntegrationGates.passed}/${typed.chainIntegrationGates.total}`);
+  lines.push(`- Plan acceptance gates: ${typed.planAcceptanceGates.passed}/${typed.planAcceptanceGates.total}`);
+  lines.push("", "## Execution order");
+  if (orderedSteps.length) {
+    lines.push("### Ordered steps");
+    for (const step of orderedSteps) {
+      lines.push(`${step.position + 1}. ${step.status}: ${step.title}${step.action ? ` \u2014 ${step.action}` : ""}`);
+    }
+  } else {
+    lines.push("- No ordered steps declared.");
+  }
+  if (hierarchy.length === 0 && directChanges.length === 0 && orderedSteps.length === 0) {
+    lines.push(
+      "",
+      "## Change structure",
+      locale === "zh-Hans" ? "\u6B64 Plan \u6CA1\u6709\u6709\u5E8F\u6B65\u9AA4\u3001ChainScope \u6216\u9010\u5B9E\u4F53\u4FEE\u6539\uFF0C\u4E0D\u80FD\u7528 0/0 \u8868\u793A\u5B8C\u6210\u3002" : "This Plan has no ordered steps, ChainScopes, or per-entity work; 0/0 is not completion."
+    );
+  }
+  const directBlockChanges = directChanges.filter((change) => change.entityType === "block");
+  lines.push("", "## Direct Block work");
+  if (directBlockChanges.length) {
+    for (const change of directBlockChanges) {
+      lines.push(`- ${change.status}: ${change.title} [block:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary || "\u2014"}`);
+      if (change.currentBehavior) lines.push(`  - Current: ${change.currentBehavior}`);
+      if (change.proposedBehavior) lines.push(`  - Change: ${change.proposedBehavior}`);
+      if (change.rationale) lines.push(`  - Why: ${change.rationale}`);
+      if (change.checkpoints.length) {
+        for (const binding of change.checkpoints) {
+          const checkpoint = binding.checkpoint;
+          lines.push(`  - Required checkpoint ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+          appendBlockers(binding, "    ");
+        }
+      } else if (change.targetCheckpoints.length) {
+        lines.push(`  - Independent verification: ${change.targetCheckpoints.map((checkpoint) => `[${checkpoint.status}] ${checkpoint.title}`).join("; ")}`);
+      } else {
+        lines.push("  - No checkpoint recorded yet.");
+      }
+    }
+  } else {
+    lines.push("- None declared.");
+  }
+  lines.push("", "## Chain integration");
+  if (hierarchy.length === 0) lines.push("- None declared.");
+  for (const scope of hierarchy) {
+    lines.push("", `### ${scope.position + 1}. ${scope.title} [chain:${scope.chainId}]`, scope.summary || "\u2014");
+    if (scope.rationale) lines.push(`Reason: ${scope.rationale}`);
+    if (scope.nodeIds.length || scope.linkIds.length) lines.push(`Path: ${scope.nodeIds.map((nodeId) => `block:${nodeId}`).join(" \u2192 ")}${scope.linkIds.length ? ` \xB7 Links ${scope.linkIds.map((linkId) => `link:${linkId}`).join(", ")}` : ""}`);
+    if (scope.prohibitions.length) lines.push("Prohibitions:", ...scope.prohibitions.map((item) => `- ${item}`));
+    if (scope.changes.length) lines.push(`Changes: ${scope.changes.map((change) => `[plan_change:${change.id}]`).join(", ")}`);
+    for (const binding of scope.checkpoints) {
+      const checkpoint = binding.checkpoint;
+      lines.push(`- Chain gate ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+      appendBlockers(binding, "  ");
+    }
+  }
+  if (scopedChanges.length) {
+    lines.push("", "## Canonical scoped changes");
+    for (const change of scopedChanges) appendChangeDetails(change);
+  }
+  const otherDirectChanges = directChanges.filter((change) => change.entityType !== "block");
+  if (otherDirectChanges.length) {
+    lines.push("", "## Cross-Chain changes");
+    for (const change of otherDirectChanges) lines.push(`- ${change.title} [${change.entityType}:${change.entityId}] \u2014 ${change.proposedBehavior || change.summary}`);
+  }
+  lines.push("", "## Plan acceptance");
+  if (planCheckpoints.length) {
+    for (const binding of planCheckpoints) {
+      const checkpoint = binding.checkpoint;
+      lines.push(`- ${checkpoint.status}: ${checkpoint.title} (${checkpoint.evidenceLevel}/${checkpoint.requiredEvidenceLevel})`);
+      appendBlockers(binding, "  ");
+    }
+  } else {
+    lines.push("- No acceptance checkpoint declared.");
+  }
+  let markdown = lines.join("\n");
+  if (markdown.length > maxChars) markdown = `${markdown.slice(0, Math.max(0, maxChars - 64))}
+
+[truncated; open a referenced entity for detail]`;
+  return {
+    plan,
+    steps: orderedSteps,
+    hierarchy,
+    scopedChanges,
+    unattachedChanges,
+    directChanges,
+    coverage,
+    checkpoints: planCheckpoints.map((item) => item.checkpoint),
+    checkpointGates: planCheckpoints,
+    dependencies: snapshot2.planDependencies.filter((item) => item.planId === id),
+    projection: {
+      canonicalChangeCount: changes.length,
+      scopeChangeReferenceCount: snapshot2.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).length,
+      repeatedScopeReferenceCount: Math.max(0, snapshot2.planChainChangeRefs.filter((ref) => scopes.some((scope) => scope.id === ref.chainScopeId)).length - scopedChanges.length),
+      canonicalScopedPayloadChars,
+      legacyScopeExpandedPayloadChars: scopeExpandedPayloadChars,
+      avoidedRepeatedPayloadChars,
+      estimatedTokensAvoided: Math.ceil(avoidedRepeatedPayloadChars / 4),
+      markdownChars: markdown.length,
+      estimatedTokens: Math.ceil(markdown.length / 4)
+    },
+    markdown
+  };
+}
+function createFoundationPlan(service, {
+  id = "foundation-plan",
+  title = "Foundation Plan",
+  goal = "Implement the complete declared architecture in dependency order.",
+  requiredEvidenceLevel = "integration",
+  actor = "agent",
+  reason = "Generate the initial implementation plan from the architecture graph",
+  gitHead: gitHead2 = null
+} = {}) {
+  if (!id?.trim() || !title?.trim()) throw new Error("Foundation Plan requires id and title");
+  assertAllowed(requiredEvidenceLevel, EVIDENCE_LEVELS, "required evidence level");
+  const snapshot2 = service.snapshot();
+  if (snapshot2.plans.some((plan) => plan.id === id)) throw new Error(`plan:${id} already exists`);
+  const blocks = snapshot2.blocks.filter(
+    (block) => !block.archived && block.kind !== "decision" && !["complete", "deprecated"].includes(block.deliveryState)
+  );
+  if (blocks.length === 0) throw new Error("No unimplemented Blocks are available for a Foundation Plan");
+  const groups = foundationBlockGroups(snapshot2, blocks);
+  const orderedBlocks = groups.flat();
+  const checkpointIds = new Set(snapshot2.checkpoints.map((checkpoint) => checkpoint.id));
+  const checkpointByBlock = /* @__PURE__ */ new Map();
+  const operations = [{
+    action: "create_plan",
+    id,
+    fields: {
+      title: title.trim(),
+      summary: "Automatically generated from every non-deprecated unimplemented Block, including standalone Blocks.",
+      goal,
+      status: "ready",
+      priority: "critical",
+      phase: "foundation",
+      planOrder: 1,
+      nextAction: groups[0]?.length ? `Implement parallel group 1: ${groups[0].map((block) => `block:${block.id}`).join(", ")}` : "Review generated coverage."
+    }
+  }];
+  for (const block of orderedBlocks) {
+    const existing = snapshot2.checkpoints.filter((checkpoint) => checkpoint.targetType === "block" && checkpoint.targetId === block.id && checkpoint.checkpointKind === "atomic").sort((left, right) => left.id.localeCompare(right.id))[0];
+    const checkpointId = existing?.id ?? `${id}-proof-${block.id}`;
+    checkpointByBlock.set(block.id, { id: checkpointId, revision: existing?.currentRevision ?? 1, existing: Boolean(existing) });
+    if (!existing) {
+      if (checkpointIds.has(checkpointId)) throw new Error(`checkpoint:${checkpointId} already exists`);
+      checkpointIds.add(checkpointId);
+      operations.push({
+        action: "create_checkpoint",
+        id: checkpointId,
+        fields: {
+          targetType: "block",
+          targetId: block.id,
+          title: `Verify ${block.title}`,
+          criteria: block.contract || `Verify block:${block.id} satisfies its declared responsibility.`,
+          status: "pending",
+          checkpointKind: "atomic",
+          coverage: "complete",
+          requiredEvidenceLevel
+        }
+      });
+    }
+  }
+  const changes = orderedBlocks.map((block, position) => ({
+    id: `${id}-change-${block.id}`,
+    entityType: "block",
+    entityId: block.id,
+    position,
+    title: `Implement ${block.title}`,
+    summary: block.summary,
+    currentBehavior: `Delivery state: ${block.deliveryState}.`,
+    proposedBehavior: block.contract || `Implement the responsibility declared by block:${block.id}.`,
+    rationale: "The Foundation Plan covers every unimplemented Block directly; Chain membership is not required.",
+    expectedEffects: [`block:${block.id} reaches its atomic checkpoint`],
+    status: ["implementing", "verifying"].includes(block.deliveryState) ? "active" : "pending"
+  }));
+  operations.push({ action: "set_plan_changes", id, expectedRevision: 1, fields: { changes } });
+  const selectedIds = new Set(orderedBlocks.map((block) => block.id));
+  const chains = snapshot2.chains.filter(
+    (chain) => snapshot2.chainNodes.some((node2) => node2.chainId === chain.id && selectedIds.has(node2.blockId))
+  ).sort((left, right) => left.id.localeCompare(right.id));
+  const scopes = chains.map((chain, position) => {
+    const nodeIds = snapshot2.chainNodes.filter((node2) => node2.chainId === chain.id).sort((a, b) => a.position - b.position).map((node2) => node2.blockId);
+    const linkIds = snapshot2.chainEdges.filter((edge) => edge.chainId === chain.id).sort((a, b) => a.position - b.position).map((edge) => edge.linkId);
+    return {
+      id: `${id}-scope-${chain.id}`,
+      chainId: chain.id,
+      position,
+      title: `Integrate ${chain.title}`,
+      summary: "Verify the reusable Chain after its required Block work is complete.",
+      rationale: "Chains integrate paths; they do not own their Blocks.",
+      nodeIds,
+      linkIds,
+      status: "pending"
+    };
+  });
+  operations.push({ action: "set_plan_chain_scopes", id, expectedRevision: 2, fields: { scopes } });
+  operations.push({
+    action: "set_plan_steps",
+    id,
+    expectedRevision: 3,
+    fields: { steps: groups.map((group, index) => ({
+      id: `${id}-step-${index + 1}`,
+      title: `Parallel implementation group ${index + 1}`,
+      action: `Implement ${group.map((block) => `block:${block.id}`).join(", ")}`,
+      status: "pending",
+      targetRefs: group.map((block) => `block:${block.id}`)
+    })).concat(chains.length ? [{
+      id: `${id}-step-integration`,
+      title: "Integrate Chain paths",
+      action: "Run every required Chain integration gate.",
+      status: "pending",
+      targetRefs: chains.map((chain) => `chain:${chain.id}`)
+    }] : [], [{
+      id: `${id}-step-acceptance`,
+      title: "Accept the Foundation Plan",
+      action: "Run the final Plan acceptance gate after all required children pass.",
+      status: "pending",
+      targetRefs: [`plan:${id}`]
+    }]) }
+  });
+  for (const block of orderedBlocks) {
+    const checkpoint = checkpointByBlock.get(block.id);
+    const existingBindings = checkpoint.existing ? snapshot2.checkpointBindings.filter((binding) => binding.checkpointId === checkpoint.id).map((binding) => ({
+      subjectType: binding.subjectType,
+      subjectId: binding.subjectId,
+      role: binding.role,
+      required: binding.required
+    })) : [];
+    operations.push({
+      action: "set_checkpoint_bindings",
+      id: checkpoint.id,
+      expectedRevision: checkpoint.revision,
+      fields: { bindings: existingBindings.concat({
+        subjectType: "plan_change",
+        subjectId: `${id}-change-${block.id}`,
+        role: "acceptance",
+        required: true
+      }) }
+    });
+  }
+  const chainGateIds = [];
+  for (const [index, chain] of chains.entries()) {
+    const gateId = `${id}-gate-${chain.id}`;
+    if (checkpointIds.has(gateId)) throw new Error(`checkpoint:${gateId} already exists`);
+    checkpointIds.add(gateId);
+    chainGateIds.push(gateId);
+    operations.push({
+      action: "create_checkpoint",
+      id: gateId,
+      fields: {
+        targetType: "chain",
+        targetId: chain.id,
+        title: `Integrate ${chain.title}`,
+        criteria: `Verify chain:${chain.id} works as one ordered path after its required Block and Link checks pass.`,
+        status: "pending",
+        checkpointKind: "integration",
+        eligibleAfterChildren: true,
+        coverage: "complete",
+        requiredEvidenceLevel
+      }
+    });
+    operations.push({
+      action: "set_checkpoint_bindings",
+      id: gateId,
+      expectedRevision: 1,
+      fields: { bindings: [{
+        subjectType: "plan_chain_scope",
+        subjectId: scopes[index].id,
+        role: "integration",
+        required: true
+      }] }
+    });
+    const childIds = /* @__PURE__ */ new Set();
+    for (const blockId of scopes[index].nodeIds) {
+      const selected = checkpointByBlock.get(blockId);
+      const existing = snapshot2.checkpoints.find(
+        (item) => item.targetType === "block" && item.targetId === blockId && item.checkpointKind === "atomic"
+      );
+      if (selected?.id || existing?.id) childIds.add(selected?.id ?? existing.id);
+    }
+    for (const linkId of scopes[index].linkIds) {
+      for (const checkpoint of snapshot2.checkpoints.filter((item) => item.targetType === "link" && item.targetId === linkId)) childIds.add(checkpoint.id);
+    }
+    operations.push({
+      action: "set_checkpoint_dependencies",
+      id: gateId,
+      expectedRevision: 2,
+      fields: { children: [...childIds].map((checkpointId) => ({ checkpointId, required: true })) }
+    });
+  }
+  const acceptanceId = `${id}-acceptance`;
+  if (checkpointIds.has(acceptanceId)) throw new Error(`checkpoint:${acceptanceId} already exists`);
+  operations.push({
+    action: "create_checkpoint",
+    id: acceptanceId,
+    fields: {
+      targetType: "plan",
+      targetId: id,
+      title: `${title.trim()} acceptance`,
+      criteria: "Accept the whole Foundation Plan only after every direct Block check and Chain integration gate passes.",
+      status: "pending",
+      checkpointKind: "integration",
+      eligibleAfterChildren: true,
+      coverage: "complete",
+      requiredEvidenceLevel
+    }
+  });
+  operations.push({
+    action: "set_checkpoint_bindings",
+    id: acceptanceId,
+    expectedRevision: 1,
+    fields: { bindings: [{ subjectType: "plan", subjectId: id, role: "acceptance", required: true }] }
+  });
+  operations.push({
+    action: "set_checkpoint_dependencies",
+    id: acceptanceId,
+    expectedRevision: 2,
+    fields: { children: [...orderedBlocks.map((block) => checkpointByBlock.get(block.id).id), ...chainGateIds].map((checkpointId) => ({ checkpointId, required: true })) }
+  });
+  const mutation = service.mutate(
+    { actor, reason, task: "foundation-plan-bootstrap", gitHead: gitHead2, operations },
+    { maxOperations: Number.MAX_SAFE_INTEGER, maxInputBytes: Number.MAX_SAFE_INTEGER }
+  );
+  const context = service.planContext({ id, maxChars: 24e3 });
+  return {
+    ...mutation,
+    plan: context.plan,
+    generated: {
+      blockIds: orderedBlocks.map((block) => block.id),
+      parallelGroups: groups.map((group) => group.map((block) => block.id)),
+      chainIds: chains.map((chain) => chain.id),
+      blockCheckpointIds: orderedBlocks.map((block) => checkpointByBlock.get(block.id).id),
+      chainGateIds,
+      planAcceptanceCheckpointId: acceptanceId
+    },
+    markdown: context.markdown
+  };
+}
+
 // packages/mcp/src/service.mjs
 function gitCommand(projectRoot, args) {
-  const result = spawnSync2("git", args, {
+  const result = spawnSync3("git", args, {
     cwd: projectRoot,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
@@ -30768,7 +31270,7 @@ function executionGitIdentity(projectRoot) {
   const diff = gitCommand(projectRoot, ["diff", "--binary", "HEAD"]);
   return {
     gitHead: head,
-    dirtyDiffHash: diff == null ? null : crypto7.createHash("sha256").update(diff).digest("hex")
+    dirtyDiffHash: diff == null ? null : crypto9.createHash("sha256").update(diff).digest("hex")
   };
 }
 function parseExecutionSummary(command, output, success) {
@@ -30793,7 +31295,10 @@ var ContextOSService = class {
     this.sourceFileCache = /* @__PURE__ */ new Map();
     this.sourceSyncRevision = 0;
     this.sourceSyncState = null;
-    this.sourceSyncHistory = [];
+    const persisted = getSyncMeta(this.database);
+    this.sourceSyncHistory = JSON.parse(persisted.binding_history ?? "[]");
+    this.sourceSyncRevision = Number(persisted.binding_revision ?? 0);
+    this.sourceBindingState = new Map(JSON.parse(persisted.binding_baseline ?? "[]").map((b) => [b.id, b]));
     this.ensureProject();
     this.ensureSynced();
   }
@@ -30801,9 +31306,14 @@ var ContextOSService = class {
     this.database.close();
   }
   ensureSynced() {
+    if (inTransaction(this.database)) return false;
     const graphJsonPath = this.paths.graphJsonPath;
     if (!graphJsonPath) return false;
-    if (!fs9.existsSync(graphJsonPath)) {
+    if (getSyncMeta(this.database).projection_pending) {
+      flushProjection(this.database, graphJsonPath);
+      return true;
+    }
+    if (!fs10.existsSync(graphJsonPath)) {
       const hasProject2 = this.database.prepare("SELECT count(*) as count FROM projects").get()?.count > 0;
       if (hasProject2) {
         exportGraphToJson(this.database, graphJsonPath);
@@ -30811,18 +31321,15 @@ var ContextOSService = class {
       }
       return false;
     }
-    const stat = fs9.statSync(graphJsonPath);
+    const stat = fs10.statSync(graphJsonPath);
     const meta2 = getSyncMeta(this.database);
     const hasProject = this.database.prepare("SELECT count(*) as count FROM projects").get()?.count > 0;
     if (!hasProject) {
       importGraphFromJson(this.database, graphJsonPath);
       return true;
     }
-    if (meta2.graph_json_mtime && Math.abs(stat.mtimeMs - Number(meta2.graph_json_mtime)) < 10) {
-      return false;
-    }
-    const content = fs9.readFileSync(graphJsonPath, "utf8");
-    const currentHash = crypto7.createHash("sha256").update(content).digest("hex");
+    const content = fs10.readFileSync(graphJsonPath, "utf8");
+    const currentHash = crypto9.createHash("sha256").update(content).digest("hex");
     if (meta2.graph_json_hash !== currentHash) {
       importGraphFromJson(this.database, graphJsonPath);
       return true;
@@ -30883,7 +31390,7 @@ var ContextOSService = class {
       previous: previousById,
       fileCache: this.sourceFileCache
     });
-    const previousRevision = this.sourceSyncState?.sourceRevision ?? null;
+    const previousRevision = this.sourceSyncState?.sourceRevision ?? getSyncMeta(this.database).binding_source_revision ?? null;
     const inventoryChanged = previousById.size !== result.bindings.length || [...previousById.keys()].some((id) => !result.bindings.some((item) => item.id === id));
     const changed = Boolean(previousRevision && previousRevision !== result.sourceRevision) || inventoryChanged;
     if (changed) {
@@ -30896,6 +31403,16 @@ var ContextOSService = class {
       if (this.sourceSyncHistory.length > 100) this.sourceSyncHistory.shift();
     }
     this.sourceBindingState = new Map(result.bindings.map((binding) => [binding.id, binding]));
+    const updateRange = this.database.prepare("UPDATE source_refs SET start_line=?,end_line=? WHERE id=? AND (start_line IS NOT ? OR end_line IS NOT ?)");
+    for (const binding of result.bindings) if (binding.symbol && !INVALID_BINDING_STATUSES.has(binding.bindingStatus)) {
+      updateRange.run(binding.startLine, binding.endLine, binding.id, binding.startLine, binding.endLine);
+    }
+    if (changed || !previousRevision) {
+      setSyncMeta(this.database, "binding_revision", String(this.sourceSyncRevision));
+      setSyncMeta(this.database, "binding_source_revision", result.sourceRevision);
+      setSyncMeta(this.database, "binding_history", JSON.stringify(this.sourceSyncHistory));
+      setSyncMeta(this.database, "binding_baseline", JSON.stringify(result.bindings.map(({ content, ...binding }) => binding)));
+    }
     this.sourceSyncState = {
       revision: this.sourceSyncRevision,
       sourceRevision: result.sourceRevision,
@@ -30916,6 +31433,7 @@ var ContextOSService = class {
   }
   sourceBindingReport(options = {}) {
     this.ensureSynced();
+    const repositorySync = indexSources(this);
     const report = this.syncSourceBindings(options);
     const sinceRevision = Number.isInteger(options.sinceRevision) ? options.sinceRevision : null;
     const historicalChanges = sinceRevision == null ? report.changes : this.sourceSyncHistory.filter((item) => item.revision > sinceRevision).flatMap((item) => item.changes);
@@ -30933,6 +31451,7 @@ var ContextOSService = class {
     }) : [];
     return {
       ...report,
+      repositorySync,
       sourceSyncRevision: report.revision,
       changes: historicalChanges,
       changed: historicalChanges.length > 0,
@@ -30970,11 +31489,11 @@ var ContextOSService = class {
     const accepted = [];
     for (const candidate of bindings) {
       if (!candidate?.path?.trim() || !candidate?.symbol?.trim()) throw new Error("Each binding requires path and symbol");
-      const absolutePath = path10.resolve(this.paths.projectRoot, candidate.path);
-      const relativePath2 = path10.relative(this.paths.projectRoot, absolutePath);
-      if (relativePath2.startsWith("..") || path10.isAbsolute(relativePath2)) throw new Error(`Binding path must stay inside project: ${candidate.path}`);
-      if (!fs9.existsSync(absolutePath)) throw new Error(`Binding source file not found: ${candidate.path}`);
-      const content = fs9.readFileSync(absolutePath, "utf8");
+      const absolutePath = path12.resolve(this.paths.projectRoot, candidate.path);
+      const relativePath2 = path12.relative(this.paths.projectRoot, absolutePath);
+      if (relativePath2.startsWith("..") || path12.isAbsolute(relativePath2)) throw new Error(`Binding path must stay inside project: ${candidate.path}`);
+      if (!fs10.existsSync(absolutePath)) throw new Error(`Binding source file not found: ${candidate.path}`);
+      const content = fs10.readFileSync(absolutePath, "utf8");
       const slice = extractSymbolSlice(content, {
         symbol: candidate.symbol,
         language: detectLanguage(absolutePath),
@@ -30982,7 +31501,7 @@ var ContextOSService = class {
         maxLines: 4
       });
       if (!slice.found) throw new Error(`Binding symbol is ${slice.reason ?? "missing"}: ${candidate.path}:${candidate.symbol}`);
-      const normalizedPath = relativePath2.split(path10.sep).join("/");
+      const normalizedPath = relativePath2.split(path12.sep).join("/");
       const key = `${normalizedPath}:${candidate.symbol}`;
       if (existing.has(key)) continue;
       existing.add(key);
@@ -31166,6 +31685,8 @@ var ContextOSService = class {
     const checkpoints = rawCheckpoints.map((row) => {
       const storedEvidence = parseJson(row.evidence_json, []);
       const freshness = evaluateCheckpointFreshness(this, extractCheckpointIdentity(storedEvidence), freshnessContext);
+      const effectiveStatus = row.status === "passed" && freshness.status !== "fresh" ? "retest_required" : row.status;
+      this.database.prepare(`INSERT INTO checkpoint_runtime VALUES(?,?,?) ON CONFLICT(checkpoint_id) DO UPDATE SET checkpoint_revision=excluded.checkpoint_revision,status=excluded.status WHERE checkpoint_runtime.checkpoint_revision<>excluded.checkpoint_revision OR checkpoint_runtime.status<>excluded.status`).run(row.id, row.current_revision, effectiveStatus);
       return {
         id: row.id,
         targetType: row.target_type,
@@ -31173,7 +31694,7 @@ var ContextOSService = class {
         title: row.title,
         criteria: row.criteria,
         recordedStatus: row.status,
-        status: row.status === "passed" && freshness.status !== "fresh" ? "retest_required" : row.status,
+        status: effectiveStatus,
         checkpointKind: row.checkpoint_kind,
         aggregationPolicy: parseJson(row.aggregation_policy_json, {}),
         eligibleAfterChildren: Boolean(row.eligible_after_children),
@@ -31364,14 +31885,14 @@ var ContextOSService = class {
     if (!command?.trim()) throw new Error("command is required");
     this.ensureSynced();
     this.syncSourceBindings();
-    const projectRoot = path10.resolve(this.paths.projectRoot);
-    const targetCwd = path10.resolve(projectRoot, cwd || ".");
-    const relativeCwd = path10.relative(projectRoot, targetCwd);
-    if (relativeCwd.startsWith("..") || path10.isAbsolute(relativeCwd)) {
+    const projectRoot = path12.resolve(this.paths.projectRoot);
+    const targetCwd = path12.resolve(projectRoot, cwd || ".");
+    const relativeCwd = path12.relative(projectRoot, targetCwd);
+    if (relativeCwd.startsWith("..") || path12.isAbsolute(relativeCwd)) {
       throw new Error("cwd must stay inside the registered project");
     }
     const startedAt = Date.now();
-    const result = spawnSync2(process.env.SHELL || "/bin/sh", ["-lc", command], {
+    const result = spawnSync3(process.env.SHELL || "/bin/sh", ["-lc", command], {
       cwd: targetCwd,
       encoding: "utf8",
       timeout: timeoutMs,
@@ -31553,11 +32074,27 @@ ${stderr}` : ""].filter(Boolean).join("\n");
   getTimeline() {
     return getTimelineState(this);
   }
+  commitTimelineMutation(callback) {
+    this.ensureSynced();
+    const result = transaction(this.database, () => {
+      const value = callback();
+      this.database.prepare("UPDATE projects SET graph_revision=graph_revision+1 WHERE id=?").run(this.paths.descriptor.id);
+      markProjectionPending(this.database);
+      return { ...value, graphRevision: this.project().graph_revision };
+    });
+    try {
+      result.projection = flushProjection(this.database, this.paths.graphJsonPath);
+    } catch (error2) {
+      result.success = false;
+      result.projection = { status: "pending", error: error2.message };
+    }
+    return result;
+  }
   syncTimeline(payload = {}) {
-    return syncTimeline(this, payload);
+    return this.commitTimelineMutation(() => syncTimeline(this, payload));
   }
   advanceStep(payload = {}) {
-    return advanceStep(this, payload);
+    return this.commitTimelineMutation(() => advanceStep(this, payload));
   }
   applyArrowFlow(flowExpression, options = {}) {
     return applyArrowFlow(this, flowExpression, options);
@@ -31569,7 +32106,8 @@ ${stderr}` : ""].filter(Boolean).join("\n");
     return connectBlocks(this, payload);
   }
   contextForTask(options = {}) {
-    return buildContextForTask(this, options);
+    const repositorySync = indexSources(this);
+    return { ...buildContextForTask(this, { ...options, repositorySync }), repositorySync };
   }
   resolveHistoryContext(planId = null, chainScopeId = null) {
     let resolvedPlanId = planId || null;
@@ -31627,7 +32165,7 @@ function createService(options = {}) {
 // packages/mcp/src/project-router.mjs
 function databaseFileIdentity(databasePath) {
   try {
-    const stat = fs10.statSync(databasePath);
+    const stat = fs11.statSync(databasePath);
     return `${stat.dev}:${stat.ino}`;
   } catch {
     return null;
@@ -31659,7 +32197,7 @@ var ProjectServiceRouter = class {
         throw err;
       }
     }
-    const key = path11.resolve(paths.projectRoot);
+    const key = path13.resolve(paths.projectRoot);
     this.activeProjectRoot = key;
     const cached2 = this.services.get(key);
     if (cached2) {
@@ -31691,7 +32229,7 @@ var ProjectServiceRouter = class {
     const registered = registerProject(input);
     this.activeProjectRoot = registered.projectRoot;
     const service = this.serviceFor({ projectRoot: registered.projectRoot });
-    if (!fs10.existsSync(service.paths.graphJsonPath)) {
+    if (!fs11.existsSync(service.paths.graphJsonPath)) {
       service.ensureSynced();
     }
     return registered;
@@ -31704,10 +32242,10 @@ var ProjectServiceRouter = class {
 };
 
 // packages/mcp/src/cli.mjs
-import fs11 from "node:fs";
+import fs12 from "node:fs";
 import os from "node:os";
-import path12 from "node:path";
-var VERSION = "0.3.9";
+import path14 from "node:path";
+var VERSION = "0.4.0";
 var HELP = `
 ContextOS v${VERSION}: A context operating system for AI coding agents.
 
@@ -31717,6 +32255,7 @@ Usage:
 Commands:
   serve                 Start MCP stdio server (default when invoked by AI editors)
   init [--scan]         Initialize .contextos project (optionally scan code to seed blocks)
+  sync                  Reconcile source inventory and unfinished tasks
   status                Show graph revision, blocks, chains, and active plans
   export                Export .contextos/graph.json from local SQLite cache
   import                Import .contextos/graph.json into local SQLite cache
@@ -31734,6 +32273,20 @@ async function runCli(args, router2) {
   }
   if (command === "-v" || command === "--version" || command === "version") {
     console.log(`ContextOS v${VERSION}`);
+    return;
+  }
+  if (command === "sync") {
+    try {
+      const service = router2.serviceFor({ projectRoot: process.cwd(), autoRegister: false });
+      const index = indexSources(service);
+      const tasks = service.database.prepare("SELECT id FROM task_sessions WHERE status='active'").all();
+      const results = tasks.map((t) => reconcileTask(service, { taskId: t.id }));
+      service.snapshot();
+      console.log(JSON.stringify({ revision: index.revision, changed: index.changes.length, unbound: index.unboundCount, tasks: results.map((r) => ({ taskId: r.taskId, status: r.status, issues: r.issues.length })) }));
+    } catch (error2) {
+      console.error(error2.message);
+      process.exitCode = 1;
+    }
     return;
   }
   if (command === "status") {
@@ -31782,7 +32335,7 @@ async function runCli(args, router2) {
     const projectRoot = process.cwd();
     const shouldScan = args.includes("--scan") || args.includes("-s");
     try {
-      const reg = registerProject({ projectRoot, name: path12.basename(projectRoot) });
+      const reg = registerProject({ projectRoot, name: path14.basename(projectRoot) });
       console.log(`\u2713 ${reg.created ? "Initialized new" : "Opened existing"} contextos project at ${projectRoot}`);
       const service = router2.serviceFor({ projectRoot });
       if (shouldScan && reg.created) {
@@ -31790,7 +32343,7 @@ async function runCli(args, router2) {
         const bootstrapped = bootstrapProject(service, projectRoot);
         console.log(`\u2713 Created ${bootstrapped.blocks} initial blocks and 1 baseline chain.`);
       }
-      if (!fs11.existsSync(service.paths.graphJsonPath)) {
+      if (!fs12.existsSync(service.paths.graphJsonPath)) {
         exportGraphToJson(service.database, service.paths.graphJsonPath);
         console.log(`\u2713 Created .contextos/graph.json text source of truth`);
       }
@@ -31835,15 +32388,15 @@ async function runCli(args, router2) {
 }
 function bootstrapProject(service, projectRoot) {
   const operations = [];
-  const pkgPath = path12.join(projectRoot, "package.json");
+  const pkgPath = path14.join(projectRoot, "package.json");
   let pkg = {};
-  if (fs11.existsSync(pkgPath)) {
+  if (fs12.existsSync(pkgPath)) {
     try {
-      pkg = JSON.parse(fs11.readFileSync(pkgPath, "utf8"));
+      pkg = JSON.parse(fs12.readFileSync(pkgPath, "utf8"));
     } catch {
     }
   }
-  const projectName = pkg.name || path12.basename(projectRoot);
+  const projectName = pkg.name || path14.basename(projectRoot);
   const coreBlockId = "core-application";
   operations.push({
     action: "create_block",
@@ -31856,7 +32409,7 @@ function bootstrapProject(service, projectRoot) {
       scope: "general"
     }
   });
-  const dirs = fs11.readdirSync(projectRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "node_modules").map((d) => d.name);
+  const dirs = fs12.readdirSync(projectRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "node_modules").map((d) => d.name);
   if (dirs.some((d) => ["src", "app", "lib"].includes(d))) {
     operations.push({
       action: "create_block",
@@ -31916,14 +32469,14 @@ function bootstrapProject(service, projectRoot) {
 function setupEditors() {
   const cwd = process.cwd();
   console.log("=== Setting up ContextOS MCP Server ===");
-  const cursorDir = path12.join(cwd, ".cursor");
-  const cursorMcpFile = path12.join(cursorDir, "mcp.json");
+  const cursorDir = path14.join(cwd, ".cursor");
+  const cursorMcpFile = path14.join(cursorDir, "mcp.json");
   try {
-    fs11.mkdirSync(cursorDir, { recursive: true });
+    fs12.mkdirSync(cursorDir, { recursive: true });
     let cursorConfig = { mcpServers: {} };
-    if (fs11.existsSync(cursorMcpFile)) {
+    if (fs12.existsSync(cursorMcpFile)) {
       try {
-        cursorConfig = JSON.parse(fs11.readFileSync(cursorMcpFile, "utf8"));
+        cursorConfig = JSON.parse(fs12.readFileSync(cursorMcpFile, "utf8"));
       } catch {
       }
     }
@@ -31932,18 +32485,18 @@ function setupEditors() {
       command: "npx",
       args: ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
     };
-    fs11.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
+    fs12.writeFileSync(cursorMcpFile, JSON.stringify(cursorConfig, null, 2));
     console.log(`\u2713 Configured Cursor: ${cursorMcpFile}`);
   } catch (err) {
     console.log(`- Cursor setup skipped: ${err.message}`);
   }
-  const claudeConfigPath = path12.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
+  const claudeConfigPath = path14.join(os.homedir(), "Library/Application Support/Claude/claude_desktop_config.json");
   try {
-    if (fs11.existsSync(path12.dirname(claudeConfigPath))) {
+    if (fs12.existsSync(path14.dirname(claudeConfigPath))) {
       let claudeConfig = { mcpServers: {} };
-      if (fs11.existsSync(claudeConfigPath)) {
+      if (fs12.existsSync(claudeConfigPath)) {
         try {
-          claudeConfig = JSON.parse(fs11.readFileSync(claudeConfigPath, "utf8"));
+          claudeConfig = JSON.parse(fs12.readFileSync(claudeConfigPath, "utf8"));
         } catch {
         }
       }
@@ -31952,7 +32505,7 @@ function setupEditors() {
         command: "npx",
         args: ["-y", "github:yubinbin32-ops/ContextOS", "serve"]
       };
-      fs11.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
+      fs12.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
       console.log(`\u2713 Configured Claude Desktop: ${claudeConfigPath}`);
     }
   } catch (err) {
@@ -31968,7 +32521,7 @@ function setupEditors() {
 }
 
 // packages/mcp/src/task-budget.mjs
-import crypto8 from "node:crypto";
+import crypto10 from "node:crypto";
 var budgets = /* @__PURE__ */ new Map();
 function snapshot(entry) {
   return {
@@ -31977,6 +32530,7 @@ function snapshot(entry) {
     consumedChars: entry.consumedChars,
     remainingChars: Math.max(0, entry.budgetChars - entry.consumedChars),
     responses: entry.responses,
+    controlRemainingChars: Math.max(0, entry.controlBudgetChars - entry.controlConsumedChars),
     sourceSyncRevision: entry.sourceSyncRevision ?? null,
     sourceRevision: entry.sourceRevision ?? null
   };
@@ -31987,11 +32541,13 @@ function startTaskBudget({ projectRoot = ".", taskContextId = null, budgetChars 
     if (existing.projectRoot === projectRoot) return snapshot(existing);
   }
   const entry = {
-    id: taskContextId || `task_${crypto8.randomUUID()}`,
+    id: taskContextId || `task_${crypto10.randomUUID()}`,
     projectRoot,
     budgetChars: Math.max(100, Math.floor(Number(budgetChars) || 12e3)),
     consumedChars: 0,
     responses: 0,
+    controlBudgetChars: 2e3,
+    controlConsumedChars: 0,
     sourceSyncRevision: null,
     sourceRevision: null
   };
@@ -32042,14 +32598,14 @@ function compactState(data, entry) {
     reason: "detail projection exceeded the remaining task budget"
   };
 }
-function boundTaskResponse({ taskContextId, markdown, data, includeStructured = false } = {}) {
+function boundTaskResponse({ taskContextId, markdown, data, includeStructured = false, critical = false } = {}) {
   const entry = taskContextId ? budgets.get(taskContextId) : null;
   if (!entry) return { markdown, structured: includeStructured ? data : void 0, budget: null };
   const before = snapshot(entry);
   const suffix = `[task budget ${before.remainingChars} chars remaining; keep taskContextId=${entry.id} for focused expansion]`;
   const markdownText = String(markdown ?? "");
   const structuredText = includeStructured ? JSON.stringify(data ?? {}) : "";
-  const available = before.remainingChars;
+  const available = before.remainingChars + (critical ? before.controlRemainingChars : 0);
   let boundedMarkdown = markdownText;
   let structured;
   if (!includeStructured) {
@@ -32061,11 +32617,14 @@ function boundTaskResponse({ taskContextId, markdown, data, includeStructured = 
     structured = JSON.stringify(receipt).length <= available ? receipt : compactState(data, entry);
   }
   if (includeStructured) {
-    const structuredChars = JSON.stringify(structured).length;
+    if (JSON.stringify(structured).length > available) structured = void 0;
+    const structuredChars = structured === void 0 ? 0 : JSON.stringify(structured).length;
     boundedMarkdown = truncateMarkdown(markdownText, Math.max(0, available - structuredChars), suffix);
   }
-  const returnedChars = boundedMarkdown.length + (includeStructured ? JSON.stringify(structured ?? {}).length : 0);
-  entry.consumedChars += Math.min(available, returnedChars);
+  const returnedChars = boundedMarkdown.length + (structured === void 0 ? 0 : JSON.stringify(structured).length);
+  const normalCharged = Math.min(before.remainingChars, returnedChars);
+  entry.consumedChars += normalCharged;
+  entry.controlConsumedChars += Math.max(0, returnedChars - normalCharged);
   entry.responses += 1;
   const after = snapshot(entry);
   return { markdown: boundedMarkdown, structured, budget: after };
@@ -32153,10 +32712,50 @@ function normalizeMutationOperationIds(operation = {}) {
   return next;
 }
 
+// packages/mcp/src/workspace-tools.mjs
+function registerWorkspaceTools(server2, withProject2, readResult2, writeResult2) {
+  const common = { projectRoot: string2().min(1).optional(), taskContextId: string2().optional(), includeStructured: boolean2().default(false) };
+  const register = (name, description, schema, action, write = false) => server2.registerTool(name, { description, inputSchema: { ...common, ...schema } }, async (input) => {
+    const data = withProject2(input, (service, payload) => action(service, payload));
+    const markdown = data.markdown !== void 0 ? `${data.markdown}
+
+${data.truncated ? "[Truncated: open a chapter or expand maxChars]\n" : ""}${data.openURL ?? ""}` : JSON.stringify(data, null, 2);
+    return (write ? writeResult2 : readResult2)(data, markdown, input.includeStructured, name);
+  });
+  register("document_list", "List OS documents and stable chapter locators; no full bodies.", { query: string2().optional() }, (s, p) => ({ documents: listDocuments(s, p) }));
+  register("document_open", "Read one OS document or chapter under a character budget; return App deep link.", { id: string2(), sectionId: string2().optional(), maxChars: number2().int().min(200).max(5e4).optional(), revision: number2().int().optional() }, openDocument);
+  register("document_write", "Create/update canonical OS Markdown. Existing documents require expectedRevision. README remains a read-only repository file.", {
+    id: string2().min(1),
+    title: string2().min(1),
+    body: string2().max(1e6),
+    summary: string2().optional(),
+    kind: _enum(["note", "audit", "design", "guide", "reference"]).optional(),
+    status: _enum(["draft", "review", "accepted", "archived"]).optional(),
+    relations: array(string2()).optional(),
+    expectedRevision: number2().int().optional()
+  }, writeDocument, true);
+  register("document_patch", "Replace a document chapter including its heading, using optimistic revision checking.", { id: string2(), sectionId: string2(), body: string2(), expectedRevision: number2().int() }, patchDocument, true);
+  register("document_import", "Import an internal Markdown document into OS with source hash; leaves original file until migration is reviewed. README cannot be imported.", { relativePath: string2(), id: string2(), title: string2(), kind: _enum(["note", "audit", "design", "guide", "reference"]).optional(), expectedRevision: number2().int().optional() }, importDocument, true);
+  register("task_begin", "Start a persistent task after registering Blocks. Declare a feature network or standalone reason. Returns unfinished sessions for recovery.", {
+    intent: string2().min(1),
+    blockIds: array(string2()).default([]),
+    chainId: string2().optional(),
+    standaloneReason: string2().optional(),
+    readOnly: boolean2().optional(),
+    feature: object2({ id: string2(), title: string2(), nodeIds: array(string2()), linkIds: array(string2()), inputContract: string2().optional(), outputContract: string2().optional() }).strict().optional()
+  }, beginTask, true);
+  register("task_scope", "Revise or hand off a task scope with an optimistic timestamp. Excluded paths require explicit reasons.", { taskId: string2(), expectedUpdatedAt: string2(), blockIds: array(string2()).optional(), chainId: string2().nullable().optional(), standaloneReason: string2().optional(), excludedPaths: array(object2({ path: string2(), reason: string2().min(1) }).strict()).optional(), nextAction: string2().optional(), summary: string2().optional() }, updateTaskScope, true);
+  register("task_reconcile", "Index changed/new/deleted source, reconcile task bindings and feature network, persist actionable sync issues.", { taskId: string2() }, reconcileTask, true);
+  register("task_finish", "Atomically complete verified task Blocks and feature Chain with a source/revision fence and idempotency key; report missing evidence.", { taskId: string2(), expectedGraphRevision: number2().int(), sourceRevision: string2(), idempotencyKey: string2(), summary: string2().optional() }, finishTask, true);
+  register("source_index", "Scan source inventory including unbound files; persist file/symbol index and revisioned events. Bodies never returned.", {}, indexSources, true);
+  register("sync_issues", "Read open synchronization issues and resumable tasks.", {}, (s) => ({ issues: s.database.prepare("SELECT * FROM sync_issues WHERE status='open' ORDER BY updated_at DESC LIMIT 100").all(), tasks: s.database.prepare("SELECT id,intent,status,scope_json,updated_at FROM task_sessions WHERE status='active' ORDER BY updated_at DESC LIMIT 20").all().map(({ scope_json, ...row }) => ({ ...row, scope: JSON.parse(scope_json) })) }));
+  register("runtime_info", "Report the running protocol and knowledge/sync capabilities for installation verification.", {}, () => ({ protocolVersion: 2, version: "0.4.0", capabilities: ["documents", "readme-readonly", "task-sessions", "source-index", "projection-recovery", "chapter-context"] }));
+}
+
 // packages/mcp/src/server.mjs
 var router = new ProjectServiceRouter();
 var server = new McpServer(
-  { name: "contextos", version: "0.3.9" },
+  { name: "contextos", version: "0.4.0" },
   {
     instructions: "contextos is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next contextos boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools."
   }
@@ -32167,6 +32766,13 @@ var projectRootInput = {
 };
 function withProject(input, callback) {
   const service = router.serviceFor(input);
+  const runtime = { version: "0.4.0", protocolVersion: 2, observedAt: (/* @__PURE__ */ new Date()).toISOString(), pid: process.pid, projectRoot: service.paths.projectRoot, capabilities: ["documents", "task-sessions", "source-index"], plugin: pluginRuntimeStatus(service.paths.projectRoot) };
+  const runtimePath = path15.join(service.paths.projectRoot, ".contextos", "runtime.json");
+  try {
+    fs13.writeFileSync(runtimePath + "." + process.pid, JSON.stringify(runtime));
+    fs13.renameSync(runtimePath + "." + process.pid, runtimePath);
+  } catch {
+  }
   const { projectRoot: _projectRoot, ...payload } = normalizeMcpIds(input);
   const data = callback(service, payload);
   if (data && typeof data === "object" && input.taskContextId) {
@@ -32178,7 +32784,7 @@ function operationEnvelope(data, structured, operation, budget = null) {
   if (structured === void 0) return void 0;
   const truncated = Boolean(structured?.truncated);
   return {
-    ok: data?.success === false ? false : data?.valid === false ? false : !Boolean(data?.error),
+    ok: data?.success === false ? false : data?.valid === false ? false : !Boolean(data?.error) && !["needs_work", "projection_pending"].includes(data?.status),
     operation: operation ?? data?.operation ?? null,
     graphRevision: data?.graphRevision ?? null,
     sourceSyncRevision: data?.sourceSync?.revision ?? data?.sourceSyncRevision ?? null,
@@ -32198,12 +32804,14 @@ function readResult(data, markdown, includeStructured = false, operation = null)
   return response(data, bounded.markdown, operationEnvelope(data, bounded.structured, operation, bounded.budget));
 }
 function writeResult(data, markdown, includeStructured = false, operation = null) {
-  const text = markdown ?? data?.markdown ?? writeReceiptMarkdown(data);
+  const text = (markdown ?? data?.markdown ?? writeReceiptMarkdown(data)) + (data?.projection?.status === "pending" ? `
+Projection pending: ${data.projection.error}` : "");
   const bounded = boundTaskResponse({
     taskContextId: data?.__taskContextId,
     markdown: text,
     data,
-    includeStructured
+    includeStructured,
+    critical: true
   });
   return response(data, bounded.markdown, operationEnvelope(data, bounded.structured, operation, bounded.budget));
 }
@@ -32246,6 +32854,7 @@ function response(data, markdown, structuredContent) {
   if (structuredContent !== void 0) output.structuredContent = structuredContent;
   return output;
 }
+registerWorkspaceTools(server, withProject, readResult, writeResult);
 server.registerTool(
   "project_register",
   {
@@ -32961,7 +33570,7 @@ server.registerTool(
 var cliArgs = process.argv.slice(2);
 if (cliArgs.length > 0 && cliArgs[0] !== "serve" && !cliArgs[0].startsWith("--mcp")) {
   await runCli(cliArgs, router);
-  process.exit(0);
+  process.exit(process.exitCode ?? 0);
 }
 var transport = new StdioServerTransport();
 await server.connect(transport);

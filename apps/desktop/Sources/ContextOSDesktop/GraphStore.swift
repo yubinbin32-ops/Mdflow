@@ -43,6 +43,9 @@ final class GraphStore: ObservableObject {
     private var focusTask: Task<Void, Never>?
     private var refreshDebounceTask: Task<Void, Never>?
     private var livePollingTask: Task<Void, Never>?
+    private var snapshotRefreshToken = ""
+    private var sourcePollingTask: Task<Void, Never>?
+    @Published private(set) var sourcePollingError: String?
     private var fileWatcher: DispatchSourceFileSystemObject?
     private var watchedDescriptor: Int32 = -1
     private var projectViewStates: [String: ProjectViewState] = [:]
@@ -105,6 +108,8 @@ final class GraphStore: ObservableObject {
     func openProject(_ project: RecentProject) {
         loadProject(at: URL(fileURLWithPath: project.path, isDirectory: true))
     }
+
+    func openKnowledgeProject(at url: URL) { loadProject(at: url) }
 
     private func loadProject(at url: URL) {
         do {
@@ -545,7 +550,8 @@ final class GraphStore: ObservableObject {
             }
             guard let database else { return }
             let sequence = try database.changeSequence()
-            guard databaseWasReplaced || sequence != snapshot.changeSequence else { return }
+            let refreshToken = try database.refreshToken()
+            guard databaseWasReplaced || sequence != snapshot.changeSequence || refreshToken != snapshotRefreshToken else { return }
             let previousSequence = snapshot.changeSequence
             let next: GraphSnapshot
             if let replacementSnapshot {
@@ -553,6 +559,7 @@ final class GraphStore: ObservableObject {
             } else {
                 next = try database.loadSnapshot()
             }
+            snapshotRefreshToken = refreshToken
             let retainedSelection = selection.flatMap { Self.selection($0, existsIn: next) ? $0 : nil }
             let retainedFocus = focusTarget.flatMap { Self.selection($0, existsIn: next) ? $0 : nil }
             let retainedChainIDs = highlightedChainIDs.intersection(next.chains.map(\.id))
@@ -596,7 +603,38 @@ final class GraphStore: ObservableObject {
         }
     }
 
+    private func startSourceReconciliation() {
+        sourcePollingTask?.cancel()
+        guard let root = location?.root, let script = marketplaceRoot?.appending(path: "plugins/contextos/server/contextos-mcp.mjs") else { return }
+        sourcePollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                let failure: String? = await Task.detached(priority: .utility) {
+                    func runSync() -> String? {
+                    let process = Process(); let errors = Pipe()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                    process.arguments = ["node", "--no-warnings=ExperimentalWarning", script.path, "sync"]
+                    process.currentDirectoryURL = root
+                    var env = ProcessInfo.processInfo.environment
+                    env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + (env["PATH"] ?? "")
+                    process.environment = env; process.standardOutput = FileHandle.nullDevice; process.standardError = errors
+                    let done = DispatchSemaphore(value: 0)
+                    process.terminationHandler = { _ in done.signal() }
+                    do { try process.run() } catch { return error.localizedDescription }
+                    if done.wait(timeout: .now() + 15) == .timedOut { process.terminate(); return "Source synchronization timed out" }
+                    guard process.terminationStatus != 0 else { return nil }
+                    return String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Source synchronization failed"
+                    }
+                    return runSync()
+                }.value
+                guard !Task.isCancelled else { return }
+                self?.sourcePollingError = failure
+                try? await Task.sleep(for: .seconds(5))
+            }
+        }
+    }
+
     private func startLiveUpdates() {
+        startSourceReconciliation()
         fileWatcher?.cancel()
         fileWatcher = nil
         livePollingTask?.cancel()
@@ -1127,6 +1165,17 @@ final class GraphStore: ObservableObject {
     }
 
     var databasePath: String { location?.database.path ?? "Unavailable" }
+    func knowledgeSyncIssues() -> [String] { database?.knowledgeSyncIssues(chinese: activeLocale == "zh-Hans") ?? [] }
+
+    var runtimeHandshake: String {
+        let url = URL(fileURLWithPath: projectRoot).appendingPathComponent(".contextos/runtime.json")
+        guard let data = try? Data(contentsOf: url), let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let version = value["version"] as? String, let observed = value["observedAt"] as? String else {
+            return activeLocale == "zh-Hans" ? "尚无运行握手：在新对话调用 runtime_info" : "No runtime handshake: call runtime_info in a new task"
+        }
+        return "MCP v\(version) · \(observed)"
+    }
+
     var projectRoot: String { location?.root.path ?? "" }
 }
 

@@ -1,10 +1,11 @@
+import { indexSources, reconcileTask } from "./reconciliation.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { registerProject, resolveProjectPaths } from "./paths.mjs";
 import { exportGraphToJson, importGraphFromJson } from "./database.mjs";
 
-const VERSION = "0.3.9";
+const VERSION = "0.4.0";
 
 const HELP = `
 ContextOS v${VERSION}: A context operating system for AI coding agents.
@@ -15,6 +16,7 @@ Usage:
 Commands:
   serve                 Start MCP stdio server (default when invoked by AI editors)
   init [--scan]         Initialize .contextos project (optionally scan code to seed blocks)
+  sync                  Reconcile source inventory and unfinished tasks
   status                Show graph revision, blocks, chains, and active plans
   export                Export .contextos/graph.json from local SQLite cache
   import                Import .contextos/graph.json into local SQLite cache
@@ -38,6 +40,17 @@ export async function runCli(args, router) {
     return;
   }
 
+  if (command === "sync") {
+    try {
+      const service = router.serviceFor({ projectRoot: process.cwd(), autoRegister: false });
+      const index = indexSources(service);
+      const tasks = service.database.prepare("SELECT id FROM task_sessions WHERE status='active'").all();
+      const results = tasks.map(t => reconcileTask(service, {taskId:t.id}));
+      service.snapshot();
+      console.log(JSON.stringify({revision:index.revision, changed:index.changes.length, unbound:index.unboundCount, tasks:results.map(r=>({taskId:r.taskId,status:r.status,issues:r.issues.length}))}));
+    } catch (error) { console.error(error.message); process.exitCode = 1; }
+    return;
+  }
   if (command === "status") {
     const projectRoot = process.cwd();
     try {

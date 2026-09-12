@@ -68,11 +68,44 @@ final class ProjectDatabase {
         self.handle = nil
     }
 
+    func refreshToken() throws -> String {
+        let project = try rows("SELECT graph_revision,updated_at FROM projects LIMIT 1", bindings: []).first
+        let coordinates = try rows("SELECT id,start_line,end_line FROM source_refs ORDER BY id", bindings: []).map { "\($0.text("id")):\($0.int("start_line")):\($0.int("end_line"))" }.joined(separator: "|")
+        let verification = try optionalRows("SELECT * FROM checkpoint_runtime ORDER BY checkpoint_id", table: "checkpoint_runtime", bindings: []).map { "\($0.text("checkpoint_id")):\($0.int("checkpoint_revision")):\($0.text("status"))" }.joined(separator: "|")
+        return "\(project?.int("graph_revision") ?? 0):\(project?.text("updated_at") ?? ""):\(coordinates):\(verification)"
+    }
+
     func changeSequence() throws -> Int {
         try scalarInt(
             "SELECT COALESCE(MAX(sequence), 0) FROM change_feed WHERE project_id = ?",
             bindings: [location.descriptor.id]
         )
+    }
+
+    func knowledgeSyncIssues(chinese: Bool) -> [String] {
+        let issues = (try? rows("SELECT kind,target,detail FROM sync_issues WHERE status='open' ORDER BY updated_at DESC LIMIT 20", bindings: [])) ?? []
+        let tasks = (try? rows("SELECT intent FROM task_sessions WHERE status='active' ORDER BY updated_at DESC LIMIT 10", bindings: [])) ?? []
+        let labels: [String: (String, String)] = [
+            "unbound_file": ("源码尚未关联架构", "Source needs an architecture binding"),
+            "missing_block": ("任务中的模块已被移除", "Task block was removed"),
+            "unbound_block": ("模块尚未关联实现", "Block needs implementation binding"),
+            "invalid_binding": ("代码位置需要更新", "Source location needs updating"),
+            "verification_required": ("修改后尚未通过验证", "Changes need verification"),
+            "chain_verification_required": ("功能链需要验证", "Feature chain needs verification"),
+            "feature_membership_missing": ("任务尚未归入功能链", "Task needs a feature chain"),
+            "missing_chain": ("任务的功能链已被移除", "Task chain was removed"),
+            "chain_contract_missing": ("功能链缺少输入或结果说明", "Chain needs input and outcome descriptions"),
+            "chain_incomplete": ("模块尚未加入任务功能链", "Block is missing from task chain"),
+            "chain_disconnected": ("功能链中的模块尚未连通", "Feature chain has disconnected blocks")
+        ]
+        let names = (try? rows("SELECT id,title FROM blocks UNION ALL SELECT id,title FROM chains", bindings: [])) ?? []
+        let titles = Dictionary(names.map { ($0.text("id"), $0.text("title")) }, uniquingKeysWith: { first, _ in first })
+        return issues.map { issue in
+            let label = labels[issue.text("kind")]
+            let title = chinese ? (label?.0 ?? "需要检查同步状态") : (label?.1 ?? "Sync needs attention")
+            let target = issue.text("target")
+            return "\(title) · \(titles[target] ?? target)"
+        } + tasks.map { "\(chinese ? "进行中的任务" : "Active task") · \($0.text("intent"))" }
     }
 
     func loadSnapshot() throws -> GraphSnapshot {
@@ -302,6 +335,9 @@ final class ProjectDatabase {
         ).map { row in
             DecisionScope(decisionID: row.text("decision_id"), scopeType: row.text("scope_type"), scopeValue: row.text("scope_value"))
         }
+        let runtimeStatuses = Dictionary(uniqueKeysWithValues: (try optionalRows("SELECT * FROM checkpoint_runtime", table: "checkpoint_runtime", bindings: [])).map { row in
+            (row.text("checkpoint_id") + ":" + String(row.int("checkpoint_revision")), row.text("status"))
+        })
         let sourceReferences = try rows(
             """
             SELECT sr.* FROM source_refs sr
@@ -331,7 +367,7 @@ final class ProjectDatabase {
                 targetId: row.text("target_id"),
                 title: row.text("title"),
                 criteria: row.text("criteria"),
-                status: row.text("status"),
+                status: runtimeStatuses[row.text("id") + ":" + String(row.int("current_revision"))] ?? row.text("status"),
                 kind: row.text("checkpoint_kind").isEmpty ? "atomic" : row.text("checkpoint_kind"),
                 aggregationPolicy: row.text("aggregation_policy_json").isEmpty ? "{}" : row.text("aggregation_policy_json"),
                 eligibleAfterChildren: row.int("eligible_after_children") != 0,

@@ -638,7 +638,7 @@ export function validateGraph(service) {
       const passed = snapshot.checkpoints.some(
         (checkpoint) => checkpoint.targetType === "chain" && checkpoint.targetId === chain.id && checkpointSatisfiesGate(checkpoint),
       );
-      if (!passed) warnings.push(`Complete Chain has no passed checkpoint: chain:${chain.id}`);
+      if (!passed && snapshot.checkpoints.some(c => c.targetType === "chain" && c.targetId === chain.id)) warnings.push(`Complete Chain has no passed checkpoint: chain:${chain.id}`);
     }
   }
   for (const plan of snapshot.plans) {
@@ -694,7 +694,7 @@ export function analyzeGraphDrift(service, snapshot = service.snapshot()) {
         if (!ref.path) continue;
         const fullPath = path.isAbsolute(ref.path) ? ref.path : path.join(projectRoot, ref.path);
         try {
-          if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+          if (ref.symbol && service.sourceBindingState?.get(ref.id) && !["missing", "ambiguous", "stale", "unreadable", "outside_project"].includes(service.sourceBindingState.get(ref.id).bindingStatus)) {
             ghostDrifts.push({
               blockId: block.id,
               title: block.title,
@@ -824,10 +824,10 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
   if (drift.hasDrift) {
     lines.push("## ⚠️ Architecture Drift & Actionable Alerts");
     if (drift.ghostDrifts.length > 0) {
-      lines.push("### 👻 Ghost Blocks with Existing Code (Update deliveryState to complete)");
+      lines.push("### 👻 Ghost Blocks with Bound Symbols (Reconcile implementation and verification)");
       for (const g of drift.ghostDrifts) {
         lines.push(`- **block:${g.blockId}** (${g.title}) · State: \`${g.deliveryState}\` · Source: \`${g.path}\`${g.symbol ? ` (#${g.symbol})` : ""}`);
-        lines.push(`  *Action*: Call \`graph_mutate\` to update \`deliveryState: "complete"\`.`);
+        lines.push(`  *Action*: Call \`graph_mutate\` to reconcile implementation and verify before completion.`);
       }
     }
     if (drift.isolatedBlocks.length > 0) {

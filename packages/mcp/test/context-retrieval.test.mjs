@@ -27,7 +27,7 @@ test("context retrieval: CJK tokens and field-weighted relevance ranking", async
         fields: {
           title: "用户认证接口",
           kind: "service",
-          deliveryState: "complete",
+          deliveryState: "implementing",
           healthState: "healthy",
           summary: "处理 JWT Token 校验与用户会话状态",
           scope: "auth",
@@ -40,7 +40,7 @@ test("context retrieval: CJK tokens and field-weighted relevance ranking", async
         fields: {
           title: "持久化存储引擎",
           kind: "database",
-          deliveryState: "complete",
+          deliveryState: "implementing",
           healthState: "healthy",
           summary: "基于 SQLite 与 JSON 的原子提交管理",
           scope: "database",
@@ -53,7 +53,7 @@ test("context retrieval: CJK tokens and field-weighted relevance ranking", async
         fields: {
           title: "Git 版本同步与原子撤回",
           kind: "service",
-          deliveryState: "complete",
+          deliveryState: "implementing",
           healthState: "healthy",
           summary: "支持通过 Git Discard 撤回代码与图谱真理源",
           scope: "sync",

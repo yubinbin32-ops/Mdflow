@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WebKit
 
 struct GraphCanvasView: View {
     @ObservedObject var store: GraphStore
@@ -28,6 +29,7 @@ struct GraphCanvasView: View {
                 .scaleEffect(camera.scale, anchor: .topLeading)
                 .offset(x: camera.offset.width, y: camera.offset.height)
             }
+            .frame(width: viewport.size.width, height: viewport.size.height, alignment: .topLeading)
             .clipped()
             .contentShape(Rectangle())
             .background(ContextOSTheme.canvas)
@@ -688,12 +690,12 @@ private struct CameraEventBridge: NSViewRepresentable {
             coordinator.monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .leftMouseUp]) { [weak view, weak coordinator] event in
                 guard let view, let coordinator, event.window === view.window else { return event }
                 if event.type == .scrollWheel,
-                   let hitView = event.window?.contentView?.hitTest(event.locationInWindow),
-                   hitView.ancestorOrSelf(where: { $0 is NSScrollView }) != nil {
+                   let hitView = event.window?.contentView.flatMap({ content in content.hitTest(content.convert(event.locationInWindow, from: nil)) }),
+                   hitView.ancestorOrSelf(where: { $0 is NSScrollView || $0 is WKWebView }) != nil {
                     return event
                 }
                 let point = view.convert(event.locationInWindow, from: nil)
-                guard view.bounds.contains(point) else { return event }
+                guard view.visibleRect.contains(point) else { return event }
                 if event.type == .scrollWheel {
                     coordinator.onScroll?(
                         CGSize(width: event.scrollingDeltaX, height: event.scrollingDeltaY),

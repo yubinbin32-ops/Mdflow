@@ -83,7 +83,7 @@ test("service: ensureSynced detects external graph.json modification", async () 
         fields: {
           title: "Original Name",
           kind: "service",
-          deliveryState: "complete",
+          deliveryState: "implementing",
           healthState: "healthy",
           summary: "Original summary",
           scope: "test",

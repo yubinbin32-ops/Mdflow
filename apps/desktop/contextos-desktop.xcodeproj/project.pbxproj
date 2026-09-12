@@ -12,9 +12,11 @@
 		14F57396AC3C347AB5DFF169 /* PluginInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E54ADCC59E3D893B6E96970 /* PluginInstaller.swift */; };
 		2347E73085AB65CE2B5E8E1A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5C04EE4A9D07D02476F544 /* Models.swift */; };
 		325BEAD882B31E5D3555419A /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E45985F64E2AD3DEFCAA739 /* DetailView.swift */; };
+		36A1CC67895EE6DA776D48CE /* KnowledgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1DCC839783472180CA6BEE1 /* KnowledgeView.swift */; };
 		42547C185D9035DB28B6F9F8 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D4923FBB35C03985ADCE675 /* Cocoa.framework */; };
 		7B84F4D3E8A139D15CAE46AD /* GraphCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D3C98FAB74CD0CB2996A7D /* GraphCanvasView.swift */; };
 		83540FAB064C86D47C44BF3C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DF3D348DD6A54808D8B127 /* ContentView.swift */; };
+		84324C0D7D13393214C77A28 /* MarkdownPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC23308E1F89D81291E6078 /* MarkdownPage.swift */; };
 		A4CA36B931FD84916F5D587D /* CanvasScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D0DC56796BF3C855B596E6 /* CanvasScene.swift */; };
 		A909608BEC3710D762C4300B /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3ECAC54C59A6173A067027 /* Theme.swift */; };
 		A933E553F2FC5244B2F16D2F /* NetworkLayoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7010BC6468AF188DFFE0CAE /* NetworkLayoutEngine.swift */; };
@@ -36,7 +38,9 @@
 		8E45985F64E2AD3DEFCAA739 /* DetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
 		8FFC7DF074E4311D991A1F0F /* GraphStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphStore.swift; sourceTree = "<group>"; };
 		9E54ADCC59E3D893B6E96970 /* PluginInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PluginInstaller.swift; sourceTree = "<group>"; };
+		9FC23308E1F89D81291E6078 /* MarkdownPage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarkdownPage.swift; sourceTree = "<group>"; };
 		C2D0DC56796BF3C855B596E6 /* CanvasScene.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanvasScene.swift; sourceTree = "<group>"; };
+		D1DCC839783472180CA6BEE1 /* KnowledgeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KnowledgeView.swift; sourceTree = "<group>"; };
 		DF92FC484C25CD29A14D7CA9 /* module.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = module.modulemap; sourceTree = "<group>"; };
 		E53BE5C73561540E5136AAA9 /* shim.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = shim.h; sourceTree = "<group>"; };
 		E7010BC6468AF188DFFE0CAE /* NetworkLayoutEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkLayoutEngine.swift; sourceTree = "<group>"; };
@@ -108,6 +112,8 @@
 				7908F406C20D1A6F2664E522 /* ProjectDatabase.swift */,
 				598658FFE5D9AEE44ED75F9E /* ProjectLocation.swift */,
 				7B3ECAC54C59A6173A067027 /* Theme.swift */,
+				D1DCC839783472180CA6BEE1 /* KnowledgeView.swift */,
+				9FC23308E1F89D81291E6078 /* MarkdownPage.swift */,
 			);
 			name = ContextOSDesktop;
 			path = ContextOSDesktop;
@@ -210,6 +216,7 @@
 			inputPaths = (
 			);
 			name = "Embed contextos Codex plugin";
+			alwaysOutOfDate = 1;
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -237,6 +244,8 @@
 				071AD24C0D31CE906FC99D32 /* ProjectDatabase.swift in Sources */,
 				B2664FE40BF323A02704A724 /* ProjectLocation.swift in Sources */,
 				A909608BEC3710D762C4300B /* Theme.swift in Sources */,
+				36A1CC67895EE6DA776D48CE /* KnowledgeView.swift in Sources */,
+				84324C0D7D13393214C77A28 /* MarkdownPage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

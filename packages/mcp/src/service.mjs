@@ -1,8 +1,9 @@
+import { indexSources } from "./reconciliation.mjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { openDatabase, exportGraphToJson, importGraphFromJson, getSyncMeta, setSyncMeta, transaction } from "./database.mjs";
+import { openDatabase, exportGraphToJson, importGraphFromJson, getSyncMeta, setSyncMeta, transaction, flushProjection, inTransaction, markProjectionPending } from "./database.mjs";
 import { resolveProjectPaths } from "./paths.mjs";
 import { extractSymbolSlice, buildChainCodeStream, detectLanguage } from "./ast.mjs";
 import { redactSensitiveText, sanitizeTerminalOutput } from "./sanitizer.mjs";
@@ -119,7 +120,10 @@ export class ContextOSService {
     this.sourceFileCache = new Map();
     this.sourceSyncRevision = 0;
     this.sourceSyncState = null;
-    this.sourceSyncHistory = [];
+    const persisted = getSyncMeta(this.database);
+    this.sourceSyncHistory = JSON.parse(persisted.binding_history ?? '[]');
+    this.sourceSyncRevision = Number(persisted.binding_revision ?? 0);
+    this.sourceBindingState = new Map(JSON.parse(persisted.binding_baseline ?? '[]').map(b => [b.id,b]));
     this.ensureProject();
     this.ensureSynced();
   }
@@ -129,8 +133,13 @@ export class ContextOSService {
   }
 
   ensureSynced() {
+    if (inTransaction(this.database)) return false;
     const graphJsonPath = this.paths.graphJsonPath;
     if (!graphJsonPath) return false;
+    if (getSyncMeta(this.database).projection_pending) {
+      flushProjection(this.database, graphJsonPath);
+      return true;
+    }
     if (!fs.existsSync(graphJsonPath)) {
       const hasProject = this.database.prepare("SELECT count(*) as count FROM projects").get()?.count > 0;
       if (hasProject) {
@@ -149,9 +158,7 @@ export class ContextOSService {
       return true;
     }
 
-    if (meta.graph_json_mtime && Math.abs(stat.mtimeMs - Number(meta.graph_json_mtime)) < 10) {
-      return false;
-    }
+    // Hash canonical content: timestamp equality alone misses checkout/rapid writes.
 
     const content = fs.readFileSync(graphJsonPath, "utf8");
     const currentHash = crypto.createHash("sha256").update(content).digest("hex");
@@ -226,7 +233,7 @@ export class ContextOSService {
       previous: previousById,
       fileCache: this.sourceFileCache,
     });
-    const previousRevision = this.sourceSyncState?.sourceRevision ?? null;
+    const previousRevision = this.sourceSyncState?.sourceRevision ?? getSyncMeta(this.database).binding_source_revision ?? null;
     const inventoryChanged = previousById.size !== result.bindings.length ||
       [...previousById.keys()].some((id) => !result.bindings.some((item) => item.id === id));
     const changed = Boolean(previousRevision && previousRevision !== result.sourceRevision) || inventoryChanged;
@@ -240,6 +247,16 @@ export class ContextOSService {
       if (this.sourceSyncHistory.length > 100) this.sourceSyncHistory.shift();
     }
     this.sourceBindingState = new Map(result.bindings.map((binding) => [binding.id, binding]));
+    const updateRange = this.database.prepare("UPDATE source_refs SET start_line=?,end_line=? WHERE id=? AND (start_line IS NOT ? OR end_line IS NOT ?)");
+    for (const binding of result.bindings) if (binding.symbol && !INVALID_BINDING_STATUSES.has(binding.bindingStatus)) {
+      updateRange.run(binding.startLine, binding.endLine, binding.id, binding.startLine, binding.endLine);
+    }
+    if (changed || !previousRevision) {
+      setSyncMeta(this.database, 'binding_revision', String(this.sourceSyncRevision));
+      setSyncMeta(this.database, 'binding_source_revision', result.sourceRevision);
+      setSyncMeta(this.database, 'binding_history', JSON.stringify(this.sourceSyncHistory));
+      setSyncMeta(this.database, 'binding_baseline', JSON.stringify(result.bindings.map(({content, ...binding}) => binding)));
+    }
     this.sourceSyncState = {
       revision: this.sourceSyncRevision,
       sourceRevision: result.sourceRevision,
@@ -262,6 +279,7 @@ export class ContextOSService {
 
   sourceBindingReport(options = {}) {
     this.ensureSynced();
+    const repositorySync = indexSources(this);
     const report = this.syncSourceBindings(options);
     const sinceRevision = Number.isInteger(options.sinceRevision) ? options.sinceRevision : null;
     const historicalChanges = sinceRevision == null
@@ -286,6 +304,7 @@ export class ContextOSService {
       : [];
     return {
       ...report,
+      repositorySync,
       sourceSyncRevision: report.revision,
       changes: historicalChanges,
       changed: historicalChanges.length > 0,
@@ -577,6 +596,8 @@ export class ContextOSService {
       .map((row) => {
         const storedEvidence = parseJson(row.evidence_json, []);
         const freshness = evaluateCheckpointFreshness(this, extractCheckpointIdentity(storedEvidence), freshnessContext);
+        const effectiveStatus = row.status === "passed" && freshness.status !== "fresh" ? "retest_required" : row.status;
+        this.database.prepare(`INSERT INTO checkpoint_runtime VALUES(?,?,?) ON CONFLICT(checkpoint_id) DO UPDATE SET checkpoint_revision=excluded.checkpoint_revision,status=excluded.status WHERE checkpoint_runtime.checkpoint_revision<>excluded.checkpoint_revision OR checkpoint_runtime.status<>excluded.status`).run(row.id,row.current_revision,effectiveStatus);
         return {
           id: row.id,
           targetType: row.target_type,
@@ -584,7 +605,7 @@ export class ContextOSService {
           title: row.title,
           criteria: row.criteria,
           recordedStatus: row.status,
-          status: row.status === "passed" && freshness.status !== "fresh" ? "retest_required" : row.status,
+          status: effectiveStatus,
           checkpointKind: row.checkpoint_kind,
           aggregationPolicy: parseJson(row.aggregation_policy_json, {}),
           eligibleAfterChildren: Boolean(row.eligible_after_children),
@@ -985,12 +1006,25 @@ export class ContextOSService {
     return getTimelineState(this);
   }
 
+  commitTimelineMutation(callback) {
+    this.ensureSynced();
+    const result = transaction(this.database, () => {
+      const value = callback();
+      this.database.prepare("UPDATE projects SET graph_revision=graph_revision+1 WHERE id=?").run(this.paths.descriptor.id);
+      markProjectionPending(this.database);
+      return {...value, graphRevision:this.project().graph_revision};
+    });
+    try { result.projection=flushProjection(this.database,this.paths.graphJsonPath); }
+    catch(error) { result.success=false; result.projection={status:'pending',error:error.message}; }
+    return result;
+  }
+
   syncTimeline(payload = {}) {
-    return syncTimeline(this, payload);
+    return this.commitTimelineMutation(() => syncTimeline(this, payload));
   }
 
   advanceStep(payload = {}) {
-    return advanceStep(this, payload);
+    return this.commitTimelineMutation(() => advanceStep(this, payload));
   }
 
   applyArrowFlow(flowExpression, options = {}) {
@@ -1006,7 +1040,8 @@ export class ContextOSService {
   }
 
   contextForTask(options = {}) {
-    return buildContextForTask(this, options);
+    const repositorySync = indexSources(this);
+    return { ...buildContextForTask(this, {...options,repositorySync}), repositorySync };
   }
 
   resolveHistoryContext(planId = null, chainScopeId = null) {

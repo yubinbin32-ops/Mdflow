@@ -2,6 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var store = GraphStore()
+    @StateObject private var knowledge = KnowledgeLibrary()
+    @State private var syncIssues: [String] = []
+    @State private var requestedDocument: String?
+    @State private var requestedSection: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @AppStorage("contextos.appearance") private var appearance = AppearancePreference.system.rawValue
@@ -15,10 +19,13 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     canvasToolbar
                     Divider()
-                    GraphCanvasView(store: store)
-                        .overlay(alignment: .topLeading) { errorBanner }
+                    GraphCanvasView(store: store).overlay(alignment: .topLeading) { errorBanner }
                 }
-                if let selection = store.selection {
+                if let documentID = requestedDocument {
+                    KnowledgeView(store: store, library: knowledge, documentID: documentID, section: requestedSection, close: closeDocument, openDocument: openDocument)
+                        .frame(width: min(640, max(440, proxy.size.width * 0.38)))
+                        .overlay(alignment: .leading) { Rectangle().fill(ContextOSTheme.hairline).frame(width: 1) }
+                } else if let selection = store.selection {
                     DetailView(store: store, selection: selection)
                         .frame(width: drawerWidth)
                         .background(ContextOSTheme.surface)
@@ -33,7 +40,39 @@ struct ContentView: View {
         .background(ContextOSTheme.canvas)
         .preferredColorScheme(preferredColorScheme)
         .sheet(isPresented: $store.settingsPresented) { SettingsView(store: store) }
+        .task(id: store.projectRoot) {
+            let root = store.projectRoot
+            while !Task.isCancelled {
+                await knowledge.reload(root: root)
+                let issues = store.knowledgeSyncIssues()
+                if syncIssues != issues { syncIssues = issues }
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+        .onChange(of: store.selection) { _, value in if value != nil { closeDocument() } }
+        .onChange(of: store.projectRoot) { _, _ in closeDocument() }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("OpenKnowledgeDocument"))) { event in
+            if let id = event.userInfo?["id"] as? String { openDocument(id, nil) }
+        }
+        .onOpenURL { url in
+            guard url.scheme == "contextos", url.host == "knowledge",
+                let parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+            if let project = parts.queryItems?.first(where: { $0.name == "project" })?.value, project != store.projectRoot {
+                store.openKnowledgeProject(at: URL(fileURLWithPath: project))
+            }
+            if let id = parts.queryItems?.first(where: { $0.name == "document" })?.value {
+                Task { await knowledge.reload(root: store.projectRoot); openDocument(id, parts.queryItems?.first(where: { $0.name == "section" })?.value) }
+            }
+        }
     }
+
+    private func openDocument(_ id: String, _ section: String?) {
+        store.clearSelection()
+        requestedSection = section
+        requestedDocument = id
+        store.setSidebarSection(.knowledge, collapsed: false)
+    }
+    private func closeDocument() { requestedDocument = nil; requestedSection = nil }
 
     private func detailDrawerWidth(totalWidth: CGFloat) -> CGFloat {
         guard let selection = store.selection else { return 0 }
@@ -50,6 +89,18 @@ struct ContentView: View {
             Divider().padding(.horizontal, 14)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    sidebarSection(.knowledge, title: store.activeLocale == "zh-Hans" ? "知识" : "Knowledge") {
+                        ForEach(knowledge.documents) { doc in
+                            sidebarButton(title: doc.title, subtitle: doc.kind == "readme" ? (store.activeLocale == "zh-Hans" ? "仓库原文件 · 只读" : "REPOSITORY · READ ONLY") : "OS · r\(doc.revision)", color: ContextOSTheme.blockKindColor("principle"), selected: requestedDocument == doc.id) { openDocument(doc.id, nil) }
+                        }
+                        if knowledge.documents.isEmpty { Text(store.activeLocale == "zh-Hans" ? "README 与项目文档" : "README and project documents").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 18) }
+                    }
+                    if !syncIssues.isEmpty || store.sourcePollingError != nil {
+                        sidebarSection(.synchronization, title: store.activeLocale == "zh-Hans" ? "同步检查 (\(syncIssues.count))" : "Sync checks (\(syncIssues.count))") {
+                            if let error = store.sourcePollingError { Text(error).font(.caption).foregroundStyle(.orange).padding(.horizontal, 18) }
+                            ForEach(syncIssues, id: \.self) { Text($0).font(.caption).foregroundStyle(ContextOSTheme.muted).textSelection(.enabled).padding(.horizontal, 18).padding(.vertical, 4) }
+                        }
+                    }
                     sidebarSection(.projectRules, title: store.text("projectRules")) {
                         ForEach(projectRuleBlocks) { block in
                             sidebarButton(
@@ -434,6 +485,7 @@ private struct SettingsView: View {
                     .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(ContextOSTheme.hairline, lineWidth: 0.8))
 
+                    Text(store.runtimeHandshake).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
                     Text(store.text("pluginHelp"))
                         .font(.system(size: 10.5, design: .rounded))
                         .foregroundStyle(ContextOSTheme.muted)

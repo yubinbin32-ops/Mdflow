@@ -58,7 +58,7 @@ export class PaymentService {
           title: "真实支付服务",
           kind: "service",
           architectureLayer: "application",
-          deliveryState: "complete",
+          deliveryState: "implementing",
           summary: "微信支付宝网关支付",
           contract: "processPayment(amount) -> Result",
         },

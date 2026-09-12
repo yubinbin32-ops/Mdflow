@@ -170,7 +170,7 @@ export function evaluateCheckpointFreshness(service, identity, context = null) {
   const root = freshnessContext.root;
   const reasons = [];
   let unknown = false;
-  if (identity.gitHead) {
+  if (identity.gitHead && !(identity.bindings?.length || identity.files?.length)) {
     const currentHead = freshnessContext.gitHead;
     if (!currentHead) unknown = true;
     else if (currentHead !== identity.gitHead) reasons.push("git HEAD changed");

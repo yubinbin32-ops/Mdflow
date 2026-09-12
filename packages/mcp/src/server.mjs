@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+import { pluginRuntimeStatus } from "./plugin-runtime.mjs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
@@ -8,9 +11,11 @@ import { sanitizeTerminalOutput } from "./sanitizer.mjs";
 import { boundTaskResponse, setTaskSourceBaseline, startTaskBudget, taskBudget, taskSourceBaseline } from "./task-budget.mjs";
 import { normalizeMcpIds } from "./reference.mjs";
 
+import { registerWorkspaceTools } from "./workspace-tools.mjs";
+
 const router = new ProjectServiceRouter();
 const server = new McpServer(
-  { name: "contextos", version: "0.3.9" },
+  { name: "contextos", version: "0.4.0" },
   {
     instructions:
       "contextos is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next contextos boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
@@ -23,6 +28,9 @@ const projectRootInput = {
 
 function withProject(input, callback) {
   const service = router.serviceFor(input);
+  const runtime = { version: '0.4.0', protocolVersion: 2, observedAt: new Date().toISOString(), pid: process.pid, projectRoot: service.paths.projectRoot, capabilities: ['documents','task-sessions','source-index'], plugin: pluginRuntimeStatus(service.paths.projectRoot) };
+  const runtimePath = path.join(service.paths.projectRoot, '.contextos', 'runtime.json');
+  try { fs.writeFileSync(runtimePath + '.' + process.pid, JSON.stringify(runtime)); fs.renameSync(runtimePath + '.' + process.pid, runtimePath); } catch { /* read-only project: tools still report their result */ }
   const { projectRoot: _projectRoot, ...payload } = normalizeMcpIds(input);
   const data = callback(service, payload);
   if (data && typeof data === "object" && input.taskContextId) {
@@ -35,7 +43,7 @@ function operationEnvelope(data, structured, operation, budget = null) {
   if (structured === undefined) return undefined;
   const truncated = Boolean(structured?.truncated);
   return {
-    ok: data?.success === false ? false : data?.valid === false ? false : !Boolean(data?.error),
+    ok: data?.success === false ? false : data?.valid === false ? false : !Boolean(data?.error) && !["needs_work","projection_pending"].includes(data?.status),
     operation: operation ?? data?.operation ?? null,
     graphRevision: data?.graphRevision ?? null,
     sourceSyncRevision: data?.sourceSync?.revision ?? data?.sourceSyncRevision ?? null,
@@ -57,12 +65,13 @@ function readResult(data, markdown, includeStructured = false, operation = null)
 }
 
 function writeResult(data, markdown, includeStructured = false, operation = null) {
-  const text = markdown ?? data?.markdown ?? writeReceiptMarkdown(data);
+  const text = (markdown ?? data?.markdown ?? writeReceiptMarkdown(data)) + (data?.projection?.status === "pending" ? `\nProjection pending: ${data.projection.error}` : "");
   const bounded = boundTaskResponse({
     taskContextId: data?.__taskContextId,
     markdown: text,
     data,
     includeStructured,
+    critical: true,
   });
   return response(data, bounded.markdown, operationEnvelope(data, bounded.structured, operation, bounded.budget));
 }
@@ -115,6 +124,8 @@ function response(data, markdown, structuredContent) {
   if (structuredContent !== undefined) output.structuredContent = structuredContent;
   return output;
 }
+
+registerWorkspaceTools(server, withProject, readResult, writeResult);
 
 server.registerTool(
   "project_register",
@@ -892,7 +903,7 @@ server.registerTool(
 const cliArgs = process.argv.slice(2);
 if (cliArgs.length > 0 && cliArgs[0] !== "serve" && !cliArgs[0].startsWith("--mcp")) {
   await runCli(cliArgs, router);
-  process.exit(0);
+  process.exit(process.exitCode ?? 0);
 }
 
 const transport = new StdioServerTransport();

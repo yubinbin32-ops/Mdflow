@@ -92,12 +92,12 @@ jobs:
           body: |
             ## ContextOS ${{ github.ref_name }}
 
-            Spatial architecture canvas and context optimization OS for AI coding agents. AST-sliced task contexts (99.4% token reduction), persistent architecture graphs across sessions, and test-gated verification via MCP.
+            Spatial architecture canvas and context optimization OS for AI coding agents. Task-focused code locators, persistent project knowledge, read-only README previews, and verified task completion via MCP.
 
             ### Highlights
 
             - Git-tracked architecture graph with Ghost Blueprints and AST-bound Solid Anchors
-            - Cross-file `chain_code_stream` with 99.2% fewer tokens in the included benchmark
+            - Cross-file `chain_code_stream` returning compact code locators; reproducible character measurements are documented in the README
             - Atomic `block_code_mutate` with verification and failure rollback
             - `log_sanitize` for compact agent-ready terminal evidence
             - Native macOS ContextOS app plus cross-platform headless MCP and CLI

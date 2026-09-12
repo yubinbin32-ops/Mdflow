@@ -9,6 +9,7 @@ function snapshot(entry) {
     consumedChars: entry.consumedChars,
     remainingChars: Math.max(0, entry.budgetChars - entry.consumedChars),
     responses: entry.responses,
+    controlRemainingChars: Math.max(0, entry.controlBudgetChars-entry.controlConsumedChars),
     sourceSyncRevision: entry.sourceSyncRevision ?? null,
     sourceRevision: entry.sourceRevision ?? null,
   };
@@ -25,6 +26,8 @@ export function startTaskBudget({ projectRoot = ".", taskContextId = null, budge
     budgetChars: Math.max(100, Math.floor(Number(budgetChars) || 12000)),
     consumedChars: 0,
     responses: 0,
+    controlBudgetChars: 2000,
+    controlConsumedChars: 0,
     sourceSyncRevision: null,
     sourceRevision: null,
   };
@@ -79,7 +82,7 @@ function compactState(data, entry) {
   };
 }
 
-export function boundTaskResponse({ taskContextId, markdown, data, includeStructured = false } = {}) {
+export function boundTaskResponse({ taskContextId, markdown, data, includeStructured = false, critical = false } = {}) {
   const entry = taskContextId ? budgets.get(taskContextId) : null;
   if (!entry) return { markdown, structured: includeStructured ? data : undefined, budget: null };
 
@@ -87,7 +90,7 @@ export function boundTaskResponse({ taskContextId, markdown, data, includeStruct
   const suffix = `[task budget ${before.remainingChars} chars remaining; keep taskContextId=${entry.id} for focused expansion]`;
   const markdownText = String(markdown ?? "");
   const structuredText = includeStructured ? JSON.stringify(data ?? {}) : "";
-  const available = before.remainingChars;
+  const available = before.remainingChars + (critical ? before.controlRemainingChars : 0);
   let boundedMarkdown = markdownText;
   let structured;
   if (!includeStructured) {
@@ -101,11 +104,14 @@ export function boundTaskResponse({ taskContextId, markdown, data, includeStruct
       : compactState(data, entry);
   }
   if (includeStructured) {
-    const structuredChars = JSON.stringify(structured).length;
+    if (JSON.stringify(structured).length > available) structured = undefined;
+    const structuredChars = structured === undefined ? 0 : JSON.stringify(structured).length;
     boundedMarkdown = truncateMarkdown(markdownText, Math.max(0, available - structuredChars), suffix);
   }
-  const returnedChars = boundedMarkdown.length + (includeStructured ? JSON.stringify(structured ?? {}).length : 0);
-  entry.consumedChars += Math.min(available, returnedChars);
+  const returnedChars = boundedMarkdown.length + (structured === undefined ? 0 : JSON.stringify(structured).length);
+  const normalCharged = Math.min(before.remainingChars, returnedChars);
+  entry.consumedChars += normalCharged;
+  entry.controlConsumedChars += Math.max(0,returnedChars-normalCharged);
   entry.responses += 1;
   const after = snapshot(entry);
   return { markdown: boundedMarkdown, structured, budget: after };

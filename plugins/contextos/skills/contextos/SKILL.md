@@ -1,160 +1,57 @@
 ---
 name: contextos
-description: Context operating system for AI coding agents. Call context_for_task at task start, keep source locators synchronized, inspect path+symbol indexes along chains with chain_code_stream, and edit code with the host editor using those locators.
+description: Keep project architecture, Markdown knowledge, source locators and verified task handoffs synchronized with ContextOS. Retrieve task context before broad file reads; write internal reports to OS documents.
 ---
 
-# contextos: Context Operating System for AI Coding Agents
+# ContextOS project workflow
 
-contextos is the canonical development operating system for AI coding agents. It provides a structured, token-budgeted architecture map and path+symbol locators so agents can open only the method they need.
+The graph stores architecture and intent. Source files define implementation behavior.
+OS Documents store project narratives. README stays in its repository location and is read-only in the App.
 
-> [!IMPORTANT]
-> **Core Mission**: contextos is your **living runtime OS**, not an archive to update after the fact.
-> The graph is the source of truth for architecture and intent; the source tree is the source of truth for behavior. `SourceBinding` is the bridge that keeps the two aligned while code moves.
-> New architecture must be registered in contextos, while existing bound source is rescanned automatically instead of requiring a full post-hoc documentation pass.
-> **Architecture precedes code. Decisions precede implementation.**
+## Start
 
----
+1. Call `context_for_task` with the repository/worktree's absolute `projectRoot`. Register with `project_register` if needed. Preserve `taskContextId` for budgeted reads.
+2. Read task-relevant rules and decisions. If `requiredContextIncomplete` or a REQUIRED expansion notice appears, expand those references before implementation. Use `document_list` / `document_open` for project narratives; read only relevant chapters. Do not reread all files to rediscover an existing architecture.
+3. Register new Blocks and design Decisions before implementation. Declare feature links and a draft Chain using `graph_mutate` / `graph_flow`.
+4. Read resumable tasks from `context_for_task` / `sync_issues`. Resume a matching unfinished task instead of creating a duplicate. Otherwise call `task_begin` with relevant Block IDs and a feature Chain. A genuinely independent Block may use `standaloneReason`. A review-only task can use `readOnly: true` and no Blocks.
 
-## 🧠 The AI Cognitive Trigger Protocol: WHEN to Use contextos
+## Implement and synchronize
 
-Do not treat contextos as a passive tool manual. Follow this **mandatory cognitive reflex machine** throughout your development cycle:
+- Use `chain_code_stream` / `entity_open` locators: path + symbol, derived line range and contract. Open only the necessary implementation in the host editor.
+- Missing/ambiguous/unreadable bindings require resolution. Use `source_binding_suggest` and `source_binding_accept`; never substitute stale code.
+- Use `run_command` for tests/builds so raw terminal output stays out of context. Use `log_sanitize` only for logs supplied externally.
+- Call `task_reconcile` after edits. It indexes new/changed/deleted files, records issues, checks feature membership and moves actually anchored blueprints into implementation. Source existence does not mean verified delivery.
+- Resolve issues by updating bindings, feature Chain, or explicit task scope with `task_scope`. Do not invent meaningless links to clear an alert.
+- To inspect project-wide unbound files use `source_index`; `sync_issues` shows durable issues and unfinished sessions. No fixed 600-file discovery assumption.
 
-```mermaid
-stateDiagram-v2
-    [*] --> 1_TaskReceived: User gives requirement or bug
-    1_TaskReceived --> 2_DesignReflex: Context retrieved & cursor anchored
-    2_DesignReflex --> 3_TraceReflex: Decision & Blocks registered
-    3_TraceReflex --> 4_MutationReflex: Chain locators inspected
-    4_MutationReflex --> 5_SealReflex: Host edit verified & tests pass
-    5_SealReflex --> [*]: Checkpoint recorded & step advanced
-```
+## Write project knowledge in the OS
 
----
+- Reports, designs and internal guides: `document_write`, not a new `docs/*.md` file. Return its `openURL` so the user can read it in ContextOS.
+- Use `document_patch` with `expectedRevision` for a chapter update. Refresh on conflicts; do not overwrite another writer's document.
+- A Decision records a choice, rationale and alternatives; it is not a container for an entire report. Link Documents to Blocks/Chains/Decisions with typed refs.
+- Existing internal Markdown: `document_import` records source path/hash. Verify content, images and links before deleting or replacing the old editable source. Public docs and machine-readable evidence may stay in files.
+- README remains a repository file. Its local relative images remain relative to that file. The App previews it without maintaining a second editable copy.
+- Keep reported measurements distinct from personal experience. The author's “about 60% fewer compactions” is a subjective usage impression, not a benchmark.
 
-### ⚡ Trigger 1: When Receiving ANY Request, Bug, or Feature
-* **Your Natural Habit (WRONG)**: Immediately searching files (`grep`/`find`/`ls`), guessing which file to edit, and opening raw files.
-* **The contextos Reflex (MANDATORY)**:
-  1. **Call `context_for_task(task="...")`**:
-     - Locks in the relevant architecture Blocks, execution Chains, and active Plan within a tight token budget.
-     - Automatically initializes `.contextos` if the project is brand new.
-     - Save the returned `taskContextId`; pass it to `chain_code_stream`, `plan_context`, `entity_open`, `checkpoint_list`, and `changes_since` so focused reads consume one shared task budget instead of several independent responses.
-     - Use the default shared budget first; increase `budgetChars` only when the task genuinely needs more context. `includeStructured=true` is an explicit expansion and is capped by the same task budget.
-     - `context_for_task` also performs a compact source-binding scan. Read its `sourceSync` summary and use `source_sync` when you need the complete delta; do not copy source code into the synchronization response.
-     - **Rule**: Before knowing which Block and Chain the task belongs to, DO NOT open arbitrary source files.
-  2. **Call `timeline_sync(nowDoing="...")`**:
-     - Anchor your current working cursor immediately so other agents and future prompts have zero ambiguity about the active focus.
+## Finish or hand off
 
----
+1. Run relevant verification through `run_command`.
+2. Record `checkpoint_record` with successful execution receipts for required targets. A fresh direct Block checkpoint verifies that Block; a declared Chain checkpoint verifies integration independently. Do not create artificial Plan gates.
+3. Call `task_reconcile` again, then `task_finish` with its `sourceRevision`, `graphRevision` as `expectedGraphRevision`, a stable `idempotencyKey`, and a concise handoff summary. The finish transaction checks current evidence and the declared feature network. Retry the same key after an uncertain response.
+4. If finishing without a TaskSession, use `block_seal` for verified Blocks and explicitly update the relevant Chain and handoff. Plain `deliveryState: complete` updates cannot bypass required verification.
+5. Call `graph_validate`. Report unresolved legacy issues separately; never claim the entire graph healthy if validation failed. If a projection is pending/conflicted, surface it and recover before declaring persistence complete.
+6. Advance a Plan step only when this task belongs to that Plan. Do not advance an old active Plan during unrelated work. Paused work remains resumable; use `task_scope` with a summary/next action rather than claiming completion.
 
-### ⚡ Trigger 2: When Formulating a Solution or Making Architectural Choices
-* **Your Natural Habit (WRONG)**: Keeping the design in your hidden thoughts and directly typing code into files.
-* **The contextos Reflex (MANDATORY)**:
-  1. **When making a technical trade-off or choosing an approach**:
-     - **Trigger**: Call `graph_mutate` with a `create_decision` operation (or review past constraints with `decision_open` / `decision_list`).
-     - Record: Why this approach was chosen, what was rejected, and the consequences.
-  2. **When creating or altering modules, structs, interfaces, or services**:
-     - **Trigger**: Call `graph_patch` or `graph_flow` **BEFORE writing the code**.
-     - Declare the Block and its connections:
-       ```text
-       contextos/1 reason="Introduce editor platform detection engine"
-       create block:editor-detector kind=service title="Editor Platform Detector" summary="Detects installed IDEs and reads versions"
-       flow: desktop-store -[calls]-> editor-detector
-       ```
-     - Bind the planned source symbol:
-       ```text
-       source block:editor-detector path="Sources/ContextOSDesktop/PluginInstaller.swift" symbol="detectAllPlatforms"
-       ```
-  3. **Validate**: Call `graph_validate()` to guarantee no orphan blocks or broken links.
+## Small tool reference
 
----
+| Purpose | Tools |
+|---|---|
+| Orient | `context_for_task`, `project_map`, `entity_open`, `graph_search` |
+| Knowledge | `document_list`, `document_open`, `document_write`, `document_patch`, `document_import` |
+| Architecture | `graph_mutate`, `graph_patch`, `graph_flow`, `decision_list` |
+| Source | `source_sync`, `source_index`, `source_binding_suggest`, `source_binding_accept`, `chain_code_stream` |
+| Task lifecycle | `task_begin`, `task_scope`, `task_reconcile`, `task_finish`, `sync_issues` |
+| Verify | `run_command`, `checkpoint_record`, `block_seal`, `graph_validate` |
+| Runtime | `runtime_info` in a new conversation after installation/update |
 
-## 🧭 Semantic model and source-of-truth boundary
-
-Keep these concepts separate; do not invent a Plan or a Chain gate merely because a Block exists:
-
-- **Block** is an abstract architecture unit. It may stand alone, participate in serial or parallel networks, and own an independent Checkpoint.
-- **Chain** is a higher-level serial/parallel network of Blocks. It may own an integration Checkpoint that is independent of the Blocks' Checkpoints.
-- **Plan** records development intent and work scope over Blocks, Chains, and rules. It does not own the architecture and does not need to cover every Block or Chain. Unplanned architecture is valid.
-- **Checkpoint** belongs to its declared target. A Block Checkpoint verifies that Block; a Chain Checkpoint verifies integration; a Plan gate verifies the Plan's required scope. A standalone Block Checkpoint is not an error.
-
-Source synchronization follows one stable rule: the file plus `symbol`/method name is the binding identity; `startLine`/`endLine` are derived coordinates. At contextos boundaries (`context_for_task`, `chain_code_stream`, `graph_validate`, checkpoint evaluation, and `run_command`), active bindings are rescanned. `moved` means the symbol was found at a new range, `changed` means its current implementation differs, and `missing`/`ambiguous`/`unreadable` means the current implementation is unsafe to stream or mutate.
-
-Use `source_sync` or `changes_since(sourceSyncRevision=...)` for an explicit compact delta. `chain_code_stream` returns locators only and never implementation bodies. Edit with the host editor at `path` + `symbol`; then call `source_sync` and accept new bindings if needed.
-
----
-
-### ⚡ Trigger 3: When Tracing Multi-Module Execution Chains
-* **Your Natural Habit (WRONG)**: Reading 3–5 full source files (1,000–3,000 lines), wasting 80% of your context window on boilerplate imports, formatting, and unrelated helpers.
-* **The contextos Reflex (MANDATORY)**:
-  - **Trigger**: Call `chain_code_stream(chainId="...")`:
-    - The stream is locator-only: path, symbol, signature, derived line range, source status, and contract.
-    - Do not expect implementation bodies. Open `path` at the derived line in the host editor.
-    - Treat `sourceStatus="stale"|"missing"|"unreadable"|"ambiguous"` as a stop signal. If it is `ambiguous`, choose an explicit candidate with `source_binding_accept`.
-    - Pass the `taskContextId` returned by `context_for_task` so Chain expansion shares the task budget.
-
----
-
-### ⚡ Trigger 4: When Modifying Code & Running Builds
-* **Your Natural Habit (WRONG)**: Performing raw regex or string replacements across large files; if the build fails, leaving broken code behind.
-* **The contextos Reflex (MANDATORY)**:
-  1. **Edit from locators, never from dumped source**:
-     - Open the host editor at the Block locator `path` + `symbol`. Do not read the whole file unless the locator is missing.
-     - If the locator is `line_only`, `stale`, `missing`, or `ambiguous`, rebind with `source_binding_suggest` / `source_binding_accept` first.
-     - After host edits, call `source_sync` and accept any new binding candidates before recording a checkpoint.
-  2. **Command output gateway**:
-      - Use `run_command(command="...")` for tests and builds. It captures stdout/stderr, redacts credentials and local paths, compresses routine output, and returns no raw terminal stream.
-      - Use `log_sanitize(rawOutput="...")` only for output already supplied by an external tool; it is not the normal command runner.
-      - An explicitly allowed external `exec_command` or IDE edit is not forbidden, but it is outside contextos's immediate mutation receipt. Run `source_sync` when returning to the contextos workflow; the next context/stream/validation boundary will also detect the drift.
-
----
-
-### ⚡ Trigger 5: When Verification Passes & Work is Completed
-* **Your Natural Habit (WRONG)**: Saying "I'm done" in chat without leaving verifiable artifacts or moving the timeline.
-* **The contextos Reflex (MANDATORY)**:
-  1. **Seal verification proof**:
-     - Call `checkpoint_record(targetId="...", status="passed", evidenceLevel="integration"|"real_target", title="...", criteria="...")`.
-     - An assertion without objective evidence is invalid.
-     - Checkpoint freshness is enforced: contextos records Git/source identity and rechecks it on read. If a bound source changes, the checkpoint becomes `retest_required`; historical checkpoints without identity do not satisfy a gate.
-  2. **Advance progress cursor**:
-     - Call `step_advance(summary="...")` to mark the plan step as completed and push the project cursor forward.
-  3. **Sync timeline**:
-     - Call `timeline_sync(nowDoing="", nextUp="...")` so the next interaction resumes seamlessly.
-  4. **Drift & Completion Gate Check (CRITICAL)**:
-     - Call `graph_status` or `graph_validate` before declaring completion.
-     - **Zero-Ghost Rule**: If code was implemented on disk, the corresponding Block must have `deliveryState: "complete"`. Never leave implemented blocks as `proposed` (Ghost).
-     - Resolve any reported Architecture Drift Alerts before telling the user you are finished.
-
----
-
-## 🚫 Critical Anti-Patterns (The "Never Do" List)
-
-1. **NEVER edit code before updating the graph**: If a new function, struct, or service does not exist in `.contextos`, create the Block first.
-2. **NEVER pollute project roots**: Tool and editor configs (e.g. Cursor, OpenCode, Claude) must only be written to their canonical user/global application support directories unless the project explicitly maintains them.
-3. **NEVER dump full files when a locator exists**: Use `path` + `symbol` from the Block/Chain index and open only that method.
-4. **NEVER close a required gate without current evidence**: Record a passing Checkpoint for the declared Block, Chain, or Plan gate. Do not create artificial Plan membership or Chain gates just to make standalone architecture look complete.
-5. **NEVER use a stale implementation body**: If a source binding is missing, unreadable, or ambiguous, rebind or ask for a decision; never paste the previous slice back into context or mutation.
-
----
-
-## 🛠️ Complete MCP Tool Reference
-
-| Category | Tool | Mandatory Trigger Moment (WHEN) | Key Arguments |
-|---|---|---|---|
-| **Orientation** | `context_for_task` | **Task start** — before touching any files. Returns a shared `taskContextId`. | `task`, `projectRoot`, `focusRefs`, `budgetChars` |
-| | `graph_status` | **Task start or pre-completion** — inspect architecture drift, ghost nodes, isolated blocks, and gates. | `locale`, `projectRoot` |
-| | `entity_open` | Deep-diving into a specific Block, Chain, or Plan contract. | `type`, `id` |
-| | `graph_search` | Locating existing architecture elements without loading whole files. | `query`, `kinds` |
-| **Architecture** | `graph_patch` | **Design phase** — before adding or modifying code modules. | `patch`, `projectRoot` |
-| | `graph_flow` | Connecting pipeline stages via arrow syntax (`A -> B -> C`). | `flow`, `projectRoot` |
-| | `graph_mutate` | Fine-grained programmatic operations (e.g. creating decisions). | `operations`, `reason` |
-| | `graph_validate` | Verifying architecture integrity after any graph mutation. | `projectRoot` |
-| **Source locators** | `chain_code_stream` | **Logic tracing** — locator-only path+symbol index along a Chain. | `chainId`, `maxTotalChars` |
-| | `run_command` | **Normal test/build gateway** — execute inside the project and return sanitized output only. | `command`, `cwd`, `timeoutMs`, `maxChars` |
-| | `log_sanitize` | Processing large external compiler/test outputs. | `rawOutput`, `exitCode` |
-| **Synchronization** | `source_sync` | **After external edits or when a delta is needed** — rescan active bindings and return compact source changes. | `sinceRevision`, `includeUnchanged` |
-| **Milestones** | `checkpoint_record` | **Verification phase** — recording objective test/build evidence. | `targetId`, `status`, `evidenceLevel` |
-| | `step_advance` | **Completion phase** — moving the active plan step cursor forward. | `summary` |
-| | `timeline_sync` | **Handoff / Pause** — updating `nowDoing` and `nextUp`. | `nowDoing`, `nextUp` |
-| **Memory** | `decision_open` | Reviewing constraints and rationale before making architectural pivots. | `id` |
-| | `decision_list` | Browsing historical decisions made by the team. | (none) |
-| | `change_set_revert`| Rolling back an entire architectural transaction if needed. | `changeSetId`, `reason` |
+Current parser adapters are syntax-based locators, not a complete semantic compiler. Unsupported/ambiguous symbols must remain explicit. Feature intent is declared by the agent/user; import graphs alone do not prove business flows.

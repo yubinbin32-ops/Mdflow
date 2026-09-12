@@ -38,7 +38,7 @@ enum PluginInstaller {
         var errorDescription: String? { output }
     }
 
-    static let fallbackVersion = "0.3.9"
+    static let fallbackVersion = "0.4.0"
 
     static var canonicalServerDirectoryURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -633,7 +633,8 @@ enum PluginInstaller {
             return (true, false, false, nil, detectedBuild)
         }
         let buildMatches = targetBuild.isEmpty || (detectedBuild == targetBuild)
-        let isSynced = (ver == targetVersion) && buildMatches
+        let hasSkill = FileManager.default.fileExists(atPath: installedPluginRoot.appending(path: "skills/contextos/SKILL.md").path)
+        let isSynced = hasPlugin && hasSkill && (ver == targetVersion) && buildMatches
         let isOutdated = (ver != targetVersion)
         return (true, isSynced, isOutdated, ver, detectedBuild)
     }

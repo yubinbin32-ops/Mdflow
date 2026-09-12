@@ -1,3 +1,4 @@
+import { WORKSPACE_SCHEMA } from "./workspace-schema.mjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -658,6 +659,7 @@ export function openDatabase(databasePath) {
   database.exec("PRAGMA journal_mode = DELETE;");
   database.exec("PRAGMA foreign_keys = ON;");
   database.exec(SCHEMA);
+  database.exec(WORKSPACE_SCHEMA);
   migratePlanCapableTables(database);
   migrateBlockArchitecture(database);
   migratePlanWorkflow(database);
@@ -665,8 +667,11 @@ export function openDatabase(databasePath) {
   return database;
 }
 
+const activeTransactions = new WeakSet();
+export const inTransaction = database => activeTransactions.has(database);
 export function transaction(database, callback) {
   database.exec("BEGIN IMMEDIATE;");
+  activeTransactions.add(database);
   try {
     const result = callback();
     database.exec("COMMIT;");
@@ -674,10 +679,14 @@ export function transaction(database, callback) {
   } catch (error) {
     database.exec("ROLLBACK;");
     throw error;
+  } finally {
+    activeTransactions.delete(database);
   }
 }
 
 export const GRAPH_TABLES = [
+  { name: "documents", orderBy: "id" },
+  { name: "document_versions", orderBy: "document_id, revision" },
   { name: "projects", orderBy: "id" },
   { name: "blocks", orderBy: "id" },
   { name: "source_refs", orderBy: "block_id, id" },
@@ -736,7 +745,7 @@ export function queryRecentHistory(database, limit = 50) {
   return { changeSets, history, changeFeed };
 }
 
-export function exportGraphToJson(database, jsonPath, options = {}) {
+function graphProjection(database, options = {}) {
   const limit = options.maxChangeSets ?? 50;
   const project = database.prepare("SELECT * FROM projects LIMIT 1").get();
   const exportData = {};
@@ -762,9 +771,16 @@ export function exportGraphToJson(database, jsonPath, options = {}) {
   const jsonString = `${JSON.stringify(payload, null, 2)}\n`;
   const hash = crypto.createHash("sha256").update(jsonString).digest("hex");
 
+  return { jsonString, hash, payload };
+}
+
+export function exportGraphToJson(database, jsonPath, options = {}) {
+  const { jsonString, hash, payload } = graphProjection(database, options);
   const directory = path.dirname(jsonPath);
   fs.mkdirSync(directory, { recursive: true });
   const temporaryPath = `${jsonPath}.tmp-${process.pid}-${crypto.randomUUID()}`;
+  const pending = getSyncMeta(database).projection_pending;
+  if (pending) setSyncMeta(database, "projection_pending", JSON.stringify({ ...JSON.parse(pending), targetHash: hash }));
   fs.writeFileSync(temporaryPath, jsonString, "utf8");
   fs.renameSync(temporaryPath, jsonPath);
 
@@ -778,25 +794,21 @@ export function exportGraphToJson(database, jsonPath, options = {}) {
     // If sync_meta doesn't exist yet, ignore
   }
 
+  setSyncMeta(database, "projection_pending", "");
   return { jsonPath, hash, graphRevision: payload.graphRevision, mtimeMs: stat.mtimeMs };
 }
 
 export function importGraphFromJson(database, jsonPath) {
-  if (!fs.existsSync(jsonPath)) {
-    throw new Error(`graph.json not found at ${jsonPath}`);
-  }
-  const content = fs.readFileSync(jsonPath, "utf8");
-  const payload = JSON.parse(content);
-  if (!payload || !payload.data || typeof payload.data !== "object") {
-    throw new Error(`Invalid graph.json at ${jsonPath}: missing data object`);
-  }
-
-  const stat = fs.statSync(jsonPath);
-  const hash = crypto.createHash("sha256").update(content).digest("hex");
-
+  let hash, stat, payload;
   database.exec("PRAGMA foreign_keys = OFF;");
   try {
     database.exec("BEGIN IMMEDIATE;");
+    if (getSyncMeta(database).projection_pending) throw new Error("Pending projection must be recovered before importing an external graph; retry synchronization");
+    const content = fs.readFileSync(jsonPath, "utf8");
+    payload = JSON.parse(content);
+    if (!payload || !payload.data || typeof payload.data !== "object") throw new Error(`Invalid graph.json at ${jsonPath}: missing data object`);
+    stat = fs.statSync(jsonPath);
+    hash = crypto.createHash("sha256").update(content).digest("hex");
 
     const allTables = [
       ...GRAPH_TABLES.map((t) => t.name),
@@ -850,12 +862,33 @@ export function getSyncMeta(database) {
 }
 
 export function setSyncMeta(database, key, value) {
-  try {
-    database.prepare(`
-      INSERT INTO sync_meta(key, value) VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `).run(key, String(value));
-  } catch {
-    // ignore
+  database.prepare(`INSERT INTO sync_meta(key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, String(value));
+}
+
+// Call inside the same transaction as the graph write. Recovery never overwrites
+// an externally changed canonical graph without reporting a conflict.
+export function markProjectionPending(database) {
+  const meta = getSyncMeta(database);
+  if (!meta.projection_pending) setSyncMeta(database, "projection_pending", JSON.stringify({ baseHash: meta.graph_json_hash ?? null }));
+}
+export function flushProjection(database, jsonPath) {
+  return transaction(database, () => publishPendingProjection(database, jsonPath));
+}
+function publishPendingProjection(database, jsonPath) {
+  const meta = getSyncMeta(database);
+  if (!meta.projection_pending) return { status: "synced" };
+  const pending = JSON.parse(meta.projection_pending);
+  if (fs.existsSync(jsonPath)) {
+    const current = crypto.createHash("sha256").update(fs.readFileSync(jsonPath)).digest("hex");
+    if (current === graphProjection(database).hash) {
+      setSyncMeta(database, "graph_json_hash", current);
+      setSyncMeta(database, "projection_pending", "");
+      return { status: "synced", recovered: true };
+    }
+    if (pending.baseHash && current !== pending.baseHash && current !== meta.graph_json_hash) {
+      throw new Error("Projection conflict: graph.json changed externally while a database export was pending; preserve both versions and reconcile before writing");
+    }
   }
+  return { status: "synced", ...exportGraphToJson(database, jsonPath) };
 }
