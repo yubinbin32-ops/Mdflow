@@ -78,6 +78,10 @@ try {
   assert.ok(!suggestions.isError, "architecture link suggestion failed");
   assert.equal(listing.tools.find((tool) => tool.name === "chain_append").inputSchema.properties.expectedRevision.type, "integer");
   assert.equal(listing.tools.find((tool) => tool.name === "plan_append_changes").inputSchema.properties.planId.type, "string");
+  const graphMutateActions = listing.tools.find((tool) => tool.name === "graph_mutate").inputSchema.properties.operations.items.properties.action.enum;
+  for (const action of ["append_plan_changes", "update_plan_changes", "append_chain_path"]) {
+    assert.ok(graphMutateActions.includes(action), `graph_mutate must expose ${action}`);
+  }
   const sourceSync = await client.callTool({
     name: "source_sync",
     arguments: { projectRoot, taskContextId, includeUnchanged: false },

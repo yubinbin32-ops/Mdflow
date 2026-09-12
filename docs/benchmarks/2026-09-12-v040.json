@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "measuredAt": "2026-09-12T12:03:38.399Z",
+  "measuredAt": "2026-09-12T12:08:40.465Z",
   "environment": {
     "node": "v22.22.1",
     "platform": "darwin",
@@ -8,9 +8,9 @@
     "cpu": "Apple M1"
   },
   "source": {
-    "gitHead": "3662342f28354539cf514842fe24db775f705f67",
-    "graphRevision": 1012,
-    "graphSha256": "bdeffab747205f5217fcfee9f30371adb25d2eff00caeb549c4d8c9ace97c080",
+    "gitHead": "30c8f196a9ff1f4aefaf1922e7765511bac690a4",
+    "graphRevision": 1016,
+    "graphSha256": "249ef04d71777993acfef0e65a71850cdd3aec195de4a3758af75a2bfff86d6d",
     "scriptSha256": "5ae4576145fa83da478546f3f05315c24cb548ccbbf2ecd03ac862fbe5ea30ae",
     "sourceManifest": [
       {
@@ -147,7 +147,7 @@
       },
       {
         "path": "packages/mcp/src/server.mjs",
-        "sha256": "45c0d1ffcb45b9c620a2f42b4c428020937b17b7fc78809f9fcba7339cf744f4"
+        "sha256": "4830fdcf7b0fad6cdc1d2ad9958ee7090807a7ac793ff26ad4d7e2a99faca8f0"
       },
       {
         "path": "packages/mcp/src/service.mjs",
@@ -197,7 +197,7 @@
   },
   "unit": "JavaScript UTF-16 string length; not model tokens",
   "taskContext": {
-    "fullGraphChars": 801864,
+    "fullGraphChars": 835443,
     "budgetChars": 4000,
     "cases": [
       {
@@ -205,61 +205,61 @@
         "expected": "in-app-plugin-install",
         "chars": 4000,
         "latencyMs": [
-          710.84,
-          699.53,
-          677.65
+          841.22,
+          728.69,
+          724.01
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.52
       },
       {
         "task": "Git Discard 撤回与本地 SQLite 热重载",
         "expected": "sqlite-graph-store",
         "chars": 4000,
         "latencyMs": [
-          674.73,
-          670.31,
-          672.57
+          725.79,
+          735.94,
+          786.38
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.52
       },
       {
         "task": "CJK 中文分词与 BM25 字段加权检索",
         "expected": "context-retrieval",
         "chars": 4000,
         "latencyMs": [
-          669.24,
-          672.54,
-          676.52
+          753.19,
+          719.37,
+          720.33
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.52
       },
       {
         "task": "源码 SourceBinding 路径符号同步",
         "expected": "live-binding-refresh",
         "chars": 4000,
         "latencyMs": [
-          687.22,
-          670.38,
-          672.74
+          707.91,
+          717.94,
+          715.26
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.52
       }
     ],
     "samples": 12,
-    "p50Ms": 672.74,
-    "p95Ms": 710.84
+    "p50Ms": 724.01,
+    "p95Ms": 841.22
   },
   "chain": {
     "chainId": "chain-context-os",
