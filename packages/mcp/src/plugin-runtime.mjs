@@ -25,7 +25,7 @@ export function pluginRuntimeStatus(projectRoot = process.cwd()) {
     repoHash,
     stale,
     reload: stale
-      ? "codex plugin remove contextos@contextos-development && codex plugin add contextos@contextos-development"
+      ? "Restart the editor or reinstall ContextOS from the configured plugin marketplace"
       : null,
   };
 }
