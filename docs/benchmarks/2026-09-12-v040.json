@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "measuredAt": "2026-09-12T12:12:26.414Z",
+  "measuredAt": "2026-09-12T12:17:13.900Z",
   "environment": {
     "node": "v22.22.1",
     "platform": "darwin",
@@ -8,7 +8,7 @@
     "cpu": "Apple M1"
   },
   "source": {
-    "gitHead": "3331cca3fd4d1efa815cbadb15868ebfe686b0e4",
+    "gitHead": "323c0c1f16261af5efc6372e864a4bedebb67fc6",
     "graphRevision": 1018,
     "graphSha256": "db29c364b0a0dd0518c6854f3af85657d43c101332b4088378c2be7e27e0e092",
     "scriptSha256": "5ae4576145fa83da478546f3f05315c24cb548ccbbf2ecd03ac862fbe5ea30ae",
@@ -205,9 +205,9 @@
         "expected": "in-app-plugin-install",
         "chars": 4000,
         "latencyMs": [
-          708.88,
-          677.62,
-          716.21
+          712.89,
+          672.5,
+          711.12
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -219,9 +219,9 @@
         "expected": "sqlite-graph-store",
         "chars": 4000,
         "latencyMs": [
-          659.33,
-          654.27,
-          656.01
+          659.16,
+          652.95,
+          650.55
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -233,9 +233,9 @@
         "expected": "context-retrieval",
         "chars": 4000,
         "latencyMs": [
-          654.27,
-          654.39,
-          661.62
+          656.29,
+          652.13,
+          667.57
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -247,9 +247,9 @@
         "expected": "live-binding-refresh",
         "chars": 4000,
         "latencyMs": [
-          659.32,
-          656.13,
-          657.14
+          653.38,
+          651.77,
+          655.54
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -258,8 +258,8 @@
       }
     ],
     "samples": 12,
-    "p50Ms": 657.14,
-    "p95Ms": 716.21
+    "p50Ms": 655.54,
+    "p95Ms": 712.89
   },
   "chain": {
     "chainId": "chain-context-os",

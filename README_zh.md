@@ -77,16 +77,16 @@ npx -y github:yubinbin32-ops/ContextOS setup
 | 4 个完整源码文件 → Chain 定位流 | **99.07%**（223,360 → 2,071） |
 | 固定模拟构建日志 | **91.78%**（10,071 → 828），错误和失败信息保留 |
 | 查询样本 | 12 次本地调用 |
-| 查询延迟 p50 / p95 | **657.14 ms / 716.21 ms** |
+| 查询延迟 p50 / p95 | **655.54 ms / 712.89 ms** |
 
 四个任务查询都在 4,000 字符预算内返回了预期 Block 和可见定位信息：
 
 | 查询 | 预期 Block | 延迟（ms） | 缩减 |
 |---|---|---:|---:|
-| OpenCode 平台支持与 MCP 注入 | `in-app-plugin-install` | 708.88 · 677.62 · 716.21 | 99.53% |
-| Git Discard 撤回与 SQLite 热重载 | `sqlite-graph-store` | 659.33 · 654.27 · 656.01 | 99.53% |
-| CJK 分词与 BM25 字段加权检索 | `context-retrieval` | 654.27 · 654.39 · 661.62 | 99.53% |
-| SourceBinding 路径与符号同步 | `live-binding-refresh` | 659.32 · 656.13 · 657.14 | 99.53% |
+| OpenCode 平台支持与 MCP 注入 | `in-app-plugin-install` | 712.89 · 672.50 · 711.12 | 99.53% |
+| Git Discard 撤回与 SQLite 热重载 | `sqlite-graph-store` | 659.16 · 652.95 · 650.55 | 99.53% |
+| CJK 分词与 BM25 字段加权检索 | `context-retrieval` | 656.29 · 652.13 · 667.57 | 99.53% |
+| SourceBinding 路径与符号同步 | `live-binding-refresh` | 653.38 · 651.77 · 655.54 | 99.53% |
 
 Chain 测量使用 `chain-context-os`，返回了 4 个已锚定定位：`ast-facade-engine/extractSymbols`、`progressive-materializer/addSourceRef`、`terminal-sanitizer/sanitizeTerminalOutput`、`desktop-context-console/chainCodeStreamSection`。完整原始数据见 [`docs/benchmarks/2026-09-12-v040.json`](docs/benchmarks/2026-09-12-v040.json)。
 
