@@ -721,6 +721,42 @@ export function analyzeGraphDrift(service, snapshot = service.snapshot()) {
     .map((cp) => ({ id: cp.id, title: cp.title, targetType: cp.targetType, targetId: cp.targetId, status: cp.status }));
 
   const semanticReviews = collectSemanticReviews(service, snapshot);
+  const chainDisconnections = snapshot.chains.flatMap((chain) => {
+    const nodes = snapshot.chainNodes
+      .filter((node) => node.chainId === chain.id)
+      .sort((left, right) => left.position - right.position)
+      .map((node) => node.blockId);
+    if (nodes.length < 2) return [];
+    const adjacency = new Map(nodes.map((id) => [id, new Set()]));
+    const edges = snapshot.chainEdges.filter((edge) => edge.chainId === chain.id);
+    for (const edge of edges) {
+      const link = snapshot.links.find((item) => item.id === edge.linkId);
+      if (!link || link.sourceType !== "block" || link.targetType !== "block") continue;
+      if (!adjacency.has(link.sourceId) || !adjacency.has(link.targetId)) continue;
+      adjacency.get(link.sourceId).add(link.targetId);
+      adjacency.get(link.targetId).add(link.sourceId);
+    }
+    const visited = new Set();
+    const queue = [nodes[0]];
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      queue.push(...(adjacency.get(id) ?? []));
+    }
+    return visited.size === nodes.length ? [] : [{
+      chainId: chain.id,
+      title: chain.title,
+      nodeIds: nodes,
+      reachableNodeIds: [...visited],
+      missingNodeIds: nodes.filter((id) => !visited.has(id)),
+      edgeIds: edges.map((edge) => edge.linkId),
+    }];
+  });
+  const linksOutsideChains = snapshot.links
+    .filter((link) => link.sourceType === "block" && link.targetType === "block")
+    .filter((link) => !snapshot.chainEdges.some((edge) => edge.linkId === link.id))
+    .map((link) => ({ id: link.id, sourceId: link.sourceId, targetId: link.targetId, kind: link.kind }));
 
   return {
     isolatedBlocks,
@@ -728,7 +764,9 @@ export function analyzeGraphDrift(service, snapshot = service.snapshot()) {
     retestRequired,
     pendingCheckpoints,
     semanticReviews,
-    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0 || semanticReviews.length > 0,
+    chainDisconnections,
+    linksOutsideChains,
+    hasDrift: isolatedBlocks.length > 0 || ghostDrifts.length > 0 || retestRequired.length > 0 || semanticReviews.length > 0 || chainDisconnections.length > 0,
   };
 }
 
@@ -816,6 +854,7 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
     `- Project: ${snapshot.project.name || snapshot.project.id} (rev ${snapshot.project.graphRevision})`,
     `- Blocks: ${totalBlocks} (${solidBlocks} solid, ${ghostBlocks} ghost blueprints)`,
     `- Chains: ${totalChains} · Links: ${totalLinks}`,
+    `- Links outside a Chain: ${drift.linksOutsideChains.length} (cross-cutting; review only when part of a feature path)`,
     `- Checkpoints: ${passedCheckpoints}/${totalCheckpoints} passed`,
     `- Plugin: ${plugin.stale ? "stale cache" : "in sync"}`,
     "",
@@ -836,6 +875,17 @@ export function renderGraphStatus(service, { locale = "en" } = {}) {
         lines.push(`- **block:${b.id}** (${b.title}) · Kind: \`${b.kind}\` · Layer: \`${b.layer}\``);
         lines.push(`  *Action*: Review if intended as standalone, or connect to a Chain via \`graph_flow\` / \`architecture_connect\` if part of a workflow.`);
       }
+    }
+    if (drift.chainDisconnections?.length) {
+      lines.push("### 🔗 Disconnected Chain paths");
+      for (const chain of drift.chainDisconnections) {
+        lines.push(`- **chain:${chain.chainId}** (${chain.title}) · missing reachability for ${chain.missingNodeIds.map((id) => `block:${id}`).join(", ")}`);
+        lines.push("  *Action*: add the missing explicit Link and append it with `chain_append`, or revise the Chain path deliberately.");
+      }
+    }
+    if (drift.linksOutsideChains.length > 0) {
+      lines.push("### 🧭 Cross-cutting Links outside Chain paths");
+      lines.push(`- ${drift.linksOutsideChains.length} Link(s) connect Blocks but are not assigned to a Chain. This is allowed; include one only when it is part of the feature's observable path.`);
     }
     if (drift.retestRequired.length > 0) {
       lines.push("### 🔄 Checkpoints Requiring Retest");

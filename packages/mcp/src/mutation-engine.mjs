@@ -191,6 +191,10 @@ export function executeMutate(
     create_plan: new Set([...EDITABLE_PLAN_FIELDS, 'localizations']),
     create_link: new Set([...EDITABLE_LINK_FIELDS, 'sourceType','sourceId','targetType','targetId','summary']),
     add_source_ref: new Set(['sourceId','path','symbol','role','startLine','endLine','gitCommit']),
+    append_plan_changes: new Set(['changes']),
+    append_plan_chain_scope: new Set(['scope']),
+    update_plan_changes: new Set(['updates']),
+    append_chain_path: new Set(['nodeIds','linkIds']),
   };
   for (const operation of operations) {
     const allowed = fieldSchemas[operation.action];
@@ -362,8 +366,14 @@ export function applyOperation(service, operation, context) {
       return updatePlanChainScope(service, operation, context);
     case "set_plan_changes":
       return setPlanChanges(service, operation, context);
+    case "append_plan_changes":
+      return appendPlanChanges(service, operation, context);
     case "update_plan_change":
       return updatePlanChange(service, operation, context);
+    case "update_plan_changes":
+      return updatePlanChanges(service, operation, context);
+    case "append_plan_chain_scope":
+      return appendPlanChainScope(service, operation, context);
     case "set_plan_chain_change_refs":
       return setPlanChainChangeRefs(service, operation, context);
     case "set_checkpoint_bindings":
@@ -372,6 +382,8 @@ export function applyOperation(service, operation, context) {
       return setCheckpointDependencies(service, operation, context);
     case "set_chain_path":
       return setChainPath(service, operation, context);
+    case "append_chain_path":
+      return appendChainPath(service, operation, context);
     case "set_background_scopes":
       return setBackgroundScopes(service, operation, context);
     case "create_decision":
@@ -737,6 +749,77 @@ export function setPlanChanges(service, operation, { timestamp }) {
   return finishPlanRelationMutation(service, plan, operation, "changes-set", `${changes.length} canonical entity change(s)`);
 }
 
+/**
+ * Append canonical work to an existing Plan without asking the caller to
+ * replay and replace the whole change list. This is the safe default for a
+ * feature that grows during implementation: existing PlanChanges and their
+ * checkpoint bindings remain intact, while the optimistic revision still
+ * prevents concurrent writers from silently merging stale state.
+ */
+export function appendPlanChanges(service, operation, { timestamp }) {
+  const plan = planForMutation(service, operation, "append_plan_changes");
+  const changes = operation.fields?.changes ?? [];
+  if (!Array.isArray(changes) || changes.length === 0) throw new Error("append_plan_changes requires at least one change");
+  const existingRows = service.database.prepare("SELECT * FROM plan_changes WHERE plan_id = ? ORDER BY position, id").all(operation.id);
+  const existingKeys = new Set(existingRows.map((row) => `${row.entity_type}:${row.entity_id}`));
+  const incomingKeys = new Set();
+  const normalizedChanges = changes.map((change, index) => {
+    const key = `${change.entityType}:${change.entityId}`;
+    if (existingKeys.has(key) || incomingKeys.has(key)) {
+      throw new Error(`Plan already has a canonical change for ${key}; use update_plan_change for an existing entity`);
+    }
+    incomingKeys.add(key);
+    return validatedPlanChange(service, {
+      ...change,
+      id: change.id ?? `${operation.id}-change-${change.entityType}-${change.entityId}`,
+      position: existingRows.length + index,
+    }, existingRows.length + index);
+  });
+  const insert = service.database.prepare(
+    `INSERT INTO plan_changes(
+      id, plan_id, entity_type, entity_id, position, title, summary, current_behavior, proposed_behavior,
+      rationale, prohibitions_json, expected_effects_json, source_refs_json, localizations_json,
+      status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const change of normalizedChanges) {
+    const owner = service.database.prepare("SELECT plan_id FROM plan_changes WHERE id = ?").get(change.id);
+    if (owner) throw new Error(`plan_change:${change.id} already exists`);
+    insert.run(
+      change.id, operation.id, change.entityType, change.entityId, change.position, change.title, change.summary ?? "",
+      change.currentBehavior ?? "", change.proposedBehavior ?? "", change.rationale ?? "",
+      JSON.stringify(change.prohibitions ?? []), JSON.stringify(change.expectedEffects ?? []),
+      JSON.stringify(change.sourceRefs ?? []), JSON.stringify(change.localizations ?? {}), change.status, timestamp, timestamp,
+    );
+  }
+  return finishPlanRelationMutation(service, plan, operation, "changes-appended", `${normalizedChanges.length} canonical entity change(s) appended`);
+}
+
+/** Append one ordered ChainScope while preserving all existing scopes. */
+export function appendPlanChainScope(service, operation, { timestamp }) {
+  const plan = planForMutation(service, operation, "append_plan_chain_scope");
+  const scope = operation.fields?.scope;
+  if (!scope || typeof scope !== "object" || Array.isArray(scope)) throw new Error("append_plan_chain_scope requires fields.scope");
+  const existingRows = service.database.prepare("SELECT * FROM plan_chain_scopes WHERE plan_id = ? ORDER BY position, id").all(operation.id);
+  const id = scope.id ?? `${operation.id}-chain-scope-${existingRows.length + 1}`;
+  if (service.database.prepare("SELECT 1 FROM plan_chain_scopes WHERE id = ?").get(id)) throw new Error(`plan_chain_scope:${id} already exists`);
+  const normalized = validatedPlanChainScope(service, { ...scope, id, position: existingRows.length }, existingRows.length);
+  service.database.prepare(
+    `INSERT INTO plan_chain_scopes(
+      id, plan_id, chain_id, position, title, summary, rationale, start_block_id, end_block_id,
+      node_ids_json, link_ids_json, expected_delta_json, prohibitions_json, localizations_json,
+      status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    normalized.id, operation.id, normalized.chainId, normalized.position, normalized.title, normalized.summary ?? "",
+    normalized.rationale ?? "", normalized.startBlockId, normalized.endBlockId, JSON.stringify(normalized.nodeIds),
+    JSON.stringify(normalized.linkIds), JSON.stringify(normalized.expectedDelta ?? []), JSON.stringify(normalized.prohibitions ?? []),
+    JSON.stringify(normalized.localizations ?? {}), normalized.status, timestamp, timestamp,
+  );
+  refreshPlanChainRefs(service, operation.id);
+  return finishPlanRelationMutation(service, plan, operation, "chain-scope-appended", `ChainScope ${normalized.id} appended`);
+}
+
 export function updatePlanChange(service, operation, { timestamp }) {
   const plan = planForMutation(service, operation, "update_plan_change");
   const changeId = operation.fields?.changeId;
@@ -761,6 +844,47 @@ export function updatePlanChange(service, operation, { timestamp }) {
     JSON.stringify(next.localizations), next.status, timestamp, operation.id, changeId,
   );
   return finishPlanRelationMutation(service, plan, operation, "plan-change-updated", `Updated plan_change:${changeId}`);
+}
+
+/**
+ * Update several existing PlanChanges in one optimistic Plan revision. This
+ * is used by task reconciliation/finish so a feature can advance its
+ * canonical work records without replaying the whole Plan change list.
+ */
+export function updatePlanChanges(service, operation, { timestamp }) {
+  const plan = planForMutation(service, operation, "update_plan_changes");
+  const updates = operation.fields?.updates ?? [];
+  if (!Array.isArray(updates) || updates.length === 0) throw new Error("update_plan_changes requires at least one update");
+  if (updates.length > 20) throw new Error("update_plan_changes accepts at most 20 updates");
+  const seen = new Set();
+  const normalized = updates.map((update, index) => {
+    const changeId = update?.changeId;
+    const patch = update?.patch;
+    if (!changeId || !patch || typeof patch !== "object" || Array.isArray(patch)) {
+      throw new Error(`Plan change update ${index + 1} requires changeId and patch`);
+    }
+    if (seen.has(changeId)) throw new Error(`Duplicate Plan change update: ${changeId}`);
+    seen.add(changeId);
+    for (const field of Object.keys(patch)) {
+      if (!EDITABLE_PLAN_CHANGE_FIELDS.has(field)) throw new Error(`Unsupported Plan change field: ${field}`);
+    }
+    const row = service.database.prepare("SELECT * FROM plan_changes WHERE plan_id = ? AND id = ?").get(operation.id, changeId);
+    if (!row) throw new Error(`plan_change:${changeId} not found in plan:${operation.id}`);
+    return { row, next: validatedPlanChange(service, { ...normalizePlanChange(row), ...patch }, row.position) };
+  });
+  const update = service.database.prepare(
+    `UPDATE plan_changes SET position = ?, title = ?, summary = ?, current_behavior = ?, proposed_behavior = ?,
+      rationale = ?, prohibitions_json = ?, expected_effects_json = ?, source_refs_json = ?, localizations_json = ?,
+      status = ?, current_revision = current_revision + 1, updated_at = ? WHERE plan_id = ? AND id = ?`,
+  );
+  for (const { next } of normalized) {
+    update.run(
+      next.position, next.title, next.summary ?? "", next.currentBehavior ?? "", next.proposedBehavior ?? "",
+      next.rationale ?? "", JSON.stringify(next.prohibitions ?? []), JSON.stringify(next.expectedEffects ?? []),
+      JSON.stringify(next.sourceRefs ?? []), JSON.stringify(next.localizations ?? {}), next.status, timestamp, operation.id, next.id,
+    );
+  }
+  return finishPlanRelationMutation(service, plan, operation, "plan-changes-updated", `${normalized.length} Plan change(s) updated`);
 }
 
 export function setPlanChainChangeRefs(service, operation) {
@@ -901,6 +1025,64 @@ export function setChainPath(service, operation) {
   const revision = chain.current_revision + 1;
   service.database.prepare("UPDATE chains SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
   return { entityType: "chain", id: operation.id, action: "path-set", revision, summary: `${nodeIds.length} nodes / ${linkIds.length} edges` };
+}
+
+/**
+ * Extend a Chain by appending nodes and links. `set_chain_path` remains the
+ * explicit replacement API for reorder/branch edits; this append operation is
+ * deliberately additive so an agent can grow an existing feature path
+ * without replaying (and accidentally dropping) its old nodes or edges.
+ */
+export function appendChainPath(service, operation) {
+  if (!operation.id || !Number.isInteger(operation.expectedRevision)) {
+    throw new Error("append_chain_path requires id and expectedRevision");
+  }
+  const chain = service.database.prepare("SELECT * FROM chains WHERE project_id = ? AND id = ?")
+    .get(service.paths.descriptor.id, operation.id);
+  if (!chain) throw new Error(`chain:${operation.id} not found`);
+  if (chain.current_revision !== operation.expectedRevision) {
+    throw new Error(`Revision conflict for chain:${operation.id}; expected ${operation.expectedRevision}, current ${chain.current_revision}`);
+  }
+  const nodeIds = operation.fields?.nodeIds ?? [];
+  const linkIds = operation.fields?.linkIds ?? [];
+  if (!Array.isArray(nodeIds) || !Array.isArray(linkIds)) throw new Error("nodeIds and linkIds must be arrays");
+  if (nodeIds.length === 0 && linkIds.length === 0) throw new Error("append_chain_path requires a node or link");
+  if (new Set(nodeIds).size !== nodeIds.length) throw new Error("Appended Chain nodes must be unique");
+  if (new Set(linkIds).size !== linkIds.length) throw new Error("Appended Chain links must be unique");
+  const existingNodes = service.database.prepare("SELECT block_id FROM chain_nodes WHERE chain_id = ? ORDER BY position").all(operation.id).map((row) => row.block_id);
+  const existingLinks = service.database.prepare("SELECT link_id FROM chain_edges WHERE chain_id = ? ORDER BY position").all(operation.id).map((row) => row.link_id);
+  const existingNodeSet = new Set(existingNodes);
+  const existingLinkSet = new Set(existingLinks);
+  for (const blockId of nodeIds) {
+    if (existingNodeSet.has(blockId)) throw new Error(`Chain already contains block:${blockId}`);
+    if (!entityExists(service.database, service.paths.descriptor.id, "block", blockId)) throw new Error(`block:${blockId} not found`);
+  }
+  for (const linkId of linkIds) {
+    if (existingLinkSet.has(linkId)) throw new Error(`Chain already contains link:${linkId}`);
+  }
+  const finalNodeSet = new Set([...existingNodes, ...nodeIds]);
+  const links = linkIds.map((linkId) => {
+    const link = service.database.prepare("SELECT * FROM links WHERE project_id = ? AND id = ? AND archived = 0")
+      .get(service.paths.descriptor.id, linkId);
+    if (!link) throw new Error(`link:${linkId} not found`);
+    if (link.source_type !== "block" || link.target_type !== "block" || !finalNodeSet.has(link.source_id) || !finalNodeSet.has(link.target_id)) {
+      throw new Error(`link:${linkId} endpoints must be Chain nodes after append`);
+    }
+    return link;
+  });
+  const insertNode = service.database.prepare("INSERT INTO chain_nodes(chain_id, block_id, position, role) VALUES (?, ?, ?, 'path')");
+  nodeIds.forEach((blockId, index) => insertNode.run(operation.id, blockId, existingNodes.length + index));
+  const insertEdge = service.database.prepare("INSERT INTO chain_edges(chain_id, link_id, position) VALUES (?, ?, ?)");
+  links.forEach((link, index) => insertEdge.run(operation.id, link.id, existingLinks.length + index));
+  const revision = chain.current_revision + 1;
+  service.database.prepare("UPDATE chains SET current_revision = ?, updated_at = ? WHERE id = ?").run(revision, now(), operation.id);
+  return {
+    entityType: "chain",
+    id: operation.id,
+    action: "path-appended",
+    revision,
+    summary: `${nodeIds.length} node(s) / ${linkIds.length} edge(s) appended`,
+  };
 }
 
 export function setBackgroundScopes(service, operation) {

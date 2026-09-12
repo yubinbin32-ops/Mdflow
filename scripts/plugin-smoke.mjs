@@ -20,7 +20,7 @@ try {
   await client.connect(transport);
   const listing = await client.listTools();
   const names = new Set(listing.tools.map((tool) => tool.name));
-  for (const required of ["context_for_task", "chain_code_stream", "source_sync", "run_command", "log_sanitize", "document_list", "document_open", "task_begin", "task_scope", "task_reconcile", "task_finish", "runtime_info"]) {
+  for (const required of ["context_for_task", "chain_code_stream", "block_code_stream", "architecture_link_suggest", "architecture_connect", "chain_append", "plan_append_changes", "plan_append_chain_scope", "source_sync", "run_command", "log_sanitize", "document_list", "document_open", "task_begin", "task_scope", "task_reconcile", "task_finish", "runtime_info"]) {
     assert.ok(names.has(required), `missing MCP tool: ${required}`);
   }
 
@@ -52,6 +52,32 @@ try {
     },
   });
   assert.ok(focusedChain.content?.some((item) => typeof item.text === "string"), "focused Chain read failed");
+  const focusedBlock = await client.callTool({
+    name: "block_code_stream",
+    arguments: {
+      projectRoot,
+      blockId: "ast-facade-engine",
+      mode: "slice",
+      maxChars: 1200,
+      maxLines: 24,
+      includeStructured: true,
+    },
+  });
+  assert.ok(focusedBlock.content?.some((item) => typeof item.text === "string" && item.text.includes("AST slice")), "AST Block slice failed");
+  const focusedBlockData = focusedBlock.structuredContent?.data ?? focusedBlock.structuredContent;
+  assert.equal(focusedBlockData?.containingFileReturned, false, "Block slice must not return the containing file");
+  const planContext = await client.callTool({
+    name: "plan_context",
+    arguments: { projectRoot, id: "knowledge-sync-delivery", maxChars: 2000 },
+  });
+  assert.ok(planContext.content?.some((item) => typeof item.text === "string" && item.text.includes("统一知识阅读与同步闭环交付")), "Plan context failed");
+  const suggestions = await client.callTool({
+    name: "architecture_link_suggest",
+    arguments: { projectRoot, blockId: "ast-facade-engine", includeStructured: true },
+  });
+  assert.ok(!suggestions.isError, "architecture link suggestion failed");
+  assert.equal(listing.tools.find((tool) => tool.name === "chain_append").inputSchema.properties.expectedRevision.type, "integer");
+  assert.equal(listing.tools.find((tool) => tool.name === "plan_append_changes").inputSchema.properties.planId.type, "string");
   const sourceSync = await client.callTool({
     name: "source_sync",
     arguments: { projectRoot, taskContextId, includeUnchanged: false },
@@ -70,7 +96,7 @@ try {
   assert.ok(!rendered.includes(projectRoot), "run_command leaked the project path");
   assert.match(rendered, /\[REDACTED\]/);
 
-  console.log(`# contextos plugin smoke\n- MCP tools: ${names.size}\n- Contract-first Chain stream: exposed\n- Source binding sync: exposed\n- Sanitized command gateway: passed\n- Version contract: ${packageVersion}`);
+  console.log(`# contextos plugin smoke\n- MCP tools: ${names.size}\n- Contract-first Chain stream: exposed\n- AST-bounded Block stream: passed\n- Plan/Chain append surfaces: exposed\n- Architecture link review: passed\n- Source binding sync: exposed\n- Sanitized command gateway: passed\n- Version contract: ${packageVersion}`);
   console.log(`- Shared task budget: exposed (${taskContextId})`);
 } finally {
   await client.close();

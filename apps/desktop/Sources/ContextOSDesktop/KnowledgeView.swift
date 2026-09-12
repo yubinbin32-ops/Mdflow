@@ -98,11 +98,15 @@ struct KnowledgeView: View {
                 Divider()
                 MarkdownWebView(html: doc.html, root: store.projectRoot, sourcePath: doc.sourcePath, section: section, openLink: openLink)
                     .id(store.projectRoot)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .layoutPriority(1)
             } else {
                 HStack { Spacer(); Button(action: close) { Image(systemName: "xmark") }.buttonStyle(.plain) }.padding(18)
                 ContentUnavailableView(chinese ? "正在读取文档" : "Loading document", systemImage: "doc.text", description: Text(library.error ?? (chinese ? "请从左侧知识栏目选择文档。" : "Select a document in the Knowledge section.")))
             }
-        }.background(ContextOSTheme.surface)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(ContextOSTheme.surface)
     }
     private func referenceTitle(_ ref: String) -> String {
         let parts = ref.split(separator: ":", maxSplits: 1).map(String.init)

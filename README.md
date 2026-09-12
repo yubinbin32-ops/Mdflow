@@ -1,113 +1,104 @@
 <div align="center">
   <img src="assets/logo.png" width="76" alt="ContextOS" />
-  <h1>A new conversation. The same project memory.</h1>
-  <p><strong>Keep architecture, decisions, and progress with your project. Save the context window for the work ahead.</strong></p>
-  <p><a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>Download macOS App</strong></a> · <a href="#get-started">Get started</a> · <a href="#what-to-say-to-your-ai">Conversation examples</a> · <a href="README_zh.md">中文</a></p>
+  <h1>The project remembers. Every conversation can start where the last one stopped.</h1>
+  <p><strong>ContextOS gives an AI coding project a durable architecture map, verified progress, compact command output, and exact code locations.</strong></p>
+  <p><a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>Download the macOS App</strong></a> · <a href="#start-in-three-minutes">Start in three minutes</a> · <a href="README_zh.md">中文</a></p>
 </div>
 
-![ContextOS architecture and feature walkthrough](assets/contextos-demo.gif)
+![ContextOS architecture and workflow](assets/contextos-demo.gif)
 
-## Why ContextOS?
+## The problem
 
-As an AI-assisted project grows, so does the conversation.
+An AI coding conversation starts with a blank memory. The agent rereads files to discover the architecture, asks you to repeat decisions, reconstructs unfinished work, and carries long build logs into the next turn. As a project grows, the conversation becomes a second, fragile documentation system.
 
-Start a new chat, and the AI reads files and documents to understand the project again. You repeat the architecture, explain earlier decisions, and reconstruct unfinished work. Long build logs consume context, while plans and notes scattered across Markdown files gradually fall behind the code.
+ContextOS stores the project's working memory beside the code. The AI receives the small part that matters to the current task, while the App gives you a visual way to inspect the same architecture, progress, decisions, and documents.
 
-**ContextOS gives your project a memory that lives beyond a conversation.** The AI stores architecture, rules, decisions, and progress in the OS. When work resumes, it retrieves what matters to the task and locates the code it needs. You can inspect the same information in the App: what exists, what is finished, and why things were designed that way.
+## What it changes
 
-## How does it reduce context?
+**Architecture memory.** Blocks describe the project's modules and responsibilities. Typed Links describe real relationships. Chains show an observable feature path, so a new conversation can understand how a feature fits together before opening implementation code.
 
-### Understand the feature before opening its code
+**Progress that stays synchronized.** Plans, PlanChanges, ChainScopes, source bindings, checkpoints, and handoffs are stored as structured records. The agent can resume a task from its current state instead of scanning files to guess what is finished.
 
-ContextOS organizes modules and their relationships into a visual architecture. For a login feature, the AI can first see how the login screen, authentication service, and session storage fit together, then inspect the relevant implementation.
+**Commands without log overload.** `run_command` returns a redacted execution receipt and keeps the useful error or failure clue. Routine compilation output does not consume the rest of the context window.
 
-Bound modules provide **file paths, method names, and line numbers**. The architecture tells the AI where to look; the source tells it what to change.
+**AST code locations.** Source bindings point to a file, symbol, signature, and derived line range. `chain_code_stream` returns locator-only feature paths. `block_code_stream` returns a bounded AST slice for one implementation when code is needed, instead of returning the containing file.
 
-![Feature chains and module relationships](assets/path-impact.png)
+**Knowledge with a clear owner.** Internal proposals, audits, and guides live as OS Documents. `README.md` and `README_zh.md` remain public repository files and are previewed read-only in the App, with their images and relative links intact.
 
-### Keep project knowledge with the project
+![A feature path with exact code locations](assets/path-impact.png)
 
-“All writes go through the service layer,” “why we chose this database,” and “where we stopped last time” can become project rules, design decisions, and progress records. New conversations retrieve the relevant information as needed.
+![OS Documents and README in the same Knowledge drawer](assets/knowledge-reader.png)
 
-For longer explanations, the AI can write proposals, audits, and internal guides as OS documents. Select one in the App’s sidebar to read its text, images, and tables in the right inspector. **README stays in its repository location, with a read-only preview in the App.**
+The result is an ordinary conversation. After installation, you do not need to mention ContextOS or repeat a tool name in every turn. Describe the work; the plugin reads and updates the project memory in the background. For a first map or a progress check, natural requests such as “map this project's architecture” or “continue the unfinished work” are enough.
 
-![Knowledge sidebar and document inspector](assets/knowledge-reader.png)
+## Start in three minutes
 
-### Return useful results from noisy commands
+### macOS App
 
-Test and build logs are compressed and processed for sensitive information before reaching the AI. Errors and failure clues remain available, while routine output takes up less context.
+1. [Download the latest App](https://github.com/yubinbin32-ops/ContextOS/releases/latest), unzip it, and open **ContextOS**.
+2. Open **Settings**, choose the detected AI editor, and click **Install / Sync Plugin**.
+3. Open the same project in Codex or your editor. Confirm that **ContextOS** is listed as an installed plugin, then start working.
 
-### Make progress verifiable
+The App supports macOS 14 or later. The MCP runtime needs Node.js 22 or later. The App writes the editor configuration for you; there is no configuration file to compose by hand.
 
-The AI registers planned work, connects it to implemented code, links modules into features, and updates progress after verification. Synchronization checks flag source files without bindings, missing verification, and unfinished tasks so the AI can complete the handoff.
+![One-click editor and MCP synchronization](assets/settings-sync.png)
 
-A new conversation can continue from recorded progress. You can distinguish planned work, implemented features, and verified results. The AI still defines the feature relationships; the system checks bindings and delivery conditions.
+### Other operating systems
 
-## Get started
+There is no macOS App requirement. Install the ContextOS plugin/MCP entry in the AI editor you use. The repository also provides a headless CLI:
 
-**Download the App → Open Settings and install the plugin → Start a conversation.**
+```bash
+npx -y github:yubinbin32-ops/ContextOS init --scan
+npx -y github:yubinbin32-ops/ContextOS setup
+```
 
-1. [Download ContextOS](https://github.com/yubinbin32-ops/ContextOS/releases/latest), unzip it, and open the App.
-2. Open **Settings**, find **Codex**, and click its install/sync button. There is no configuration file to write by hand.
-3. Confirm **ContextOS** appears in Codex’s installed plugins, then start a new conversation. Open the same code project in the App and Codex.
+Use `serve` as the MCP command when your editor asks for a server. `status` and `sync` are available for a quick installation check.
 
-For your first conversation, say:
+## A normal workflow
 
-> Write this project's architecture into the OS. Organize its features and current development progress.
+1. Install once and open a project.
+2. Ask for the feature, fix, review, or design in ordinary language.
+3. Let the agent use the stored architecture and progress while it works.
+4. At the end, the agent records the code locations, command receipt, verification, and next action.
 
-When you start a new conversation, say:
+You can still ask “what is the current project progress?” or “show me the architecture” at any time. These are requests for a view, not a special conversation protocol.
 
-> Check the OS. Where are we with this project, and what should we continue next?
+![The App's project map and detail drawer](assets/readme-reader.png)
 
-The initial project map requires reading relevant code and existing notes. Later conversations can build on that stored understanding.
+## Reproducible benchmark
 
-<details>
-<summary>Requirements and installation help</summary>
-
-The desktop App currently supports **macOS 14+**. The plugin needs a local **Node.js 22+ runtime with built-in SQLite support**. Install your AI editor first.
-
-- The installation button may be labeled Sync, Update, or Reinstall.
-- If the AI cannot find ContextOS, confirm the plugin is installed and start a new conversation. Restart Codex if needed.
-- If Node.js is missing, install a compatible version and sync again.
-- The App currently uses ad-hoc signing. If macOS blocks the first launch, Control-click the App and choose Open.
-
-</details>
-
-## What to say to your AI
-
-Describe what you want in ordinary language. You do not need to memorize tool names.
-
-| What you want | What you can say |
-| :--- | :--- |
-| Understand the project | **Check the OS and explain this project's architecture.** |
-| Review progress | **Look in the OS. Which features are finished, and what is left?** |
-| Build a feature | **Add login. Check the OS first, then update the architecture and progress when done.** |
-| Fix a bug | **The page does not redirect after login. Use the OS to help locate and fix it.** |
-| Save a rule | **All APIs should handle errors consistently. Save that rule in the OS.** |
-| Save a proposal | **Write this proposal into the OS so I can read it in the App. Don't create another Markdown file.** |
-| Preserve a decision | **Record why we chose this approach in the OS for future reference.** |
-| Finish a task | **Sync these changes, verification results, and next steps to the OS.** |
-| Resume in a new chat | **Check project progress in the OS and continue the unfinished work.** |
-
-You can also set a standing project instruction:
-
-> Check the OS before development and update it afterward. Keep architecture, rules, decisions, progress, and internal proposals in the OS. Keep README for users.
-
-## How much can it reduce?
-
-One reproducible measurement on this repository found:
+The measurements below were run on September 12, 2026 against this repository's isolated graph snapshot. They measure service responses and JavaScript UTF-16 characters; they are not model-token or session-compaction measurements.
 
 | Measurement | Result |
-| :--- | :--- |
-| Returning a feature chain's code locators instead of four complete source files | **211,851 → 2,059 characters**, a **99.02%** reduction |
-| Compressing a fixed synthetic log | **10,071 → 828 characters**, a **91.78%** reduction, with the key error retained |
+|---|---:|
+| Full graph reference | 806,249 characters |
+| Task context budget | 4,000 characters |
+| Context reduction | **99.50%** (806,249 → 4,000) |
+| Chain: four complete source files → locator stream | **99.07%** (223,360 → 2,071) |
+| Fixed synthetic build log | **91.78%** (10,071 → 828), with the error and failure retained |
+| Context query samples | 12 local calls |
+| Query latency p50 / p95 | **665.76 ms / 702.48 ms** |
 
-These results show that locators and logs can be much smaller. **They do not mean a whole development task uses that percentage fewer tokens.** Reading implementation code afterward still consumes context. [Raw data and full metrics](docs/benchmarks/2026-09-12-v040.json), measured September 12, 2026.
+The four task queries each returned the expected reference and visible locator inside the 4,000-character budget:
 
-> Author's experience: roughly **60% fewer context compactions** during daily use. This is a personal impression, without a counted comparison between sessions.
+| Query | Expected Block | Latencies (ms) | Reduction |
+|---|---|---:|---:|
+| OpenCode platform support and MCP injection | `in-app-plugin-install` | 702.48 · 667.56 · 664.46 | 99.50% |
+| Git Discard and SQLite hot reload | `sqlite-graph-store` | 664.99 · 691.10 · 666.72 | 99.50% |
+| CJK tokenization and BM25 weighted search | `context-retrieval` | 678.78 · 663.75 · 665.76 | 99.50% |
+| SourceBinding path and symbol synchronization | `live-binding-refresh` | 664.71 · 664.06 · 667.35 | 99.50% |
 
-<details>
-<summary>Development and contributing</summary>
+The Chain measurement used `chain-context-os` and returned four anchored locators: `ast-facade-engine/extractSymbols`, `progressive-materializer/addSourceRef`, `terminal-sanitizer/sanitizeTerminalOutput`, and `desktop-context-console/chainCodeStreamSection`. The full raw data is in [`docs/benchmarks/2026-09-12-v040.json`](docs/benchmarks/2026-09-12-v040.json).
+
+The author's daily use suggests roughly 60% fewer context compactions. That is a personal experience report, not a controlled comparison. The benchmark excludes the MCP envelope, tool descriptions, skill instructions, follow-up source reads, reasoning, model tokenization, cost, and task success. Full graph and full-file sizes are reference points rather than a competent-agent baseline. The 12 calls mix first and warm reads, so their latency is not a production percentile.
+
+Run the measurement again after changing the service or graph:
+
+```bash
+npm run benchmark -- --output docs/benchmarks/2026-09-12-v040.json
+```
+
+## For contributors
 
 ```bash
 git clone https://github.com/yubinbin32-ops/ContextOS.git
@@ -115,11 +106,9 @@ cd ContextOS
 npm ci
 npm test
 npm run plugin:verify
-npm run desktop:build
+npm run desktop:build       # macOS + Swift/Xcode
 ```
 
-Desktop builds require macOS and Swift/Xcode tools. Project architecture and internal knowledge are stored in `.contextos/graph.json` and versioned alongside the source.
-
-</details>
+The versioned `.contextos/graph.json` is the project's portable graph projection. Internal narrative documents belong in the OS; benchmark JSON and public README files remain repository artifacts.
 
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT License](LICENSE)

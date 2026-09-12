@@ -18,7 +18,7 @@ const server = new McpServer(
   { name: "contextos", version: "0.4.0" },
   {
     instructions:
-      "contextos is project-scoped. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next contextos boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
+      "contextos is project-scoped and runs in the background after installation; the user does not need to mention ContextOS in every conversation. At task start call context_for_task with the absolute projectRoot instead of reading documentation files broadly. For Plan work call plan_context: Plans contain direct Block work, ordered ChainScopes, canonical per-entity PlanChanges, and checkpoint gates. A Block is an independent architecture unit and may own its own Checkpoint; Blocks can form serial or parallel Chains, and a Chain may own a separate integration Checkpoint. A Plan records development intent and scope over that architecture; it does not own every Block or Chain, and unplanned architecture is valid. A Chain gate is required only when an integration Checkpoint is explicitly declared or bound to a Plan ChainScope. Active source bindings are rescanned at context, stream, validation, checkpoint, and project-command boundaries; file plus symbol/method name is stable identity, line ranges are derived. Use source_sync or changes_since(sourceSyncRevision=...) for compact drift deltas. An explicitly allowed external shell/IDE edit is detected at the next contextos boundary, not treated as a blocker. Repeat projectRoot when practical and change it explicitly when switching projects. Use graph_mutate for durable architecture/progress changes, checkpoint_record for evidence, changes_since for compact synchronization, change_set_revert only for safe update-only rollback, and graph_validate after structural or completion updates. Register an uninitialized directory with project_register before other tools.",
   },
 );
 const projectRootInput = {
@@ -28,7 +28,7 @@ const projectRootInput = {
 
 function withProject(input, callback) {
   const service = router.serviceFor(input);
-  const runtime = { version: '0.4.0', protocolVersion: 2, observedAt: new Date().toISOString(), pid: process.pid, projectRoot: service.paths.projectRoot, capabilities: ['documents','task-sessions','source-index'], plugin: pluginRuntimeStatus(service.paths.projectRoot) };
+  const runtime = { version: '0.4.0', protocolVersion: 2, observedAt: new Date().toISOString(), pid: process.pid, projectRoot: service.paths.projectRoot, capabilities: ['documents','readme-readonly','task-sessions','source-index','projection-recovery','chapter-context','plan-append','chain-append','block-ast-slice','source-cache'], plugin: pluginRuntimeStatus(service.paths.projectRoot) };
   const runtimePath = path.join(service.paths.projectRoot, '.contextos', 'runtime.json');
   try { fs.writeFileSync(runtimePath + '.' + process.pid, JSON.stringify(runtime)); fs.renameSync(runtimePath + '.' + process.pid, runtimePath); } catch { /* read-only project: tools still report their result */ }
   const { projectRoot: _projectRoot, ...payload } = normalizeMcpIds(input);
@@ -197,6 +197,26 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.chainCodeStream(payload));
     return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "block_code_stream",
+  {
+    description:
+      "Return one Block's exact source locator and, only when explicitly requested, an AST-bounded symbol slice. The containing file is never returned.",
+    inputSchema: {
+      ...projectRootInput,
+      blockId: z.string().min(1),
+      maxChars: z.number().int().min(500).max(20000).optional(),
+      maxLines: z.number().int().min(4).max(240).optional(),
+      mode: z.enum(["contract", "slice"]).default("slice"),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.blockCodeStream(payload));
+    return readResult(data, data.codeStream, input.includeStructured, "block_code_stream");
   },
 );
 
@@ -475,6 +495,76 @@ server.registerTool(
   async (input) => {
     const data = withProject(input, (service, payload) => service.planContext(payload));
     return readResult(data, data.markdown, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "plan_append_changes",
+  {
+    description:
+      "Append new canonical Block, Link, or Chain work to an existing Plan without replacing its prior changes. Use the current Plan revision returned by plan_context.",
+    inputSchema: {
+      ...projectRootInput,
+      planId: z.string().min(1),
+      expectedRevision: z.number().int().min(1),
+      changes: z.array(z.object({
+        id: z.string().min(1).optional(),
+        entityType: z.enum(["block", "link", "chain"]),
+        entityId: z.string().min(1),
+        title: z.string().min(1),
+        summary: z.string().optional(),
+        currentBehavior: z.string().optional(),
+        proposedBehavior: z.string().optional(),
+        rationale: z.string().optional(),
+        prohibitions: z.array(z.string()).optional(),
+        expectedEffects: z.array(z.string()).optional(),
+        sourceRefs: z.array(z.string()).optional(),
+        localizations: z.record(z.string(), z.unknown()).optional(),
+        status: z.enum(["pending", "active", "complete", "blocked", "failed", "skipped"]).optional(),
+      }).strict()).min(1).max(20),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.appendPlanChanges(payload));
+    return writeResult(data, `Appended Plan changes to plan:${input.planId}. Graph revision ${data.graphRevision}.`, input.includeStructured, "plan_append_changes");
+  },
+);
+
+server.registerTool(
+  "plan_append_chain_scope",
+  {
+    description:
+      "Append one ordered ChainScope to an existing Plan while preserving its other scopes. Use this when an existing feature Plan grows to cover another Chain path.",
+    inputSchema: {
+      ...projectRootInput,
+      planId: z.string().min(1),
+      expectedRevision: z.number().int().min(1),
+      scope: z.object({
+        id: z.string().min(1).optional(),
+        chainId: z.string().min(1),
+        title: z.string().min(1),
+        summary: z.string().optional(),
+        rationale: z.string().optional(),
+        startBlockId: z.string().optional(),
+        endBlockId: z.string().optional(),
+        nodeIds: z.array(z.string()).optional(),
+        linkIds: z.array(z.string()).optional(),
+        expectedDelta: z.array(z.unknown()).optional(),
+        prohibitions: z.array(z.string()).optional(),
+        localizations: z.record(z.string(), z.unknown()).optional(),
+        status: z.enum(["pending", "active", "complete", "blocked", "failed", "skipped"]).optional(),
+      }).strict(),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.appendPlanChainScope(payload));
+    return writeResult(data, `Appended ChainScope to plan:${input.planId}. Graph revision ${data.graphRevision}.`, input.includeStructured, "plan_append_chain_scope");
   },
 );
 
@@ -779,6 +869,28 @@ server.registerTool(
         : []),
     ].join("\n");
     return writeResult(data, md, input.includeStructured);
+  },
+);
+
+server.registerTool(
+  "chain_append",
+  {
+    description:
+      "Append Blocks and Links to an existing Chain without replaying its complete path. Use graph_flow or architecture_connect first so every appended Link has explicit endpoints.",
+    inputSchema: {
+      ...projectRootInput,
+      chainId: z.string().min(1),
+      expectedRevision: z.number().int().min(1),
+      nodeIds: z.array(z.string()).default([]),
+      linkIds: z.array(z.string()).default([]),
+      actor: z.string().optional(),
+      reason: z.string().optional(),
+      includeStructured: z.boolean().default(false),
+    },
+  },
+  async (input) => {
+    const data = withProject(input, (service, payload) => service.appendChainPath(payload));
+    return writeResult(data, `Appended Chain path to chain:${input.chainId}. Graph revision ${data.graphRevision}.`, input.includeStructured, "chain_append");
   },
 );
 

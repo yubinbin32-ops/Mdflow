@@ -719,7 +719,7 @@ export function localizedSearchText(_snapshot, _type, _id) {
 export function operationEntityType(action) {
   if (action.includes("decision")) return "decision";
   if (action.includes("block") || ["add_source_ref", "remove_source_ref", "set_background_scopes"].includes(action)) return "block";
-  if (action.includes("chain") && !action.startsWith("set_plan_")) return "chain";
+  if (action.includes("chain") && !action.startsWith("set_plan_") && !action.startsWith("append_plan_")) return "chain";
   if (action.includes("link")) return "link";
   if (action.includes("plan")) return "plan";
   if (action.includes("checkpoint")) return "checkpoint";
@@ -741,7 +741,18 @@ export function affectedRefsForOperation(operation) {
     for (const id of scope.nodeIds ?? []) add("block", id);
     for (const id of scope.linkIds ?? []) add("link", id);
   }
+  if (fields.scope) {
+    add("chain", fields.scope.chainId);
+    for (const id of fields.scope.nodeIds ?? []) add("block", id);
+    for (const id of fields.scope.linkIds ?? []) add("link", id);
+  }
   for (const change of fields.changes ?? []) add(change.entityType, change.entityId);
+  for (const update of fields.updates ?? []) {
+    add("plan_change", update.changeId);
+    for (const id of update.patch?.nodeIds ?? []) add("block", id);
+    for (const id of update.patch?.linkIds ?? []) add("link", id);
+    if (update.patch?.chainId) add("chain", update.patch.chainId);
+  }
   if (fields.scopeId) {
     add("plan_chain_scope", fields.scopeId);
     add("chain", fields.patch?.chainId);

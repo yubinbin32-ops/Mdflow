@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "measuredAt": "2026-09-12T10:01:12.161Z",
+  "measuredAt": "2026-09-12T11:49:06.065Z",
   "environment": {
     "node": "v22.22.1",
     "platform": "darwin",
@@ -8,9 +8,9 @@
     "cpu": "Apple M1"
   },
   "source": {
-    "gitHead": "bf1968e157be1b324197cfc318ed47fa2747d8ba",
-    "graphRevision": 949,
-    "graphSha256": "269886af87677fba24109c332bb28cb5f9a6a9fbc7b43be6e98f58e25768c54b",
+    "gitHead": "1d5af24ade46f9f09dfe0b180fbb7109a598706d",
+    "graphRevision": 1007,
+    "graphSha256": "5d637f7cc444027f4dacc03ee8c442b5241be69873b2712982504f8fca4f1bb7",
     "scriptSha256": "5ae4576145fa83da478546f3f05315c24cb548ccbbf2ecd03ac862fbe5ea30ae",
     "sourceManifest": [
       {
@@ -19,7 +19,7 @@
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/ContentView.swift",
-        "sha256": "820c3b855f8dc60311b2c6d34a3bb3ae1179117e111ecd18af73a9bb3aef5b37"
+        "sha256": "d886a308aa66746a51a03fdc42badd241ff3f575b3aeca89784effce026d79fc"
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/DetailView.swift",
@@ -27,23 +27,23 @@
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/GraphCanvasView.swift",
-        "sha256": "2bb19be8700674017cd53e32418cfe9d3f72ca4f7e0ac5567c0c7234c789b40c"
+        "sha256": "78ba931aac2a59e9018ff75c1e9b3aa280f7a640be61133c51664cfcab08dd3a"
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/GraphStore.swift",
-        "sha256": "e948db78bb3813e70cd3c2d61341c5245a631e3d7c1e31281b7444f65d1b133d"
+        "sha256": "f5be93dc90985d60d06cf4f5b23d424d3f9d568ec420626f8ad2d3dbeb8000be"
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift",
-        "sha256": "946e4d032185e0c36ef613ef56620e626dc62f4507f720f73b331c848b39a516"
+        "sha256": "1c7a339fc1f27dcd263b7641cf706815a59a4717f9e1b73a49c7ed1038aed6f8"
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/MarkdownPage.swift",
-        "sha256": "f10eec748b4e4eff7345bc982ae7e89819628df70e460089a2ca83463954c778"
+        "sha256": "218a798485907bcd303dab9fd8b38effc95efdc432a4348743f186b8e932d074"
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/Models.swift",
-        "sha256": "912b45aaf850abdb98447432093a4e3edf58e38bb48388b7f62f2ed0625860c5"
+        "sha256": "c429f98f0868d2e168a659e1ff2b417a9f2e05b89263a90945b313ee94048c8b"
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/NetworkLayoutEngine.swift",
@@ -55,7 +55,7 @@
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/ProjectDatabase.swift",
-        "sha256": "57a6e4a141b05de562e95ae388b89823552791e46ec5b5cb647531940ce98438"
+        "sha256": "960fa0def21c40c46a8a8a8dac68c2c6f6a7f40c572ca8d489e005c3df3a5b79"
       },
       {
         "path": "apps/desktop/Sources/ContextOSDesktop/ProjectLocation.swift",
@@ -67,7 +67,7 @@
       },
       {
         "path": "packages/mcp/src/architecture-link.mjs",
-        "sha256": "9f56d6e1d2f27182184b9ca0ed470d35e6802c97f368d65b5073446a83ca249c"
+        "sha256": "ad2e4987903116964ddd90e4b44fb02ef1d1403935515925476aecc498e02269"
       },
       {
         "path": "packages/mcp/src/ast.mjs",
@@ -87,7 +87,7 @@
       },
       {
         "path": "packages/mcp/src/context-engine.mjs",
-        "sha256": "c846858495173bea1071381b748f5bf97b1abfeed4945e46979bf7c83a811620"
+        "sha256": "bae9cc031dfb4ca2f0f042ca6635c6e4d18fed33f7c8c1414f3ce5817106a74f"
       },
       {
         "path": "packages/mcp/src/database.mjs",
@@ -103,7 +103,7 @@
       },
       {
         "path": "packages/mcp/src/mutation-engine.mjs",
-        "sha256": "dd8ad9935f57419fbe4449aa566b010d251c4d4e7dac4df418acc8696d383875"
+        "sha256": "096ad57ec0d896f5fb62184e40ff45fa4595f1bc085e36048b42b6023db8e652"
       },
       {
         "path": "packages/mcp/src/patch.mjs",
@@ -127,15 +127,15 @@
       },
       {
         "path": "packages/mcp/src/query-engine.mjs",
-        "sha256": "55011cdd4ebbfe8a4e0e3bcd2575850c13a52b4d4c5e4f36e41a6dd78f980982"
+        "sha256": "cc82ca51066086909c937b4243accaa60914ac8c4b909e53a44eb103a8d7ee0a"
       },
       {
         "path": "packages/mcp/src/reconciliation.mjs",
-        "sha256": "2be361a4ae5d1559c0deee87830d66ab9f1dea51e8d300df5718b62fad42b938"
+        "sha256": "c4e135a1973ea08d572c4e886a1fd48d8cc23b9642b667da061e835add54162c"
       },
       {
         "path": "packages/mcp/src/reference.mjs",
-        "sha256": "e253fe67f0a5e9b53415c7a180ab07eeb2b863b5329290d34354de2595861c75"
+        "sha256": "55eb28e95c796964bcb1c21e9668cca0c76f9ba718c4d60c4644f3c54bcdf172"
       },
       {
         "path": "packages/mcp/src/sanitizer.mjs",
@@ -143,15 +143,15 @@
       },
       {
         "path": "packages/mcp/src/schema.mjs",
-        "sha256": "dd9d0133b1a44c54a9f7195f0c2de91005ce50bee876f307c441c62f44448835"
+        "sha256": "b9bd606292387d7e8569ee434bff5a5f9a24157c550dfb52588ea2c69d5946f8"
       },
       {
         "path": "packages/mcp/src/server.mjs",
-        "sha256": "c8c5aad8c6bedb6812077acc65b47c679682da61e2d3b0ed012bb53838c69b32"
+        "sha256": "45c0d1ffcb45b9c620a2f42b4c428020937b17b7fc78809f9fcba7339cf744f4"
       },
       {
         "path": "packages/mcp/src/service.mjs",
-        "sha256": "091037933597a4a77b3e13549f5a6b4ab680787817fe8c322787f682d114bc75"
+        "sha256": "3244d3dd4c185ce03b82bcae6348c9a71b8dc97ddbcd653d34fba5685094fa01"
       },
       {
         "path": "packages/mcp/src/source-binding.mjs",
@@ -171,7 +171,7 @@
       },
       {
         "path": "packages/mcp/src/workspace-tools.mjs",
-        "sha256": "be3379a35b0f72cb4ac707f0fa0502864cc5d4a1a5809d65421da06e9ffbf6cb"
+        "sha256": "57cf22c32e8334c64bae1c9c0f5baa9e3a7b8d622513253ba2f38fbaf677aca6"
       },
       {
         "path": "plugins/contextos/.codex-plugin/plugin.json",
@@ -179,7 +179,7 @@
       },
       {
         "path": "plugins/contextos/skills/contextos/SKILL.md",
-        "sha256": "47a30777dc349f910a70d9fa64a81e41e4aa3583beb3ea937f578f4796f729aa"
+        "sha256": "f625cc2089cc33e109c57e821a6b3d1debc164aa84e99adddfdeb4ce29657966"
       },
       {
         "path": "scripts/benchmark.mjs",
@@ -193,11 +193,11 @@
     "blocks": 59,
     "chains": 10,
     "links": 85,
-    "checkpoints": 20
+    "checkpoints": 25
   },
   "unit": "JavaScript UTF-16 string length; not model tokens",
   "taskContext": {
-    "fullGraphChars": 780037,
+    "fullGraphChars": 806249,
     "budgetChars": 4000,
     "cases": [
       {
@@ -205,61 +205,61 @@
         "expected": "in-app-plugin-install",
         "chars": 4000,
         "latencyMs": [
-          465.35,
-          396.85,
-          394.15
+          702.48,
+          667.56,
+          664.46
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.49
+        "versusFullGraphReductionPercent": 99.5
       },
       {
         "task": "Git Discard 撤回与本地 SQLite 热重载",
         "expected": "sqlite-graph-store",
         "chars": 4000,
         "latencyMs": [
-          393.3,
-          389.85,
-          414.12
+          664.99,
+          691.1,
+          666.72
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.49
+        "versusFullGraphReductionPercent": 99.5
       },
       {
         "task": "CJK 中文分词与 BM25 字段加权检索",
         "expected": "context-retrieval",
         "chars": 4000,
         "latencyMs": [
-          408.99,
-          396.77,
-          396.65
+          678.78,
+          663.75,
+          665.76
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.49
+        "versusFullGraphReductionPercent": 99.5
       },
       {
         "task": "源码 SourceBinding 路径符号同步",
         "expected": "live-binding-refresh",
         "chars": 4000,
         "latencyMs": [
-          392.55,
-          389.55,
-          390.14
+          664.71,
+          664.06,
+          667.35
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.49
+        "versusFullGraphReductionPercent": 99.5
       }
     ],
     "samples": 12,
-    "p50Ms": 394.15,
-    "p95Ms": 465.35
+    "p50Ms": 665.76,
+    "p95Ms": 702.48
   },
   "chain": {
     "chainId": "chain-context-os",
@@ -269,9 +269,9 @@
       "packages/mcp/src/sanitizer.mjs",
       "apps/desktop/Sources/ContextOSDesktop/DetailView.swift"
     ],
-    "fullFileChars": 211851,
+    "fullFileChars": 223360,
     "locatorChars": 2071,
-    "reductionPercent": 99.02,
+    "reductionPercent": 99.07,
     "nodes": [
       {
         "blockId": "ast-facade-engine",

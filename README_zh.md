@@ -1,113 +1,104 @@
 <div align="center">
   <img src="assets/logo.png" width="76" alt="ContextOS" />
-  <h1>换个对话，项目不用从头讲。</h1>
-  <p><strong>让 AI 记住项目架构、设计决策和开发进度，把上下文留给真正要做的事。</strong></p>
-  <p><a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>下载 macOS App</strong></a> · <a href="#开始使用">开始使用</a> · <a href="#怎么和-ai-说">对话示例</a> · <a href="README.md">English</a></p>
+  <h1>项目会记住，每次对话都能从上次停下的地方继续。</h1>
+  <p><strong>ContextOS 为 AI 编程项目保存架构、同步进度、压缩命令日志，并提供精确代码位置。</strong></p>
+  <p><a href="https://github.com/yubinbin32-ops/ContextOS/releases/latest"><strong>下载 macOS App</strong></a> · <a href="#三分钟开始使用">三分钟开始使用</a> · <a href="README.md">English</a></p>
 </div>
 
-![ContextOS 架构与功能演示](assets/contextos-demo.gif)
+![ContextOS 架构与工作流](assets/contextos-demo.gif)
 
-## 为什么需要 ContextOS？
+## 它解决什么问题？
 
-用 AI 开发一个项目，代码越来越多，对话也越来越长。
+AI 编程对话一开始没有项目记忆。换一个对话，AI 要重新读文件、重新理解架构、重新询问设计原因、重新猜测上次做到哪里；一次构建日志还会占掉大量上下文。项目越大，对话越像一套容易过期的第二份文档。
 
-换一个对话，AI 又要读文件、看文档，重新理解项目。你已经解释过的架构、做过的取舍、还没完成的功能，往往还要再讲一次。一次构建的完整日志就可能占掉大量上下文；散落在多个 Markdown 文件里的计划和说明，也很容易跟不上代码变化。
+ContextOS 把项目的工作记忆保存在代码旁边。AI 只取得当前任务需要的部分；你则可以在 App 里查看同一份架构、进度、决策和文档。
 
-**ContextOS 给项目一个独立于对话的记忆空间。** AI 把架构、规则、决策和进度保存在 OS 中。下次开始工作时，先读取与当前任务有关的信息，再定位需要修改的代码。你也可以在 App 里查看同一份内容，了解项目有什么、做到哪了、为什么这样设计。
+## 它具体做了什么？
 
-## 它如何减少上下文？
+**保存架构。** Block 描述模块和职责，带类型的 Link 描述真实关系，Chain 描述一个可观察的功能路径。新对话可以先理解功能如何连接，再打开实现代码。
 
-### 先看功能地图，再看代码
+**同步进度。** Plan、PlanChange、ChainScope、源码绑定、Checkpoint 和任务交接都保存为结构化记录。AI 不需要扫描文件来猜哪些工作已经完成。
 
-ContextOS 把功能模块和它们的关系整理成可视化架构。比如开发“用户登录”，AI 可以先了解登录界面、身份校验、会话存储之间的关系，再进入相关实现，不必为了了解整体结构反复通读项目。
+**压缩命令日志。** `run_command` 返回脱敏后的执行回执，保留错误和失败线索，隐藏例行编译输出，减少日志对上下文的占用。
 
-每个已绑定的模块都能提供**文件路径、方法名和行号**。架构回答“应该看哪里”，源码回答“具体怎么改”。
+**按 AST 定位代码。** SourceBinding 保存文件、符号、签名和动态行号。`chain_code_stream` 只返回功能链定位信息；需要实现时，`block_code_stream` 只返回单个 Block 的有界 AST 片段，不返回整个文件。
 
-![功能链与模块关系](assets/path-impact.png)
+**统一知识入口。** 内部方案、审计和教材写入 OS Documents；`README.md` 和 `README_zh.md` 继续放在仓库原位置，并在 App 中以只读方式预览，图片和相对链接也能显示。
 
-### 把项目知识留在项目里
+![功能链与精确代码定位](assets/path-impact.png)
 
-“所有写操作都经过服务层”“为什么选择这个数据库”“上次做到哪一步”，这些信息可以作为项目规则、设计决策和进度保存在 OS 中，供新对话按需读取。
+![OS 文档和 README 的知识抽屉](assets/knowledge-reader.png)
 
-需要完整文字说明时，AI 也能把方案、审计报告和内部指南写成 OS 文档。你在 App 左侧选择文档，右侧就能阅读正文、图片和表格。**README 仍保留在仓库原位置，App 提供只读查看。**
+安装完成后，你只需要正常描述工作，不需要每轮对话反复提到 ContextOS 或记工具名。插件会在后台读取和更新项目记忆。首次建图或查看进度时，说“整理项目架构”或“继续未完成的工作”就够了。
 
-![左侧知识列表与右侧文档阅读](assets/knowledge-reader.png)
+## 三分钟开始使用
 
-### 让运行结果更简洁
+### macOS App
 
-测试、构建产生的长日志会先经过压缩和敏感信息处理，再把结果返回给 AI，保留错误和失败线索，减少无关输出占用的上下文。
+1. [下载最新 App](https://github.com/yubinbin32-ops/ContextOS/releases/latest)，解压后打开 **ContextOS**。
+2. 打开 **设置**，选择检测到的 AI 编辑器，点击 **安装 / 同步插件**。
+3. 在 Codex 或你的编辑器中打开同一个项目，确认已安装 **ContextOS**，然后开始工作。
 
-### 让“已完成”有据可查
+桌面版支持 macOS 14 及以上。MCP 运行时需要 Node.js 22 或以上。App 会自动写入编辑器配置，不需要手动编辑配置文件。
 
-AI 开工时登记计划中的功能，实施后关联实际代码，按功能连接模块，验证后更新进度。同步检查会提示未关联的源码、缺少的验证或尚未收尾的任务，帮助 AI 补齐交接。
+![一键同步编辑器和 MCP](assets/settings-sync.png)
 
-这样，新对话可以接着已有进度继续；你也能区分哪些只是计划、哪些已经实现、哪些通过了验证。功能关系仍需 AI 根据实际项目整理，系统负责检查绑定和交付条件。
+### 其他操作系统
 
-## 开始使用
+其他系统不需要 macOS App。请在你使用的 AI 编辑器中安装 ContextOS 插件 / MCP。仓库也提供无界面 CLI：
 
-**下载 App → 打开设置，一键安装插件 → 开始对话。**
+```bash
+npx -y github:yubinbin32-ops/ContextOS init --scan
+npx -y github:yubinbin32-ops/ContextOS setup
+```
 
-1. [下载 ContextOS](https://github.com/yubinbin32-ops/ContextOS/releases/latest)，解压并打开 App。
-2. 打开 **设置**，找到 **Codex**，点击安装/同步按钮，即可安装插件，不用手写配置。
-3. 在 Codex 的插件列表确认 **ContextOS** 已安装，新建一个对话。在 App 和 Codex 中打开同一个代码项目，就可以开始了。
+编辑器要求填写 MCP 服务时使用 `serve`。安装后可以用 `status` 和 `sync` 快速检查状态。
 
-第一次使用，告诉 AI：
+## 日常怎么使用？
 
-> 把这个项目的架构写入 OS，整理一下目前的功能和开发进度。
+1. 安装一次并打开项目。
+2. 用普通语言描述功能、修复、审查或设计任务。
+3. 让 AI 使用已有架构和进度完成工作。
+4. 结束时，AI 会保存代码位置、命令回执、验证结果和下一步。
 
-之后换一个新对话，只需要说：
+你随时可以问“项目现在做到哪了？”或“展示项目架构”。这只是查看信息，不是一套需要背诵的对话流程。
 
-> 查看 OS，看看这个项目目前做到哪了，接下来继续做什么。
+![项目地图和右侧详情抽屉](assets/readme-reader.png)
 
-首次整理项目时，AI 需要读取必要的代码和资料；架构建立后，后续对话就能从已有信息继续。
+## 可复现 benchmark
 
-<details>
-<summary>环境要求与安装问题</summary>
-
-当前桌面版支持 **macOS 14+**，插件需要本机可用的 **Node.js 22+（支持内置 SQLite）**。请先安装你使用的 AI 编辑器。
-
-- 设置中的安装入口可能显示为“同步配置”“更新”或“重新安装”。
-- 安装后 AI 仍找不到 ContextOS：确认插件已安装，再新建对话；必要时重启 Codex。
-- 提示缺少 Node.js：安装兼容版本后重新同步。
-- 首次打开被 macOS 阻止：当前 App 使用临时签名，可按住 Control 点击 App，选择“打开”。
-
-</details>
-
-## 怎么和 AI 说？
-
-不用记工具名，用平时说话的方式描述你想做什么即可。
-
-| 你想做的事 | 可以直接这样说 |
-| :--- | :--- |
-| 了解项目 | **查看 OS，给我讲讲这个项目的架构。** |
-| 查看进度 | **看看 OS，目前哪些功能完成了，哪些还没做？** |
-| 开发功能 | **帮我增加登录功能，先看 OS，做完同步架构和进度。** |
-| 排查问题 | **登录后页面没有跳转，结合 OS 帮我定位并修复。** |
-| 保存项目规则 | **以后接口都要统一处理错误，把这条规则写入 OS。** |
-| 保存设计方案 | **把这个方案写进 OS，我要在 App 里看，不要另建 MD 文档。** |
-| 记录设计原因 | **把我们选择这个方案的原因记到 OS，方便以后查看。** |
-| 结束工作 | **把这次改动、验证结果和下一步同步到 OS。** |
-| 新对话继续 | **查看 OS 的项目进度，接着上次没做完的继续。** |
-
-你可以把下面这句话作为项目的长期约定：
-
-> 以后开发前先查看 OS，完成后同步 OS。项目架构、规则、决策和进度都写入 OS，内部方案也在 OS 中维护；README 保留给用户阅读。
-
-## 实际能减少多少？
-
-在本仓库的一次可复现测量中：
+下面的数据来自 2026 年 9 月 12 日对本仓库隔离副本的测量。单位是 JavaScript UTF-16 字符，不是模型 token，也不是会话压缩次数。
 
 | 测量内容 | 结果 |
-| :--- | :--- |
-| 用功能链的代码定位信息代替读取 4 个完整文件 | 返回文本从 **211,851** 降至 **2,059** 字符，减少 **99.02%** |
-| 压缩一份固定模拟日志 | 从 **10,071** 降至 **828** 字符，减少 **91.78%**，保留关键错误 |
+|---|---:|
+| 完整图谱参考大小 | 806,249 字符 |
+| 单次任务上下文预算 | 4,000 字符 |
+| 上下文缩减 | **99.50%**（806,249 → 4,000） |
+| 4 个完整源码文件 → Chain 定位流 | **99.07%**（223,360 → 2,071） |
+| 固定模拟构建日志 | **91.78%**（10,071 → 828），错误和失败信息保留 |
+| 查询样本 | 12 次本地调用 |
+| 查询延迟 p50 / p95 | **665.76 ms / 702.48 ms** |
 
-这些测量说明定位信息和日志可以更精简，**不代表整个开发任务节省了同样比例的 token**；后续实际读取代码仍会占用上下文。[查看原始数据与完整指标](docs/benchmarks/2026-09-12-v040.json)。测量日期：2026-09-12。
+四个任务查询都在 4,000 字符预算内返回了预期 Block 和可见定位信息：
 
-> 作者使用体感：上下文压缩触发频率约减少了 **60%**。这是日常使用中的个人感受，尚未进行会话对照计数。
+| 查询 | 预期 Block | 延迟（ms） | 缩减 |
+|---|---|---:|---:|
+| OpenCode 平台支持与 MCP 注入 | `in-app-plugin-install` | 702.48 · 667.56 · 664.46 | 99.50% |
+| Git Discard 撤回与 SQLite 热重载 | `sqlite-graph-store` | 664.99 · 691.10 · 666.72 | 99.50% |
+| CJK 分词与 BM25 字段加权检索 | `context-retrieval` | 678.78 · 663.75 · 665.76 | 99.50% |
+| SourceBinding 路径与符号同步 | `live-binding-refresh` | 664.71 · 664.06 · 667.35 | 99.50% |
 
-<details>
-<summary>开发与贡献</summary>
+Chain 测量使用 `chain-context-os`，返回了 4 个已锚定定位：`ast-facade-engine/extractSymbols`、`progressive-materializer/addSourceRef`、`terminal-sanitizer/sanitizeTerminalOutput`、`desktop-context-console/chainCodeStreamSection`。完整原始数据见 [`docs/benchmarks/2026-09-12-v040.json`](docs/benchmarks/2026-09-12-v040.json)。
+
+日常使用体感是上下文压缩频率大约减少 60%，这是个人体验，不是受控对照实验。benchmark 不包含 MCP 外壳、工具说明、skill、后续源码读取、推理、模型 token、成本或任务成功率；完整图谱和完整文件大小只是参考值。12 次调用混合了首次和热读取，延迟不能视为生产环境百分位。
+
+修改服务或图谱后，可以重新测量：
+
+```bash
+npm run benchmark -- --output docs/benchmarks/2026-09-12-v040.json
+```
+
+## 开发者
 
 ```bash
 git clone https://github.com/yubinbin32-ops/ContextOS.git
@@ -115,11 +106,9 @@ cd ContextOS
 npm ci
 npm test
 npm run plugin:verify
-npm run desktop:build
+npm run desktop:build       # macOS + Swift/Xcode
 ```
 
-桌面构建需要 macOS 与 Swift/Xcode 工具链。项目架构和内部知识保存在 `.contextos/graph.json`，与源码一起纳入版本管理。
-
-</details>
+版本化的 `.contextos/graph.json` 是项目可移植的图谱投影。内部叙述文档属于 OS；benchmark JSON 和公开 README 保留在仓库中。
 
 [参与贡献](CONTRIBUTING.md) · [安全政策](SECURITY.md) · [MIT License](LICENSE)

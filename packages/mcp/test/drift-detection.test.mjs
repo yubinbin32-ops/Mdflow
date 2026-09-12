@@ -57,19 +57,15 @@ source block:ghost-block path="src/auth.js" symbol="login"`,
 
     // 5. Test contextForTask alert
     const ctx = service.contextForTask({ task: "修复 Ghost Auth 模块" });
-    assert.ok(ctx.markdown.includes("Drift alerts: 1 ghost drift(s), 1 isolated block(s)"));
-    assert.ok(ctx.markdown.includes("Relevant block drift: block:ghost-block"));
+    assert.deepEqual(ctx.autoReconciliation.advancedBlockIds, ["ghost-block"]);
+    assert.ok(ctx.markdown.includes("Drift alerts: 1 isolated block(s)"));
+    assert.ok(!ctx.markdown.includes("ghost drift"));
+    assert.equal(service.snapshot().blocks.find((block) => block.id === "ghost-block").deliveryState, "implementing");
 
     // 6. Remediate: connect to a chain and mark implementation anchored (not verified)
     service.mutate({
       reason: "Remediate ghost block and connect to chain",
       operations: [
-        {
-          action: "update_block",
-          id: "ghost-block",
-          expectedRevision: 1,
-          fields: { deliveryState: "implementing" },
-        },
         {
           action: "create_chain",
           id: "auth-chain",

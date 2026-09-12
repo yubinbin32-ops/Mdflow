@@ -271,6 +271,7 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     if (drift.isolatedBlocks.length) parts.push(`${drift.isolatedBlocks.length} isolated block(s)`);
     if (drift.retestRequired.length) parts.push(`${drift.retestRequired.length} retest(s)`);
     if (drift.semanticReviews?.length) parts.push(`${drift.semanticReviews.length} semantic review(s)`);
+    if (drift.chainDisconnections?.length) parts.push(`${drift.chainDisconnections.length} disconnected Chain path(s)`);
     lines.push(`- Drift alerts: ${parts.join(", ")} · Call graph_status for details.`);
     const relevantDrifts = drift.ghostDrifts.filter((g) => relevantBlocks.some((b) => b.id === g.blockId));
     if (relevantDrifts.length > 0) {
@@ -279,6 +280,12 @@ export function buildContextForTask(service, { task, focusRefs = [], maxChars = 
     const relevantIsolated = drift.isolatedBlocks.filter((b) => relevantBlocks.some((rb) => rb.id === b.id));
     if (relevantIsolated.length > 0) {
       lines.push(`- Relevant isolated block(s): ${relevantIsolated.map((b) => `block:${b.id}`).join(", ")} · Evaluate: keep standalone if intentional, or connect to workflow if meant to be integrated.`);
+    }
+    const relevantDisconnected = (drift.chainDisconnections ?? []).filter((chain) =>
+      selectedChainIds.has(chain.chainId) || chain.missingNodeIds.some((id) => selectedBlockIds.has(id)),
+    );
+    if (relevantDisconnected.length > 0) {
+      lines.push(`- Relevant disconnected Chain path(s): ${relevantDisconnected.map((chain) => `chain:${chain.chainId}`).join(", ")} · add an explicit Link or revise the path.`);
     }
   }
   if (taskMentionsPlan && coverage.unplannedIds.length) {

@@ -15,7 +15,7 @@ test("architecture-link: suggestLinksForBlock with code imports and layer conven
   // Create two source files where one imports the other
   const srcDir = path.join(tmpDir, "src");
   await fs.mkdir(srcDir, { recursive: true });
-  await fs.writeFile(path.join(srcDir, "db.js"), "export function query() { return 42; }");
+  await fs.writeFile(path.join(srcDir, "db.js"), "export function query() { return 42; }\nexport function unused() { return 0; }");
   await fs.writeFile(path.join(srcDir, "service.js"), "import { query } from './db.js';\nexport function run() { return query(); }");
 
   // Create blocks with source refs
@@ -62,6 +62,26 @@ test("architecture-link: suggestLinksForBlock with code imports and layer conven
           role: "declaration",
         },
       },
+      {
+        action: "create_block",
+        id: "unused-block",
+        fields: {
+          title: "Unused Database Export",
+          kind: "database",
+          architectureLayer: "data",
+          scope: "core",
+        },
+      },
+      {
+        action: "add_source_ref",
+        id: "unused-block",
+        expectedRevision: 1,
+        fields: {
+          path: "src/db.js",
+          symbol: "unused",
+          role: "declaration",
+        },
+      },
     ],
   });
 
@@ -72,6 +92,7 @@ test("architecture-link: suggestLinksForBlock with code imports and layer conven
   assert.ok(targetSuggestion, "Expected link suggestion to db-block");
   assert.equal(targetSuggestion.confidence, "high");
   assert.equal(targetSuggestion.kind, "reads");
+  assert.equal(suggestions.some((item) => item.targetId === "unused-block"), false, "Unused exports must not become Block links");
 
   // Connect blocks
   const connectRes = connectBlocks(service, {

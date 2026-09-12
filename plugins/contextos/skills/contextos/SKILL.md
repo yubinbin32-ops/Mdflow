@@ -1,57 +1,63 @@
 ---
 name: contextos
-description: Keep project architecture, Markdown knowledge, source locators and verified task handoffs synchronized with ContextOS. Retrieve task context before broad file reads; write internal reports to OS documents.
+description: Keep project architecture, progress, source locators and verified handoffs synchronized with ContextOS in the background. Use compact context packs and targeted AST slices instead of broad file reads.
 ---
 
-# ContextOS project workflow
+# ContextOS background workflow
 
-The graph stores architecture and intent. Source files define implementation behavior.
-OS Documents store project narratives. README stays in its repository location and is read-only in the App.
+ContextOS is a project memory layer for AI coding work. The user describes the task normally; the plugin performs the OS reads and writes in the background. Do not ask the user to repeat “use ContextOS” in every conversation.
 
-## Start
+The graph stores architecture and intent. Source files define implementation behavior. OS Documents store project narratives. README stays in its repository location and is read-only in the App.
 
-1. Call `context_for_task` with the repository/worktree's absolute `projectRoot`. Register with `project_register` if needed. Preserve `taskContextId` for budgeted reads.
-2. Read task-relevant rules and decisions. If `requiredContextIncomplete` or a REQUIRED expansion notice appears, expand those references before implementation. Use `document_list` / `document_open` for project narratives; read only relevant chapters. Do not reread all files to rediscover an existing architecture.
-3. Register new Blocks and design Decisions before implementation. Declare feature links and a draft Chain using `graph_mutate` / `graph_flow`.
-4. Read resumable tasks from `context_for_task` / `sync_issues`. Resume a matching unfinished task instead of creating a duplicate. Otherwise call `task_begin` with relevant Block IDs and a feature Chain. A genuinely independent Block may use `standaloneReason`. A review-only task can use `readOnly: true` and no Blocks.
+## Start a task
 
-## Implement and synchronize
+1. Call `context_for_task` once with the absolute `projectRoot`. Register an uninitialized directory with `project_register` first. Keep the returned `taskContextId` for budgeted reads.
+2. Read only the relevant rules, Decisions, Plans and source locators. Use `plan_context` for a Plan and `entity_open` for one Block, Chain, Link or Decision. Do not reread the repository to reconstruct an architecture already present in the graph.
+3. Reuse a matching active TaskSession from `context_for_task` or `sync_issues`. Otherwise register new Blocks and Decisions, then call `task_begin` with the relevant Block IDs. Pass `planId` when the work extends a Plan; pass `chainId` or a feature descriptor for a user-visible feature. A genuinely independent Block may use `standaloneReason`. A review-only task may use `readOnly: true`.
+4. `task_begin` and `task_reconcile` safely append new PlanChanges and ChainScopes. They never replace an existing Plan list. When a task grows, use `plan_append_changes` or `plan_append_chain_scope`; use full replacement only for an intentional reorder or removal.
 
-- Use `chain_code_stream` / `entity_open` locators: path + symbol, derived line range and contract. Open only the necessary implementation in the host editor.
-- Missing/ambiguous/unreadable bindings require resolution. Use `source_binding_suggest` and `source_binding_accept`; never substitute stale code.
-- Use `run_command` for tests/builds so raw terminal output stays out of context. Use `log_sanitize` only for logs supplied externally.
-- Call `task_reconcile` after edits. It indexes new/changed/deleted files, records issues, checks feature membership and moves actually anchored blueprints into implementation. Source existence does not mean verified delivery.
-- Resolve issues by updating bindings, feature Chain, or explicit task scope with `task_scope`. Do not invent meaningless links to clear an alert.
-- To inspect project-wide unbound files use `source_index`; `sync_issues` shows durable issues and unfinished sessions. No fixed 600-file discovery assumption.
+## Keep the architecture connected
 
-## Write project knowledge in the OS
+- A Block is an independent architecture unit. A Link is a typed relation such as `calls`, `reads`, `writes`, `validates` or `constrains`.
+- A Chain is an observable feature path. It can contain a serial route or a deliberate branch; every Chain edge must have explicit endpoints in the Chain.
+- Run `architecture_link_suggest` as a review inbox. High-confidence candidates require target-symbol use in the Block's AST slice. Shared files and layer conventions are weak evidence. Do not connect every import, and do not create meaningless Links just to remove an alert.
+- Persist accepted relationships with `architecture_connect` or `graph_flow`, then extend an existing Chain with `chain_append`. `graph_flow` creates or updates Links; it does not automatically make Chain membership.
+- `graph_status` reports isolated Blocks, ghost implementations, disconnected Chain paths, stale checkpoints and semantic reviews. `linksOutsideChains` is diagnostic: cross-cutting Links may intentionally stay outside feature Chains.
 
-- Reports, designs and internal guides: `document_write`, not a new `docs/*.md` file. Return its `openURL` so the user can read it in ContextOS.
-- Use `document_patch` with `expectedRevision` for a chapter update. Refresh on conflicts; do not overwrite another writer's document.
-- A Decision records a choice, rationale and alternatives; it is not a container for an entire report. Link Documents to Blocks/Chains/Decisions with typed refs.
-- Existing internal Markdown: `document_import` records source path/hash. Verify content, images and links before deleting or replacing the old editable source. Public docs and machine-readable evidence may stay in files.
-- README remains a repository file. Its local relative images remain relative to that file. The App previews it without maintaining a second editable copy.
-- Keep reported measurements distinct from personal experience. The author's “about 60% fewer compactions” is a subjective usage impression, not a benchmark.
+## Read and edit source precisely
 
-## Finish or hand off
+- Normal `context_for_task`, `entity_open` and `chain_code_stream` responses are locator-first: path, symbol, derived line range, signature and contract. They never return a containing file body.
+- Use `block_code_stream(mode:"slice")` for the implementation of one Block. It returns a bounded AST symbol slice only when the SourceRef is valid; otherwise it returns the locator and a reason to rebind. Treat a full-file read as an explicit fallback for parser failure or a file-level change.
+- Source bindings are rescanned at ContextOS boundaries. Line numbers are derived from the current symbol; do not trust stale ranges. Use `source_binding_suggest` and `source_binding_accept` when a symbol moved or a new file needs a binding.
+- Use `run_command` for tests and builds. It returns a redacted, compressed receipt so routine logs do not fill the model context. Use `log_sanitize` only for logs supplied outside the command gateway.
 
-1. Run relevant verification through `run_command`.
-2. Record `checkpoint_record` with successful execution receipts for required targets. A fresh direct Block checkpoint verifies that Block; a declared Chain checkpoint verifies integration independently. Do not create artificial Plan gates.
-3. Call `task_reconcile` again, then `task_finish` with its `sourceRevision`, `graphRevision` as `expectedGraphRevision`, a stable `idempotencyKey`, and a concise handoff summary. The finish transaction checks current evidence and the declared feature network. Retry the same key after an uncertain response.
-4. If finishing without a TaskSession, use `block_seal` for verified Blocks and explicitly update the relevant Chain and handoff. Plain `deliveryState: complete` updates cannot bypass required verification.
-5. Call `graph_validate`. Report unresolved legacy issues separately; never claim the entire graph healthy if validation failed. If a projection is pending/conflicted, surface it and recover before declaring persistence complete.
-6. Advance a Plan step only when this task belongs to that Plan. Do not advance an old active Plan during unrelated work. Paused work remains resumable; use `task_scope` with a summary/next action rather than claiming completion.
+## Synchronize and finish
 
-## Small tool reference
+1. After edits call `task_reconcile`. It indexes changed files, advances a safely anchored ghost Block to implementing, appends explicit task Blocks/Links to a feature Chain when possible, refreshes Plan coverage, and records unresolved issues.
+2. Resolve invalid bindings, missing Links, disconnected Chain paths and required checkpoints. A missing explicit Link is a design decision, not an invitation to invent one from file proximity.
+3. Record evidence with `checkpoint_record`. A fresh passed direct Block checkpoint is required before sealing a source-backed Block. A Chain integration checkpoint is required only when explicitly declared or bound to a Plan ChainScope.
+4. Call `task_finish` with the latest `sourceRevision`, `graphRevision` and a stable `idempotencyKey`. It completes verified Blocks/Chains and advances matching PlanChanges together. Retry the same key after an uncertain response.
+5. Call `graph_validate`. Report unresolved legacy warnings separately; never claim the graph is healthy when validation fails. If projection is pending, recover it before declaring the work synchronized.
+6. Use `timeline_sync` for the current focus and next action. Do not advance an unrelated Plan merely because the current task finished.
+
+## Project knowledge
+
+- Write internal reports, designs and guides with `document_write`, then return the document's `openURL`. Use `document_patch` with `expectedRevision` for a chapter update.
+- Keep README as a public, repository-owned file. The App previews `README.md` and `README_zh.md` read-only, including relative images. Internal `docs/` narratives belong in OS Documents after migration review; machine-readable benchmark JSON may remain in the repository.
+- A Decision records one durable choice with rationale, alternatives and consequences. It is not a replacement for a report, Plan or architecture Block.
+- Keep measurements separate from experience. The author's “about 60% fewer context compactions” is a usage impression, not a controlled benchmark.
+
+## Tool reference
 
 | Purpose | Tools |
 |---|---|
-| Orient | `context_for_task`, `project_map`, `entity_open`, `graph_search` |
+| Orient | `context_for_task`, `project_map`, `plan_context`, `entity_open`, `graph_search` |
 | Knowledge | `document_list`, `document_open`, `document_write`, `document_patch`, `document_import` |
-| Architecture | `graph_mutate`, `graph_patch`, `graph_flow`, `decision_list` |
-| Source | `source_sync`, `source_index`, `source_binding_suggest`, `source_binding_accept`, `chain_code_stream` |
+| Architecture | `graph_mutate`, `graph_patch`, `graph_flow`, `architecture_link_suggest`, `architecture_connect`, `chain_append` |
+| Plan growth | `plan_append_changes`, `plan_append_chain_scope`, `task_begin(planId)`, `task_scope(planId)` |
+| Source | `source_sync`, `source_index`, `source_binding_suggest`, `source_binding_accept`, `chain_code_stream`, `block_code_stream` |
 | Task lifecycle | `task_begin`, `task_scope`, `task_reconcile`, `task_finish`, `sync_issues` |
-| Verify | `run_command`, `checkpoint_record`, `block_seal`, `graph_validate` |
-| Runtime | `runtime_info` in a new conversation after installation/update |
+| Verify | `run_command`, `checkpoint_record`, `block_seal`, `graph_status`, `graph_validate` |
+| Runtime | `runtime_info` after installation or an update |
 
-Current parser adapters are syntax-based locators, not a complete semantic compiler. Unsupported/ambiguous symbols must remain explicit. Feature intent is declared by the agent/user; import graphs alone do not prove business flows.
+The parser adapters are syntax-based locators, not a complete semantic compiler. Unsupported or ambiguous symbols stay explicit. Feature intent is declared by the agent or user; import graphs alone do not prove a business flow.

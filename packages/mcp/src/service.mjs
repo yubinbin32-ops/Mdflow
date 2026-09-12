@@ -279,6 +279,7 @@ export class ContextOSService {
 
   sourceBindingReport(options = {}) {
     this.ensureSynced();
+    const autoReconciliation = this.reconcileSourceBackedBlocks();
     const repositorySync = indexSources(this);
     const report = this.syncSourceBindings(options);
     const sinceRevision = Number.isInteger(options.sinceRevision) ? options.sinceRevision : null;
@@ -305,6 +306,7 @@ export class ContextOSService {
     return {
       ...report,
       repositorySync,
+      autoReconciliation,
       sourceSyncRevision: report.revision,
       changes: historicalChanges,
       changed: historicalChanges.length > 0,
@@ -378,6 +380,42 @@ export class ContextOSService {
     });
     const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
     return { ...mutation, blockId, accepted, changed: true, sourceSync };
+  }
+
+  /**
+   * Advance source-backed Blocks from a ghost/planned blueprint to an
+   * implementing state as soon as a valid symbol binding exists. This is a
+   * deliberately safe transition: verification is still required before a
+   * Block can become complete. The helper is called at context, source-sync,
+   * and task-reconcile boundaries so an agent does not need to remember a
+   * separate ghost cleanup command.
+   */
+  reconcileSourceBackedBlocks({ blockIds = null, actor = "system", reason = "Reconcile anchored source Blocks" } = {}) {
+    this.ensureSynced();
+    const sourceSync = this.syncSourceBindings({ includeUnchanged: true });
+    const snapshot = this.snapshot();
+    const allowed = blockIds == null ? null : new Set(blockIds);
+    const operations = snapshot.blocks
+      .filter((block) => SOURCE_BACKED_BLOCK_KINDS.has(block.kind))
+      .filter((block) => !allowed || allowed.has(block.id))
+      .filter((block) => ["proposed", "planned"].includes(block.deliveryState))
+      .filter((block) => [...this.sourceBindingState.values()].some((binding) =>
+        binding.blockId === block.id && binding.symbol && !INVALID_BINDING_STATUSES.has(binding.bindingStatus),
+      ))
+      .map((block) => ({
+        action: "update_block",
+        id: block.id,
+        expectedRevision: block.currentRevision,
+        fields: { deliveryState: "implementing" },
+      }));
+    if (!operations.length) return { changed: false, advancedBlockIds: [], sourceSync };
+    const mutation = this.mutate({ actor, reason, task: "source-reconcile", operations });
+    return {
+      ...mutation,
+      changed: true,
+      advancedBlockIds: operations.map((operation) => operation.id),
+      sourceSync: this.syncSourceBindings({ includeUnchanged: true }),
+    };
   }
 
   sealBlock({ blockId, checkpointId = null, executionId = null, actor = "agent", reason = "Seal verified Block implementation" } = {}) {
@@ -806,6 +844,116 @@ export class ContextOSService {
     };
   }
 
+  /**
+   * Return one Block's AST-bounded implementation only when the caller asks
+   * for a slice. The normal context and Chain stream remain locator-only.
+   * This gives an agent a safe edit/read path without opening the containing
+   * file in full.
+   */
+  blockCodeStream({ blockId, maxChars = 8000, maxLines = 80, mode = "slice" } = {}) {
+    if (!blockId?.trim()) throw new Error("blockId is required");
+    if (!Number.isInteger(maxChars) || maxChars < 500) throw new Error("maxChars must be at least 500");
+    if (!Number.isInteger(maxLines) || maxLines < 4) throw new Error("maxLines must be at least 4");
+    if (!['contract', 'slice'].includes(mode)) throw new Error("mode must be contract or slice");
+    this.ensureSynced();
+    const snapshot = this.snapshot();
+    const block = snapshot.blocks.find((item) => item.id === blockId);
+    if (!block) throw new Error(`Block not found: ${blockId}`);
+    const ref = this.database
+      .prepare("SELECT id, path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id")
+      .all(blockId)
+      .find((candidate) => candidate.role === "implementation" && candidate.symbol)
+      ?? this.database
+        .prepare("SELECT id, path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id")
+        .all(blockId)
+        .find((candidate) => candidate.symbol)
+      ?? this.database
+        .prepare("SELECT id, path, start_line, end_line, symbol, role FROM source_refs WHERE block_id = ? ORDER BY id")
+        .all(blockId)[0];
+
+    const node = {
+      blockId: block.id,
+      title: block.title,
+      filePath: ref?.path ?? null,
+      symbol: ref?.symbol ?? null,
+      role: ref?.role ?? null,
+      signature: null,
+      startLine: ref?.start_line ?? null,
+      endLine: ref?.end_line ?? null,
+      sourceStatus: ref ? "missing" : "virtual",
+      sourceHash: null,
+      contract: block.contract || block.summary,
+      code: null,
+      codeChars: 0,
+      readMode: mode === "slice" ? "ast-slice" : "locator-only",
+      containingFileReturned: false,
+      truncated: false,
+      reason: ref ? "source binding unavailable" : "Block has no SourceRef",
+    };
+
+    if (ref) {
+      const binding = this.sourceBindingState.get(ref.id);
+      node.filePath = binding?.relativePath ?? ref.path;
+      node.symbol = ref.symbol;
+      node.startLine = binding?.startLine ?? ref.start_line;
+      node.endLine = binding?.endLine ?? ref.end_line;
+      node.sourceStatus = binding?.sourceStatus ?? "missing";
+      node.sourceHash = binding?.fileHash ?? null;
+      node.signature = binding?.signature ?? null;
+      node.reason = binding?.reason ?? null;
+      const invalid = ["missing", "unreadable", "outside_project", "stale", "ambiguous", "line_only"];
+      if (mode === "slice" && binding?.content && !invalid.includes(binding.bindingStatus) && !invalid.includes(binding.sourceStatus)) {
+        const slice = extractSymbolSlice(binding.content, {
+          symbol: ref.symbol,
+          startLine: ref.symbol ? null : binding.startLine ?? ref.start_line,
+          endLine: ref.symbol ? null : binding.endLine ?? ref.end_line,
+          maxLines,
+          language: binding.language,
+          filePath: binding.absolutePath,
+        });
+        node.signature = slice.signature;
+        node.startLine = slice.startLine;
+        node.endLine = slice.endLine;
+        node.reason = slice.reason ?? null;
+        if (slice.found) {
+          node.code = slice.code;
+          node.codeChars = slice.code.length;
+          node.truncated = slice.totalLines > maxLines || slice.code.length > maxChars;
+          if (node.code.length > maxChars) {
+            node.code = `${node.code.slice(0, Math.max(0, maxChars - 64))}\n... [slice truncated; use the locator in an editor]`;
+            node.codeChars = node.code.length;
+          }
+        }
+      }
+    }
+
+    const lines = [
+      `# Block Code Stream: ${block.title} (${block.id})`,
+      `Mode: ${mode} · AST-bounded ${mode === "slice" ? "slice" : "locator"}; containing file is not returned`,
+      `Locator: ${node.filePath ? `${node.filePath}${node.symbol ? ` :: ${node.symbol}` : ""}${node.startLine ? ` L${node.startLine}-L${node.endLine}` : ""}` : "—"}`,
+      `Source status: ${node.sourceStatus}`,
+      `Contract: ${node.contract || "(not declared)"}`,
+    ];
+    if (node.signature) lines.push(`Signature: ${node.signature}`);
+    if (node.reason) lines.push(`Note: ${node.reason}`);
+    if (node.code != null) {
+      lines.push("", "## AST slice", "```", node.code, "```");
+    } else if (mode === "slice") {
+      lines.push("", "No safe slice returned; rebind the SourceRef before opening implementation.");
+    }
+    const codeStream = lines.join("\n");
+    return {
+      blockId: block.id,
+      title: block.title,
+      mode,
+      node,
+      readMode: node.code != null ? "ast-slice" : "locator-only",
+      containingFileReturned: false,
+      truncated: node.truncated || codeStream.length > maxChars,
+      codeStream,
+    };
+  }
+
   sanitizeLog({ rawOutput, maxChars = 3000, exitCode = null } = {}) {
     return sanitizeTerminalOutput(rawOutput, { maxChars, exitCode, projectRoot: this.paths.projectRoot });
   }
@@ -1039,9 +1187,53 @@ export class ContextOSService {
     return connectBlocks(this, payload);
   }
 
+  appendPlanChanges({ planId, expectedRevision, changes, actor = "agent", reason = "Append work to an existing Plan" } = {}) {
+    if (!planId?.trim()) throw new Error("planId is required");
+    return this.mutate({
+      actor,
+      reason,
+      planId,
+      task: "plan-append",
+      operations: [{ action: "append_plan_changes", id: planId, expectedRevision, fields: { changes } }],
+    });
+  }
+
+  appendPlanChainScope({ planId, expectedRevision, scope, actor = "agent", reason = "Append a ChainScope to an existing Plan" } = {}) {
+    if (!planId?.trim()) throw new Error("planId is required");
+    return this.mutate({
+      actor,
+      reason,
+      planId,
+      task: "plan-append",
+      operations: [{ action: "append_plan_chain_scope", id: planId, expectedRevision, fields: { scope } }],
+    });
+  }
+
+  updatePlanChanges({ planId, expectedRevision, updates, actor = "agent", reason = "Advance existing Plan changes" } = {}) {
+    if (!planId?.trim()) throw new Error("planId is required");
+    return this.mutate({
+      actor,
+      reason,
+      planId,
+      task: "plan-sync",
+      operations: [{ action: "update_plan_changes", id: planId, expectedRevision, fields: { updates } }],
+    });
+  }
+
+  appendChainPath({ chainId, expectedRevision, nodeIds = [], linkIds = [], actor = "agent", reason = "Append nodes and links to an existing Chain" } = {}) {
+    if (!chainId?.trim()) throw new Error("chainId is required");
+    return this.mutate({
+      actor,
+      reason,
+      task: "chain-append",
+      operations: [{ action: "append_chain_path", id: chainId, expectedRevision, fields: { nodeIds, linkIds } }],
+    });
+  }
+
   contextForTask(options = {}) {
     const repositorySync = indexSources(this);
-    return { ...buildContextForTask(this, {...options,repositorySync}), repositorySync };
+    const autoReconciliation = this.reconcileSourceBackedBlocks();
+    return { ...buildContextForTask(this, {...options, repositorySync}), repositorySync, autoReconciliation };
   }
 
   resolveHistoryContext(planId = null, chainScopeId = null) {
