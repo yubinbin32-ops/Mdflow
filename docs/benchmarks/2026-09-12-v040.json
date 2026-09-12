@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "measuredAt": "2026-09-12T11:51:01.320Z",
+  "measuredAt": "2026-09-12T11:53:50.545Z",
   "environment": {
     "node": "v22.22.1",
     "platform": "darwin",
@@ -8,9 +8,9 @@
     "cpu": "Apple M1"
   },
   "source": {
-    "gitHead": "6065f4c17336d791f7ad36ccc3cbe42f8a5c0408",
-    "graphRevision": 1007,
-    "graphSha256": "5d637f7cc444027f4dacc03ee8c442b5241be69873b2712982504f8fca4f1bb7",
+    "gitHead": "f8faf8d4dd52822d7819bd6824cb0fb2b0a49307",
+    "graphRevision": 1008,
+    "graphSha256": "6e55adb3a7d7d4bee4ee920aed7d130ce54a32709e8994f43a87f82e9fb7f302",
     "scriptSha256": "5ae4576145fa83da478546f3f05315c24cb548ccbbf2ecd03ac862fbe5ea30ae",
     "sourceManifest": [
       {
@@ -197,7 +197,7 @@
   },
   "unit": "JavaScript UTF-16 string length; not model tokens",
   "taskContext": {
-    "fullGraphChars": 806249,
+    "fullGraphChars": 787950,
     "budgetChars": 4000,
     "cases": [
       {
@@ -205,61 +205,61 @@
         "expected": "in-app-plugin-install",
         "chars": 4000,
         "latencyMs": [
-          696.4,
-          667.31,
-          667.07
+          695.58,
+          669.79,
+          682.16
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.49
       },
       {
         "task": "Git Discard 撤回与本地 SQLite 热重载",
         "expected": "sqlite-graph-store",
         "chars": 4000,
         "latencyMs": [
-          667.04,
-          678.29,
-          719.88
+          658.94,
+          648.49,
+          647.08
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.49
       },
       {
         "task": "CJK 中文分词与 BM25 字段加权检索",
         "expected": "context-retrieval",
         "chars": 4000,
         "latencyMs": [
-          672.33,
-          671.08,
-          669.16
+          648.35,
+          679.14,
+          649.18
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.49
       },
       {
         "task": "源码 SourceBinding 路径符号同步",
         "expected": "live-binding-refresh",
         "chars": 4000,
         "latencyMs": [
-          668.45,
-          669.6,
-          677.59
+          649.79,
+          658.15,
+          648.71
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
         "truncated": true,
-        "versusFullGraphReductionPercent": 99.5
+        "versusFullGraphReductionPercent": 99.49
       }
     ],
     "samples": 12,
-    "p50Ms": 669.6,
-    "p95Ms": 719.88
+    "p50Ms": 649.79,
+    "p95Ms": 695.58
   },
   "chain": {
     "chainId": "chain-context-os",

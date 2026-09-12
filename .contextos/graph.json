@@ -1,8 +1,8 @@
 {
   "version": 1,
   "projectId": "contextos",
-  "graphRevision": 1007,
-  "exportedAt": "2026-09-12T11:46:47.937Z",
+  "graphRevision": 1008,
+  "exportedAt": "2026-09-12T11:53:27.790Z",
   "data": {
     "documents": [
       {
@@ -149,14 +149,14 @@
     "projects": [
       {
         "created_at": "2026-09-04T08:35:14.191Z",
-        "graph_revision": 1007,
-        "handoff_json": "{\"activePlanId\":\"knowledge-sync-delivery\",\"activeStepId\":\"verify-push\",\"nowDoing\":\"完成同步、成链、AST 定位、README 与知识抽屉的全面验收\",\"nextUp\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"lastFinished\":\"0.4.0 同步重设计、README 重写、插件 smoke、Swift 桌面构建与 OS Checkpoint 证据已完成\",\"touchedFiles\":[\"README.md\",\"README_zh.md\",\"packages/mcp/src/reconciliation.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/mutation-engine.mjs\",\"packages/mcp/src/architecture-link.mjs\",\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\"],\"cursorUpdatedAt\":\"2026-09-12T11:44:05.670Z\"}",
+        "graph_revision": 1008,
+        "handoff_json": "{\"activePlanId\":\"knowledge-sync-delivery\",\"activeStepId\":\"verify-push\",\"nowDoing\":\"0.4.0 已完成验证并推送到 origin/main（f8faf8d）\",\"nextUp\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"lastFinished\":\"npm test、plugin:verify、desktop:build、benchmark 与 git push 全部完成\",\"touchedFiles\":[\".contextos/graph.json\",\"README.md\",\"README_zh.md\",\"packages/mcp/src/reconciliation.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/mutation-engine.mjs\",\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\"],\"cursorUpdatedAt\":\"2026-09-12T11:52:09.601Z\"}",
         "id": "contextos",
         "name": "contextos",
         "repo_root": ".",
         "schema_version": 1,
-        "timeline_json": "{\"activePlanId\":\"knowledge-sync-delivery\",\"activeStepId\":\"verify-push\",\"nowDoing\":\"完成同步、成链、AST 定位、README 与知识抽屉的全面验收\",\"nextUp\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"lastFinished\":\"0.4.0 同步重设计、README 重写、插件 smoke、Swift 桌面构建与 OS Checkpoint 证据已完成\",\"touchedFiles\":[\"README.md\",\"README_zh.md\",\"packages/mcp/src/reconciliation.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/mutation-engine.mjs\",\"packages/mcp/src/architecture-link.mjs\",\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\"],\"cursorUpdatedAt\":\"2026-09-12T11:44:05.670Z\"}",
-        "updated_at": "2026-09-12T11:46:47.937Z"
+        "timeline_json": "{\"activePlanId\":\"knowledge-sync-delivery\",\"activeStepId\":\"verify-push\",\"nowDoing\":\"0.4.0 已完成验证并推送到 origin/main（f8faf8d）\",\"nextUp\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"lastFinished\":\"npm test、plugin:verify、desktop:build、benchmark 与 git push 全部完成\",\"touchedFiles\":[\".contextos/graph.json\",\"README.md\",\"README_zh.md\",\"packages/mcp/src/reconciliation.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/mutation-engine.mjs\",\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\"],\"cursorUpdatedAt\":\"2026-09-12T11:52:09.601Z\"}",
+        "updated_at": "2026-09-12T11:53:27.790Z"
       }
     ],
     "blocks": [
@@ -1376,7 +1376,7 @@
         "summary": "MCP、图谱、Canvas、覆盖、生命周期和可访问性契约已记录；GitHub 公开页的媒体与文案复核仍开放。",
         "tags_json": "[\"test\",\"e2e\",\"qa\"]",
         "title": "跨层验证套件",
-        "updated_at": "2026-09-12T11:42:19.912Z"
+        "updated_at": "2026-09-12T11:53:27.790Z"
       },
       {
         "architecture_layer": "client",
@@ -5843,9 +5843,9 @@
         "coverage": "complete",
         "created_at": "2026-09-10T04:32:11.913Z",
         "criteria": "npm test passes current MCP and Markdown renderer suite",
-        "current_revision": 7,
+        "current_revision": 8,
         "eligible_after_children": 0,
-        "evidence_json": "[{\"kind\":\"execution_receipt\",\"executionId\":\"exec_0b3652ea-27a1-482d-b956-121fa235898f\",\"command\":\"npm test\",\"cwd\":\".\",\"executionKind\":\"test\",\"status\":\"passed\",\"exitCode\":0,\"durationMs\":4517,\"originalChars\":18153,\"finalChars\":179,\"redactions\":0,\"gitHead\":\"1d5af24ade46f9f09dfe0b180fbb7109a598706d\",\"dirtyDiffHash\":\"78c9e6396cbedc401d6553967eb967df6956b1c6e79ae05cc34ea6d10a50eccc\",\"sourceSyncRevision\":55,\"sourceRevision\":\"f0ce913eeb1f1f6174e5923a412e4f7dd876de9437449d64d6358b4898afa424\",\"testSummary\":{\"inferred\":false,\"success\":true},\"artifactSummary\":{\"paths\":[],\"inferred\":false}},{\"kind\":\"contextos-identity\",\"version\":2,\"gitHead\":\"1d5af24ade46f9f09dfe0b180fbb7109a598706d\",\"files\":[],\"bindings\":[]}]",
+        "evidence_json": "[{\"kind\":\"execution_receipt\",\"executionId\":\"exec_42df7889-caf6-4fe0-9b06-0a75417de4f1\",\"command\":\"npm test\",\"cwd\":\".\",\"executionKind\":\"test\",\"status\":\"passed\",\"exitCode\":0,\"durationMs\":3234,\"originalChars\":18159,\"finalChars\":179,\"redactions\":0,\"gitHead\":\"f8faf8d4dd52822d7819bd6824cb0fb2b0a49307\",\"dirtyDiffHash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"sourceSyncRevision\":55,\"sourceRevision\":\"f0ce913eeb1f1f6174e5923a412e4f7dd876de9437449d64d6358b4898afa424\",\"testSummary\":{\"inferred\":false,\"success\":true},\"artifactSummary\":{\"paths\":[],\"inferred\":false}},{\"kind\":\"contextos-identity\",\"version\":2,\"gitHead\":\"f8faf8d4dd52822d7819bd6824cb0fb2b0a49307\",\"files\":[],\"bindings\":[]}]",
         "evidence_level": "integration",
         "id": "checkpoint_06b07999-6dfc-40e7-974a-b78c8add08be",
         "invalidated_at": null,
@@ -5855,7 +5855,7 @@
         "target_id": "verification-suite",
         "target_type": "block",
         "title": "全量自动化测试与架构状态自检验证",
-        "updated_at": "2026-09-12T11:42:19.912Z"
+        "updated_at": "2026-09-12T11:53:27.790Z"
       },
       {
         "aggregation_policy_json": "{}",
@@ -7350,15 +7350,6 @@
     "change_sets": [
       {
         "actor": "agent",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "git_head": null,
-        "id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "project_id": "contextos",
-        "reason": "Refresh feature meaning and public contracts alongside implementation",
-        "task": ""
-      },
-      {
-        "actor": "agent",
         "created_at": "2026-09-12T09:58:02.242Z",
         "git_head": null,
         "id": "change_06d911e5-db51-463a-9862-9ed3949cc8ec",
@@ -7797,145 +7788,18 @@
         "project_id": "contextos",
         "reason": "Checkpoint: 独立检查点不再被写成错误",
         "task": "独立检查点不再被写成错误"
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-12T11:53:27.790Z",
+        "git_head": "f8faf8d4dd52822d7819bd6824cb0fb2b0a49307",
+        "id": "change_fcbbcb00-71ab-4735-907b-a8c834378cc8",
+        "project_id": "contextos",
+        "reason": "Checkpoint: 全量自动化测试与架构状态自检验证",
+        "task": "全量自动化测试与架构状态自检验证"
       }
     ],
     "history": [
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"block:in-app-plugin-install\"]",
-        "after_json": "{\"id\":\"in-app-plugin-install\",\"kind\":\"integration\",\"title\":\"App 内插件安装\",\"summary\":\"Settings 提供 Codex、Claude、Cursor、Windsurf、OpenCode 等编辑器的 MCP 配置入口；Codex 安装完整插件并检查 skill、版本与构建指纹。\",\"body\":\"Bundle the Topic logo as composerIcon and logo. Detect a working Codex CLI, register the marketplace when required, run structured plugin installation, verify identity and MCP startup, and require a new session. Assets must live inside the plugin archive.\",\"contract\":\"One explicit user action; report plugin name, version, source, runtime readiness, result, and restart requirement.\",\"scope\":\"codex\",\"architectureLayer\":\"boundary\",\"localOrder\":10,\"deliveryState\":\"complete\",\"healthState\":\"healthy\",\"priority\":\"high\",\"confidence\":\"confirmed\",\"tags\":[\"settings\",\"plugin\",\"Codex\",\"OpenCode\",\"MCP\"],\"currentRevision\":6,\"archived\":false,\"updatedAt\":\"2026-09-12T09:49:50.531Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/ContextOSDesktop/PluginInstaller.swift\",\"start_line\":35,\"end_line\":703,\"symbol\":\"PluginInstaller\",\"role\":\"implementation\"},{\"path\":\"apps/desktop/Sources/ContextOSDesktop/ContentView.swift\",\"start_line\":338,\"end_line\":535,\"symbol\":\"SettingsView\",\"role\":\"implementation\"}]}",
-        "before_json": "{\"id\":\"in-app-plugin-install\",\"kind\":\"integration\",\"title\":\"App 内插件安装\",\"summary\":\"Settings 通过一个明确操作安装或更新打包的 contextos Codex 插件，并返回可诊断的结果。\",\"body\":\"Bundle the Topic logo as composerIcon and logo. Detect a working Codex CLI, register the marketplace when required, run structured plugin installation, verify identity and MCP startup, and require a new session. Assets must live inside the plugin archive.\",\"contract\":\"One explicit user action; report plugin name, version, source, runtime readiness, result, and restart requirement.\",\"scope\":\"codex\",\"architectureLayer\":\"boundary\",\"localOrder\":10,\"deliveryState\":\"complete\",\"healthState\":\"healthy\",\"priority\":\"high\",\"confidence\":\"confirmed\",\"tags\":[\"future\",\"settings\",\"plugin\"],\"currentRevision\":5,\"archived\":false,\"updatedAt\":\"2026-09-07T16:46:03.099Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/ContextOSDesktop/PluginInstaller.swift\",\"start_line\":35,\"end_line\":703,\"symbol\":\"PluginInstaller\",\"role\":\"implementation\"},{\"path\":\"apps/desktop/Sources/ContextOSDesktop/ContentView.swift\",\"start_line\":338,\"end_line\":535,\"symbol\":\"SettingsView\",\"role\":\"implementation\"}]}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"summary\",\"tags\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "in-app-plugin-install",
-        "entity_type": "block",
-        "evidence_refs_json": "[]",
-        "id": 1942,
-        "plan_id": null,
-        "revision": 6,
-        "summary": "App 内插件安装"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"block:context-retrieval\"]",
-        "after_json": "{\"id\":\"context-retrieval\",\"kind\":\"service\",\"title\":\"预算化上下文读取\",\"summary\":\"任务预算化读取：CJK 中文分词、字段加权与稀有词优先检索，优先返回目标模块坐标、规则正文、简短 Decision、Document 章节索引和可恢复任务。\",\"body\":\"正文按共享字符预算逐步展开；规则未能装入预算时返回 REQUIRED 提醒。写操作保留单独的有限收尾回执预算。检索使用词项命中、字段权重和逆文档频率，不宣称为完整 BM25。\",\"contract\":\"Relevant locators and mandatory context first; return explicit incomplete markers and stable expansion refs. OS document bodies are opt-in.\",\"scope\":\"agent-context\",\"architectureLayer\":\"application\",\"localOrder\":7,\"deliveryState\":\"implementing\",\"healthState\":\"healthy\",\"priority\":\"critical\",\"confidence\":\"confirmed\",\"tags\":[\"context\",\"markdown\",\"retrieval\"],\"currentRevision\":26,\"archived\":false,\"updatedAt\":\"2026-09-12T09:49:50.531Z\",\"sourceRefs\":[{\"path\":\"packages/mcp/src/patch.mjs\",\"start_line\":139,\"end_line\":202,\"symbol\":\"parseGraphPatch\",\"role\":\"implementation\"},{\"path\":\"packages/mcp/src/server.mjs\",\"start_line\":67,\"end_line\":77,\"symbol\":\"writeResult\",\"role\":\"interface\"},{\"path\":\"plugins/contextos/skills/contextos/SKILL.md\",\"start_line\":1,\"end_line\":158,\"symbol\":null,\"role\":\"interface\"},{\"path\":\"packages/mcp/src/service.mjs\",\"start_line\":1027,\"end_line\":1030,\"symbol\":\"contextForTask\",\"role\":\"implementation\"},{\"path\":\"packages/mcp/src/server.mjs\",\"start_line\":57,\"end_line\":65,\"symbol\":\"readResult\",\"role\":\"interface\"}]}",
-        "before_json": "{\"id\":\"context-retrieval\",\"kind\":\"service\",\"title\":\"预算化上下文读取\",\"summary\":\"新 AI 先获取覆盖摘要和适用规则索引，再按任务需要展开唯一的 PlanChange、规则、实体和源码；所有 MCP 工具默认返回有界 Markdown，完整 JSON 仅在显式 includeStructured=true 时返回。\",\"body\":\"context_for_task 默认返回架构覆盖摘要、适用规则索引和稳定实体引用；规则正文仅按需 entity_open。Plan 聚焦时只显示有限未完成步骤、精简 ChainScope refs、任务相关 canonical changes 和开放 checkpoint，完整 Plan 留给 plan_context。plan_context 按覆盖摘要、执行顺序、Direct Block Work、Chain integration、Plan acceptance 和未覆盖项固定投影；共享 PlanChange 只展开一次，多个 ChainScope 仅输出 stable plan_change ref。所有读取、写入、checkpoint、回滚和校验型 MCP 工具默认只返回有界 Markdown；写入与校验的 ChangeSet、revision、checkpoint 和错误信息都在 Markdown receipt 中，AI 或机器客户端显式传 includeStructured=true 时才返回完整 JSON。\",\"contract\":\"Scoped context exposes a compact architecture-coverage summary, uncovered direct Blocks, applicable rule metadata, and stable refs before expansion. Each canonical PlanChange body is emitted once; ChainScopes reuse it by reference. Unrelated rules and project-wide duplicate prose are not returned by default.\",\"scope\":\"agent-context\",\"architectureLayer\":\"application\",\"localOrder\":7,\"deliveryState\":\"implementing\",\"healthState\":\"healthy\",\"priority\":\"critical\",\"confidence\":\"confirmed\",\"tags\":[\"context\",\"markdown\",\"retrieval\"],\"currentRevision\":25,\"archived\":false,\"updatedAt\":\"2026-09-11T07:46:45.052Z\",\"sourceRefs\":[{\"path\":\"packages/mcp/src/patch.mjs\",\"start_line\":139,\"end_line\":202,\"symbol\":\"parseGraphPatch\",\"role\":\"implementation\"},{\"path\":\"packages/mcp/src/server.mjs\",\"start_line\":67,\"end_line\":77,\"symbol\":\"writeResult\",\"role\":\"interface\"},{\"path\":\"plugins/contextos/skills/contextos/SKILL.md\",\"start_line\":1,\"end_line\":158,\"symbol\":null,\"role\":\"interface\"},{\"path\":\"packages/mcp/src/service.mjs\",\"start_line\":1027,\"end_line\":1030,\"symbol\":\"contextForTask\",\"role\":\"implementation\"},{\"path\":\"packages/mcp/src/server.mjs\",\"start_line\":57,\"end_line\":65,\"symbol\":\"readResult\",\"role\":\"interface\"}]}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"summary\",\"body\",\"contract\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "context-retrieval",
-        "entity_type": "block",
-        "evidence_refs_json": "[]",
-        "id": 1943,
-        "plan_id": null,
-        "revision": 26,
-        "summary": "预算化上下文读取"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"block:live-binding-refresh\"]",
-        "after_json": "{\"id\":\"live-binding-refresh\",\"kind\":\"service\",\"title\":\"Live Binding Refresh\",\"summary\":\"源码 SourceBinding 路径与符号同步：保存当前行号和持久化同步游标；新增文件进入源码索引，缺失/歧义绑定需要确认，候选通过显式 accept 写入。\",\"body\":\"\",\"contract\":\"source change -> candidate bindings -> explicit accept\",\"scope\":\"source-sync\",\"architectureLayer\":\"domain\",\"localOrder\":0,\"deliveryState\":\"complete\",\"healthState\":\"healthy\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-12T09:49:50.531Z\",\"sourceRefs\":[{\"path\":\"packages/mcp/src/service.mjs\",\"start_line\":280,\"end_line\":318,\"symbol\":\"sourceBindingReport\",\"role\":\"facade\"},{\"path\":\"packages/mcp/src/source-binding.mjs\",\"start_line\":86,\"end_line\":129,\"symbol\":\"suggestBindingsForChangedFiles\",\"role\":\"implementation\"}]}",
-        "before_json": "{\"id\":\"live-binding-refresh\",\"kind\":\"service\",\"title\":\"Live Binding Refresh\",\"summary\":\"代码改动后自动给出绑定候选，不要等事后手工补 graph。\",\"body\":\"\",\"contract\":\"source change -> candidate bindings -> explicit accept\",\"scope\":\"source-sync\",\"architectureLayer\":\"domain\",\"localOrder\":0,\"deliveryState\":\"complete\",\"healthState\":\"healthy\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-11T07:46:46.218Z\",\"sourceRefs\":[{\"path\":\"packages/mcp/src/service.mjs\",\"start_line\":280,\"end_line\":318,\"symbol\":\"sourceBindingReport\",\"role\":\"facade\"},{\"path\":\"packages/mcp/src/source-binding.mjs\",\"start_line\":86,\"end_line\":129,\"symbol\":\"suggestBindingsForChangedFiles\",\"role\":\"implementation\"}]}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"summary\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "live-binding-refresh",
-        "entity_type": "block",
-        "evidence_refs_json": "[]",
-        "id": 1944,
-        "plan_id": null,
-        "revision": 3,
-        "summary": "Live Binding Refresh"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"block:desktop-context-console\"]",
-        "after_json": "{\"id\":\"desktop-context-console\",\"kind\":\"ui\",\"title\":\"Context 操作系统桌面控制台\",\"summary\":\"macOS Canvas 只展示契约优先流和验证证据，不在 UI 内读取或复制完整实现函数体\",\"body\":\"\",\"contract\":\"chain_code_stream returns locator-only path + symbol + derived line ranges and contracts; no implementation body or slice mode.\",\"scope\":\"general\",\"architectureLayer\":\"client\",\"localOrder\":0,\"deliveryState\":\"complete\",\"healthState\":\"healthy\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-12T09:49:50.531Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/ContextOSDesktop/DetailView.swift\",\"start_line\":810,\"end_line\":923,\"symbol\":\"chainCodeStreamSection\",\"role\":\"implementation\"}]}",
-        "before_json": "{\"id\":\"desktop-context-console\",\"kind\":\"ui\",\"title\":\"Context 操作系统桌面控制台\",\"summary\":\"macOS Canvas 只展示契约优先流和验证证据，不在 UI 内读取或复制完整实现函数体\",\"body\":\"\",\"contract\":\"DetailView chain stream -> source status, symbols, contracts; implementation bodies require explicit MCP mode=slice\",\"scope\":\"general\",\"architectureLayer\":\"client\",\"localOrder\":0,\"deliveryState\":\"complete\",\"healthState\":\"healthy\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-09T11:36:21.193Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/ContextOSDesktop/DetailView.swift\",\"start_line\":810,\"end_line\":923,\"symbol\":\"chainCodeStreamSection\",\"role\":\"implementation\"}]}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"contract\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "desktop-context-console",
-        "entity_type": "block",
-        "evidence_refs_json": "[]",
-        "id": 1945,
-        "plan_id": null,
-        "revision": 3,
-        "summary": "Context 操作系统桌面控制台"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"link:link_a7cd6a1c-5e16-46c8-a189-2b3fc05192e1\"]",
-        "after_json": "{\"id\":\"link_a7cd6a1c-5e16-46c8-a189-2b3fc05192e1\",\"sourceType\":\"block\",\"sourceId\":\"checkpoint-coverage-map\",\"targetType\":\"block\",\"targetId\":\"execution-receipt-ledger\",\"kind\":\"reads\",\"label\":\"map receipts onto stale checkpoints\",\"contract\":\"Read current successful execution receipts to suggest evidence for affected stale checkpoints; association does not itself pass the checkpoint.\",\"healthState\":\"unknown\",\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-12T09:49:50.531Z\"}",
-        "before_json": "{\"id\":\"link_a7cd6a1c-5e16-46c8-a189-2b3fc05192e1\",\"sourceType\":\"block\",\"sourceId\":\"checkpoint-coverage-map\",\"targetType\":\"block\",\"targetId\":\"execution-receipt-ledger\",\"kind\":\"reads\",\"label\":\"map receipts onto stale checkpoints\",\"contract\":\"Architecture relationship retained from the existing graph; endpoints define the connected modules.\",\"healthState\":\"unknown\",\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-12T09:43:37.560Z\"}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"contract\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "link_a7cd6a1c-5e16-46c8-a189-2b3fc05192e1",
-        "entity_type": "link",
-        "evidence_refs_json": "[]",
-        "id": 1946,
-        "plan_id": null,
-        "revision": 3,
-        "summary": "map receipts onto stale checkpoints"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"link:link_af9d9e35-f3a9-41a6-a847-72a23c437c3d\"]",
-        "after_json": "{\"id\":\"link_af9d9e35-f3a9-41a6-a847-72a23c437c3d\",\"sourceType\":\"block\",\"sourceId\":\"live-binding-refresh\",\"targetType\":\"block\",\"targetId\":\"source-binding-discovery\",\"kind\":\"calls\",\"label\":\"reuse suggest/accept\",\"contract\":\"Source changes trigger symbol candidate discovery; an explicit accept operation records the selected binding.\",\"healthState\":\"unknown\",\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-12T09:49:50.531Z\"}",
-        "before_json": "{\"id\":\"link_af9d9e35-f3a9-41a6-a847-72a23c437c3d\",\"sourceType\":\"block\",\"sourceId\":\"live-binding-refresh\",\"targetType\":\"block\",\"targetId\":\"source-binding-discovery\",\"kind\":\"calls\",\"label\":\"reuse suggest/accept\",\"contract\":\"Architecture relationship retained from the existing graph; endpoints define the connected modules.\",\"healthState\":\"unknown\",\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-12T09:43:37.560Z\"}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"contract\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "link_af9d9e35-f3a9-41a6-a847-72a23c437c3d",
-        "entity_type": "link",
-        "evidence_refs_json": "[]",
-        "id": 1947,
-        "plan_id": null,
-        "revision": 3,
-        "summary": "reuse suggest/accept"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"decision:sync-reconciliation-design-20260912\"]",
-        "after_json": "{\"id\":\"sync-reconciliation-design-20260912\",\"title\":\"持久化同步协调与任务收尾设计\",\"summary\":\"已实施持久化源码索引、同步待办、真实符号锚定、功能网络核对、证据门禁和原子任务收尾；完整结果见 OS Document sync-redesign。\",\"rationale\":\"已采用持久化索引、显式功能网络、验证收尾与可恢复投影。完整审计与实施边界见 OS Document sync-redesign。\",\"alternatives\":[\"继续依赖skill提醒：无法恢复遗漏收尾。\",\"把源码调用图直接当业务Chain：缺少用户意图与功能结果。\",\"强制所有Block进入Plan和Chain：破坏独立架构语义。\"],\"consequences\":[\"后续实施参考本Decision与其分期验收；公开评审投影 docs/sync-redesign.zh.md。\",\"Ghost表示蓝图，锚定与验证分离；所有完成入口共享策略。\",\"首包优先目标与强制规则；负面召回结果必须披露。\",\"60% compaction频率减少只能通过真实会话A/B验证。\"],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":6,\"archived\":false,\"createdAt\":\"2026-09-12T08:27:28.730Z\",\"updatedAt\":\"2026-09-12T09:49:50.531Z\",\"scopes\":[{\"type\":\"project\",\"value\":\"*\"}]}",
-        "before_json": "{\"id\":\"sync-reconciliation-design-20260912\",\"title\":\"持久化同步协调与任务收尾设计\",\"summary\":\"本轮已交付同步架构审计、双语入门README和可复现基准。建议优先统一交付门禁、修复小预算检索，再建设持久化同步待办、功能归属和原子任务收尾。重设计尚未实施。\",\"rationale\":\"已采用持久化索引、显式功能网络、验证收尾与可恢复投影。完整审计与实施边界见 OS Document sync-redesign。\",\"alternatives\":[\"继续依赖skill提醒：无法恢复遗漏收尾。\",\"把源码调用图直接当业务Chain：缺少用户意图与功能结果。\",\"强制所有Block进入Plan和Chain：破坏独立架构语义。\"],\"consequences\":[\"后续实施参考本Decision与其分期验收；公开评审投影 docs/sync-redesign.zh.md。\",\"Ghost表示蓝图，锚定与验证分离；所有完成入口共享策略。\",\"首包优先目标与强制规则；负面召回结果必须披露。\",\"60% compaction频率减少只能通过真实会话A/B验证。\"],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":5,\"archived\":false,\"createdAt\":\"2026-09-12T08:27:28.730Z\",\"updatedAt\":\"2026-09-12T09:43:37.560Z\",\"scopes\":[{\"type\":\"project\",\"value\":\"*\"}]}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"summary\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "sync-reconciliation-design-20260912",
-        "entity_type": "decision",
-        "evidence_refs_json": "[]",
-        "id": 1948,
-        "plan_id": null,
-        "revision": 6,
-        "summary": "持久化同步协调与任务收尾设计"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"decision:unified-knowledge-reader-20260912\"]",
-        "after_json": "{\"id\":\"unified-knowledge-reader-20260912\",\"title\":\"统一知识阅读：OS文档与README原位预览\",\"summary\":\"已实施统一知识入口：README 原位只读；内部 Markdown 以 OS Document 为唯一正文，按章节供 AI 读取并在 App 展示。\",\"rationale\":\"已采用统一知识阅读入口：README 原位只读；内部 Markdown 以 OS Document 为准。完整设计见 OS Document knowledge-reader-design。\",\"alternatives\":[\"仅在App增加任意MD文件浏览器：无法统一OS原生内容与AI交付入口。\",\"把所有长文塞入Decision.rationale：混淆叙事报告与设计取舍，不利于目录与章节检索。\",\"把README导入OS后双向编辑两份正文：增加同步冲突和双重事实来源。\",\"彻底取消Markdown并只保留图结构：损失连续论述、教程和图文展示能力。\"],\"consequences\":[\"README文件位置保持不变；App阅读的是原文件。\",\"OS需要新增Document语义与统一用户阅读入口，而不只是MCP文本字段。\",\"内部文档迁移后只有一个可编辑源；与Block/Chain/Decision关联但不重复架构事实。\",\"60%保留为作者使用体感，与实测分开展示。\",\"本轮仅设计探索和OS记录；README插图及实现后续进行。\"],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":4,\"archived\":false,\"createdAt\":\"2026-09-12T08:49:42.283Z\",\"updatedAt\":\"2026-09-12T09:49:50.531Z\",\"scopes\":[{\"type\":\"project\",\"value\":\"*\"}]}",
-        "before_json": "{\"id\":\"unified-knowledge-reader-20260912\",\"title\":\"统一知识阅读：OS文档与README原位预览\",\"summary\":\"已获用户实施授权：README只读原位预览，OS原生文档统一知识入口，与同步重设计一并验证并commit/push。\",\"rationale\":\"已采用统一知识阅读入口：README 原位只读；内部 Markdown 以 OS Document 为准。完整设计见 OS Document knowledge-reader-design。\",\"alternatives\":[\"仅在App增加任意MD文件浏览器：无法统一OS原生内容与AI交付入口。\",\"把所有长文塞入Decision.rationale：混淆叙事报告与设计取舍，不利于目录与章节检索。\",\"把README导入OS后双向编辑两份正文：增加同步冲突和双重事实来源。\",\"彻底取消Markdown并只保留图结构：损失连续论述、教程和图文展示能力。\"],\"consequences\":[\"README文件位置保持不变；App阅读的是原文件。\",\"OS需要新增Document语义与统一用户阅读入口，而不只是MCP文本字段。\",\"内部文档迁移后只有一个可编辑源；与Block/Chain/Decision关联但不重复架构事实。\",\"60%保留为作者使用体感，与实测分开展示。\",\"本轮仅设计探索和OS记录；README插图及实现后续进行。\"],\"status\":\"active\",\"supersedesDecisionId\":null,\"currentRevision\":3,\"archived\":false,\"createdAt\":\"2026-09-12T08:49:42.283Z\",\"updatedAt\":\"2026-09-12T09:43:37.560Z\",\"scopes\":[{\"type\":\"project\",\"value\":\"*\"}]}",
-        "chain_scope_id": null,
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "changed_fields_json": "[\"summary\"]",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "unified-knowledge-reader-20260912",
-        "entity_type": "decision",
-        "evidence_refs_json": "[]",
-        "id": 1949,
-        "plan_id": null,
-        "revision": 4,
-        "summary": "统一知识阅读：OS文档与README原位预览"
-      },
       {
         "action": "updated",
         "affected_refs_json": "[\"block:large-system-benchmark\"]",
@@ -8870,81 +8734,26 @@
         "plan_id": null,
         "revision": 2,
         "summary": "passed: 独立检查点不再被写成错误"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"checkpoint:checkpoint_06b07999-6dfc-40e7-974a-b78c8add08be\",\"block:verification-suite\"]",
+        "after_json": "{\"id\":\"checkpoint_06b07999-6dfc-40e7-974a-b78c8add08be\",\"targetType\":\"block\",\"targetId\":\"verification-suite\",\"title\":\"全量自动化测试与架构状态自检验证\",\"criteria\":\"npm test passes current MCP and Markdown renderer suite\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"execution_receipt\",\"executionId\":\"exec_42df7889-caf6-4fe0-9b06-0a75417de4f1\",\"command\":\"npm test\",\"cwd\":\".\",\"executionKind\":\"test\",\"status\":\"passed\",\"exitCode\":0,\"durationMs\":3234,\"originalChars\":18159,\"finalChars\":179,\"redactions\":0,\"gitHead\":\"f8faf8d4dd52822d7819bd6824cb0fb2b0a49307\",\"dirtyDiffHash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"sourceSyncRevision\":55,\"sourceRevision\":\"f0ce913eeb1f1f6174e5923a412e4f7dd876de9437449d64d6358b4898afa424\",\"testSummary\":{\"inferred\":false,\"success\":true},\"artifactSummary\":{\"paths\":[],\"inferred\":false}},{\"kind\":\"contextos-identity\",\"version\":2,\"gitHead\":\"f8faf8d4dd52822d7819bd6824cb0fb2b0a49307\",\"files\":[],\"bindings\":[]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":8}",
+        "before_json": "{\"id\":\"checkpoint_06b07999-6dfc-40e7-974a-b78c8add08be\",\"targetType\":\"block\",\"targetId\":\"verification-suite\",\"title\":\"全量自动化测试与架构状态自检验证\",\"criteria\":\"npm test passes current MCP and Markdown renderer suite\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"execution_receipt\",\"executionId\":\"exec_0b3652ea-27a1-482d-b956-121fa235898f\",\"command\":\"npm test\",\"cwd\":\".\",\"executionKind\":\"test\",\"status\":\"passed\",\"exitCode\":0,\"durationMs\":4517,\"originalChars\":18153,\"finalChars\":179,\"redactions\":0,\"gitHead\":\"1d5af24ade46f9f09dfe0b180fbb7109a598706d\",\"dirtyDiffHash\":\"78c9e6396cbedc401d6553967eb967df6956b1c6e79ae05cc34ea6d10a50eccc\",\"sourceSyncRevision\":55,\"sourceRevision\":\"f0ce913eeb1f1f6174e5923a412e4f7dd876de9437449d64d6358b4898afa424\",\"testSummary\":{\"inferred\":false,\"success\":true},\"artifactSummary\":{\"paths\":[],\"inferred\":false}},{\"kind\":\"contextos-identity\",\"version\":2,\"gitHead\":\"1d5af24ade46f9f09dfe0b180fbb7109a598706d\",\"files\":[],\"bindings\":[]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":7}",
+        "chain_scope_id": null,
+        "change_set_id": "change_fcbbcb00-71ab-4735-907b-a8c834378cc8",
+        "changed_fields_json": "[\"evidence\"]",
+        "created_at": "2026-09-12T11:53:27.790Z",
+        "entity_id": "checkpoint_06b07999-6dfc-40e7-974a-b78c8add08be",
+        "entity_type": "checkpoint",
+        "evidence_refs_json": "[\"npm test\"]",
+        "id": 2005,
+        "plan_id": null,
+        "revision": 8,
+        "summary": "passed: 全量自动化测试与架构状态自检验证"
       }
     ],
     "change_feed": [
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "in-app-plugin-install",
-        "entity_type": "block",
-        "project_id": "contextos",
-        "sequence": 1942
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "context-retrieval",
-        "entity_type": "block",
-        "project_id": "contextos",
-        "sequence": 1943
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "live-binding-refresh",
-        "entity_type": "block",
-        "project_id": "contextos",
-        "sequence": 1944
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "desktop-context-console",
-        "entity_type": "block",
-        "project_id": "contextos",
-        "sequence": 1945
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "link_a7cd6a1c-5e16-46c8-a189-2b3fc05192e1",
-        "entity_type": "link",
-        "project_id": "contextos",
-        "sequence": 1946
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "link_af9d9e35-f3a9-41a6-a847-72a23c437c3d",
-        "entity_type": "link",
-        "project_id": "contextos",
-        "sequence": 1947
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "sync-reconciliation-design-20260912",
-        "entity_type": "decision",
-        "project_id": "contextos",
-        "sequence": 1948
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_f7b07815-69cc-44c7-9547-9852c58259c0",
-        "created_at": "2026-09-12T09:49:50.531Z",
-        "entity_id": "unified-knowledge-reader-20260912",
-        "entity_type": "decision",
-        "project_id": "contextos",
-        "sequence": 1949
-      },
       {
         "action": "updated",
         "change_set_id": "change_06d911e5-db51-463a-9862-9ed3949cc8ec",
@@ -9439,6 +9248,15 @@
         "entity_type": "checkpoint",
         "project_id": "contextos",
         "sequence": 2004
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_fcbbcb00-71ab-4735-907b-a8c834378cc8",
+        "created_at": "2026-09-12T11:53:27.790Z",
+        "entity_id": "checkpoint_06b07999-6dfc-40e7-974a-b78c8add08be",
+        "entity_type": "checkpoint",
+        "project_id": "contextos",
+        "sequence": 2005
       }
     ]
   }
