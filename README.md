@@ -77,16 +77,16 @@ The measurements below were run on September 12, 2026 against this repository's 
 | Chain: four complete source files → locator stream | **99.07%** (223,360 → 2,071) |
 | Fixed synthetic build log | **91.78%** (10,071 → 828), with the error and failure retained |
 | Context query samples | 12 local calls |
-| Query latency p50 / p95 | **665.76 ms / 702.48 ms** |
+| Query latency p50 / p95 | **669.60 ms / 719.88 ms** |
 
 The four task queries each returned the expected reference and visible locator inside the 4,000-character budget:
 
 | Query | Expected Block | Latencies (ms) | Reduction |
 |---|---|---:|---:|
-| OpenCode platform support and MCP injection | `in-app-plugin-install` | 702.48 · 667.56 · 664.46 | 99.50% |
-| Git Discard and SQLite hot reload | `sqlite-graph-store` | 664.99 · 691.10 · 666.72 | 99.50% |
-| CJK tokenization and BM25 weighted search | `context-retrieval` | 678.78 · 663.75 · 665.76 | 99.50% |
-| SourceBinding path and symbol synchronization | `live-binding-refresh` | 664.71 · 664.06 · 667.35 | 99.50% |
+| OpenCode platform support and MCP injection | `in-app-plugin-install` | 696.40 · 667.31 · 667.07 | 99.50% |
+| Git Discard and SQLite hot reload | `sqlite-graph-store` | 667.04 · 678.29 · 719.88 | 99.50% |
+| CJK tokenization and BM25 weighted search | `context-retrieval` | 672.33 · 671.08 · 669.16 | 99.50% |
+| SourceBinding path and symbol synchronization | `live-binding-refresh` | 668.45 · 669.60 · 677.59 | 99.50% |
 
 The Chain measurement used `chain-context-os` and returned four anchored locators: `ast-facade-engine/extractSymbols`, `progressive-materializer/addSourceRef`, `terminal-sanitizer/sanitizeTerminalOutput`, and `desktop-context-console/chainCodeStreamSection`. The full raw data is in [`docs/benchmarks/2026-09-12-v040.json`](docs/benchmarks/2026-09-12-v040.json).
 
