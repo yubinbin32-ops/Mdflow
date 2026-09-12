@@ -71,22 +71,22 @@ The measurements below were run on September 12, 2026 against this repository's 
 
 | Measurement | Result |
 |---|---:|
-| Full graph reference | 805,057 characters |
+| Full graph reference | 801,864 characters |
 | Task context budget | 4,000 characters |
-| Context reduction | **99.50%** (805,057 → 4,000) |
+| Context reduction | **99.50%** (801,864 → 4,000) |
 | Chain: four complete source files → locator stream | **99.07%** (223,360 → 2,071) |
 | Fixed synthetic build log | **91.78%** (10,071 → 828), with the error and failure retained |
 | Context query samples | 12 local calls |
-| Query latency p50 / p95 | **669.27 ms / 720.42 ms** |
+| Query latency p50 / p95 | **672.74 ms / 710.84 ms** |
 
 The four task queries each returned the expected reference and visible locator inside the 4,000-character budget:
 
 | Query | Expected Block | Latencies (ms) | Reduction |
 |---|---|---:|---:|
-| OpenCode platform support and MCP injection | `in-app-plugin-install` | 720.42 · 670.70 · 673.11 | 99.50% |
-| Git Discard and SQLite hot reload | `sqlite-graph-store` | 669.27 · 666.93 · 670.37 | 99.50% |
-| CJK tokenization and BM25 weighted search | `context-retrieval` | 665.46 · 700.11 · 686.92 | 99.50% |
-| SourceBinding path and symbol synchronization | `live-binding-refresh` | 666.30 · 668.23 · 667.15 | 99.50% |
+| OpenCode platform support and MCP injection | `in-app-plugin-install` | 710.84 · 699.53 · 677.65 | 99.50% |
+| Git Discard and SQLite hot reload | `sqlite-graph-store` | 674.73 · 670.31 · 672.57 | 99.50% |
+| CJK tokenization and BM25 weighted search | `context-retrieval` | 669.24 · 672.54 · 676.52 | 99.50% |
+| SourceBinding path and symbol synchronization | `live-binding-refresh` | 687.22 · 670.38 · 672.74 | 99.50% |
 
 The Chain measurement used `chain-context-os` and returned four anchored locators: `ast-facade-engine/extractSymbols`, `progressive-materializer/addSourceRef`, `terminal-sanitizer/sanitizeTerminalOutput`, and `desktop-context-console/chainCodeStreamSection`. The full raw data is in [`docs/benchmarks/2026-09-12-v040.json`](docs/benchmarks/2026-09-12-v040.json).
 

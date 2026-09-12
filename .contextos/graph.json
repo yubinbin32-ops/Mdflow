@@ -1,8 +1,8 @@
 {
   "version": 1,
   "projectId": "contextos",
-  "graphRevision": 1010,
-  "exportedAt": "2026-09-12T11:56:30.040Z",
+  "graphRevision": 1012,
+  "exportedAt": "2026-09-12T12:03:12.961Z",
   "data": {
     "documents": [
       {
@@ -149,14 +149,14 @@
     "projects": [
       {
         "created_at": "2026-09-04T08:35:14.191Z",
-        "graph_revision": 1010,
+        "graph_revision": 1012,
         "handoff_json": "{\"activePlanId\":\"knowledge-sync-delivery\",\"activeStepId\":\"verify-push\",\"nowDoing\":\"0.4.0 已完成验证并推送到 origin/main（f8faf8d）\",\"nextUp\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"lastFinished\":\"npm test、plugin:verify、desktop:build、benchmark 与 git push 全部完成\",\"touchedFiles\":[\".contextos/graph.json\",\"README.md\",\"README_zh.md\",\"packages/mcp/src/reconciliation.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/mutation-engine.mjs\",\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\"],\"cursorUpdatedAt\":\"2026-09-12T11:52:09.601Z\"}",
         "id": "contextos",
         "name": "contextos",
         "repo_root": ".",
         "schema_version": 1,
         "timeline_json": "{\"activePlanId\":\"knowledge-sync-delivery\",\"activeStepId\":\"verify-push\",\"nowDoing\":\"0.4.0 已完成验证并推送到 origin/main（f8faf8d）\",\"nextUp\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"lastFinished\":\"npm test、plugin:verify、desktop:build、benchmark 与 git push 全部完成\",\"touchedFiles\":[\".contextos/graph.json\",\"README.md\",\"README_zh.md\",\"packages/mcp/src/reconciliation.mjs\",\"packages/mcp/src/service.mjs\",\"packages/mcp/src/mutation-engine.mjs\",\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\"],\"cursorUpdatedAt\":\"2026-09-12T11:52:09.601Z\"}",
-        "updated_at": "2026-09-12T11:56:30.040Z"
+        "updated_at": "2026-09-12T12:03:12.961Z"
       }
     ],
     "blocks": [
@@ -5057,22 +5057,22 @@
         "completed_at": null,
         "completion_policy_json": "{}",
         "created_at": "2026-09-12T09:22:17.187Z",
-        "current_revision": 2,
+        "current_revision": 4,
         "goal": "完成README只读、OS文档、持久化任务与同步改造，验证后commit并push。",
         "id": "knowledge-sync-delivery",
         "invalidated_at": null,
-        "next_action": "完成验收和发布记录",
+        "next_action": "发布后收集真实安装反馈，并逐项复核保留的语义架构 review",
         "phase": "implementation",
         "plan_order": 0,
         "priority": "P0",
         "project_id": "contextos",
         "proposed_delta_json": "[]",
         "started_at": null,
-        "status": "active",
-        "status_reason": "",
+        "status": "verifying",
+        "status_reason": "实现步骤、源码绑定、验证回执和远端推送已完成；未创建人工 Plan acceptance gate。",
         "summary": "用户2026-09-12授权实施与推送。",
         "title": "统一知识阅读与同步闭环交付",
-        "updated_at": "2026-09-12T09:22:17.217Z"
+        "updated_at": "2026-09-12T12:03:12.961Z"
       }
     ],
     "plan_chain_refs": [],
@@ -7350,24 +7350,6 @@
     "change_sets": [
       {
         "actor": "agent",
-        "created_at": "2026-09-12T10:10:02.608Z",
-        "git_head": null,
-        "id": "change_6f126d75-407b-456c-9469-8a962ae161dc",
-        "project_id": "contextos",
-        "reason": "Unify knowledge navigation with existing sidebar and right inspector",
-        "task": ""
-      },
-      {
-        "actor": "agent",
-        "created_at": "2026-09-12T10:23:33.479Z",
-        "git_head": null,
-        "id": "change_3cadc54d-5a90-4fd5-bf03-1d4d036a3c77",
-        "project_id": "contextos",
-        "reason": "Checkpoint: Bound-symbol mutate vs native edit path",
-        "task": "Bound-symbol mutate vs native edit path"
-      },
-      {
-        "actor": "agent",
         "created_at": "2026-09-12T10:23:33.609Z",
         "git_head": null,
         "id": "change_a1ccd89f-7233-4324-bba6-a1eb1dc10cde",
@@ -7797,43 +7779,27 @@
         "project_id": "contextos",
         "reason": "Checkpoint: 全量自动化测试与架构状态自检验证",
         "task": "全量自动化测试与架构状态自检验证"
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-12T12:01:21.135Z",
+        "git_head": null,
+        "id": "change_a49581ca-fe5e-44c5-bcdf-b7e9d6833697",
+        "project_id": "contextos",
+        "reason": "Close the completed knowledge and synchronization delivery Plan",
+        "task": "plan-close"
+      },
+      {
+        "actor": "agent",
+        "created_at": "2026-09-12T12:03:12.961Z",
+        "git_head": null,
+        "id": "change_fccbe5b1-927a-49b6-954d-56be6a0fce39",
+        "project_id": "contextos",
+        "reason": "Keep the finished implementation Plan honest while awaiting post-release feedback",
+        "task": "plan-close-state"
       }
     ],
     "history": [
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"block:knowledge-reader-ui\"]",
-        "after_json": "{\"id\":\"knowledge-reader-ui\",\"kind\":\"ui\",\"title\":\"统一知识阅读器\",\"summary\":\"左侧知识抽屉列出 README 与 OS 文档；点击后在右侧详情阅读，架构画布保持挂载。后台读取、解析与缓存文档，避免导航时重建画布。\",\"body\":\"\",\"contract\":\"只读README；同一知识入口读取仓库文件和OS文档。\",\"scope\":\"knowledge\",\"architectureLayer\":\"client\",\"localOrder\":0,\"deliveryState\":\"implementing\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-12T10:10:02.608Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\",\"start_line\":60,\"end_line\":129,\"symbol\":\"KnowledgeView\",\"role\":\"implementation\"},{\"path\":\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\",\"start_line\":17,\"end_line\":57,\"symbol\":\"KnowledgeLibrary\",\"role\":\"implementation\"},{\"path\":\"apps/desktop/Sources/ContextOSDesktop/MarkdownPage.swift\",\"start_line\":5,\"end_line\":111,\"symbol\":\"MarkdownPage\",\"role\":\"implementation\"}]}",
-        "before_json": "{\"id\":\"knowledge-reader-ui\",\"kind\":\"ui\",\"title\":\"统一知识阅读器\",\"summary\":\"README原位只读和OS文档全文阅读，图片、目录与关联跳转。\",\"body\":\"\",\"contract\":\"只读README；同一知识入口读取仓库文件和OS文档。\",\"scope\":\"knowledge\",\"architectureLayer\":\"client\",\"localOrder\":0,\"deliveryState\":\"implementing\",\"healthState\":\"unknown\",\"priority\":\"normal\",\"confidence\":\"confirmed\",\"tags\":[],\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-12T09:33:31.856Z\",\"sourceRefs\":[{\"path\":\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\",\"start_line\":60,\"end_line\":129,\"symbol\":\"KnowledgeView\",\"role\":\"implementation\"},{\"path\":\"apps/desktop/Sources/ContextOSDesktop/KnowledgeView.swift\",\"start_line\":17,\"end_line\":57,\"symbol\":\"KnowledgeLibrary\",\"role\":\"implementation\"},{\"path\":\"apps/desktop/Sources/ContextOSDesktop/MarkdownPage.swift\",\"start_line\":5,\"end_line\":111,\"symbol\":\"MarkdownPage\",\"role\":\"implementation\"}]}",
-        "chain_scope_id": null,
-        "change_set_id": "change_6f126d75-407b-456c-9469-8a962ae161dc",
-        "changed_fields_json": "[\"summary\"]",
-        "created_at": "2026-09-12T10:10:02.608Z",
-        "entity_id": "knowledge-reader-ui",
-        "entity_type": "block",
-        "evidence_refs_json": "[]",
-        "id": 1953,
-        "plan_id": null,
-        "revision": 3,
-        "summary": "统一知识阅读器"
-      },
-      {
-        "action": "updated",
-        "affected_refs_json": "[\"checkpoint:checkpoint_649dba31-99a1-4a9d-9da4-1534513375e7\",\"block:mutation-path-router\"]",
-        "after_json": "{\"id\":\"checkpoint_649dba31-99a1-4a9d-9da4-1534513375e7\",\"targetType\":\"block\",\"targetId\":\"mutation-path-router\",\"title\":\"Bound-symbol mutate vs native edit path\",\"criteria\":\"Unbound new symbols cannot use block_code_mutate; source_sync can suggest candidates without auto-accepting them\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"kind\":\"verification_scope\",\"text\":\"Current repository automated suite; does not assert all GUI or editor installation flows.\"},{\"kind\":\"execution_receipt\",\"executionId\":\"exec_bd4516ef-4396-4fd5-be3c-e365178e97a3\",\"command\":\"npm test\",\"cwd\":\".\",\"executionKind\":\"test\",\"status\":\"passed\",\"exitCode\":0,\"durationMs\":3009,\"originalChars\":17155,\"finalChars\":179,\"redactions\":0,\"gitHead\":\"bf1968e157be1b324197cfc318ed47fa2747d8ba\",\"dirtyDiffHash\":null,\"sourceSyncRevision\":50,\"sourceRevision\":\"be5ba86eb99abf5717ead8cc53e684cbbdf702fc46aebdeef82999301e786483\",\"testSummary\":{\"inferred\":false,\"success\":true},\"artifactSummary\":{\"paths\":[],\"inferred\":false}},{\"kind\":\"contextos-identity\",\"version\":2,\"gitHead\":\"bf1968e157be1b324197cfc318ed47fa2747d8ba\",\"files\":[{\"path\":\"packages/mcp/src/mutation-engine.mjs\",\"hash\":\"dd8ad9935f57419fbe4449aa566b010d251c4d4e7dac4df418acc8696d383875\"}],\"bindings\":[{\"id\":\"source_99fc98c1-1f3e-4a15-9990-1032583a4328\",\"blockId\":\"mutation-path-router\",\"path\":\"packages/mcp/src/mutation-engine.mjs\",\"symbol\":\"executeMutate\",\"language\":\"javascript\",\"signature\":\"export function executeMutate(\",\"fileHash\":\"dd8ad9935f57419fbe4449aa566b010d251c4d4e7dac4df418acc8696d383875\",\"nodeHash\":\"1a0c841bb9a7672136acdb0ab4e54d524e70ff097cfd9ced95dd4a39515e23d8\",\"signatureHash\":\"bd176dbfe18127ef84288b86cd73f77cc512ae1639b98555b96c302db964ee88\",\"startLine\":176,\"endLine\":178,\"bindingStatus\":\"fresh\"}]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":3}",
-        "before_json": "{\"id\":\"checkpoint_649dba31-99a1-4a9d-9da4-1534513375e7\",\"targetType\":\"block\",\"targetId\":\"mutation-path-router\",\"title\":\"Bound-symbol mutate vs native edit path\",\"criteria\":\"Unbound new symbols cannot use block_code_mutate; source_sync can suggest candidates without auto-accepting them\",\"status\":\"passed\",\"checkpointKind\":\"atomic\",\"aggregationPolicy\":{},\"eligibleAfterChildren\":false,\"evidenceLevel\":\"integration\",\"requiredEvidenceLevel\":\"integration\",\"coverage\":\"complete\",\"evidence\":[{\"test\":\"full-verification-suite\",\"passed\":true,\"timestamp\":\"2026-09-11T07:46:46.313Z\"},{\"kind\":\"contextos-identity\",\"version\":2,\"gitHead\":\"b0a6fe73d7099cb4a9761c7535387b97e7cd322f\",\"files\":[{\"path\":\"packages/mcp/src/mutation-engine.mjs\",\"hash\":\"acd704a230f3c6d7600f95d173e8b7f80d037b474f9d43d2fad288c88a87ba77\"}],\"bindings\":[{\"id\":\"source_99fc98c1-1f3e-4a15-9990-1032583a4328\",\"blockId\":\"mutation-path-router\",\"path\":\"packages/mcp/src/mutation-engine.mjs\",\"symbol\":\"executeMutate\",\"language\":\"javascript\",\"signature\":\"export function executeMutate(\",\"fileHash\":\"acd704a230f3c6d7600f95d173e8b7f80d037b474f9d43d2fad288c88a87ba77\",\"nodeHash\":\"1a0c841bb9a7672136acdb0ab4e54d524e70ff097cfd9ced95dd4a39515e23d8\",\"signatureHash\":\"bd176dbfe18127ef84288b86cd73f77cc512ae1639b98555b96c302db964ee88\",\"startLine\":175,\"endLine\":177,\"bindingStatus\":\"fresh\"}]}],\"invalidatedAt\":null,\"bindings\":[],\"children\":[],\"currentRevision\":2}",
-        "chain_scope_id": null,
-        "change_set_id": "change_3cadc54d-5a90-4fd5-bf03-1d4d036a3c77",
-        "changed_fields_json": "[\"evidence\"]",
-        "created_at": "2026-09-12T10:23:33.479Z",
-        "entity_id": "checkpoint_649dba31-99a1-4a9d-9da4-1534513375e7",
-        "entity_type": "checkpoint",
-        "evidence_refs_json": "[\"npm test\"]",
-        "id": 1954,
-        "plan_id": null,
-        "revision": 3,
-        "summary": "passed: Bound-symbol mutate vs native edit path"
-      },
       {
         "action": "updated",
         "affected_refs_json": "[\"checkpoint:checkpoint_d455d26d-d3c1-4e55-948a-541461c8f49d\",\"block:live-binding-refresh\"]",
@@ -8734,27 +8700,43 @@
         "plan_id": null,
         "revision": 10,
         "summary": "passed: 全量自动化测试与架构状态自检验证"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"plan:knowledge-sync-delivery\"]",
+        "after_json": "{\"id\":\"knowledge-sync-delivery\",\"title\":\"统一知识阅读与同步闭环交付\",\"summary\":\"用户2026-09-12授权实施与推送。\",\"goal\":\"完成README只读、OS文档、持久化任务与同步改造，验证后commit并push。\",\"status\":\"complete\",\"priority\":\"P0\",\"phase\":\"implementation\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"blockers\":[],\"statusReason\":\"三条验证命令、最终 benchmark、OS Checkpoint 与远端推送均已完成\",\"startedAt\":null,\"completedAt\":\"2026-09-12T11:58:00.000Z\",\"invalidatedAt\":null,\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-12T12:01:21.135Z\",\"chainScopeIds\":[],\"changeIds\":[]}",
+        "before_json": "{\"id\":\"knowledge-sync-delivery\",\"title\":\"统一知识阅读与同步闭环交付\",\"summary\":\"用户2026-09-12授权实施与推送。\",\"goal\":\"完成README只读、OS文档、持久化任务与同步改造，验证后commit并push。\",\"status\":\"active\",\"priority\":\"P0\",\"phase\":\"implementation\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"完成验收和发布记录\",\"blockers\":[],\"statusReason\":\"\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":2,\"archived\":false,\"updatedAt\":\"2026-09-12T09:22:17.217Z\",\"chainScopeIds\":[],\"changeIds\":[]}",
+        "chain_scope_id": null,
+        "change_set_id": "change_a49581ca-fe5e-44c5-bcdf-b7e9d6833697",
+        "changed_fields_json": "[\"status\",\"completedAt\",\"nextAction\",\"statusReason\"]",
+        "created_at": "2026-09-12T12:01:21.135Z",
+        "entity_id": "knowledge-sync-delivery",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 2008,
+        "plan_id": "knowledge-sync-delivery",
+        "revision": 3,
+        "summary": "统一知识阅读与同步闭环交付"
+      },
+      {
+        "action": "updated",
+        "affected_refs_json": "[\"plan:knowledge-sync-delivery\"]",
+        "after_json": "{\"id\":\"knowledge-sync-delivery\",\"title\":\"统一知识阅读与同步闭环交付\",\"summary\":\"用户2026-09-12授权实施与推送。\",\"goal\":\"完成README只读、OS文档、持久化任务与同步改造，验证后commit并push。\",\"status\":\"verifying\",\"priority\":\"P0\",\"phase\":\"implementation\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"blockers\":[],\"statusReason\":\"实现步骤、源码绑定、验证回执和远端推送已完成；未创建人工 Plan acceptance gate。\",\"startedAt\":null,\"completedAt\":null,\"invalidatedAt\":null,\"currentRevision\":4,\"archived\":false,\"updatedAt\":\"2026-09-12T12:03:12.961Z\",\"chainScopeIds\":[],\"changeIds\":[]}",
+        "before_json": "{\"id\":\"knowledge-sync-delivery\",\"title\":\"统一知识阅读与同步闭环交付\",\"summary\":\"用户2026-09-12授权实施与推送。\",\"goal\":\"完成README只读、OS文档、持久化任务与同步改造，验证后commit并push。\",\"status\":\"complete\",\"priority\":\"P0\",\"phase\":\"implementation\",\"planOrder\":0,\"proposedDelta\":[],\"completionPolicy\":{},\"nextAction\":\"发布后收集真实安装反馈，并逐项复核保留的语义架构 review\",\"blockers\":[],\"statusReason\":\"三条验证命令、最终 benchmark、OS Checkpoint 与远端推送均已完成\",\"startedAt\":null,\"completedAt\":\"2026-09-12T11:58:00.000Z\",\"invalidatedAt\":null,\"currentRevision\":3,\"archived\":false,\"updatedAt\":\"2026-09-12T12:01:21.135Z\",\"chainScopeIds\":[],\"changeIds\":[]}",
+        "chain_scope_id": null,
+        "change_set_id": "change_fccbe5b1-927a-49b6-954d-56be6a0fce39",
+        "changed_fields_json": "[\"status\",\"completedAt\",\"statusReason\"]",
+        "created_at": "2026-09-12T12:03:12.961Z",
+        "entity_id": "knowledge-sync-delivery",
+        "entity_type": "plan",
+        "evidence_refs_json": "[]",
+        "id": 2009,
+        "plan_id": "knowledge-sync-delivery",
+        "revision": 4,
+        "summary": "统一知识阅读与同步闭环交付"
       }
     ],
     "change_feed": [
-      {
-        "action": "updated",
-        "change_set_id": "change_6f126d75-407b-456c-9469-8a962ae161dc",
-        "created_at": "2026-09-12T10:10:02.608Z",
-        "entity_id": "knowledge-reader-ui",
-        "entity_type": "block",
-        "project_id": "contextos",
-        "sequence": 1953
-      },
-      {
-        "action": "updated",
-        "change_set_id": "change_3cadc54d-5a90-4fd5-bf03-1d4d036a3c77",
-        "created_at": "2026-09-12T10:23:33.479Z",
-        "entity_id": "checkpoint_649dba31-99a1-4a9d-9da4-1534513375e7",
-        "entity_type": "checkpoint",
-        "project_id": "contextos",
-        "sequence": 1954
-      },
       {
         "action": "updated",
         "change_set_id": "change_a1ccd89f-7233-4324-bba6-a1eb1dc10cde",
@@ -9231,6 +9213,24 @@
         "entity_type": "checkpoint",
         "project_id": "contextos",
         "sequence": 2007
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_a49581ca-fe5e-44c5-bcdf-b7e9d6833697",
+        "created_at": "2026-09-12T12:01:21.135Z",
+        "entity_id": "knowledge-sync-delivery",
+        "entity_type": "plan",
+        "project_id": "contextos",
+        "sequence": 2008
+      },
+      {
+        "action": "updated",
+        "change_set_id": "change_fccbe5b1-927a-49b6-954d-56be6a0fce39",
+        "created_at": "2026-09-12T12:03:12.961Z",
+        "entity_id": "knowledge-sync-delivery",
+        "entity_type": "plan",
+        "project_id": "contextos",
+        "sequence": 2009
       }
     ]
   }

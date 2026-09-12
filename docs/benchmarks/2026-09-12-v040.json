@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "measuredAt": "2026-09-12T11:56:51.876Z",
+  "measuredAt": "2026-09-12T12:03:38.399Z",
   "environment": {
     "node": "v22.22.1",
     "platform": "darwin",
@@ -8,9 +8,9 @@
     "cpu": "Apple M1"
   },
   "source": {
-    "gitHead": "b6ae6c65fd7987903fc2c53e807e905e49afdf14",
-    "graphRevision": 1010,
-    "graphSha256": "f211ea306d429e590d9f004e020989ce8fc43791ee4a57e48ad5725ed0936d7c",
+    "gitHead": "3662342f28354539cf514842fe24db775f705f67",
+    "graphRevision": 1012,
+    "graphSha256": "bdeffab747205f5217fcfee9f30371adb25d2eff00caeb549c4d8c9ace97c080",
     "scriptSha256": "5ae4576145fa83da478546f3f05315c24cb548ccbbf2ecd03ac862fbe5ea30ae",
     "sourceManifest": [
       {
@@ -197,7 +197,7 @@
   },
   "unit": "JavaScript UTF-16 string length; not model tokens",
   "taskContext": {
-    "fullGraphChars": 805057,
+    "fullGraphChars": 801864,
     "budgetChars": 4000,
     "cases": [
       {
@@ -205,9 +205,9 @@
         "expected": "in-app-plugin-install",
         "chars": 4000,
         "latencyMs": [
-          720.42,
-          670.7,
-          673.11
+          710.84,
+          699.53,
+          677.65
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -219,9 +219,9 @@
         "expected": "sqlite-graph-store",
         "chars": 4000,
         "latencyMs": [
-          669.27,
-          666.93,
-          670.37
+          674.73,
+          670.31,
+          672.57
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -233,9 +233,9 @@
         "expected": "context-retrieval",
         "chars": 4000,
         "latencyMs": [
-          665.46,
-          700.11,
-          686.92
+          669.24,
+          672.54,
+          676.52
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -247,9 +247,9 @@
         "expected": "live-binding-refresh",
         "chars": 4000,
         "latencyMs": [
-          666.3,
-          668.23,
-          667.15
+          687.22,
+          670.38,
+          672.74
         ],
         "expectedRefReturned": true,
         "expectedRefVisible": true,
@@ -258,8 +258,8 @@
       }
     ],
     "samples": 12,
-    "p50Ms": 669.27,
-    "p95Ms": 720.42
+    "p50Ms": 672.74,
+    "p95Ms": 710.84
   },
   "chain": {
     "chainId": "chain-context-os",
