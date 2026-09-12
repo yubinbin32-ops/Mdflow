@@ -71,22 +71,22 @@ npx -y github:yubinbin32-ops/ContextOS setup
 
 | 测量内容 | 结果 |
 |---|---:|
-| 完整图谱参考大小 | 787,950 字符 |
+| 完整图谱参考大小 | 805,057 字符 |
 | 单次任务上下文预算 | 4,000 字符 |
-| 上下文缩减 | **99.49%**（787,950 → 4,000） |
+| 上下文缩减 | **99.50%**（805,057 → 4,000） |
 | 4 个完整源码文件 → Chain 定位流 | **99.07%**（223,360 → 2,071） |
 | 固定模拟构建日志 | **91.78%**（10,071 → 828），错误和失败信息保留 |
 | 查询样本 | 12 次本地调用 |
-| 查询延迟 p50 / p95 | **649.79 ms / 695.58 ms** |
+| 查询延迟 p50 / p95 | **669.27 ms / 720.42 ms** |
 
 四个任务查询都在 4,000 字符预算内返回了预期 Block 和可见定位信息：
 
 | 查询 | 预期 Block | 延迟（ms） | 缩减 |
 |---|---|---:|---:|
-| OpenCode 平台支持与 MCP 注入 | `in-app-plugin-install` | 695.58 · 669.79 · 682.16 | 99.49% |
-| Git Discard 撤回与 SQLite 热重载 | `sqlite-graph-store` | 658.94 · 648.49 · 647.08 | 99.49% |
-| CJK 分词与 BM25 字段加权检索 | `context-retrieval` | 648.35 · 679.14 · 649.18 | 99.49% |
-| SourceBinding 路径与符号同步 | `live-binding-refresh` | 649.79 · 658.15 · 648.71 | 99.49% |
+| OpenCode 平台支持与 MCP 注入 | `in-app-plugin-install` | 720.42 · 670.70 · 673.11 | 99.50% |
+| Git Discard 撤回与 SQLite 热重载 | `sqlite-graph-store` | 669.27 · 666.93 · 670.37 | 99.50% |
+| CJK 分词与 BM25 字段加权检索 | `context-retrieval` | 665.46 · 700.11 · 686.92 | 99.50% |
+| SourceBinding 路径与符号同步 | `live-binding-refresh` | 666.30 · 668.23 · 667.15 | 99.50% |
 
 Chain 测量使用 `chain-context-os`，返回了 4 个已锚定定位：`ast-facade-engine/extractSymbols`、`progressive-materializer/addSourceRef`、`terminal-sanitizer/sanitizeTerminalOutput`、`desktop-context-console/chainCodeStreamSection`。完整原始数据见 [`docs/benchmarks/2026-09-12-v040.json`](docs/benchmarks/2026-09-12-v040.json)。
 
